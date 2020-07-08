@@ -2,8 +2,7 @@ from typing import List, Optional, Union
 
 import numpy as np
 
-from quantcore.glm.matrix.ext.dense import dense_matvec, dense_rmatvec, dense_sandwich
-
+from .ext.dense import dense_matvec, dense_rmatvec, dense_sandwich
 from .matrix_base import MatrixBase
 from .util import setup_restrictions
 
