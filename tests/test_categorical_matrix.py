@@ -1,8 +1,9 @@
 import numpy as np
 import pytest
-from quantcore.glm.matrix.categorical_matrix import CategoricalMatrix
 from scipy import sparse as sps
 from sklearn.preprocessing import OneHotEncoder
+
+from quantcore.matrix.categorical_matrix import CategoricalMatrix
 
 
 @pytest.fixture
