@@ -1,7 +1,8 @@
 import numpy as np
 import pytest
-from quantcore.glm.matrix import MKLSparseMatrix
 from scipy import sparse as sps
+
+from quantcore.matrix import MKLSparseMatrix
 
 
 @pytest.fixture
