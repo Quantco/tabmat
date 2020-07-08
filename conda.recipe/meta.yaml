@@ -2,7 +2,7 @@
 {% set build_string = "py{}h{}_{}_{}".format(CONDA_PY, PKG_HASH, build_number, GLM_ARCHITECTURE) %}
 
 package:
-  name: quantcore.glm
+  name: quantcore.matrix
   version: {{ environ.get('GIT_DESCRIBE_TAG', '').lstrip('v') }}{% if environ.get('GIT_DESCRIBE_NUMBER', 0)|int != 0 %}.post{{ GIT_DESCRIBE_NUMBER }}+{{ GIT_DESCRIBE_HASH }}{% endif %}
 
 source:
@@ -13,7 +13,7 @@ build:
   number: {{ build_number }}
   string: "{{ build_string }}"
   track_features:
-    {{ "- quantcore-glm-{}".format(GLM_ARCHITECTURE) if GLM_ARCHITECTURE != "default" else "" }}
+    {{ "- quantcore-matrix-{}".format(GLM_ARCHITECTURE) if GLM_ARCHITECTURE != "default" else "" }}
 
 
 requirements:
@@ -48,8 +48,8 @@ test:
   commands:
     - pip check
   imports:
-    - quantcore.glm.sklearn_fork
+    - quantcore.matrix
 
 about:
-  home: https://github.com/Quantco/quantcore.glm
+  home: https://github.com/Quantco/quantcore.matrix
   license: Proprietary
