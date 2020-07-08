@@ -1,9 +1,10 @@
 import numpy as np
 import pytest
-import quantcore.glm.matrix as mx
 import scipy.sparse as sps
-from quantcore.glm.matrix.ext.sparse import csr_dense_sandwich
-from quantcore.glm.matrix.split_matrix import SplitMatrix, split_sparse_and_dense_parts
+
+import quantcore.matrix as mx
+from quantcore.matrix.ext.sparse import csr_dense_sandwich
+from quantcore.matrix.split_matrix import SplitMatrix, split_sparse_and_dense_parts
 
 N = 100
 
