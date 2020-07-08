@@ -29,6 +29,7 @@ requirements:
     - mako
     - numpy 1.16
     - pip
+    - scikit-learn >=0.23
     - setuptools_scm
     - xsimd
   run:
