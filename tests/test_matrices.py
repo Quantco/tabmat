@@ -3,8 +3,9 @@ from typing import List, Optional, Union
 
 import numpy as np
 import pytest
-import quantcore.glm.matrix as mx
 from scipy import sparse as sps
+
+import quantcore.matrix as mx
 
 
 def base_array(order="F") -> np.ndarray:

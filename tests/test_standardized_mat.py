@@ -1,6 +1,7 @@
 import numpy as np
-from quantcore.glm.matrix import MKLSparseMatrix, StandardizedMat
 from scipy import sparse as sps
+
+from quantcore.matrix import MKLSparseMatrix, StandardizedMat
 
 # There's a lot more testing happening in the generic setting in
 # test_matrices.py
