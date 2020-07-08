@@ -3,7 +3,7 @@ from typing import List, Union
 import numpy as np
 from scipy import sparse as sps
 
-from quantcore.glm.matrix import MatrixBase, MKLSparseMatrix
+from . import MatrixBase, MKLSparseMatrix
 
 
 class StandardizedMat:

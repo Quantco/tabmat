@@ -4,13 +4,7 @@ import numpy as np
 from scipy import sparse as sps
 from sparse_dot_mkl import dot_product_mkl
 
-from quantcore.glm.matrix.ext.sparse import (
-    csc_rmatvec,
-    csr_dense_sandwich,
-    csr_matvec,
-    sparse_sandwich,
-)
-
+from .ext.sparse import csc_rmatvec, csr_dense_sandwich, csr_matvec, sparse_sandwich
 from .matrix_base import MatrixBase
 from .util import setup_restrictions
 

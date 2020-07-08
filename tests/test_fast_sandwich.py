@@ -2,7 +2,6 @@ import numpy as np
 import pytest
 import scipy as sp
 import scipy.sparse
-
 from quantcore.glm.matrix.ext.dense import dense_sandwich
 from quantcore.glm.matrix.ext.sparse import sparse_sandwich
 
