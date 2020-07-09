@@ -1,3 +1,4 @@
+# cython: boundscheck=False, wraparound=False, cdivision=True
 import numpy as np
 cimport numpy as np
 
@@ -174,7 +175,7 @@ def csr_dense_sandwich(A, B, floating[:] d, int[:] rows, int[:] A_cols, int[:] B
     cdef int nBc = B_cols.shape[0]
 
     out = np.zeros((nAc, nBc), dtype=A.dtype)
-    if nr == 0 or nAc == 0 or nBc == 0 or (Aindptr[-1] - Aindptr[0]) == 0:
+    if nr == 0 or nAc == 0 or nBc == 0 or (Aindptr[A.indptr.shape[0] - 1] - Aindptr[0]) == 0:
         return out
 
     cdef floating[:, :] out_view = out
