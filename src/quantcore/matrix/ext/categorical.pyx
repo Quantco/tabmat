@@ -47,11 +47,11 @@ def vec_plus_matvec(const int[:] indices, floating[:] other, int n_rows, dtype, 
     cdef int[:] col_included
 
     if cols is None:
-        for i in range(n_rows):
+        for i in prange(n_rows, nogil=True):
             out_vec[i] += other[indices[i]]
     else:
         col_included = get_col_included(cols, n_cols)
-        for i in range(n_rows):
+        for i in prange(n_rows, nogil=True):
             col = indices[i]
             if col_included[col] == 1:
                 out_vec[i] += indices[i]
