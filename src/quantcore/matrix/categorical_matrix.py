@@ -280,3 +280,6 @@ class CategoricalMatrix(MatrixBase):
         res = term_1.T.dot(other[rows, :][:, _none_to_slice(R_cols, other.shape[1])]).A
 
         return res
+
+    def __str__(self):
+        return str(self.cat)
