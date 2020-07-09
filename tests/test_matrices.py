@@ -122,22 +122,47 @@ def test_to_array_standardized_mat(mat: mx.StandardizedMat):
     "other_type", [lambda x: x, np.asarray, mx.DenseGLMDataMatrix],
 )
 @pytest.mark.parametrize("cols", [None, np.arange(1, dtype=np.int32)])
-def test_dot(mat: Union[mx.MatrixBase, mx.StandardizedMat], other_type, cols):
+@pytest.mark.parametrize("other_shape", [[], [1], [2]])
+def test_dot(
+    mat: Union[mx.MatrixBase, mx.StandardizedMat], other_type, cols, other_shape
+):
     n_row = mat.shape[1]
-    shape = (n_row,)
+    shape = [n_row] + other_shape
     other_as_list = np.random.random(shape).tolist()
     other = other_type(other_as_list)
-    res = mat.dot(other, cols)
 
-    mat_subset, vec_subset = process_mat_vec_subsets(mat, other, None, cols, cols)
-    expected = mat_subset.dot(vec_subset)
+    def is_split_with_cat_part(x):
+        return isinstance(x, mx.SplitMatrix) and any(
+            isinstance(elt, mx.CategoricalMatrix) for elt in x.matrices
+        )
 
-    np.testing.assert_allclose(res, expected)
-    assert isinstance(res, np.ndarray)
+    has_categorical_component = (
+        isinstance(mat, mx.CategoricalMatrix)
+        or is_split_with_cat_part(mat)
+        or (
+            isinstance(mat, mx.StandardizedMat)
+            and (
+                isinstance(mat.mat, mx.CategoricalMatrix)
+                or is_split_with_cat_part(mat.mat)
+            )
+        )
+    )
 
-    if cols is None:
-        res2 = mat @ other
-        np.testing.assert_allclose(res2, expected)
+    if has_categorical_component and len(shape) > 1:
+        with pytest.raises(NotImplementedError, match="only implemented for 1d"):
+            mat.dot(other, cols)
+    else:
+        res = mat.dot(other, cols)
+
+        mat_subset, vec_subset = process_mat_vec_subsets(mat, other, None, cols, cols)
+        expected = mat_subset.dot(vec_subset)
+
+        np.testing.assert_allclose(res, expected)
+        assert isinstance(res, np.ndarray)
+
+        if cols is None:
+            res2 = mat @ other
+            np.testing.assert_allclose(res2, expected)
 
 
 def process_mat_vec_subsets(mat, vec, mat_rows, mat_cols, vec_idxs):
@@ -226,12 +251,7 @@ def test_self_sandwich(
     expected = mat_subset.T @ np.diag(vec_subset) @ mat_subset
     if sps.issparse(res):
         res = res.A
-    try:
-        np.testing.assert_allclose(res, expected)
-    except AssertionError:
-        import ipdb
-
-        ipdb.set_trace()
+    np.testing.assert_allclose(res, expected)
 
 
 @pytest.mark.parametrize("rows", [None, np.arange(2, dtype=np.int32)])
