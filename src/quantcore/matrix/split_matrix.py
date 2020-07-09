@@ -268,4 +268,10 @@ class SplitMatrix(MatrixBase):
                 f"Only row indexing is supported. Index passed was {key}."
             )
 
+    def __str__(self):
+        out = "SplitMatrix:"
+        for i, mat in enumerate(self.matrices):
+            out += f"\nComponent {i}:\n" + str(mat)
+        return out
+
     __array_priority__ = 13
