@@ -9,7 +9,7 @@ from .matrix_base import MatrixBase
 from .util import setup_restrictions
 
 
-class MKLSparseMatrix(sps.csc_matrix, MatrixBase):
+class SparseMatrix(sps.csc_matrix, MatrixBase):
     """
     A scipy.sparse csc matrix subclass that will use MKL for sparse
     matrix-vector products and will use the fast sparse_sandwich function
@@ -141,4 +141,4 @@ class MKLSparseMatrix(sps.csc_matrix, MatrixBase):
         return np.sqrt(self.power(2).T.dot(weights) - col_means ** 2)
 
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
-        return super(MKLSparseMatrix, self).astype(dtype, casting, copy)
+        return super(SparseMatrix, self).astype(dtype, casting, copy)
