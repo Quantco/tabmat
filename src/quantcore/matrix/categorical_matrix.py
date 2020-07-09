@@ -8,7 +8,7 @@ from scipy import sparse as sps
 from .ext.categorical import sandwich_categorical
 from .ext.split import _sandwich_cat_cat, sandwich_cat_dense
 from .matrix_base import MatrixBase
-from .mkl_sparse_matrix import SparseMatrix
+from .sparse_matrix import SparseMatrix
 
 
 def _none_to_slice(arr: Optional[np.ndarray], n: int) -> Union[slice, np.ndarray]:
