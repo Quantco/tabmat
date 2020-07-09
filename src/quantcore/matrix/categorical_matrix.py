@@ -272,8 +272,7 @@ class CategoricalMatrix(MatrixBase):
             rows = np.arange(self.shape[0], dtype=np.int32)
 
         res = sandwich_cat_cat(
-            i_indices, j_indices, self.shape[1], other.shape[1], d, rows,
-            d.dtype
+            i_indices, j_indices, self.shape[1], other.shape[1], d, rows, d.dtype
         )
 
         L_cols = _none_to_slice(L_cols, self.shape[1])
