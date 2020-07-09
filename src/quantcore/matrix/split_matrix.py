@@ -214,7 +214,6 @@ class SplitMatrix(MatrixBase):
                 mat.vec_plus_matvec(one, out, sub_cols)
             else:
                 tmp = mat.dot(one, sub_cols)
-                # 27% of time in this function is spent on this line
                 out += tmp
         return out
 
