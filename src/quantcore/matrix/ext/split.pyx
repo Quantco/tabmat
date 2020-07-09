@@ -26,23 +26,20 @@ cdef extern from "cat_split_helpers.cpp":
 def sandwich_cat_dense(
     int[:] i_indices,
     int i_ncol,
-    floating[:] d,
+    d_,
     floating[:, :] mat_j,
     int[:] rows,
     int[:] j_cols,
     bool is_c_contiguous
 ):
-    """
-    Expect mat_j to be C-contiguous (row major).
-    TODO: THIS ONLY WORKS FOR C-CONTIGUOUS.
-    """
 
     cdef floating[:, :] res
-    res = np.zeros((i_ncol, len(j_cols)))
+    res = np.zeros((i_ncol, len(j_cols)), dtype=d_.dtype)
 
-    if len(d) == 0 or len(rows) == 0 or len(j_cols) == 0 or i_ncol == 0:
+    if len(d_) == 0 or len(rows) == 0 or len(j_cols) == 0 or i_ncol == 0:
         return np.asarray(res)
 
+    cdef floating[:] d = d_
     cdef floating* d_p = &d[0]
     cdef int* i_indices_p = &i_indices[0]
     cdef int* rows_p = &rows[0]
@@ -67,12 +64,13 @@ def sandwich_cat_cat(
     int j_ncol,
     floating[:] d,
     int[:] rows,
+    dtype
 ):
     """
     (X1.T @ diag(d) @ X2)[i, j] = sum_k X1[k, i] d[k] X2[k, j]
     """
-    # TODO: support for single-precision d
-    cdef floating[:, :] res = np.zeros((i_ncol, j_ncol))
+    cdef floating[:, :] res = np.zeros((i_ncol, j_ncol), dtype=dtype)
+
     _sandwich_cat_cat(&d[0], &i_indices[0], &j_indices[0], &rows[0], len(rows),
                         &res[0, 0], j_ncol, res.size)
 
