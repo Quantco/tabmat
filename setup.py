@@ -3,7 +3,6 @@ import os
 import sys
 from os import path
 
-import mako.runtime
 import mako.template
 import numpy as np
 from Cython.Build import cythonize
@@ -17,9 +16,9 @@ with open(path.join(here, "README.md")) as f:
 # TODO: this should be moved inside the compilation of the extension
 print("templating C source")
 templates = [
-    "src/quantcore/glm/matrix/ext/dense_helpers-tmpl.cpp",
-    "src/quantcore/glm/matrix/ext/sparse_helpers-tmpl.cpp",
-    "src/quantcore/glm/matrix/ext/cat_split_helpers-tmpl.cpp",
+    "src/quantcore/matrix/ext/dense_helpers-tmpl.cpp",
+    "src/quantcore/matrix/ext/sparse_helpers-tmpl.cpp",
+    "src/quantcore/matrix/ext/cat_split_helpers-tmpl.cpp",
 ]
 
 for fn in templates:
@@ -72,47 +71,37 @@ extension_args = dict(
 )
 ext_modules = [
     Extension(
-        name="quantcore.glm.matrix.ext.sparse",
-        sources=["src/quantcore/glm/matrix/ext/sparse.pyx"],
+        name="quantcore.matrix.ext.sparse",
+        sources=["src/quantcore/matrix/ext/sparse.pyx"],
         libraries=allocator_libs,
         **extension_args,
     ),
     Extension(
-        name="quantcore.glm.matrix.ext.dense",
-        sources=["src/quantcore/glm/matrix/ext/dense.pyx"],
+        name="quantcore.matrix.ext.dense",
+        sources=["src/quantcore/matrix/ext/dense.pyx"],
         libraries=allocator_libs,
         **extension_args,
     ),
     Extension(
-        name="quantcore.glm.matrix.ext.categorical",
-        sources=["src/quantcore/glm/matrix/ext/categorical.pyx"],
+        name="quantcore.matrix.ext.categorical",
+        sources=["src/quantcore/matrix/ext/categorical.pyx"],
         **extension_args,
     ),
     Extension(
-        name="quantcore.glm.matrix.ext.split",
-        sources=["src/quantcore/glm/matrix/ext/split.pyx"],
-        **extension_args,
-    ),
-    Extension(
-        name="quantcore.glm.sklearn_fork._functions",
-        sources=["src/quantcore/glm/sklearn_fork/_functions.pyx"],
-        **extension_args,
-    ),
-    Extension(
-        name="quantcore.glm.sklearn_fork._cd_fast",
-        sources=["src/quantcore/glm/sklearn_fork/_cd_fast.pyx"],
+        name="quantcore.matrix.ext.split",
+        sources=["src/quantcore/matrix/ext/split.pyx"],
         **extension_args,
     ),
 ]
 
 setup(
-    name="quantcore.glm",
+    name="quantcore.matrix",
     use_scm_version={"version_scheme": "post-release"},
     setup_requires=["setuptools_scm"],
-    description="Python package to benchmark GLM implementations.",
+    description="Matrix types useful for working with GLMs and tabular data.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/Quantco/glm_benchmarks",
+    url="https://github.com/Quantco/quantcore.matrix",
     author="QuantCo, Inc.",
     author_email="noreply@quantco.com",
     classifiers=[  # Optional
@@ -124,11 +113,6 @@ setup(
     package_dir={"": "src"},
     packages=find_namespace_packages(where="src"),
     install_requires=[],
-    entry_points="""
-        [console_scripts]
-        glm_benchmarks_run = quantcore.glm.cli_run:cli_run
-        glm_benchmarks_analyze = quantcore.glm.cli_analyze:cli_analyze
-    """,
     ext_modules=cythonize(ext_modules, annotate=False),
     zip_safe=False,
 )
