@@ -55,7 +55,7 @@ class DenseMatrix(np.ndarray, MatrixBase):
         L_cols: Optional[np.ndarray] = None,
         R_cols: Optional[np.ndarray] = None,
     ):
-        from .mkl_sparse_matrix import SparseMatrix
+        from .sparse_matrix import SparseMatrix
         from .categorical_matrix import CategoricalMatrix
 
         if isinstance(other, SparseMatrix) or isinstance(other, CategoricalMatrix):
