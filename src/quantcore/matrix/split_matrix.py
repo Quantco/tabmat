@@ -4,14 +4,16 @@ from typing import List, Optional, Tuple, Union
 import numpy as np
 from scipy import sparse as sps
 
-import quantcore.matrix as mx
-
+from .categorical_matrix import CategoricalMatrix
 from .ext.split import split_col_subsets
+from .glm_matrix import DenseMatrix
+from .matrix_base import MatrixBase
+from .sparse_matrix import SparseMatrix
 
 
 def split_sparse_and_dense_parts(
     arg1: sps.csc_matrix, threshold: float = 0.1
-) -> Tuple[mx.DenseMatrix, mx.SparseMatrix, np.ndarray, np.ndarray]:
+) -> Tuple[DenseMatrix, SparseMatrix, np.ndarray, np.ndarray]:
     if not isinstance(arg1, sps.csc_matrix):
         raise TypeError(
             f"X must be of type scipy.sparse.csc_matrix or matrix.MKLSparseMatrix, not {type(arg1)}"
@@ -22,8 +24,8 @@ def split_sparse_and_dense_parts(
     dense_indices = np.where(densities > threshold)[0]
     sparse_indices = np.setdiff1d(np.arange(densities.shape[0]), dense_indices)
 
-    X_dense_F = mx.DenseMatrix(np.asfortranarray(arg1.toarray()[:, dense_indices]))
-    X_sparse = mx.SparseMatrix(arg1[:, sparse_indices])
+    X_dense_F = DenseMatrix(np.asfortranarray(arg1.toarray()[:, dense_indices]))
+    X_sparse = SparseMatrix(arg1[:, sparse_indices])
     return X_dense_F, X_sparse, dense_indices, sparse_indices
 
 
@@ -32,10 +34,10 @@ def csc_to_split(mat: sps.csc_matrix, threshold=0.1):
     return SplitMatrix([dense, sparse], [dense_idx, sparse_idx])
 
 
-class SplitMatrix(mx.MatrixBase):
+class SplitMatrix(MatrixBase):
     def __init__(
         self,
-        matrices: List[Union[mx.DenseMatrix, mx.SparseMatrix, mx.CategoricalMatrix]],
+        matrices: List[Union[DenseMatrix, SparseMatrix, CategoricalMatrix]],
         indices: Optional[List[np.ndarray]] = None,
     ):
 
@@ -60,7 +62,7 @@ class SplitMatrix(mx.MatrixBase):
                     but the first matrix has first dimension {n_row} and matrix {i} has
                     first dimension {mat.shape[0]}."""
                 )
-            if not isinstance(mat, mx.MatrixBase):
+            if not isinstance(mat, MatrixBase):
                 raise ValueError(
                     "Expected all elements of matrices to be subclasses of MatrixBase."
                 )
@@ -79,8 +81,8 @@ class SplitMatrix(mx.MatrixBase):
 
         # If there are multiple spares and dense matrices, combine them
         for mat_type_, stack_fn in [
-            (mx.DenseMatrix, np.hstack),
-            (mx.SparseMatrix, sps.hstack),
+            (DenseMatrix, np.hstack),
+            (SparseMatrix, sps.hstack),
         ]:
             this_type_matrices = [
                 i for i, mat in enumerate(matrices) if isinstance(mat, mat_type_)
