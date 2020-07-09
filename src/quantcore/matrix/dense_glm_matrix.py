@@ -7,7 +7,7 @@ from .matrix_base import MatrixBase
 from .util import setup_restrictions
 
 
-class DenseGLMDataMatrix(np.ndarray, MatrixBase):
+class DenseMatrix(np.ndarray, MatrixBase):
     """
     We want to add several function to a numpy ndarray so that it conforms to
     the sparse matrix interface we expect for the GLM algorithms below:
@@ -55,10 +55,10 @@ class DenseGLMDataMatrix(np.ndarray, MatrixBase):
         L_cols: Optional[np.ndarray] = None,
         R_cols: Optional[np.ndarray] = None,
     ):
-        from .mkl_sparse_matrix import MKLSparseMatrix
+        from .mkl_sparse_matrix import SparseMatrix
         from .categorical_matrix import CategoricalMatrix
 
-        if isinstance(other, MKLSparseMatrix) or isinstance(other, CategoricalMatrix):
+        if isinstance(other, SparseMatrix) or isinstance(other, CategoricalMatrix):
             return other.cross_sandwich(self, d, rows, R_cols, L_cols).T
         raise TypeError
 
