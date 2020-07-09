@@ -121,7 +121,6 @@ class CategoricalMatrix(MatrixBase):
         rows: np.ndarray = None,
         cols: np.ndarray = None,
     ) -> np.ndarray:
-        # taking 16% of time
         """
         Perform: self[rows, cols].T @ vec
 
@@ -149,7 +148,6 @@ class CategoricalMatrix(MatrixBase):
         rows: np.ndarray = None,
         cols: np.ndarray = None,
     ) -> sps.dia_matrix:
-        # 3%
         """
         sandwich(self, d)[i, j] = (self.T @ diag(d) @ self)[i, j]
             = sum_k (self[k, i] (diag(d) @ self)[k, j])
@@ -274,7 +272,8 @@ class CategoricalMatrix(MatrixBase):
             rows = np.arange(self.shape[0], dtype=np.int32)
 
         res = sandwich_cat_cat(
-            i_indices, j_indices, self.shape[1], other.shape[1], d, rows
+            i_indices, j_indices, self.shape[1], other.shape[1], d, rows,
+            d.dtype
         )
 
         L_cols = _none_to_slice(L_cols, self.shape[1])
