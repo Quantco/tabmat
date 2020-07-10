@@ -192,3 +192,8 @@ for k in range(n_rows):
         res[X.indices[k], j] += d[k] * Y[k, j]
 ```
 This is `ext/split/sandwich_cat_dense`
+
+
+## Performance
+![two_cat_bm](benchmark/two_cat_times.png)
+![two_cat_plus_dense_bm](benchmark/dense_cat_times.png)
