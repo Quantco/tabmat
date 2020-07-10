@@ -196,8 +196,13 @@ This is `ext/split/sandwich_cat_dense`
 
 ## Performance
 Dense matrix, 100k x 1k:
+
 ![dense_bm](benchmark/dense_times.png)
+
 Two categorical matrices, 1M x 11k+:
+
 ![two_cat_bm](benchmark/two_cat_times.png)
+
 Two categorical matrices plus a dense matrix, 1M x 11k+:
+
 ![two_cat_plus_dense_bm](benchmark/dense_cat_times.png)
