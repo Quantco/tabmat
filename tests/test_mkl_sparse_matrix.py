@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from scipy import sparse as sps
 
-from quantcore.matrix import MKLSparseMatrix
+from quantcore.matrix import SparseMatrix
 
 
 @pytest.fixture
@@ -12,17 +12,17 @@ def x() -> sps.csc_matrix:
 
 
 def test_mkl_sparse_init(x: sps.csc_matrix):
-    one = MKLSparseMatrix(x)
-    two = MKLSparseMatrix((x.data, x.indices, x.indptr), shape=x.shape)
-    three = MKLSparseMatrix(x.A)
+    one = SparseMatrix(x)
+    two = SparseMatrix((x.data, x.indices, x.indptr), shape=x.shape)
+    three = SparseMatrix(x.A)
     np.testing.assert_allclose(one.A, two.A)
     np.testing.assert_allclose(one.A, three.A)
 
 
 def test_to_csc(x: sps.csc_matrix):
-    one = MKLSparseMatrix(x).tocsc()
-    two = MKLSparseMatrix((x.data, x.indices, x.indptr), shape=x.shape).tocsc()
-    three = MKLSparseMatrix(x.A).tocsc()
+    one = SparseMatrix(x).tocsc()
+    two = SparseMatrix((x.data, x.indices, x.indptr), shape=x.shape).tocsc()
+    three = SparseMatrix(x.A).tocsc()
 
     assert isinstance(one, sps.csc_matrix)
     assert isinstance(two, sps.csc_matrix)

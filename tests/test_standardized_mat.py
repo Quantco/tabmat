@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import sparse as sps
 
-from quantcore.matrix import MKLSparseMatrix, StandardizedMat
+from quantcore.matrix import SparseMatrix, StandardizedMat
 
 # There's a lot more testing happening in the generic setting in
 # test_matrices.py
@@ -9,7 +9,7 @@ from quantcore.matrix import MKLSparseMatrix, StandardizedMat
 np.random.seed(0)
 n_rows = 8
 n_cols = 5
-sp_mat = MKLSparseMatrix(sps.random(n_rows, n_cols, density=0.8))
+sp_mat = SparseMatrix(sps.random(n_rows, n_cols, density=0.8))
 col_shift = np.random.uniform(0, 1, n_cols)
 col_mult = np.random.uniform(0.5, 1.5, n_cols)
 expected_mat = col_mult[None, :] * sp_mat.A + col_shift[None, :]
