@@ -47,13 +47,13 @@ def complex_split_matrix():
 def shift_complex_split_matrix():
     mat = complex_split_matrix()
     np.random.seed(0)
-    return mx.StandardizedMat(mat, np.random.random(mat.shape[1]))
+    return mx.StandardizedMatrix(mat, np.random.random(mat.shape[1]))
 
 
 def shift_scale_complex_split_matrix():
     mat = complex_split_matrix()
     np.random.seed(0)
-    return mx.StandardizedMat(
+    return mx.StandardizedMatrix(
         mat, np.random.random(mat.shape[1]), np.random.random(mat.shape[1])
     )
 
@@ -63,14 +63,14 @@ def get_all_matrix_base_subclass_mats():
 
 
 def get_standardized_shifted_matrices():
-    return [mx.StandardizedMat(elt, [0.3, 2]) for elt in get_unscaled_matrices()] + [
+    return [mx.StandardizedMatrix(elt, [0.3, 2]) for elt in get_unscaled_matrices()] + [
         shift_complex_split_matrix()
     ]
 
 
 def get_standardized_shifted_scaled_matrices():
     return [
-        mx.StandardizedMat(elt, [0.3, 0.2], [0.6, 1.67])
+        mx.StandardizedMatrix(elt, [0.3, 0.2], [0.6, 1.67])
         for elt in get_unscaled_matrices()
     ] + [shift_scale_complex_split_matrix()]
 
@@ -85,7 +85,7 @@ def get_matrices():
 
 @pytest.mark.parametrize("mat", get_matrices())
 @pytest.mark.parametrize("i", [1, -2])
-def test_getcol(mat: Union[mx.MatrixBase, mx.StandardizedMat], i):
+def test_getcol(mat: Union[mx.MatrixBase, mx.StandardizedMatrix], i):
     col = mat.getcol(i)
 
     if not isinstance(col, np.ndarray):
@@ -109,7 +109,7 @@ def test_to_array_matrix_base(mat: mx.MatrixBase):
     "mat",
     get_standardized_shifted_matrices() + get_standardized_shifted_scaled_matrices(),
 )
-def test_to_array_standardized_mat(mat: mx.StandardizedMat):
+def test_to_array_standardized_mat(mat: mx.StandardizedMatrix):
     assert isinstance(mat.A, np.ndarray)
     true_mat_part = mat.mat.A
     if mat.mult is not None:
@@ -124,7 +124,7 @@ def test_to_array_standardized_mat(mat: mx.StandardizedMat):
 @pytest.mark.parametrize("cols", [None, np.arange(1, dtype=np.int32)])
 @pytest.mark.parametrize("other_shape", [[], [1], [2]])
 def test_dot(
-    mat: Union[mx.MatrixBase, mx.StandardizedMat], other_type, cols, other_shape
+    mat: Union[mx.MatrixBase, mx.StandardizedMatrix], other_type, cols, other_shape
 ):
     n_row = mat.shape[1]
     shape = [n_row] + other_shape
@@ -140,7 +140,7 @@ def test_dot(
         isinstance(mat, mx.CategoricalMatrix)
         or is_split_with_cat_part(mat)
         or (
-            isinstance(mat, mx.StandardizedMat)
+            isinstance(mat, mx.StandardizedMatrix)
             and (
                 isinstance(mat.mat, mx.CategoricalMatrix)
                 or is_split_with_cat_part(mat.mat)
@@ -184,7 +184,7 @@ def process_mat_vec_subsets(mat, vec, mat_rows, mat_cols, vec_idxs):
 @pytest.mark.parametrize("rows", [None, np.arange(2, dtype=np.int32)])
 @pytest.mark.parametrize("cols", [None, np.arange(1, dtype=np.int32)])
 def test_transpose_dot(
-    mat: Union[mx.MatrixBase, mx.StandardizedMat], other_type, rows, cols
+    mat: Union[mx.MatrixBase, mx.StandardizedMatrix], other_type, rows, cols
 ):
     other_as_list = [3.0, -0.1, 0]
     other = other_type(other_as_list)
@@ -241,7 +241,7 @@ def test_cross_sandwich(
 @pytest.mark.parametrize("rows", [None, np.arange(2, dtype=np.int32)])
 @pytest.mark.parametrize("cols", [None, np.arange(1, dtype=np.int32)])
 def test_self_sandwich(
-    mat: Union[mx.MatrixBase, mx.StandardizedMat], vec_type, rows, cols
+    mat: Union[mx.MatrixBase, mx.StandardizedMatrix], vec_type, rows, cols
 ):
     vec_as_list = [3, 0.1, 1]
     vec = vec_type(vec_as_list)
@@ -287,7 +287,7 @@ def test_transpose(mat):
 @pytest.mark.parametrize(
     "vec_type", [lambda x: x, np.array, mx.DenseMatrix],
 )
-def test_rmatmul(mat: Union[mx.MatrixBase, mx.StandardizedMat], vec_type):
+def test_rmatmul(mat: Union[mx.MatrixBase, mx.StandardizedMatrix], vec_type):
     vec_as_list = [3.0, -0.1, 0]
     vec = vec_type(vec_as_list)
     res = mat.__rmatmul__(vec)
@@ -299,14 +299,14 @@ def test_rmatmul(mat: Union[mx.MatrixBase, mx.StandardizedMat], vec_type):
 
 
 @pytest.mark.parametrize("mat", get_matrices())
-def test_dot_raises(mat: Union[mx.MatrixBase, mx.StandardizedMat]):
+def test_dot_raises(mat: Union[mx.MatrixBase, mx.StandardizedMatrix]):
     with pytest.raises(ValueError):
         mat.dot(np.ones(11))
 
 
 @pytest.mark.parametrize("mat", get_matrices())
 @pytest.mark.parametrize("dtype", [np.float64, np.float32])
-def test_astype(mat: Union[mx.MatrixBase, mx.StandardizedMat], dtype):
+def test_astype(mat: Union[mx.MatrixBase, mx.StandardizedMatrix], dtype):
     new_mat = mat.astype(dtype)
     assert np.issubdtype(new_mat.dtype, dtype)
     vec = np.zeros(mat.shape[1], dtype=dtype)
@@ -372,7 +372,7 @@ def test_standardize(
     standardized, means, stds = mat.standardize(
         weights, center_predictors, scale_predictors
     )
-    assert isinstance(standardized, mx.StandardizedMat)
+    assert isinstance(standardized, mx.StandardizedMatrix)
     assert isinstance(standardized.mat, type(mat))
     if center_predictors:
         np.testing.assert_allclose(standardized.transpose_dot(weights), 0, atol=1e-11)
@@ -401,7 +401,7 @@ def test_standardize(
 
 
 @pytest.mark.parametrize("mat", get_matrices())
-def test_indexing_int_row(mat: Union[mx.MatrixBase, mx.StandardizedMat]):
+def test_indexing_int_row(mat: Union[mx.MatrixBase, mx.StandardizedMatrix]):
     res = mat[0, :]
     if not isinstance(res, np.ndarray):
         res = res.A
@@ -410,7 +410,7 @@ def test_indexing_int_row(mat: Union[mx.MatrixBase, mx.StandardizedMat]):
 
 
 @pytest.mark.parametrize("mat", get_matrices())
-def test_indexing_range_row(mat: Union[mx.MatrixBase, mx.StandardizedMat]):
+def test_indexing_range_row(mat: Union[mx.MatrixBase, mx.StandardizedMatrix]):
     res = mat[0:2, :]
     if not isinstance(res, np.ndarray):
         res = res.A
