@@ -166,7 +166,11 @@ def process_mat_vec_subsets(mat, vec, mat_rows, mat_cols, vec_idxs):
 @pytest.mark.parametrize("rows", [None, np.arange(2, dtype=np.int32)])
 @pytest.mark.parametrize("cols", [None, np.arange(1, dtype=np.int32)])
 def test_transpose_dot(
-    mat: Union[mx.MatrixBase, mx.StandardizedMatrix], other_type, other_as_list, rows, cols
+    mat: Union[mx.MatrixBase, mx.StandardizedMatrix],
+    other_type,
+    other_as_list,
+    rows,
+    cols,
 ):
     other = other_type(other_as_list)
     assert np.shape(other)[0] == mat.shape[0]
@@ -273,7 +277,9 @@ def test_transpose(mat):
     # shapes (3,); (1,3); (2, 3)
     [[3.0, -0.1, 0], [[3.0, -0.1, 0]], [[0, -0.1, 1.0], [-0.1, 0, 3]]],
 )
-def test_rmatmul(mat: Union[mx.MatrixBase, mx.StandardizedMatrix], vec_type, vec_as_list):
+def test_rmatmul(
+    mat: Union[mx.MatrixBase, mx.StandardizedMatrix], vec_type, vec_as_list
+):
     vec = vec_type(vec_as_list)
     res = mat.__rmatmul__(vec)
     res2 = vec @ mat
