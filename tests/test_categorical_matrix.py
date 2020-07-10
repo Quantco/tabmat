@@ -1,6 +1,6 @@
 import numpy as np
+import pandas as pd
 import pytest
-from sklearn.preprocessing import OneHotEncoder
 
 from quantcore.matrix.categorical_matrix import CategoricalMatrix
 
@@ -21,7 +21,7 @@ def test_recover_orig(cat_vec, vec_dtype):
 
 @pytest.mark.parametrize("vec_dtype", [np.float64, np.float32, np.int64, np.int32])
 def test_csr_dot_categorical(cat_vec, vec_dtype):
-    mat = OneHotEncoder().fit_transform(cat_vec[:, None])
+    mat = pd.get_dummies(cat_vec)
     cat_mat = CategoricalMatrix(cat_vec)
     vec = np.random.choice(np.arange(4, dtype=vec_dtype), mat.shape[1])
     res = cat_mat.dot(vec)
@@ -31,7 +31,7 @@ def test_csr_dot_categorical(cat_vec, vec_dtype):
 def test_tocsr(cat_vec):
     cat_mat = CategoricalMatrix(cat_vec)
     res = cat_mat.tocsr().A
-    expected = OneHotEncoder().fit_transform(cat_vec[:, None]).A
+    expected = pd.get_dummies(cat_vec)
     np.testing.assert_allclose(res, expected)
 
 

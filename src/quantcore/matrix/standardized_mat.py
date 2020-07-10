@@ -3,7 +3,7 @@ from typing import List, Union
 import numpy as np
 from scipy import sparse as sps
 
-from . import MatrixBase, MKLSparseMatrix
+from . import MatrixBase, SparseMatrix
 
 
 class StandardizedMat:
@@ -74,7 +74,7 @@ class StandardizedMat:
         Returns a StandardizedSpMat.
 
         >>> from scipy import sparse as sps
-        >>> x = StandardizedMat(MKLSparseMatrix(sps.eye(3).tocsc()), shift=[0, 1, -2])
+        >>> x = StandardizedMat(SparseMatrix(sps.eye(3).tocsc()), shift=[0, 1, -2])
         >>> col_1 = x.getcol(1)
         >>> isinstance(col_1, StandardizedMat)
         True
@@ -88,7 +88,7 @@ class StandardizedMat:
             mult = [self.mult[i]]
         col = self.mat.getcol(i)
         if isinstance(col, sps.csc_matrix) and not isinstance(col, MatrixBase):
-            col = MKLSparseMatrix(col)
+            col = SparseMatrix(col)
         return StandardizedMat(col, [self.shift[i]], mult)
 
     def sandwich(
