@@ -234,3 +234,10 @@ class StandardizedMatrix:
             return out + shift_part
 
         return StandardizedMatrix(mat_part, np.atleast_1d(shift_part), mult_part)
+
+    def __repr__(self):
+        out = f"""StandardizedMat. Mat: {type(self.mat)} of shape {self.mat.shape}.
+        Shift: {self.shift}
+        Mult: {self.mult}
+        """
+        return out
