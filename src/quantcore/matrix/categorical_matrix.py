@@ -8,7 +8,7 @@ from scipy import sparse as sps
 from .ext.categorical import sandwich_categorical
 from .ext.split import _sandwich_cat_cat, sandwich_cat_dense
 from .matrix_base import MatrixBase
-from .mkl_sparse_matrix import MKLSparseMatrix
+from .sparse_matrix import SparseMatrix
 
 
 def _none_to_slice(arr: Optional[np.ndarray], n: int) -> Union[slice, np.ndarray]:
@@ -112,7 +112,7 @@ class CategoricalMatrix(MatrixBase):
         vec = np.asarray(vec)
         data, indices, indptr = self._check_csc()
         data = np.ones(self.shape[0], dtype=vec.dtype) if data is None else data
-        as_csc = MKLSparseMatrix((data, indices, indptr), shape=self.shape)
+        as_csc = SparseMatrix((data, indices, indptr), shape=self.shape)
         return as_csc.transpose_dot(vec, rows, cols)
 
     def sandwich(
