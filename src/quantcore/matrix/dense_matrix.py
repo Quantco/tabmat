@@ -10,7 +10,7 @@ from .util import setup_restrictions
 class DenseMatrix(np.ndarray, MatrixBase):
     """
     We want to add several function to a numpy ndarray so that it conforms to
-    the sparse matrix interface we expect for the GLM algorithms below:
+    the matrix interface we expect.
 
     * sandwich product
     * getcol
@@ -22,9 +22,7 @@ class DenseMatrix(np.ndarray, MatrixBase):
     def __new__(cls, input_array):
         obj = np.asarray(input_array).view(cls)
         if not np.issubdtype(obj.dtype, np.floating):
-            raise NotImplementedError(
-                "DenseGLMDataMatrix is only implemented for float data"
-            )
+            raise NotImplementedError("DenseMatrix is only implemented for float data")
         return obj
 
     def __array_finalize__(self, obj):
