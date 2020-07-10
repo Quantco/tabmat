@@ -32,8 +32,8 @@ checks for which type of matrix-like object you are operating on.
 
 Design principles:
 - Speed and memory efficiency are paramount.
-- You don't need to sacrifice functionality by using this library: DenseGLMDataMatrix 
-and MKLSparseMatrix subclass Numpy arrays and Scipy csc sparse matrices, respectively, 
+- You don't need to sacrifice functionality by using this library: DenseMatrix 
+and SparseMatrix subclass Numpy arrays and Scipy csc sparse matrices, respectively, 
 and inherit their behavior wherever it is not improved on.
 - As much as possible, syntax follows Numpy syntax, and dimension-reducing
   operations (like `sum`) return Numpy arrays, following Numpy dimensions
@@ -46,10 +46,10 @@ and inherit their behavior wherever it is not improved on.
 Individual subclasses may support significantly more operations.
 
 ## Matrix types
-- `DenseGLMDataMatrix` represents dense matrices, subclassing numpy nparray. 
+- `DenseMatrix` represents dense matrices, subclassing numpy nparray. 
     It additionally supports methods `getcol`, `toarray`, `sandwich`, `standardize`, 
     and `unstandardize`.
-- `MKLSparseMatrix` represents column-major sparse data, subclassing 
+- `SparseMatrix` represents column-major sparse data, subclassing 
     `scipy.sparse.csc_matrix`. It additionally supports methods `sandwich`
     and `standardize`, and it's `dot` method (e.g. `@`) calls MKL's sparse dot product
     in the case of matrix-vector products, which is faster.
