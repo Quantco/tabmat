@@ -98,13 +98,13 @@ class MatrixBase(ABC):
         self, weights: np.ndarray, center_predictors: bool, scale_predictors: bool
     ) -> Tuple[Any, np.ndarray, Optional[np.ndarray]]:
         """
-        Returns a StandardizedMat, col_means, and col_stds
+        Returns a StandardizedMatrix, col_means, and col_stds
 
         If center_predictors is False, col_means will be zeros
 
         If scale_predictors is False, col_stds will be None
         """
-        from .standardized_mat import StandardizedMat
+        from .standardized_mat import StandardizedMatrix
 
         col_means = self.get_col_means(weights)
         if scale_predictors:
@@ -126,7 +126,7 @@ class MatrixBase(ABC):
                 out_means = shifter
             mult = None
 
-        return StandardizedMat(self, shifter, mult), out_means, col_stds
+        return StandardizedMatrix(self, shifter, mult), out_means, col_stds
 
     @abstractmethod
     def __getitem__(self, item):
