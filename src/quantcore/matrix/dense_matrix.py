@@ -7,10 +7,10 @@ from .matrix_base import MatrixBase
 from .util import setup_restrictions
 
 
-class DenseGLMDataMatrix(np.ndarray, MatrixBase):
+class DenseMatrix(np.ndarray, MatrixBase):
     """
     We want to add several function to a numpy ndarray so that it conforms to
-    the sparse matrix interface we expect for the GLM algorithms below:
+    the matrix interface we expect.
 
     * sandwich product
     * getcol
@@ -22,9 +22,7 @@ class DenseGLMDataMatrix(np.ndarray, MatrixBase):
     def __new__(cls, input_array):
         obj = np.asarray(input_array).view(cls)
         if not np.issubdtype(obj.dtype, np.floating):
-            raise NotImplementedError(
-                "DenseGLMDataMatrix is only implemented for float data"
-            )
+            raise NotImplementedError("DenseMatrix is only implemented for float data")
         return obj
 
     def __array_finalize__(self, obj):
@@ -55,10 +53,10 @@ class DenseGLMDataMatrix(np.ndarray, MatrixBase):
         L_cols: Optional[np.ndarray] = None,
         R_cols: Optional[np.ndarray] = None,
     ):
-        from .mkl_sparse_matrix import MKLSparseMatrix
+        from .sparse_matrix import SparseMatrix
         from .categorical_matrix import CategoricalMatrix
 
-        if isinstance(other, MKLSparseMatrix) or isinstance(other, CategoricalMatrix):
+        if isinstance(other, SparseMatrix) or isinstance(other, CategoricalMatrix):
             return other.cross_sandwich(self, d, rows, R_cols, L_cols).T
         raise TypeError
 
