@@ -1,5 +1,5 @@
 from .categorical_matrix import CategoricalMatrix
-from .glm_matrix import DenseMatrix
+from .dense_matrix import DenseMatrix
 from .matrix_base import MatrixBase, one_over_var_inf_to_val
 from .sparse_matrix import SparseMatrix
 from .split_matrix import SplitMatrix, csc_to_split
