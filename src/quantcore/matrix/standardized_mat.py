@@ -235,7 +235,7 @@ class StandardizedMat:
 
         return StandardizedMat(mat_part, np.atleast_1d(shift_part), mult_part)
 
-    def __str__(self):
+    def __repr__(self):
         out = f"""StandardizedMat. Mat: {type(self.mat)} of shape {self.mat.shape}.
         Shift: {self.shift}
         Mult: {self.mult}
