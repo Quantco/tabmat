@@ -9,7 +9,6 @@ dependencies:
   - cxx-compiler
   - cython
   - flake8
-  - git_root
   - jemalloc
   - libblas>=0=*mkl
   - mako
@@ -17,10 +16,8 @@ dependencies:
   - pandas
   - pip
   - pre-commit
-  - pyarrow
   - pytest
   - pytest-xdist
-  - scikit-learn
   - setuptools_scm
   - sparse_dot_mkl>=0.4.0
   - xsimd

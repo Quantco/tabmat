@@ -56,11 +56,11 @@ def split_mat_2() -> SplitMatrix:
     """
     n_rows = 10
     np.random.seed(0)
-    dense_1 = mx.DenseGLMDataMatrix(np.random.random((n_rows, 3)))
-    sparse_1 = mx.MKLSparseMatrix(sps.random(n_rows, 3).tocsc())
+    dense_1 = mx.DenseMatrix(np.random.random((n_rows, 3)))
+    sparse_1 = mx.SparseMatrix(sps.random(n_rows, 3).tocsc())
     cat = mx.CategoricalMatrix(np.random.choice(range(3), n_rows))
-    dense_2 = mx.DenseGLMDataMatrix(np.random.random((n_rows, 3)))
-    sparse_2 = mx.MKLSparseMatrix(sps.random(n_rows, 3, density=0.5).tocsc())
+    dense_2 = mx.DenseMatrix(np.random.random((n_rows, 3)))
+    sparse_2 = mx.SparseMatrix(sps.random(n_rows, 3, density=0.5).tocsc())
     cat_2 = mx.CategoricalMatrix(np.random.choice(range(3), n_rows))
     return mx.SplitMatrix([dense_1, sparse_1, cat, dense_2, sparse_2, cat_2])
 
@@ -100,10 +100,10 @@ def test_sandwich(split_mat: SplitMatrix):
 def random_split_matrix(seed=0, n_rows=10, n_cols_per=3):
     if seed is not None:
         np.random.seed(seed)
-    dense_1 = mx.DenseGLMDataMatrix(np.random.random((n_rows, n_cols_per)))
-    sparse = mx.MKLSparseMatrix(sps.random(n_rows, n_cols_per).tocsc())
+    dense_1 = mx.DenseMatrix(np.random.random((n_rows, n_cols_per)))
+    sparse = mx.SparseMatrix(sps.random(n_rows, n_cols_per).tocsc())
     cat = mx.CategoricalMatrix(np.random.choice(range(n_cols_per), n_rows))
-    dense_2 = mx.DenseGLMDataMatrix(np.random.random((n_rows, n_cols_per)))
+    dense_2 = mx.DenseMatrix(np.random.random((n_rows, n_cols_per)))
     cat_2 = mx.CategoricalMatrix(np.random.choice(range(n_cols_per), n_rows))
     mat = mx.SplitMatrix([dense_1, sparse, cat, dense_2, cat_2])
     return mat
