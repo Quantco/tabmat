@@ -5,8 +5,8 @@ import numpy as np
 from scipy import sparse as sps
 
 from .categorical_matrix import CategoricalMatrix
+from .dense_matrix import DenseMatrix
 from .ext.split import split_col_subsets
-from .glm_matrix import DenseMatrix
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 
@@ -16,7 +16,7 @@ def split_sparse_and_dense_parts(
 ) -> Tuple[DenseMatrix, SparseMatrix, np.ndarray, np.ndarray]:
     if not isinstance(arg1, sps.csc_matrix):
         raise TypeError(
-            f"X must be of type scipy.sparse.csc_matrix or matrix.MKLSparseMatrix, not {type(arg1)}"
+            f"X must be of type scipy.sparse.csc_matrix or matrix.SparseMatrix, not {type(arg1)}"
         )
     if not 0 <= threshold <= 1:
         raise ValueError("Threshold must be between 0 and 1.")
