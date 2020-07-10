@@ -6,7 +6,7 @@ from scipy import sparse as sps
 from . import MatrixBase, SparseMatrix
 
 
-class StandardizedMat:
+class StandardizedMatrix:
     """
     Matrix with ij element equal to mat[i, j] + shift[0, j]
     """
@@ -76,12 +76,12 @@ class StandardizedMat:
 
     def getcol(self, i: int):
         """
-        Returns a StandardizedSpMat.
+        Returns a StandardizedMatrix.
 
         >>> from scipy import sparse as sps
-        >>> x = StandardizedMat(SparseMatrix(sps.eye(3).tocsc()), shift=[0, 1, -2])
+        >>> x = StandardizedMatrix(SparseMatrix(sps.eye(3).tocsc()), shift=[0, 1, -2])
         >>> col_1 = x.getcol(1)
-        >>> isinstance(col_1, StandardizedMat)
+        >>> isinstance(col_1, StandardizedMatrix)
         True
         >>> col_1.A
         array([[1.],
@@ -94,7 +94,7 @@ class StandardizedMat:
         col = self.mat.getcol(i)
         if isinstance(col, sps.csc_matrix) and not isinstance(col, MatrixBase):
             col = SparseMatrix(col)
-        return StandardizedMat(col, [self.shift[i]], mult)
+        return StandardizedMatrix(col, [self.shift[i]], mult)
 
     def sandwich(
         self, d: np.ndarray, rows: np.ndarray = None, cols: np.ndarray = None
@@ -233,4 +233,4 @@ class StandardizedMat:
                 out = out * mult_part
             return out + shift_part
 
-        return StandardizedMat(mat_part, np.atleast_1d(shift_part), mult_part)
+        return StandardizedMatrix(mat_part, np.atleast_1d(shift_part), mult_part)
