@@ -12,16 +12,16 @@ def base_array(order="F") -> np.ndarray:
     return np.array([[0, 0], [0, -1.0], [0, 2.0]], order=order)
 
 
-def dense_glm_data_matrix_F() -> mx.DenseGLMDataMatrix:
-    return mx.DenseGLMDataMatrix(base_array())
+def dense_glm_data_matrix_F() -> mx.DenseMatrix:
+    return mx.DenseMatrix(base_array())
 
 
-def dense_glm_data_matrix_C() -> mx.DenseGLMDataMatrix:
-    return mx.DenseGLMDataMatrix(base_array(order="C"))
+def dense_glm_data_matrix_C() -> mx.DenseMatrix:
+    return mx.DenseMatrix(base_array(order="C"))
 
 
-def mkl_sparse_matrix() -> mx.MKLSparseMatrix:
-    return mx.MKLSparseMatrix(sps.csc_matrix(base_array()))
+def mkl_sparse_matrix() -> mx.SparseMatrix:
+    return mx.SparseMatrix(sps.csc_matrix(base_array()))
 
 
 def categorical_matrix():
@@ -30,7 +30,7 @@ def categorical_matrix():
 
 
 def get_unscaled_matrices() -> List[
-    Union[mx.DenseGLMDataMatrix, mx.MKLSparseMatrix, mx.CategoricalMatrix]
+    Union[mx.DenseMatrix, mx.SparseMatrix, mx.CategoricalMatrix]
 ]:
     return [
         dense_glm_data_matrix_F(),
@@ -119,7 +119,7 @@ def test_to_array_standardized_mat(mat: mx.StandardizedMat):
 
 @pytest.mark.parametrize("mat", get_matrices())
 @pytest.mark.parametrize(
-    "other_type", [lambda x: x, np.asarray, mx.DenseGLMDataMatrix],
+    "other_type", [lambda x: x, np.asarray, mx.DenseMatrix],
 )
 @pytest.mark.parametrize("rows", [None, np.arange(2, dtype=np.int32)])
 @pytest.mark.parametrize("cols", [None, np.arange(1, dtype=np.int32)])
@@ -156,7 +156,7 @@ def process_mat_vec_subsets(mat, vec, mat_rows, mat_cols, vec_idxs):
 
 @pytest.mark.parametrize("mat", get_matrices())
 @pytest.mark.parametrize(
-    "other_type", [lambda x: x, np.array, mx.DenseGLMDataMatrix],
+    "other_type", [lambda x: x, np.array, mx.DenseMatrix],
 )
 @pytest.mark.parametrize(
     "other_as_list",
@@ -200,8 +200,8 @@ def test_transpose_dot(
 @pytest.mark.parametrize("L_cols", [None, np.arange(1, dtype=np.int32)])
 @pytest.mark.parametrize("R_cols", [None, np.arange(1, dtype=np.int32)])
 def test_cross_sandwich(
-    mat_i: Union[mx.DenseGLMDataMatrix, mx.MKLSparseMatrix, mx.CategoricalMatrix],
-    mat_j: Union[mx.DenseGLMDataMatrix, mx.MKLSparseMatrix, mx.CategoricalMatrix],
+    mat_i: Union[mx.DenseMatrix, mx.SparseMatrix, mx.CategoricalMatrix],
+    mat_j: Union[mx.DenseMatrix, mx.SparseMatrix, mx.CategoricalMatrix],
     rows: Optional[np.ndarray],
     L_cols: Optional[np.ndarray],
     R_cols: Optional[np.ndarray],
@@ -217,7 +217,7 @@ def test_cross_sandwich(
 
 @pytest.mark.parametrize("mat", get_matrices())
 @pytest.mark.parametrize(
-    "vec_type", [lambda x: x, np.array, mx.DenseGLMDataMatrix],
+    "vec_type", [lambda x: x, np.array, mx.DenseMatrix],
 )
 @pytest.mark.parametrize("rows", [None, np.arange(2, dtype=np.int32)])
 @pytest.mark.parametrize("cols", [None, np.arange(1, dtype=np.int32)])
@@ -266,7 +266,7 @@ def test_transpose(mat):
 
 @pytest.mark.parametrize("mat", get_matrices())
 @pytest.mark.parametrize(
-    "vec_type", [lambda x: x, np.array, mx.DenseGLMDataMatrix],
+    "vec_type", [lambda x: x, np.array, mx.DenseMatrix],
 )
 @pytest.mark.parametrize(
     "vec_as_list",
