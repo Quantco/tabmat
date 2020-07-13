@@ -3,6 +3,7 @@ import numpy as np
 cimport numpy as np
 
 from libcpp.vector cimport vector
+from libcpp cimport bool
 from libc.stdlib cimport malloc, free
 from cython cimport floating
 
@@ -16,66 +17,62 @@ ctypedef np.uint8_t uint8
 ctypedef np.int8_t int8
 
 
+cdef extern from "cat_split_helpers.cpp":
+    void _sandwich_cat_denseC[F](F*, int*, int*, int, int*, int, F*, int, F*, int, int) nogil
+    void _sandwich_cat_denseF[F](F*, int*, int*, int, int*, int, F*, int, F*, int, int) nogil
+    void _sandwich_cat_cat[F](F*, const int*, const int*, int*, int, F*, int, int)
+
+
 def sandwich_cat_dense(
-    np.ndarray i_indices_,
+    int[:] i_indices,
     int i_ncol,
-    floating[:] d,
+    d_,
     floating[:, :] mat_j,
     int[:] rows,
-    int[:] j_cols
+    int[:] j_cols,
+    bool is_c_contiguous
 ):
-    """
-    Expect mat_j to be C-contiguous (row major)
-    """
 
     cdef floating[:, :] res
-    res = np.zeros((i_ncol, len(j_cols)))
-    cdef const int8[:] i_indices = i_indices_.view(dtype=np.int8)
+    res = np.zeros((i_ncol, len(j_cols)), dtype=d_.dtype)
 
-    if len(d) == 0 or len(rows) == 0 or len(j_cols) == 0 or i_ncol == 0:
+    if len(d_) == 0 or len(rows) == 0 or len(j_cols) == 0 or i_ncol == 0:
         return np.asarray(res)
 
-    # Ben says pointers are probably a < 5%-10% improvement over memoryviews
-    cdef size_t i, j, k, k_idx, j_idx
+    cdef floating[:] d = d_
     cdef floating* d_p = &d[0]
-    cdef const int8* i_indices_p = &i_indices[0]
+    cdef int* i_indices_p = &i_indices[0]
     cdef int* rows_p = &rows[0]
     cdef int* j_cols_p = &j_cols[0]
 
-    for k_idx in range(len(rows)):
-        k = rows_p[k_idx]
-        i = i_indices_p[k]
-        for j_idx in range(len(j_cols)):
-            j = j_cols_p[j_idx]
-            res[i, j_idx] += d_p[k] * mat_j[k, j]
+    if is_c_contiguous:
+        _sandwich_cat_denseC(d_p, i_indices_p, rows_p, len(rows), j_cols_p,
+                            len(j_cols), &res[0, 0], res.size, &mat_j[0, 0],
+                            mat_j.shape[0], mat_j.shape[1])
+    else:
+        _sandwich_cat_denseF(d_p, i_indices_p, rows_p, len(rows), j_cols_p,
+                            len(j_cols), &res[0, 0], res.size, &mat_j[0, 0],
+                            mat_j.shape[0], mat_j.shape[1])
 
     return np.asarray(res)
 
 
-def _sandwich_cat_cat(
-    np.ndarray i_indices_,
-    np.ndarray j_indices_,
+def sandwich_cat_cat(
+    int[:] i_indices,
+    int[:] j_indices,
     int i_ncol,
     int j_ncol,
     floating[:] d,
     int[:] rows,
+    dtype
 ):
     """
     (X1.T @ diag(d) @ X2)[i, j] = sum_k X1[k, i] d[k] X2[k, j]
     """
-    # TODO: support for single-precision d
-    cdef const int8[:] i_indices = i_indices_.view(dtype=np.int8)
-    cdef const int8[:] j_indices = j_indices_.view(dtype=np.int8)
+    cdef floating[:, :] res = np.zeros((i_ncol, j_ncol), dtype=dtype)
 
-    cdef floating[:, :] res
-    res = np.zeros((i_ncol, j_ncol))
-    cdef size_t k_idx, k, i, j
-
-    for k_idx in range(len(rows)):
-        k = rows[k_idx]
-        i = i_indices[k]
-        j = j_indices[k]
-        res[i, j] += d[k]
+    _sandwich_cat_cat(&d[0], &i_indices[0], &j_indices[0], &rows[0], len(rows),
+                        &res[0, 0], j_ncol, res.size)
 
     return np.asarray(res)
 
@@ -106,11 +103,11 @@ def _sandwich_cat_cat_limited_rows_cols(
 
     cdef uint8[:] i_col_included = np.zeros(i_ncol, dtype=np.uint8)
     for Ci in range(i_ncol):
-        i_col_included[i_cols[Ci]] = True
+        i_col_included[i_cols[Ci]] = 1
 
     cdef uint8[:] j_col_included = np.zeros(j_ncol, dtype=np.uint8)
     for Ci in range(j_ncol):
-        j_col_included[j_cols[Ci]] = True
+        j_col_included[j_cols[Ci]] = 1
 
     for k_idx in range(len(rows)):
         k = rows[k_idx]

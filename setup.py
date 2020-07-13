@@ -3,7 +3,6 @@ import os
 import sys
 from os import path
 
-import mako.runtime
 import mako.template
 import numpy as np
 from Cython.Build import cythonize
@@ -19,6 +18,7 @@ print("templating C source")
 templates = [
     "src/quantcore/matrix/ext/dense_helpers-tmpl.cpp",
     "src/quantcore/matrix/ext/sparse_helpers-tmpl.cpp",
+    "src/quantcore/matrix/ext/cat_split_helpers-tmpl.cpp",
 ]
 
 for fn in templates:
