@@ -69,7 +69,13 @@ class DenseMatrix(np.ndarray, MatrixBase):
         sqrt_arg[sqrt_arg < 0] = 0
         return np.sqrt(sqrt_arg)
 
-    def dot_helper(self, vec, rows, cols, transpose):
+    def dot_helper(
+        self,
+        vec: Union[List, np.ndarray],
+        rows: Optional[np.ndarray],
+        cols: Optional[np.ndarray],
+        transpose: bool,
+    ):
         # Because the dense_rmatvec takes a row array and col array, it has
         # added overhead compared to a raw matrix vector product. So, when
         # we're not filtering at all, let's just use default numpy dot product.
@@ -103,10 +109,5 @@ class DenseMatrix(np.ndarray, MatrixBase):
     ) -> np.ndarray:
         return self.dot_helper(vec, rows, cols, True)
 
-    def dot(
-        self,
-        vec: Union[np.ndarray, List],
-        rows: np.ndarray = None,
-        cols: np.ndarray = None,
-    ) -> np.ndarray:
-        return self.dot_helper(vec, rows, cols, False)
+    def dot(self, vec: Union[np.ndarray, List], cols: np.ndarray = None,) -> np.ndarray:
+        return self.dot_helper(vec, None, cols, False)
