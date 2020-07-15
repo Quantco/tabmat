@@ -46,6 +46,7 @@ def dot(mat, vec):
 
 
 def run_benchmarks(matrices: dict) -> pd.DataFrame:
+    assert isinstance(matrices, dict)
     vec = np.random.random(next(iter(matrices.values())).shape[1])
     vec2 = np.random.random(next(iter(matrices.values())).shape[0])
 
@@ -136,11 +137,22 @@ def make_dense_cat_matrices(
     return dense_cat_matrices
 
 
+def make_sparse_matrices(n_rows: int, n_cols: int) -> dict:
+    mat = sps.random(n_rows, n_cols).tocsc()
+    matrices = {
+        "scipy.sparse csc": mat,
+        "scipy.sparse csr": mat.tocsr(),
+        "quantcore.matrix": mx.SparseMatrix(mat),
+    }
+    return matrices
+
+
 def main():
     n_rows = int(1e6)
     benchmark_matrices = {
         "dense": lambda: make_dense_matrices(int(1e5), 1000),
-        "one_cat": lambda: make_cat_matrix(n_rows, int(1e5)),
+        "one_cat": lambda: make_cat_matrix_all_formats(n_rows, int(1e5)),
+        "sparse": lambda: make_sparse_matrices(n_rows, int(1e3)),
         "two_cat": lambda: make_cat_matrices(n_rows, int(1e3), int(1e3)),
         "dense_cat": lambda: make_dense_cat_matrices(n_rows, 5, int(1e3), int(1e3)),
     }

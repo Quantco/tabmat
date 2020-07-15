@@ -1,5 +1,6 @@
 # Project-specific
-benchmark_output/
+benchmark/*.png
+benchmark/*.csv
 
 # Files created by templating
 dense.cpp
