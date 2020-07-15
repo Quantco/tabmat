@@ -51,18 +51,19 @@ def run_benchmarks(matrices: dict) -> pd.DataFrame:
 
     times = pd.DataFrame(
         index=pd.MultiIndex.from_product(
-            [["dot", "sandwich", "transpose_dot"], matrices.keys()],
+            [["matrix-vector", "sandwich", "matrix-transpose-vector"], matrices.keys()],
             names=["operation", "storage"],
         ),
         columns=["memory", "time"],
     ).reset_index()
+
     for i, row in times.iterrows():
         mat_ = matrices[row["storage"]]
         op = row["operation"]
         start = time.time()
-        if op == "dot":
+        if op == "matrix-vector":
             peak_mem = dot(mat_, vec)
-        elif op == "transpose_dot":
+        elif op == "matrix-transpose-vector":
             peak_mem = transpose_dot(mat_, vec2)
         else:
             peak_mem = sandwich(mat_, vec2)
@@ -74,57 +75,78 @@ def run_benchmarks(matrices: dict) -> pd.DataFrame:
 
 
 def make_dense_matrices(n_rows: int, n_cols: int) -> dict:
-    dense_matrices = {"np_C": np.random.random((n_rows, n_cols))}
-    dense_matrices["np_F"] = dense_matrices["np_C"].copy(order="F")
-    assert dense_matrices["np_F"].flags["F_CONTIGUOUS"]
-    dense_matrices["custom"] = mx.DenseMatrix(dense_matrices["np_C"])
+    dense_matrices = {"numpy_C": np.random.random((n_rows, n_cols))}
+    dense_matrices["numpy_F"] = dense_matrices["numpy_C"].copy(order="F")
+    assert dense_matrices["numpy_F"].flags["F_CONTIGUOUS"]
+    dense_matrices["quantcore.matrix"] = mx.DenseMatrix(dense_matrices["numpy_C"])
     return dense_matrices
+
+
+def make_cat_matrix(n_rows: int, n_cats: int) -> mx.CategoricalMatrix:
+    mat = mx.CategoricalMatrix(np.random.choice(np.arange(n_cats, dtype=int), n_rows))
+    return mat
+
+
+def make_cat_matrix_all_formats(n_rows: int, n_cats: int) -> dict:
+    mat = make_cat_matrix(n_rows, n_cats)
+    d = {
+        "quantcore.matrix": mat,
+        "scipy.sparse csr": mat.tocsr(),
+    }
+    d["scipy.sparse csc"] = d["scipy.sparse csr"].tocsc()
+    return d
 
 
 def make_cat_matrices(n_rows: int, n_cat_cols_1: int, n_cat_cols_2: int) -> dict:
     two_cat_matrices = {
-        "custom": mx.SplitMatrix(
+        "quantcore.matrix": mx.SplitMatrix(
             [
-                mx.CategoricalMatrix(
-                    np.random.choice(np.arange(n_cat_cols_1, dtype=int), n_rows)
-                ),
-                mx.CategoricalMatrix(
-                    np.random.choice(np.arange(n_cat_cols_2, dtype=int), n_rows)
-                ),
+                make_cat_matrix(n_rows, n_cat_cols_1),
+                make_cat_matrix(n_rows, n_cat_cols_2),
             ]
         )
     }
-    two_cat_matrices["csr"] = sps.hstack(
-        [elt.tocsr() for elt in two_cat_matrices["custom"].matrices]
+    two_cat_matrices["scipy.sparse csr"] = sps.hstack(
+        [elt.tocsr() for elt in two_cat_matrices["quantcore.matrix"].matrices]
     )
-    two_cat_matrices["csc"] = two_cat_matrices["csr"].tocsc()
+    two_cat_matrices["scipy.sparse csc"] = two_cat_matrices["scipy.sparse csr"].tocsc()
     return two_cat_matrices
+
+
+def make_dense_cat_matrices(
+    n_rows: int, n_dense_cols: int, n_cats_1: int, n_cats_2: int
+) -> dict:
+
+    dense_block = np.random.random((n_rows, n_dense_cols))
+    two_cat_matrices = [
+        make_cat_matrix(n_rows, n_cats_1),
+        make_cat_matrix(n_rows, n_cats_2),
+    ]
+    dense_cat_matrices = {
+        "quantcore.matrix": mx.SplitMatrix(
+            two_cat_matrices + [mx.DenseMatrix(dense_block)]
+        ),
+        "scipy.sparse csr": sps.hstack(
+            [elt.tocsr() for elt in two_cat_matrices] + [sps.csr_matrix(dense_block)]
+        ),
+    }
+    dense_cat_matrices["scipy.sparse csc"] = dense_cat_matrices[
+        "scipy.sparse csr"
+    ].tocsc()
+    return dense_cat_matrices
 
 
 def main():
     n_rows = int(1e6)
-
-    dense_times = run_benchmarks(make_dense_matrices(int(1e5), 1000))
-    dense_times.to_csv("benchmark/dense_times.csv", index=False)
-
-    two_cat_matrices = make_cat_matrices(n_rows, int(1e4), int(1e3))
-    print(two_cat_matrices["custom"].shape)
-
-    times = run_benchmarks(two_cat_matrices)
-    times.to_csv("benchmark/two_cat_times.csv", index=False)
-
-    dense_block = np.random.random((n_rows, 10))
-    dense_cat_matrices = {
-        "custom": mx.SplitMatrix(
-            two_cat_matrices["custom"].matrices + [mx.DenseMatrix(dense_block)]
-        ),
-        "csr": sps.hstack([two_cat_matrices["csr"], sps.csr_matrix(dense_block)]),
+    benchmark_matrices = {
+        "dense": lambda: make_dense_matrices(int(1e5), 1000),
+        "one_cat": lambda: make_cat_matrix(n_rows, int(1e5)),
+        "two_cat": lambda: make_cat_matrices(n_rows, int(1e3), int(1e3)),
+        "dense_cat": lambda: make_dense_cat_matrices(n_rows, 5, int(1e3), int(1e3)),
     }
-    dense_cat_matrices["csc"] = dense_cat_matrices["csr"].tocsc()
-    print(dense_cat_matrices["custom"].shape)
-
-    dense_cat_times = run_benchmarks(dense_cat_matrices)
-    dense_cat_times.to_csv("benchmark/dense_cat_times.csv", index=False)
+    for name, f in benchmark_matrices.items():
+        times = run_benchmarks(f())
+        times.to_csv(f"benchmark/{name}_times.csv", index=False)
 
 
 if __name__ == "__main__":
