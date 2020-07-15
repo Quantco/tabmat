@@ -1,5 +1,4 @@
 # Project-specific
-benchmark/*.png
 benchmark/*.csv
 
 # Files created by templating
