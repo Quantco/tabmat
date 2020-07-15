@@ -199,10 +199,18 @@ Dense matrix, 100k x 1k:
 
 ![dense_bm](benchmark/dense_times.png)
 
-Two categorical matrices, 1M x 11k+:
+One-hot encoded categorical variable, 1M x 100k:
+
+![cat_bm](benchmark/one_cat_times.png)
+
+Sparse matrix, 1M x 1k:
+
+![sparse_bm](benchmark/sparse_times.png)
+
+Two categorical matrices, 1M x 2k:
 
 ![two_cat_bm](benchmark/two_cat_times.png)
 
-Two categorical matrices plus a dense matrix, 1M x 11k+:
+Two categorical matrices plus a dense matrix, 1M x 2k+:
 
 ![two_cat_plus_dense_bm](benchmark/dense_cat_times.png)
