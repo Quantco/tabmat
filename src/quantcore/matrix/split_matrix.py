@@ -24,7 +24,7 @@ def split_sparse_and_dense_parts(
     dense_indices = np.where(densities > threshold)[0]
     sparse_indices = np.setdiff1d(np.arange(densities.shape[0]), dense_indices)
 
-    X_dense_F = DenseMatrix(np.asfortranarray(arg1.toarray()[:, dense_indices]))
+    X_dense_F = DenseMatrix(np.asfortranarray(arg1[:, dense_indices].toarray()))
     X_sparse = SparseMatrix(arg1[:, sparse_indices])
     return X_dense_F, X_sparse, dense_indices, sparse_indices
 
