@@ -1,7 +1,7 @@
 from .categorical_matrix import CategoricalMatrix
+from .constructor import from_pandas
 from .dense_matrix import DenseMatrix
 from .matrix_base import MatrixBase, one_over_var_inf_to_val
-from .pandas import from_pandas
 from .sparse_matrix import SparseMatrix
 from .split_matrix import SplitMatrix, csc_to_split
 from .standardized_mat import StandardizedMatrix
