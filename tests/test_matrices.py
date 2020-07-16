@@ -160,6 +160,12 @@ def test_dot(
         np.testing.assert_allclose(res, expected)
         assert isinstance(res, np.ndarray)
 
+        if isinstance(mat, mx.CategoricalMatrix):
+            res2 = np.zeros_like(res)
+            mat.vec_plus_matvec(other, res2, cols)
+            np.testing.assert_allclose(res2, expected)
+            assert isinstance(res2, np.ndarray)
+
         if cols is None:
             res2 = mat @ other
             np.testing.assert_allclose(res2, expected)

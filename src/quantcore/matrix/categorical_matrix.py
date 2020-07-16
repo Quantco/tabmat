@@ -106,13 +106,7 @@ class CategoricalMatrix(MatrixBase):
         other, cols = self._dot_setup(other, cols)
         # TODO: Not sure if this will work with any int inputs. Let's not support that
         vec_plus_matvec(
-            self.indices,
-            other,
-            self.shape[0],
-            other.dtype,
-            cols,
-            self.shape[0],
-            out_vec,
+            self.indices, other, self.shape[0], cols, self.shape[0], out_vec,
         )
 
     def transpose_dot(
