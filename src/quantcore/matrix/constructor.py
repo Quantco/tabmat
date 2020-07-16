@@ -18,6 +18,7 @@ def from_pandas(
     sparse_threshold: float = 0.1,
     cat_threshold: int = 4,
     object_as_cat: bool = False,
+    cat_position: str = "expand",
 ) -> MatrixBase:
     """
     Transform a pandas.DataFrame into an efficient SplitMatrix
@@ -37,6 +38,11 @@ def from_pandas(
     object_as_cat : bool, default False
         If True, DataFrame columns stored as python objects will be treated as
         categorical columns.
+    cat_position : str {'end'|'expand'}, default 'expand'
+        Position of the categorical variable in the index. If "last", all the
+        categoricals (including the ones that did not satisfy cat_threshold)
+        will be placed at the end of the index list. If "expand", all the variables
+        will remain in the same order.
 
     Returns
     -------
@@ -48,6 +54,7 @@ def from_pandas(
 
     matrices: List[Union[DenseMatrix, SparseMatrix, CategoricalMatrix]] = []
     indices: List[List[int]] = []
+    is_cat: List[bool] = []
 
     dense_dfidx = []  # column index in original DataFrame
     dense_mxidx = []  # index in the new SplitMatrix
@@ -75,16 +82,26 @@ def from_pandas(
                     threshold=sparse_threshold,
                 )
                 matrices.append(X_dense_F)
-                indices.append(mxcolidx + dense_indices)
+                is_cat.append(True)
                 matrices.append(X_sparse)
-                indices.append(mxcolidx + sparse_indices)
-                mxcolidx += len(dense_indices) + len(sparse_indices)
+                is_cat.append(True)
+                if cat_position == "expand":
+                    indices.append(mxcolidx + dense_indices)
+                    indices.append(mxcolidx + sparse_indices)
+                    mxcolidx += len(dense_indices) + len(sparse_indices)
+                elif cat_position == "end":
+                    indices.append(dense_indices)
+                    indices.append(sparse_indices)
+
             else:
                 cat = CategoricalMatrix(coldata, dtype=dtype)
                 matrices.append(cat)
-                indices.append(mxcolidx + np.arange(cat.shape[1]))
-                mxcolidx += cat.shape[1]
-
+                is_cat.append(True)
+                if cat_position == "expand":
+                    indices.append(mxcolidx + np.arange(cat.shape[1]))
+                    mxcolidx += cat.shape[1]
+                elif cat_position == "end":
+                    indices.append(np.arange(cat.shape[1]))
         # All other numerical dtypes (needs to be after pd.SparseDtype)
         elif is_numeric_dtype(coldata):
             # check if we want to store as sparse
@@ -111,11 +128,23 @@ def from_pandas(
     if len(dense_dfidx) > 0:
         matrices.append(DenseMatrix(df.iloc[:, dense_dfidx].astype(dtype)))
         indices.append(dense_mxidx)
+        is_cat.append(False)
     if len(sparse_dfidx) > 0:
         matrices.append(
             SparseMatrix(df.iloc[:, sparse_dfidx].sparse.to_coo(), dtype=dtype)
         )
         indices.append(sparse_mxidx)
+        is_cat.append(False)
+
+    if cat_position == "end":
+        new_indices = []
+        for mat_indices, is_cat_ in zip(indices, is_cat):
+            if is_cat:
+                new_indices.append(np.asarray(mat_indices) + mxcolidx)
+                mxcolidx += len(mat_indices)
+            else:
+                new_indices.append(mat_indices)
+        indices = new_indices
 
     if len(matrices) > 1:
         return SplitMatrix(matrices, indices)
