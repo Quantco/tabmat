@@ -67,7 +67,11 @@ def from_pandas(
                     dense_indices,
                     sparse_indices,
                 ) = split_sparse_and_dense_parts(
-                    pd.get_dummies(coldata, prefix=colname, sparse=True),
+                    pd.get_dummies(
+                        coldata, prefix=colname, sparse=True, dtype=np.float64
+                    )
+                    .sparse.to_coo()
+                    .tocsc(),
                     threshold=sparse_threshold,
                 )
                 matrices.append(X_dense_F)

@@ -426,10 +426,10 @@ def test_indexing_range_row(mat: Union[mx.MatrixBase, mx.StandardizedMatrix]):
 
 
 def test_pandas_to_matrix():
-    n_rows = 10
+    n_rows = 50
     dense_column = np.linspace(-10, 10, num=n_rows, dtype=np.float64)
     sparse_column = np.zeros(n_rows, dtype=np.float64)
-    sparse_column[::10] = 1.0
+    sparse_column[0] = 1.0
     cat_column_lowdim = np.tile(["a", "b"], n_rows // 2)
     cat_column_highdim = np.arange(n_rows)
 
@@ -447,15 +447,15 @@ def test_pandas_to_matrix():
         }
     )
 
-    mat = mx.from_pandas(df, sparse_threshold=0.3, cat_threshold=4)
+    mat = mx.from_pandas(df, dtype=np.float64, sparse_threshold=0.3, cat_threshold=4)
 
-    assert mat.shape == (n_rows, 14)
+    assert mat.shape == (n_rows, n_rows + 4)
     assert len(mat.matrices) == 3
     assert isinstance(mat, mx.SplitMatrix)
 
     nb_col_by_type = {
-        mx.DenseMatrix: 1,
-        mx.SparseMatrix: 3,  # sparse column + low dimensional categorical
+        mx.DenseMatrix: 3,  # includes low-dimension categorical
+        mx.SparseMatrix: 1,  # sparse column
         mx.CategoricalMatrix: n_rows,
     }
     for submat in mat.matrices:
