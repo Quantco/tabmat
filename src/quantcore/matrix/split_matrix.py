@@ -165,16 +165,11 @@ class SplitMatrix(MatrixBase):
         for i in range(len(self.indices)):
             idx_i = subset_cols_indices[i]
             mat_i = self.matrices[i]
-            expected_dim_1 = (
-                mat_i.shape[1] if subset_cols[i] is None else len(subset_cols[i])  # type: ignore
-            )
             res = mat_i.sandwich(d, rows, subset_cols[i])
-            expected_shape = (expected_dim_1, expected_dim_1)
             if isinstance(res, sps.dia_matrix):
                 out[(idx_i, idx_i)] += np.squeeze(res.data)
             else:
                 out[np.ix_(idx_i, idx_i)] = res
-            assert res.shape == expected_shape
 
             for j in range(i + 1, len(self.indices)):
                 idx_j = subset_cols_indices[j]
@@ -182,15 +177,9 @@ class SplitMatrix(MatrixBase):
                 res = mat_i.cross_sandwich(
                     mat_j, d, rows, subset_cols[i], subset_cols[j]
                 )
-                expected_shape = (
-                    expected_dim_1,
-                    mat_j.shape[1] if subset_cols[j] is None else len(subset_cols[j]),  # type: ignore
-                )
 
                 out[np.ix_(idx_i, idx_j)] = res
                 out[np.ix_(idx_j, idx_i)] = res.T
-
-                assert res.shape == expected_shape
 
         return out
 
@@ -207,9 +196,7 @@ class SplitMatrix(MatrixBase):
 
         return col_stds
 
-    def dot(
-        self, v: np.ndarray, rows: np.ndarray = None, cols: np.ndarray = None
-    ) -> np.ndarray:
+    def dot(self, v: np.ndarray, cols: np.ndarray = None) -> np.ndarray:
         assert not isinstance(v, sps.spmatrix)
         v = np.asarray(v)
         if v.shape[0] != self.shape[1]:
@@ -219,11 +206,15 @@ class SplitMatrix(MatrixBase):
             cols = np.arange(self.shape[1], dtype=np.int32)
         _, subset_cols, n_cols = self._split_col_subsets(cols)
 
-        out_shape_base = [self.shape[0]] if rows is None else [rows.shape[0]]
-        out_shape = out_shape_base + ([] if v.ndim == 1 else list(v.shape[1:]))
+        out_shape = [self.shape[0]] + ([] if v.ndim == 1 else list(v.shape[1:]))
         out = np.zeros(out_shape, np.result_type(self.dtype, v.dtype))
         for sub_cols, idx, mat in zip(subset_cols, self.indices, self.matrices):
-            out += mat.dot(v[idx, ...], rows, sub_cols)
+            one = v[idx, ...]
+            if isinstance(mat, CategoricalMatrix):
+                mat.vec_plus_matvec(one, out, sub_cols)
+            else:
+                tmp = mat.dot(one, sub_cols)
+                out += tmp
         return out
 
     def transpose_dot(
@@ -267,5 +258,11 @@ class SplitMatrix(MatrixBase):
             raise NotImplementedError(
                 f"Only row indexing is supported. Index passed was {key}."
             )
+
+    def __repr__(self):
+        out = "SplitMatrix:"
+        for i, mat in enumerate(self.matrices):
+            out += f"\nComponent {i}:\n" + str(mat)
+        return out
 
     __array_priority__ = 13
