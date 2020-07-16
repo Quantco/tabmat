@@ -1,4 +1,5 @@
 import warnings
+from typing import List, Union
 
 import numpy as np
 import pandas as pd
@@ -8,7 +9,7 @@ from .categorical_matrix import CategoricalMatrix
 from .dense_matrix import DenseMatrix
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
-from .split_matrix import SplitMatrix
+from .split_matrix import SplitMatrix, split_sparse_and_dense_parts
 
 
 def from_pandas(
@@ -45,56 +46,76 @@ def from_pandas(
         for colname in df.select_dtypes("object"):
             df[colname] = df[colname].astype("category")
 
-    matrices = []
-    sparse_ohe_comp = []
-    sparse_idx = []
-    dense_idx = []
+    matrices: List[Union[DenseMatrix, SparseMatrix, CategoricalMatrix]] = []
+    indices: List[List[int]] = []
+
+    dense_dfidx = []  # column index in original DataFrame
+    dense_mxidx = []  # index in the new SplitMatrix
+    sparse_dfidx = []  # column index in original DataFrame
+    sparse_mxidx = []  # index in the new SplitMatrix
     ignored_cols = []
-    for colidx, (colname, coldata) in enumerate(df.iteritems()):
+
+    mxcolidx = 0
+
+    for dfcolidx, (colname, coldata) in enumerate(df.iteritems()):
         # categorical
         if isinstance(coldata.dtype, pd.CategoricalDtype):
             if len(coldata.cat.categories) < cat_threshold:
-                sparse_ohe_comp.append(
-                    pd.get_dummies(coldata, prefix=colname, sparse=True)
+                (
+                    X_dense_F,
+                    X_sparse,
+                    dense_indices,
+                    sparse_indices,
+                ) = split_sparse_and_dense_parts(
+                    pd.get_dummies(coldata, prefix=colname, sparse=True),
+                    threshold=sparse_threshold,
                 )
+                matrices.append(X_dense_F)
+                indices.append(mxcolidx + dense_indices)
+                matrices.append(X_sparse)
+                indices.append(mxcolidx + sparse_indices)
+                mxcolidx += len(dense_indices) + len(sparse_indices)
             else:
-                matrices.append(CategoricalMatrix(coldata, dtype=dtype))
-
-        # sparse data, keep in sparse format even if density is larger than threshold
-        elif isinstance(coldata.dtype, pd.SparseDtype):
-            sparse_idx.append(colidx)
+                cat = CategoricalMatrix(coldata, dtype=dtype)
+                matrices.append(cat)
+                indices.append(mxcolidx + np.arange(cat.shape[1]))
+                mxcolidx += cat.shape[1]
 
         # All other numerical dtypes (needs to be after pd.SparseDtype)
         elif is_numeric_dtype(coldata):
             # check if we want to store as sparse
             if (coldata != 0).mean() <= sparse_threshold:
-                sparse_dtype = pd.SparseDtype(coldata.dtype, fill_value=0)
-                df.iloc[:, colidx] = df.iloc[:, colidx].astype(sparse_dtype)
-                sparse_idx.append(colidx)
+                if not isinstance(coldata.dtype, pd.SparseDtype):
+                    sparse_dtype = pd.SparseDtype(coldata.dtype, fill_value=0)
+                    df.iloc[:, dfcolidx] = coldata.astype(sparse_dtype)
+                sparse_dfidx.append(dfcolidx)
+                sparse_mxidx.append(mxcolidx)
+                mxcolidx += 1
             else:
-                dense_idx.append(colidx)
+                dense_dfidx.append(dfcolidx)
+                dense_mxidx.append(mxcolidx)
+                mxcolidx += 1
 
         # dtype not handled yet
         else:
-            ignored_cols.append((colidx, colname))
+            ignored_cols.append((dfcolidx, colname))
 
     if len(ignored_cols) > 0:
         warnings.warn(
             f"Columns {ignored_cols} were ignored. Make sure they have a valid dtype."
         )
-    if len(dense_idx) > 0:
-        dense_comp = DenseMatrix(df.iloc[:, dense_idx].astype(dtype))
-        matrices.append(dense_comp)
-    if len(sparse_idx) > 0:
-        sparse_comp = SparseMatrix(df.iloc[:, sparse_idx].sparse.to_coo(), dtype=dtype)
-        matrices.append(sparse_comp)
-    if len(sparse_ohe_comp) > 0:
-        sparse_ohe_comp = SparseMatrix(
-            pd.concat(sparse_ohe_comp, axis=1).sparse.to_coo(), dtype=dtype
+    if len(dense_dfidx) > 0:
+        matrices.append(DenseMatrix(df.iloc[:, dense_dfidx].astype(dtype)))
+        indices.append(dense_mxidx)
+    if len(sparse_dfidx) > 0:
+        matrices.append(
+            SparseMatrix(df.iloc[:, sparse_dfidx].sparse.to_coo(), dtype=dtype)
         )
-        matrices.append(sparse_ohe_comp)
+        indices.append(sparse_mxidx)
 
     if len(matrices) > 1:
-        return SplitMatrix(matrices)
+        return SplitMatrix(matrices, indices)
+    elif len(matrices) == 0:
+        raise ValueError("DataFrame contained no valid column")
     else:
         return matrices[0]
