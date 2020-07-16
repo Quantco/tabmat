@@ -139,7 +139,7 @@ def from_pandas(
     if cat_position == "end":
         new_indices = []
         for mat_indices, is_cat_ in zip(indices, is_cat):
-            if is_cat:
+            if is_cat_:
                 new_indices.append(np.asarray(mat_indices) + mxcolidx)
                 mxcolidx += len(mat_indices)
             else:
