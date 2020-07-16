@@ -1,14 +1,12 @@
-import warnings
 from typing import List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
 from scipy import sparse as sps
 
-from .ext.categorical import sandwich_categorical
-from .ext.split import _sandwich_cat_cat, sandwich_cat_dense
+from .ext.categorical import dot, sandwich_categorical, transpose_dot, vec_plus_matvec
+from .ext.split import sandwich_cat_cat, sandwich_cat_dense
 from .matrix_base import MatrixBase
-from .sparse_matrix import SparseMatrix
 
 
 def _none_to_slice(arr: Optional[np.ndarray], n: int) -> Union[slice, np.ndarray]:
@@ -36,7 +34,7 @@ class CategoricalMatrix(MatrixBase):
             self.cat = pd.Categorical(cat_vec)
 
         self.shape = (len(self.cat), len(self.cat.categories))
-        self.indices = self.cat.codes
+        self.indices = self.cat.codes.astype(np.int32)
         self.x_csc: Optional[Tuple[Optional[np.ndarray], np.ndarray, np.ndarray]] = None
         self.dtype = dtype
 
@@ -50,49 +48,66 @@ class CategoricalMatrix(MatrixBase):
         """
         return self.cat.categories[self.cat.codes]
 
-    def dot(
-        self,
-        other: Union[List, np.ndarray],
-        rows: np.ndarray = None,
-        cols: np.ndarray = None,
-    ) -> np.ndarray:
-        """
-        When other is 1d:
-        mat.dot(other)[i] = sum_j mat[i, j] other[j]
-                          = other[mat.indices[i]]
-
-        When other is 2d:
-        mat.dot(other)[i, k] = sum_j mat[i, j] other[j, k]
-                            = other[mat.indices[i], k]
-
-        The rows and cols parameters allow restricting to a subset of the
-        matrix without making a copy.
-
-        Test:
-        matrix/test_matrices::test_dot
-        """
+    def _dot_setup(
+        self, other: Union[List, np.ndarray], cols: np.ndarray = None,
+    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         other = np.asarray(other)
+        if other.ndim > 1:
+            raise NotImplementedError(
+                """CategoricalMatrix.dot is only implemented for 1d arrays."""
+            )
         if other.shape[0] != self.shape[1]:
             raise ValueError(
                 f"""Needed other to have first dimension {self.shape[1]},
                 but it has shape {other.shape}"""
             )
 
-        if cols is None:
+        if cols is not None and len(cols) == self.shape[1]:
+            cols = None
+        return other, cols
+
+    def dot(
+        self, other: Union[List, np.ndarray], cols: np.ndarray = None,
+    ) -> np.ndarray:
+        """
+        When other is 1d:
+        mat.dot(other)[i] = sum_j mat[i, j] other[j]
+                          = other[mat.indices[i]]
+
+        The cols parameter allows restricting to a subset of the
+        matrix without making a copy.
+
+        Test:
+        matrix/test_matrices::test_dot
+        """
+        other, cols = self._dot_setup(other, cols)
+        n_rows = self.shape[0]
+        is_int = np.issubdtype(other.dtype, np.signedinteger)
+
+        if is_int:
+            other_m = other.astype(float)
+        else:
             other_m = other
-        else:
-            col_mult = np.zeros(len(self.cat.categories), dtype=self.dtype)
-            col_mult[cols] = 1.0
 
-            if other.ndim == 1:
-                other_m = other * col_mult
-            else:
-                other_m = other * col_mult[:, None]
+        res = dot(self.indices, other_m, self.shape[0], other_m.dtype, cols, n_rows)
+        if is_int:
+            return res.astype(int)
+        return res
 
-        if rows is not None:
-            return other_m[self.indices[rows], ...]
-        else:
-            return other_m[self.indices, ...]
+    def vec_plus_matvec(
+        self,
+        other: Union[List, np.ndarray],
+        out_vec: np.ndarray,
+        cols: np.ndarray = None,
+    ) -> None:
+        """
+        e.g. Lapack gemv
+        """
+        other, cols = self._dot_setup(other, cols)
+        # TODO: Not sure if this will work with any int inputs. Let's not support that
+        vec_plus_matvec(
+            self.indices, other, self.shape[0], cols, self.shape[0], out_vec,
+        )
 
     def transpose_dot(
         self,
@@ -109,11 +124,17 @@ class CategoricalMatrix(MatrixBase):
         Test: tests/test_matrices::test_transpose_dot
         """
         # TODO: write a function that doesn't reference the data
+        # TODO: this should look more like the cat_cat_sandwich
         vec = np.asarray(vec)
-        data, indices, indptr = self._check_csc()
-        data = np.ones(self.shape[0], dtype=vec.dtype) if data is None else data
-        as_csc = SparseMatrix((data, indices, indptr), shape=self.shape)
-        return as_csc.transpose_dot(vec, rows, cols)
+        if vec.ndim > 1:
+            raise NotImplementedError(
+                "CategoricalMatrix.transpose_dot is only implemented for 1d arrays."
+            )
+
+        res = transpose_dot(self.indices, vec, self.shape[1], vec.dtype, rows)
+        if cols is not None and len(cols) < self.shape[1]:
+            res = res[cols]
+        return res
 
     def sandwich(
         self,
@@ -132,10 +153,12 @@ class CategoricalMatrix(MatrixBase):
         The rows and cols parameters allow restricting to a subset of the
         matrix without making a copy.
         """
-        # TODO: make downstream calls to this exploit the sparse structure
         d = np.asarray(d)
-        _, indices, indptr = self._check_csc()
-        res_diag = sandwich_categorical(indices, indptr, d, rows, cols, d.dtype)
+        if rows is None:
+            rows = np.arange(self.shape[0], dtype=np.int32)
+        res_diag = sandwich_categorical(self.indices, d, rows, d.dtype, self.shape[1])
+        if cols is not None and len(cols) < self.shape[1]:
+            res_diag = res_diag[cols]
         return sps.diags(res_diag)
 
     def cross_sandwich(
@@ -153,19 +176,6 @@ class CategoricalMatrix(MatrixBase):
         if isinstance(other, CategoricalMatrix):
             return self._cross_categorical(other, d, rows, L_cols, R_cols)
         raise TypeError
-
-    def _check_csc(self, force_reset=False) -> Tuple[None, np.ndarray, np.ndarray]:
-        if self.x_csc is None or force_reset:
-            # Currently taking up a lot of time
-            csc = self.tocsr().tocsc()
-            np.testing.assert_allclose(csc.data, np.ones(self.shape[0]))
-            self.x_csc = (None, csc.indices, csc.indptr)
-        return self.x_csc
-
-    def tocsc(self):
-        _, indices, indptr = self._check_csc()
-        data = np.ones(self.shape[0])
-        return sps.csc_matrix((data, indices, indptr))
 
     # TODO: best way to return this depends on the use case. See what that is
     # See how csr getcol works
@@ -218,20 +228,23 @@ class CategoricalMatrix(MatrixBase):
         R_cols: Optional[np.ndarray],
     ) -> np.ndarray:
 
-        if not other.flags["C_CONTIGUOUS"]:
-            warnings.warn(
-                """CategoricalMatrix._cross_dense(other, ...) is optimized for the case
-                where other is a C-contiguous Numpy array."""
+        if other.flags["C_CONTIGUOUS"]:
+            is_c_contiguous = True
+        elif other.flags["F_CONTIGUOUS"]:
+            is_c_contiguous = False
+        else:
+            raise ValueError(
+                "Input array needs to be either C-contiguous or F-contiguous."
             )
-
-        i_indices = self.indices
 
         if rows is None:
             rows = np.arange(self.shape[0], dtype=np.int32)
         if R_cols is None:
             R_cols = np.arange(other.shape[1], dtype=np.int32)
 
-        res = sandwich_cat_dense(i_indices, self.shape[1], d, other, rows, R_cols)
+        res = sandwich_cat_dense(
+            self.indices, self.shape[1], d, other, rows, R_cols, is_c_contiguous
+        )
 
         res = res[_none_to_slice(L_cols, self.shape[1]), :]
         return res
@@ -252,8 +265,8 @@ class CategoricalMatrix(MatrixBase):
         if rows is None:
             rows = np.arange(self.shape[0], dtype=np.int32)
 
-        res = _sandwich_cat_cat(
-            i_indices, j_indices, self.shape[1], other.shape[1], d, rows
+        res = sandwich_cat_cat(
+            i_indices, j_indices, self.shape[1], other.shape[1], d, rows, d.dtype
         )
 
         L_cols = _none_to_slice(L_cols, self.shape[1])
@@ -280,3 +293,6 @@ class CategoricalMatrix(MatrixBase):
         res = term_1.T.dot(other[rows, :][:, _none_to_slice(R_cols, other.shape[1])]).A
 
         return res
+
+    def __repr__(self):
+        return str(self.cat)

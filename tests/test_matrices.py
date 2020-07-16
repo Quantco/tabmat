@@ -122,23 +122,52 @@ def test_to_array_standardized_mat(mat: mx.StandardizedMatrix):
 @pytest.mark.parametrize(
     "other_type", [lambda x: x, np.asarray, mx.DenseMatrix],
 )
-@pytest.mark.parametrize("rows", [None, np.arange(2, dtype=np.int32)])
 @pytest.mark.parametrize("cols", [None, np.arange(1, dtype=np.int32)])
-def test_dot(mat: Union[mx.MatrixBase, mx.StandardizedMatrix], other_type, rows, cols):
+@pytest.mark.parametrize("other_shape", [[], [1], [2]])
+def test_dot(
+    mat: Union[mx.MatrixBase, mx.StandardizedMatrix], other_type, cols, other_shape
+):
     n_row = mat.shape[1]
-    other_shapes = [(n_row,), (n_row, 1), (n_row, 2)]
-    for shape in other_shapes:
-        other_as_list = np.random.random(shape).tolist()
-        other = other_type(other_as_list)
-        res = mat.dot(other, rows, cols)
+    shape = [n_row] + other_shape
+    other_as_list = np.random.random(shape).tolist()
+    other = other_type(other_as_list)
 
-        mat_subset, vec_subset = process_mat_vec_subsets(mat, other, rows, cols, cols)
+    def is_split_with_cat_part(x):
+        return isinstance(x, mx.SplitMatrix) and any(
+            isinstance(elt, mx.CategoricalMatrix) for elt in x.matrices
+        )
+
+    has_categorical_component = (
+        isinstance(mat, mx.CategoricalMatrix)
+        or is_split_with_cat_part(mat)
+        or (
+            isinstance(mat, mx.StandardizedMatrix)
+            and (
+                isinstance(mat.mat, mx.CategoricalMatrix)
+                or is_split_with_cat_part(mat.mat)
+            )
+        )
+    )
+
+    if has_categorical_component and len(shape) > 1:
+        with pytest.raises(NotImplementedError, match="only implemented for 1d"):
+            mat.dot(other, cols)
+    else:
+        res = mat.dot(other, cols)
+
+        mat_subset, vec_subset = process_mat_vec_subsets(mat, other, None, cols, cols)
         expected = mat_subset.dot(vec_subset)
 
         np.testing.assert_allclose(res, expected)
         assert isinstance(res, np.ndarray)
 
-        if rows is None and cols is None:
+        if isinstance(mat, mx.CategoricalMatrix):
+            res2 = np.zeros_like(res)
+            mat.vec_plus_matvec(other, res2, cols)
+            np.testing.assert_allclose(res2, expected)
+            assert isinstance(res2, np.ndarray)
+
+        if cols is None:
             res2 = mat @ other
             np.testing.assert_allclose(res2, expected)
 
@@ -159,20 +188,12 @@ def process_mat_vec_subsets(mat, vec, mat_rows, mat_cols, vec_idxs):
 @pytest.mark.parametrize(
     "other_type", [lambda x: x, np.array, mx.DenseMatrix],
 )
-@pytest.mark.parametrize(
-    "other_as_list",
-    # shapes (3,); (3,1), (3, 2);
-    [[3.0, -0.1, 0], [[3.0], [-0.1], [0]], [[0, 1.0], [-0.1, 0], [0, 3.0]]],
-)
 @pytest.mark.parametrize("rows", [None, np.arange(2, dtype=np.int32)])
 @pytest.mark.parametrize("cols", [None, np.arange(1, dtype=np.int32)])
 def test_transpose_dot(
-    mat: Union[mx.MatrixBase, mx.StandardizedMatrix],
-    other_type,
-    other_as_list,
-    rows,
-    cols,
+    mat: Union[mx.MatrixBase, mx.StandardizedMatrix], other_type, rows, cols
 ):
+    other_as_list = [3.0, -0.1, 0]
     other = other_type(other_as_list)
     assert np.shape(other)[0] == mat.shape[0]
     res = mat.transpose_dot(other, rows, cols)
@@ -273,14 +294,8 @@ def test_transpose(mat):
 @pytest.mark.parametrize(
     "vec_type", [lambda x: x, np.array, mx.DenseMatrix],
 )
-@pytest.mark.parametrize(
-    "vec_as_list",
-    # shapes (3,); (1,3); (2, 3)
-    [[3.0, -0.1, 0], [[3.0, -0.1, 0]], [[0, -0.1, 1.0], [-0.1, 0, 3]]],
-)
-def test_rmatmul(
-    mat: Union[mx.MatrixBase, mx.StandardizedMatrix], vec_type, vec_as_list
-):
+def test_rmatmul(mat: Union[mx.MatrixBase, mx.StandardizedMatrix], vec_type):
+    vec_as_list = [3.0, -0.1, 0]
     vec = vec_type(vec_as_list)
     res = mat.__rmatmul__(vec)
     res2 = vec @ mat
@@ -293,7 +308,7 @@ def test_rmatmul(
 @pytest.mark.parametrize("mat", get_matrices())
 def test_dot_raises(mat: Union[mx.MatrixBase, mx.StandardizedMatrix]):
     with pytest.raises(ValueError):
-        mat.dot(np.ones((11, 1)))
+        mat.dot(np.ones(11))
 
 
 @pytest.mark.parametrize("mat", get_matrices())

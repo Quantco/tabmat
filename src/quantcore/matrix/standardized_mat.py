@@ -47,17 +47,12 @@ class StandardizedMatrix:
         self.dtype = mat.dtype
 
     def dot(
-        self,
-        other_mat: Union[np.ndarray, List],
-        rows: np.ndarray = None,
-        cols: np.ndarray = None,
+        self, other_mat: Union[np.ndarray, List], cols: np.ndarray = None,
     ) -> np.ndarray:
         """
         This function returns a dense output, so it is best geared for the
         matrix-vector case.
         """
-        if rows is None:
-            rows = np.arange(self.shape[0], dtype=np.int32)
         if cols is None:
             cols = np.arange(self.shape[1], dtype=np.int32)
 
@@ -69,7 +64,7 @@ class StandardizedMatrix:
             for i in range(len(other_mat.shape) - 1):
                 mult = mult[:, np.newaxis]
             mult_other = mult * other_mat
-        mat_part = self.mat.dot(mult_other, rows, cols)
+        mat_part = self.mat.dot(mult_other, cols)
 
         shift_part = self.shift[cols].dot(other_mat[cols])
         return mat_part + shift_part
@@ -234,3 +229,10 @@ class StandardizedMatrix:
             return out + shift_part
 
         return StandardizedMatrix(mat_part, np.atleast_1d(shift_part), mult_part)
+
+    def __repr__(self):
+        out = f"""StandardizedMat. Mat: {type(self.mat)} of shape {self.mat.shape}.
+        Shift: {self.shift}
+        Mult: {self.mult}
+        """
+        return out

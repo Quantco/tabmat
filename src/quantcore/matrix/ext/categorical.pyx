@@ -1,3 +1,5 @@
+# cython: boundscheck=False, wraparound=False, cdivision=True
+
 import numpy as np
 cimport numpy as np
 
@@ -5,85 +7,86 @@ from cython cimport floating
 cimport cython
 from cython.parallel import prange
 ctypedef np.uint8_t uint8
+ctypedef np.int8_t int8
 
-@cython.boundscheck(False)  # Deactivate bounds checking
-@cython.wraparound(False)   # Deactivate negative indexing.
-def sandwich_categorical(int[:] indices, int[:] indptr, floating[:] d, rows, cols, dtype):
-    """
-    Returns a 1d array. The sandwich output is a diagonal matrix with this array on
-    the diagonal.
 
-    If X is N x K, indices has length N, and indptr has length K + 1. d should have
-    length N.
-    """
-    # Numpy: tmp = d[indices]
-    cdef Py_ssize_t n_rows = len(indices)
-    cdef Py_ssize_t n_cols = len(indptr) - 1
-    cdef Py_ssize_t k, i, j, ki, ii
-    cdef floating[:] tmp = np.empty(n_rows, dtype=dtype)
-    cdef floating[:] res
-    cdef floating val
-    cdef int[:] rowsview
-    cdef uint8[:] row_included
-    cdef int[:] colsview
-    cdef int n_active_rows, n_active_cols
+cdef extern from "cat_split_helpers.cpp":
+    void _transpose_dot_all_rows[F](int, int*, F*, F*, int)
 
-    # tmp = d[indices]
-    if rows is None:
-        for k in prange(n_rows, nogil=True):
-           tmp[k] = d[indices[k]]
+
+def transpose_dot(int[:] indices, floating[:] other, int n_cols, dtype,
+                  rows):
+    cdef floating[:] res = np.zeros(n_cols, dtype=dtype)
+    cdef int i, n_keep_rows
+    cdef int n_rows = len(indices)
+    cdef int[:] rows_view
+
+    if rows is None or len(rows) == n_rows:
+        _transpose_dot_all_rows(n_rows, &indices[0], &other[0], &res[0], res.size)
     else:
-        rowsview = rows
-        n_active_rows = rows.shape[0]
-        row_included = np.zeros(n_rows, dtype=np.uint8)
-        for ki in prange(n_active_rows, nogil=True):
-            k = rowsview[ki]
-            row_included[k] = True
-            tmp[k] = d[indices[k]]
+        rows_view = rows
+        n_keep_rows = len(rows_view)
+        for k in range(n_keep_rows):
+            i = rows_view[k]
+            res[indices[i]] += other[i]
 
-    #TODO: Use this as an experiment for figuring out how to reduce the duplicate code here.
-    # Alternatively, we can just have cols and rows be full lists and not make
-    # this optimization.
-    if cols is None and rows is None:
-        res_out = np.empty(n_cols, dtype=dtype)
-        res = res_out
-        for i in prange(n_cols, nogil=True):
-            val = 0.0
-            for j in range(indptr[i], indptr[i + 1]):
-                val = val + tmp[j]
-            res[i] = val
-    elif cols is None:
-        res_out = np.empty(n_cols, dtype=dtype)
-        res = res_out
-        for i in prange(n_cols, nogil=True):
-            val = 0.0
-            for j in range(indptr[i], indptr[i + 1]):
-                if not row_included[j]:
-                    continue
-                val = val + tmp[j]
-            res[i] = val
-    elif rows is None:
-        colsview = cols
-        n_active_cols = cols.shape[0]
-        res_out = np.empty(n_active_cols, dtype=dtype)
-        res = res_out
-        for ii in prange(n_active_cols, nogil=True):
-            i = colsview[ii]
-            val = 0.0
-            for j in range(indptr[i], indptr[i + 1]):
-                val = val + tmp[j]
-            res[ii] = val
+    return np.asarray(res)
+
+
+def get_col_included(int[:] cols, int n_cols):
+    cdef int[:] col_included = np.zeros(n_cols, dtype=np.int32)
+    cdef int n_cols_included = len(cols)
+    for Ci in range(n_cols_included):
+        col_included[cols[Ci]] = 1
+    return col_included
+
+
+def vec_plus_matvec(const int[:] indices, floating[:] other, int n_rows, int[:] cols,
+        int n_cols, floating[:] out_vec):
+    cdef int i, col, Ci, k
+    cdef int[:] col_included
+
+    if cols is None:
+        for i in prange(n_rows, nogil=True):
+            out_vec[i] += other[indices[i]]
     else:
-        colsview = cols
-        n_active_cols = cols.shape[0]
-        res_out = np.empty(n_active_cols, dtype=dtype)
-        res = res_out
-        for ii in prange(n_active_cols, nogil=True):
-            i = colsview[ii]
-            val = 0.0
-            for j in range(indptr[i], indptr[i + 1]):
-                if not row_included[j]:
-                    continue
-                val = val + tmp[j]
-            res[ii] = val
-    return res_out
+        col_included = get_col_included(cols, n_cols)
+        for i in prange(n_rows, nogil=True):
+            col = indices[i]
+            if col_included[col] == 1:
+                out_vec[i] += other[indices[i]]
+    return
+
+
+def dot(const int[:] indices, floating[:] other, int n_rows, dtype, int[:] cols,
+        int n_cols):
+    cdef floating[:] res = np.zeros(n_rows, dtype=dtype)
+    cdef int i, col, Ci, k
+    cdef int[:] col_included
+
+    if cols is None:
+        for i in prange(n_rows, nogil=True):
+            res[i] = other[indices[i]]
+    else:
+        col_included = get_col_included(cols, n_cols)
+
+        for i in prange(n_rows, nogil=True):
+            col = indices[i]
+            if col_included[col] == 1:
+                res[i] = other[indices[i]]
+
+    return np.asarray(res)
+
+
+def sandwich_categorical(const int[:] indices, floating[:] d,
+                        int[:] rows, dtype, int n_cols):
+    cdef floating[:] res = np.zeros(n_cols, dtype=dtype)
+    cdef int i, k, k_idx
+    cdef int n_rows = len(rows)
+
+    for k_idx in range(n_rows):
+        k = rows[k_idx]
+        i = indices[k]
+        res[i] += d[k]
+    return np.asarray(res)
+
