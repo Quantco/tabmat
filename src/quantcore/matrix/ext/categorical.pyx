@@ -41,7 +41,7 @@ def get_col_included(int[:] cols, int n_cols):
     return col_included
 
 
-def vec_plus_matvec(const int[:] indices, floating[:] other, int n_rows, dtype, int[:] cols,
+def vec_plus_matvec(const int[:] indices, floating[:] other, int n_rows, int[:] cols,
         int n_cols, floating[:] out_vec):
     cdef int i, col, Ci, k
     cdef int[:] col_included
@@ -54,7 +54,7 @@ def vec_plus_matvec(const int[:] indices, floating[:] other, int n_rows, dtype, 
         for i in prange(n_rows, nogil=True):
             col = indices[i]
             if col_included[col] == 1:
-                out_vec[i] += indices[i]
+                out_vec[i] += other[indices[i]]
     return
 
 
