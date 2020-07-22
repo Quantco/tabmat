@@ -70,8 +70,8 @@ def run_benchmarks(matrices: dict) -> pd.DataFrame:
             peak_mem = sandwich(mat_, vec2)
 
         end = time.time()
-        times.iloc[i, -1] = end - start
-        times.iloc[i, -2] = peak_mem
+        times["time"].iloc[i] = end - start
+        times["memory"].iloc[i] = peak_mem
     return times
 
 
