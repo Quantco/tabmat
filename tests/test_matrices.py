@@ -13,15 +13,21 @@ def base_array(order="F") -> np.ndarray:
     return np.array([[0, 0], [0, -1.0], [0, 2.0]], order=order)
 
 
-def dense_glm_data_matrix_F() -> mx.DenseMatrix:
+def dense_matrix_F() -> mx.DenseMatrix:
     return mx.DenseMatrix(base_array())
 
 
-def dense_glm_data_matrix_C() -> mx.DenseMatrix:
+def dense_matrix_C() -> mx.DenseMatrix:
     return mx.DenseMatrix(base_array(order="C"))
 
 
-def mkl_sparse_matrix() -> mx.SparseMatrix:
+def dense_matrix_not_writeable() -> mx.DenseMatrix:
+    mat = dense_matrix_F()
+    mat.setflags(write=False)
+    return mat
+
+
+def sparse_matrix() -> mx.SparseMatrix:
     return mx.SparseMatrix(sps.csc_matrix(base_array()))
 
 
@@ -34,9 +40,10 @@ def get_unscaled_matrices() -> List[
     Union[mx.DenseMatrix, mx.SparseMatrix, mx.CategoricalMatrix]
 ]:
     return [
-        dense_glm_data_matrix_F(),
-        dense_glm_data_matrix_C(),
-        mkl_sparse_matrix(),
+        dense_matrix_F(),
+        dense_matrix_C(),
+        dense_matrix_not_writeable(),
+        sparse_matrix(),
         categorical_matrix(),
     ]
 
@@ -209,16 +216,16 @@ def test_transpose_dot(
 @pytest.mark.parametrize(
     "mat_i, mat_j",
     [
-        (dense_glm_data_matrix_C(), mkl_sparse_matrix()),
-        (dense_glm_data_matrix_C(), categorical_matrix()),
-        (dense_glm_data_matrix_F(), mkl_sparse_matrix()),
-        (dense_glm_data_matrix_F(), categorical_matrix()),
-        (mkl_sparse_matrix(), dense_glm_data_matrix_C()),
-        (mkl_sparse_matrix(), dense_glm_data_matrix_F()),
-        (mkl_sparse_matrix(), categorical_matrix()),
-        (categorical_matrix(), dense_glm_data_matrix_C()),
-        (categorical_matrix(), dense_glm_data_matrix_F()),
-        (categorical_matrix(), mkl_sparse_matrix()),
+        (dense_matrix_C(), sparse_matrix()),
+        (dense_matrix_C(), categorical_matrix()),
+        (dense_matrix_F(), sparse_matrix()),
+        (dense_matrix_F(), categorical_matrix()),
+        (sparse_matrix(), dense_matrix_C()),
+        (sparse_matrix(), dense_matrix_F()),
+        (sparse_matrix(), categorical_matrix()),
+        (categorical_matrix(), dense_matrix_C()),
+        (categorical_matrix(), dense_matrix_F()),
+        (categorical_matrix(), sparse_matrix()),
         (categorical_matrix(), categorical_matrix()),
     ],
 )
@@ -280,9 +287,7 @@ def test_split_sandwich(rows: Optional[np.ndarray], cols: Optional[np.ndarray]):
     np.testing.assert_almost_equal(result, expected)
 
 
-@pytest.mark.parametrize(
-    "mat", [dense_glm_data_matrix_F(), dense_glm_data_matrix_C(), mkl_sparse_matrix()]
-)
+@pytest.mark.parametrize("mat", [dense_matrix_F(), dense_matrix_C(), sparse_matrix()])
 def test_transpose(mat):
     res = mat.T.A
     expected = mat.A.T
