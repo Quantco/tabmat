@@ -157,7 +157,7 @@ cdef extern from "sparse_helpers.cpp":
         int*, int*, int*, int, int, int
     ) nogil
 
-def csr_dense_sandwich(A, B, floating[:] d, int[:] rows, int[:] A_cols, int[:] B_cols):
+def csr_dense_sandwich(A, np.ndarray B, floating[:] d, int[:] rows, int[:] A_cols, int[:] B_cols):
     # computes where (A.T * d) @ B
     # assumes that A is in csr form
     cdef floating[:] Adata = A.data
@@ -181,8 +181,7 @@ def csr_dense_sandwich(A, B, floating[:] d, int[:] rows, int[:] A_cols, int[:] B
     cdef floating[:, :] out_view = out
     cdef floating* outp = &out_view[0,0]
 
-    cdef floating[:, :] B_view = B;
-    cdef floating* Bp = &B_view[0, 0];
+    cdef floating* Bp = <floating*>B.data
 
     cdef int* rowsp = &rows[0];
     cdef int* A_colsp = &A_cols[0];
