@@ -220,11 +220,15 @@ def test_transpose_dot(
         (dense_matrix_C(), categorical_matrix()),
         (dense_matrix_F(), sparse_matrix()),
         (dense_matrix_F(), categorical_matrix()),
+        (dense_matrix_not_writeable(), sparse_matrix()),
+        (dense_matrix_not_writeable(), categorical_matrix()),
         (sparse_matrix(), dense_matrix_C()),
         (sparse_matrix(), dense_matrix_F()),
+        (sparse_matrix(), dense_matrix_not_writeable()),
         (sparse_matrix(), categorical_matrix()),
         (categorical_matrix(), dense_matrix_C()),
         (categorical_matrix(), dense_matrix_F()),
+        (categorical_matrix(), dense_matrix_not_writeable()),
         (categorical_matrix(), sparse_matrix()),
         (categorical_matrix(), categorical_matrix()),
     ],
@@ -287,7 +291,10 @@ def test_split_sandwich(rows: Optional[np.ndarray], cols: Optional[np.ndarray]):
     np.testing.assert_almost_equal(result, expected)
 
 
-@pytest.mark.parametrize("mat", [dense_matrix_F(), dense_matrix_C(), sparse_matrix()])
+@pytest.mark.parametrize(
+    "mat",
+    [dense_matrix_F(), dense_matrix_C(), dense_matrix_not_writeable(), sparse_matrix()],
+)
 def test_transpose(mat):
     res = mat.T.A
     expected = mat.A.T
