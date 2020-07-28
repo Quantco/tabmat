@@ -49,10 +49,10 @@ class SplitMatrix(MatrixBase):
                     np.arange(current_idx, current_idx + mat.shape[1], dtype=np.int)
                 )
                 current_idx += mat.shape[1]
-            n_col = current_idx + 1
+            n_col = current_idx
         else:
             all_indices = np.concatenate(indices)
-            n_col = sum([len(elt) for elt in indices])
+            n_col = len(all_indices)
 
             if (np.arange(n_col, dtype=np.int) != np.sort(all_indices)).any():
                 raise ValueError(
