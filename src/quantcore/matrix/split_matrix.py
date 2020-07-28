@@ -49,6 +49,16 @@ class SplitMatrix(MatrixBase):
                     np.arange(current_idx, current_idx + mat.shape[1], dtype=np.int)
                 )
                 current_idx += mat.shape[1]
+            n_col = current_idx
+        else:
+            all_indices = np.concatenate(indices)
+            n_col = len(all_indices)
+
+            if (np.arange(n_col, dtype=np.int) != np.sort(all_indices)).any():
+                raise ValueError(
+                    "Indices should contain all integers from 0 to one less than the "
+                    "number of columns."
+                )
 
         assert isinstance(indices, list)
         n_row = matrices[0].shape[0]
@@ -57,10 +67,9 @@ class SplitMatrix(MatrixBase):
         for i, (mat, idx) in enumerate(zip(matrices, indices)):
             if not mat.shape[0] == n_row:
                 raise ValueError(
-                    f"""
-                    All matrices should have the same first dimension,
-                    but the first matrix has first dimension {n_row} and matrix {i} has
-                    first dimension {mat.shape[0]}."""
+                    "All matrices should have the same first dimension, "
+                    f"but the first matrix has first dimension {n_row} and matrix {i} has "
+                    f"first dimension {mat.shape[0]}."
                 )
             if not isinstance(mat, MatrixBase):
                 raise ValueError(
@@ -70,13 +79,13 @@ class SplitMatrix(MatrixBase):
                 raise ValueError("Elements of matrices cannot be SplitMatrix.")
             if not mat.shape[1] == len(idx):
                 raise ValueError(
-                    f"""Element {i} of indices should should have length {mat.shape[1]},
-                but it has shape {idx.shape}"""
+                    f"Element {i} of indices should should have length {mat.shape[1]}, "
+                    f"but it has shape {idx.shape}"
                 )
             if mat.dtype != self.dtype:
                 warnings.warn(
-                    f"""Matrices do not all have the same dtype. Dtypes are
-                {[elt.dtype for elt in matrices]}."""
+                    "Matrices do not all have the same dtype. Dtypes are "
+                    f"{[elt.dtype for elt in matrices]}."
                 )
 
         # If there are multiple spares and dense matrices, combine them
@@ -107,8 +116,9 @@ class SplitMatrix(MatrixBase):
                 ]
 
         self.matrices = matrices
-        self.indices = [np.asarray(I) for I in indices]
-        self.shape = (n_row, sum([len(elt) for elt in indices]))
+        self.indices = [np.asarray(elt) for elt in indices]
+        self.shape = (n_row, n_col)
+
         assert self.shape[1] > 0
 
     def _split_col_subsets(
