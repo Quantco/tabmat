@@ -1,5 +1,6 @@
 # cython: boundscheck=False, wraparound=False, cdivision=True
 import numpy as np
+cimport numpy as np
 
 import cython
 from cython cimport floating
@@ -14,7 +15,7 @@ cdef extern from "dense_helpers.cpp":
     void _denseC_matvec[F](int*, int*, F*, F*, F*, int, int, int, int) nogil
     void _denseF_matvec[F](int*, int*, F*, F*, F*, int, int, int, int) nogil
 
-def dense_sandwich(X, floating[:] d, int[:] rows, int[:] cols, int thresh1d = 32, int kratio = 16, int innerblock = 128):
+def dense_sandwich(np.ndarray X, floating[:] d, int[:] rows, int[:] cols, int thresh1d = 32, int kratio = 16, int innerblock = 128):
     cdef int n = X.shape[0]
     cdef int m = X.shape[1]
     cdef int in_n = rows.shape[0]
@@ -27,8 +28,7 @@ def dense_sandwich(X, floating[:] d, int[:] rows, int[:] cols, int thresh1d = 32
     cdef floating[:, :] out_view = out
     cdef floating* outp = &out_view[0,0]
 
-    cdef floating[:, :] Xmemview = X;
-    cdef floating* Xp = &Xmemview[0,0]
+    cdef floating* Xp = <floating*>X.data
     cdef floating* dp = &d[0]
 
     cdef int* colsp = &cols[0]
@@ -44,7 +44,7 @@ def dense_sandwich(X, floating[:] d, int[:] rows, int[:] cols, int thresh1d = 32
 
 
 # TODO: lots of duplicated code with dense_sandwich above
-def dense_rmatvec(X, floating[:] v, int[:] rows, int[:] cols):
+def dense_rmatvec(np.ndarray X, floating[:] v, int[:] rows, int[:] cols):
     cdef int n = X.shape[0]
     cdef int m = X.shape[1]
     cdef int n_rows = rows.shape[0]
@@ -57,8 +57,7 @@ def dense_rmatvec(X, floating[:] v, int[:] rows, int[:] cols):
     cdef floating[:] out_view = out
     cdef floating* outp = &out_view[0]
 
-    cdef floating[:, :] Xmemview = X;
-    cdef floating* Xp = &Xmemview[0,0]
+    cdef floating* Xp = <floating*>X.data
     cdef floating* vp = &v[0]
 
     cdef int* colsp = &cols[0]
@@ -73,7 +72,7 @@ def dense_rmatvec(X, floating[:] v, int[:] rows, int[:] cols):
     return out
 
 # TODO: lots of duplicated code with dense_sandwich above
-def dense_matvec(X, floating[:] v, int[:] rows, int[:] cols):
+def dense_matvec(np.ndarray X, floating[:] v, int[:] rows, int[:] cols):
     cdef int n = X.shape[0]
     cdef int m = X.shape[1]
     cdef int n_rows = rows.shape[0]
@@ -86,8 +85,7 @@ def dense_matvec(X, floating[:] v, int[:] rows, int[:] cols):
     cdef floating[:] out_view = out
     cdef floating* outp = &out_view[0]
 
-    cdef floating[:, :] Xmemview = X;
-    cdef floating* Xp = &Xmemview[0,0]
+    cdef floating* Xp = <floating*>X.data
     cdef floating* vp = &v[0]
 
     cdef int* colsp = &cols[0]
