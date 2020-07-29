@@ -26,32 +26,33 @@ cdef extern from "cat_split_helpers.cpp":
 def sandwich_cat_dense(
     int[:] i_indices,
     int i_ncol,
-    d_,
-    floating[:, :] mat_j,
+    floating[:] d,
+    np.ndarray mat_j,
     int[:] rows,
     int[:] j_cols,
     bool is_c_contiguous
 ):
 
     cdef floating[:, :] res
-    res = np.zeros((i_ncol, len(j_cols)), dtype=d_.dtype)
+    res = np.zeros((i_ncol, len(j_cols)), dtype=mat_j.dtype)
 
-    if len(d_) == 0 or len(rows) == 0 or len(j_cols) == 0 or i_ncol == 0:
+    if d.shape[0] == 0 or len(rows) == 0 or len(j_cols) == 0 or i_ncol == 0:
         return np.asarray(res)
 
-    cdef floating[:] d = d_
     cdef floating* d_p = &d[0]
     cdef int* i_indices_p = &i_indices[0]
     cdef int* rows_p = &rows[0]
     cdef int* j_cols_p = &j_cols[0]
 
+    cdef floating* mat_j_p = <floating*>mat_j.data
+
     if is_c_contiguous:
         _sandwich_cat_denseC(d_p, i_indices_p, rows_p, len(rows), j_cols_p,
-                            len(j_cols), &res[0, 0], res.size, &mat_j[0, 0],
+                            len(j_cols), &res[0, 0], res.size, mat_j_p,
                             mat_j.shape[0], mat_j.shape[1])
     else:
         _sandwich_cat_denseF(d_p, i_indices_p, rows_p, len(rows), j_cols_p,
-                            len(j_cols), &res[0, 0], res.size, &mat_j[0, 0],
+                            len(j_cols), &res[0, 0], res.size, mat_j_p,
                             mat_j.shape[0], mat_j.shape[1])
 
     return np.asarray(res)

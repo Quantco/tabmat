@@ -2,6 +2,7 @@ import warnings
 from typing import List, Optional, Union
 
 import numpy as np
+import pandas as pd
 import pytest
 from scipy import sparse as sps
 
@@ -12,16 +13,30 @@ def base_array(order="F") -> np.ndarray:
     return np.array([[0, 0], [0, -1.0], [0, 2.0]], order=order)
 
 
-def dense_glm_data_matrix_F() -> mx.DenseMatrix:
+def dense_matrix_F() -> mx.DenseMatrix:
     return mx.DenseMatrix(base_array())
 
 
-def dense_glm_data_matrix_C() -> mx.DenseMatrix:
+def dense_matrix_C() -> mx.DenseMatrix:
     return mx.DenseMatrix(base_array(order="C"))
 
 
-def mkl_sparse_matrix() -> mx.SparseMatrix:
+def dense_matrix_not_writeable() -> mx.DenseMatrix:
+    mat = dense_matrix_F()
+    mat.setflags(write=False)
+    return mat
+
+
+def sparse_matrix() -> mx.SparseMatrix:
     return mx.SparseMatrix(sps.csc_matrix(base_array()))
+
+
+def sparse_matrix_64() -> mx.SparseMatrix:
+    csc = sps.csc_matrix(base_array())
+    mat = mx.SparseMatrix(
+        (csc.data, csc.indices.astype(np.int64), csc.indptr.astype(np.int64))
+    )
+    return mat
 
 
 def categorical_matrix():
@@ -33,9 +48,11 @@ def get_unscaled_matrices() -> List[
     Union[mx.DenseMatrix, mx.SparseMatrix, mx.CategoricalMatrix]
 ]:
     return [
-        dense_glm_data_matrix_F(),
-        dense_glm_data_matrix_C(),
-        mkl_sparse_matrix(),
+        dense_matrix_F(),
+        dense_matrix_C(),
+        dense_matrix_not_writeable(),
+        sparse_matrix(),
+        sparse_matrix_64(),
         categorical_matrix(),
     ]
 
@@ -208,16 +225,28 @@ def test_transpose_dot(
 @pytest.mark.parametrize(
     "mat_i, mat_j",
     [
-        (dense_glm_data_matrix_C(), mkl_sparse_matrix()),
-        (dense_glm_data_matrix_C(), categorical_matrix()),
-        (dense_glm_data_matrix_F(), mkl_sparse_matrix()),
-        (dense_glm_data_matrix_F(), categorical_matrix()),
-        (mkl_sparse_matrix(), dense_glm_data_matrix_C()),
-        (mkl_sparse_matrix(), dense_glm_data_matrix_F()),
-        (mkl_sparse_matrix(), categorical_matrix()),
-        (categorical_matrix(), dense_glm_data_matrix_C()),
-        (categorical_matrix(), dense_glm_data_matrix_F()),
-        (categorical_matrix(), mkl_sparse_matrix()),
+        (dense_matrix_C(), sparse_matrix()),
+        (dense_matrix_C(), sparse_matrix_64()),
+        (dense_matrix_C(), categorical_matrix()),
+        (dense_matrix_F(), sparse_matrix()),
+        (dense_matrix_F(), sparse_matrix_64()),
+        (dense_matrix_F(), categorical_matrix()),
+        (dense_matrix_not_writeable(), sparse_matrix()),
+        (dense_matrix_not_writeable(), sparse_matrix_64()),
+        (dense_matrix_not_writeable(), categorical_matrix()),
+        (sparse_matrix(), dense_matrix_C()),
+        (sparse_matrix(), dense_matrix_F()),
+        (sparse_matrix(), dense_matrix_not_writeable()),
+        (sparse_matrix(), categorical_matrix()),
+        (sparse_matrix_64(), dense_matrix_C()),
+        (sparse_matrix_64(), dense_matrix_F()),
+        (sparse_matrix_64(), dense_matrix_not_writeable()),
+        (sparse_matrix_64(), categorical_matrix()),
+        (categorical_matrix(), dense_matrix_C()),
+        (categorical_matrix(), dense_matrix_F()),
+        (categorical_matrix(), dense_matrix_not_writeable()),
+        (categorical_matrix(), sparse_matrix()),
+        (categorical_matrix(), sparse_matrix_64()),
         (categorical_matrix(), categorical_matrix()),
     ],
 )
@@ -280,7 +309,14 @@ def test_split_sandwich(rows: Optional[np.ndarray], cols: Optional[np.ndarray]):
 
 
 @pytest.mark.parametrize(
-    "mat", [dense_glm_data_matrix_F(), dense_glm_data_matrix_C(), mkl_sparse_matrix()]
+    "mat",
+    [
+        dense_matrix_F(),
+        dense_matrix_C(),
+        dense_matrix_not_writeable(),
+        sparse_matrix(),
+        sparse_matrix_64(),
+    ],
 )
 def test_transpose(mat):
     res = mat.T.A
@@ -422,3 +458,40 @@ def test_indexing_range_row(mat: Union[mx.MatrixBase, mx.StandardizedMatrix]):
         res = res.A
     expected = mat.A[0:2, :]
     np.testing.assert_allclose(np.squeeze(res), expected)
+
+
+def test_pandas_to_matrix():
+    n_rows = 50
+    dense_column = np.linspace(-10, 10, num=n_rows, dtype=np.float64)
+    sparse_column = np.zeros(n_rows, dtype=np.float64)
+    sparse_column[0] = 1.0
+    cat_column_lowdim = np.tile(["a", "b"], n_rows // 2)
+    cat_column_highdim = np.arange(n_rows)
+
+    dense_ser = pd.Series(dense_column)
+    sparse_ser = pd.Series(sparse_column, dtype=pd.SparseDtype("float", 0.0))
+    cat_ser_lowdim = pd.Categorical(cat_column_lowdim)
+    cat_ser_highdim = pd.Categorical(cat_column_highdim)
+
+    df = pd.DataFrame(
+        data={
+            "d": dense_ser,
+            "s": sparse_ser,
+            "cl": cat_ser_lowdim,
+            "ch": cat_ser_highdim,
+        }
+    )
+
+    mat = mx.from_pandas(df, dtype=np.float64, sparse_threshold=0.3, cat_threshold=4)
+
+    assert mat.shape == (n_rows, n_rows + 4)
+    assert len(mat.matrices) == 3
+    assert isinstance(mat, mx.SplitMatrix)
+
+    nb_col_by_type = {
+        mx.DenseMatrix: 3,  # includes low-dimension categorical
+        mx.SparseMatrix: 1,  # sparse column
+        mx.CategoricalMatrix: n_rows,
+    }
+    for submat in mat.matrices:
+        assert submat.shape[1] == nb_col_by_type[type(submat)]
