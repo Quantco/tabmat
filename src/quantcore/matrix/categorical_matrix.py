@@ -36,7 +36,7 @@ class CategoricalMatrix(MatrixBase):
         self.shape = (len(self.cat), len(self.cat.categories))
         self.indices = self.cat.codes.astype(np.int32)
         self.x_csc: Optional[Tuple[Optional[np.ndarray], np.ndarray, np.ndarray]] = None
-        self.dtype = dtype
+        self.dtype = np.dtype(dtype)
 
     def recover_orig(self) -> np.ndarray:
         """
