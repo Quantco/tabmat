@@ -75,22 +75,27 @@ def sparse_sandwich(A, AT, floating[:] d, integral[:] rows, integral[:] cols):
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def csr_matvec(X, floating[:] v, int[:] rows, int[:] cols):
+def csr_matvec(
+        X,
+        floating[:] v,
+        integral[:] rows,
+        integral[:] cols
+    ):
     cdef floating[:] Xdata = X.data
-    cdef int[:] Xindices = X.indices
-    cdef int[:] Xindptr = X.indptr
+    cdef integral[:] Xindices = X.indices
+    cdef integral[:] Xindptr = X.indptr
 
-    cdef int n = rows.shape[0]
-    cdef int m = cols.shape[0]
+    cdef integral n = rows.shape[0]
+    cdef integral m = cols.shape[0]
     out = np.zeros(n, dtype=X.dtype)
     cdef floating[:] out_view = out;
 
     cdef floating* Xdatap = &Xdata[0];
-    cdef int* Xindicesp = &Xindices[0];
-    cdef int* Xindptrp = &Xindptr[0];
+    cdef integral* Xindicesp = &Xindices[0];
+    cdef integral* Xindptrp = &Xindptr[0];
     cdef floating* outp = &out_view[0];
 
-    cdef int Ci, i, Cj, X_idx, j
+    cdef integral Ci, i, Cj, X_idx, j
     cdef floating Xval, vval
 
     cdef uint8[:] col_included = np.zeros(X.shape[1], dtype=np.uint8)
