@@ -31,6 +31,14 @@ def sparse_matrix() -> mx.SparseMatrix:
     return mx.SparseMatrix(sps.csc_matrix(base_array()))
 
 
+def sparse_matrix_64() -> mx.SparseMatrix:
+    csc = sps.csc_matrix(base_array())
+    mat = mx.SparseMatrix(
+        (csc.data, csc.indices.astype(np.int64), csc.indptr.astype(np.int64))
+    )
+    return mat
+
+
 def categorical_matrix():
     vec = [1, 0, 1]
     return mx.CategoricalMatrix(vec)
@@ -44,6 +52,7 @@ def get_unscaled_matrices() -> List[
         dense_matrix_C(),
         dense_matrix_not_writeable(),
         sparse_matrix(),
+        sparse_matrix_64(),
         categorical_matrix(),
     ]
 
@@ -217,19 +226,27 @@ def test_transpose_dot(
     "mat_i, mat_j",
     [
         (dense_matrix_C(), sparse_matrix()),
+        (dense_matrix_C(), sparse_matrix_64()),
         (dense_matrix_C(), categorical_matrix()),
         (dense_matrix_F(), sparse_matrix()),
+        (dense_matrix_F(), sparse_matrix_64()),
         (dense_matrix_F(), categorical_matrix()),
         (dense_matrix_not_writeable(), sparse_matrix()),
+        (dense_matrix_not_writeable(), sparse_matrix_64()),
         (dense_matrix_not_writeable(), categorical_matrix()),
         (sparse_matrix(), dense_matrix_C()),
         (sparse_matrix(), dense_matrix_F()),
         (sparse_matrix(), dense_matrix_not_writeable()),
         (sparse_matrix(), categorical_matrix()),
+        (sparse_matrix_64(), dense_matrix_C()),
+        (sparse_matrix_64(), dense_matrix_F()),
+        (sparse_matrix_64(), dense_matrix_not_writeable()),
+        (sparse_matrix_64(), categorical_matrix()),
         (categorical_matrix(), dense_matrix_C()),
         (categorical_matrix(), dense_matrix_F()),
         (categorical_matrix(), dense_matrix_not_writeable()),
         (categorical_matrix(), sparse_matrix()),
+        (categorical_matrix(), sparse_matrix_64()),
         (categorical_matrix(), categorical_matrix()),
     ],
 )
@@ -293,7 +310,13 @@ def test_split_sandwich(rows: Optional[np.ndarray], cols: Optional[np.ndarray]):
 
 @pytest.mark.parametrize(
     "mat",
-    [dense_matrix_F(), dense_matrix_C(), dense_matrix_not_writeable(), sparse_matrix()],
+    [
+        dense_matrix_F(),
+        dense_matrix_C(),
+        dense_matrix_not_writeable(),
+        sparse_matrix(),
+        sparse_matrix_64(),
+    ],
 )
 def test_transpose(mat):
     res = mat.T.A

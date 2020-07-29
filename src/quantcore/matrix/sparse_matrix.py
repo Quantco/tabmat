@@ -21,6 +21,13 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         Instantiate in the same way as scipy.sparse.csc_matrix
         """
         super().__init__(arg1, shape, dtype, copy)
+        self.idx_dtype = max(self.indices.dtype, self.indptr.dtype)
+        if self.indices.dtype != self.idx_dtype:
+            self.indices = self.indices.astype(self.idx_dtype)
+        if self.indptr.dtype != self.idx_dtype:
+            self.indptr = self.indptr.astype(self.idx_dtype)
+        assert self.indices.dtype == self.idx_dtype
+
         if not self.has_sorted_indices:
             self.sort_indices()
         self._x_csr = None
@@ -29,6 +36,11 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
     def x_csr(self):
         if self._x_csr is None:
             self._x_csr = self.tocsr(copy=False)
+            if self._x_csr.indices.dtype != self.idx_dtype:
+                self._x_csr.indices = self._x_csr.indices.astype(self.idx_dtype)
+            if self._x_csr.indptr.dtype != self.idx_dtype:
+                self._x_csr.indptr = self._x_csr.indptr.astype(self.idx_dtype)
+
         return self._x_csr
 
     def sandwich(
@@ -43,8 +55,8 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
                 {d.dtype}."""
             )
 
-        rows, cols = setup_restrictions(self.shape, rows, cols)
-        return sparse_sandwich(self.tocsc(copy=False), self.x_csr, d, rows, cols)
+        rows, cols = setup_restrictions(self.shape, rows, cols, dtype=self.idx_dtype)
+        return sparse_sandwich(self, self.x_csr, d, rows, cols)
 
     def cross_sandwich(
         self,
@@ -111,7 +123,9 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
                 return dot_product_mkl(X, vec[:, 0])[:, None]
             return matrix_dot(self, vec)
         else:
-            rows, cols = setup_restrictions(self.shape, rows, cols)
+            rows, cols = setup_restrictions(
+                self.shape, rows, cols, dtype=self.idx_dtype
+            )
             if transpose:
                 fast_fnc = lambda v: csc_rmatvec(self, v, rows, cols)
             else:
