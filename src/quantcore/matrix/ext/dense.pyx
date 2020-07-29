@@ -68,7 +68,7 @@ def dense_rmatvec(np.ndarray X, floating[:] v, int[:] rows, int[:] cols):
     elif X.flags['F_CONTIGUOUS']:
         _denseF_rmatvec(rowsp, colsp, Xp, vp, outp, n_rows, n_cols, m, n)
     else:
-        raise Exception()
+        raise Exception("The matrix X is not contiguous.")
     return out
 
 # TODO: lots of duplicated code with dense_sandwich above
@@ -96,5 +96,26 @@ def dense_matvec(np.ndarray X, floating[:] v, int[:] rows, int[:] cols):
     elif X.flags['F_CONTIGUOUS']:
         _denseF_matvec(rowsp, colsp, Xp, vp, outp, n_rows, n_cols, m, n)
     else:
-        raise Exception()
+        raise Exception("The matrix X is not contiguous.")
+    return out
+
+def transpose_square_dot_weights(np.ndarray X, floating[:] weights):
+    cdef floating* Xp = <floating*>X.data
+    cdef int nrows = weights.shape[0]
+    cdef int ncols = X.shape[1]
+    cdef int i, j
+
+    cdef np.ndarray out = np.zeros(ncols, dtype=X.dtype)
+    cdef floating* outp = <floating*>out.data
+
+    if X.flags['C_CONTIGUOUS']:
+        for j in prange(ncols, nogil=True):
+            for i in range(nrows):
+                outp[j] = outp[j] + weights[i] * (Xp[i * ncols + j] ** 2)
+    elif X.flags['F_CONTIGUOUS']:
+        for j in prange(ncols, nogil=True):
+            for i in range(nrows):
+                outp[j] = outp[j] + weights[i] * (Xp[j * nrows + i] ** 2)
+    else:
+        raise Exception("The matrix X is not contiguous.")
     return out
