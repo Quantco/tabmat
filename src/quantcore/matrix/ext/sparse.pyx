@@ -198,3 +198,26 @@ def csr_dense_sandwich(A, np.ndarray B, floating[:] d, int[:] rows, int[:] A_col
     else:
         raise Exception()
     return out
+
+def transpose_square_dot_weights(
+        floating[:] data,
+        integral[:] indices,
+        integral[:] indptr,
+        floating[:] weights,
+        dtype):
+
+    cdef int nrows = weights.shape[0]
+    cdef int ncols = indptr.shape[0] - 1
+
+    cdef int i, j, k
+
+    cdef np.ndarray out = np.zeros(ncols, dtype=dtype)
+    cdef floating* outp = <floating*>out.data
+
+    cdef floating v
+    for j in prange(ncols, nogil=True):
+        for k in range(indptr[j], indptr[j+1]):
+            i = indices[k]
+            v = data[k]
+            outp[j] = outp[j] + weights[i] * (v ** 2)
+    return out

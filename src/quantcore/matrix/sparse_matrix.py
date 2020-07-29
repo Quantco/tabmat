@@ -4,7 +4,13 @@ import numpy as np
 from scipy import sparse as sps
 from sparse_dot_mkl import dot_product_mkl
 
-from .ext.sparse import csc_rmatvec, csr_dense_sandwich, csr_matvec, sparse_sandwich
+from .ext.sparse import (
+    csc_rmatvec,
+    csr_dense_sandwich,
+    csr_matvec,
+    sparse_sandwich,
+    transpose_square_dot_weights,
+)
 from .matrix_base import MatrixBase
 from .util import setup_restrictions
 
@@ -152,7 +158,17 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         return self.dot_helper(vec, rows, cols, True)
 
     def get_col_stds(self, weights: np.ndarray, col_means: np.ndarray) -> np.ndarray:
-        return np.sqrt(self.power(2).T.dot(weights) - col_means ** 2)
+        sqrt_arg = (
+            transpose_square_dot_weights(
+                self.data, self.indices, self.indptr, weights, weights.dtype
+            )
+            - col_means ** 2
+        )
+        # Minor floating point errors above can result in a very slightly
+        # negative sqrt_arg (e.g. -5e-16). We just set those values equal to
+        # zero.
+        sqrt_arg[sqrt_arg < 0] = 0
+        return np.sqrt(sqrt_arg)
 
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
         return super(SparseMatrix, self).astype(dtype, casting, copy)
