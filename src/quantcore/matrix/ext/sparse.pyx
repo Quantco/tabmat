@@ -3,42 +3,40 @@ import numpy as np
 cimport numpy as np
 
 import cython
-from cython cimport floating
+from cython cimport floating, integral
 from cython.parallel import prange
 
 ctypedef np.uint8_t uint8
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def sparse_sandwich(A, AT, floating[:] d, int[:] rows, int[:] cols):
+def sparse_sandwich(A, AT, floating[:] d, integral[:] rows, integral[:] cols):
     # AT is CSC
     # A is CSC
     # Computes AT @ diag(d) @ A
 
     cdef floating[:] Adata = A.data
-    cdef int[:] Aindices = A.indices
-    cdef int[:] Aindptr = A.indptr
+    cdef integral[:] Aindices = A.indices
+    cdef integral[:] Aindptr = A.indptr
 
     cdef floating[:] ATdata = AT.data
-    cdef int[:] ATindices = AT.indices
-    cdef int[:] ATindptr = AT.indptr
+    cdef integral[:] ATindices = AT.indices
+    cdef integral[:] ATindptr = AT.indptr
 
     cdef floating* Adatap = &Adata[0]
-    cdef int* Aindicesp = &Aindices[0]
+    cdef integral* Aindicesp = &Aindices[0]
     cdef floating* ATdatap = &ATdata[0]
-    cdef int* ATindicesp = &ATindices[0]
-    cdef int* ATindptrp = &ATindptr[0]
+    cdef integral* ATindicesp = &ATindices[0]
+    cdef integral* ATindptrp = &ATindptr[0]
 
     cdef floating* dp = &d[0]
 
-    cdef int m = cols.shape[0]
+    cdef integral m = cols.shape[0]
     out = np.zeros((m, m), dtype=A.dtype)
     cdef floating[:, :] out_view = out
     cdef floating* outp = &out_view[0,0]
 
-    cdef int AT_idx, A_idx
-    cdef int AT_row, A_col
-    cdef int Ci, i, Cj, j, Ck, k
+    cdef integral AT_idx, A_idx, AT_row, A_col, Ci, i, Cj, j, Ck, k
     cdef floating A_val, AT_val
 
     cdef uint8[:] row_included = np.zeros(d.shape[0], dtype=np.uint8)
@@ -112,10 +110,10 @@ def csr_matvec(X, floating[:] v, int[:] rows, int[:] cols):
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def csc_rmatvec(XT, floating[:] v, int[:] rows, int[:] cols):
+def csc_rmatvec(XT, floating[:] v, integral[:] rows, integral[:] cols):
     cdef floating[:] XTdata = XT.data
-    cdef int[:] XTindices = XT.indices
-    cdef int[:] XTindptr = XT.indptr
+    cdef integral[:] XTindices = XT.indices
+    cdef integral[:] XTindptr = XT.indptr
 
     cdef int n = rows.shape[0]
     cdef int m = cols.shape[0]
@@ -123,13 +121,13 @@ def csc_rmatvec(XT, floating[:] v, int[:] rows, int[:] cols):
     cdef floating[:] out_view = out;
 
     cdef floating* XTdatap = &XTdata[0];
-    cdef int* XTindicesp = &XTindices[0];
-    cdef int* XTindptrp = &XTindptr[0];
+    cdef integral* XTindicesp = &XTindices[0];
+    cdef integral* XTindptrp = &XTindptr[0];
     cdef floating* outp = &out_view[0];
-    cdef int* rowsp
-    cdef int* colsp
+    cdef integral* rowsp
+    cdef integral* colsp
 
-    cdef int Ci, i, Cj, XT_idx, j
+    cdef integral Ci, i, Cj, XT_idx, j
     cdef floating XTval, vval
 
     cdef uint8[:] row_included = np.zeros(XT.shape[0], dtype=np.uint8)
@@ -157,7 +155,7 @@ cdef extern from "sparse_helpers.cpp":
         int*, int*, int*, int, int, int
     ) nogil
 
-def csr_dense_sandwich(A, B, floating[:] d, int[:] rows, int[:] A_cols, int[:] B_cols):
+def csr_dense_sandwich(A, np.ndarray B, floating[:] d, int[:] rows, int[:] A_cols, int[:] B_cols):
     # computes where (A.T * d) @ B
     # assumes that A is in csr form
     cdef floating[:] Adata = A.data
@@ -181,8 +179,7 @@ def csr_dense_sandwich(A, B, floating[:] d, int[:] rows, int[:] A_cols, int[:] B
     cdef floating[:, :] out_view = out
     cdef floating* outp = &out_view[0,0]
 
-    cdef floating[:, :] B_view = B;
-    cdef floating* Bp = &B_view[0, 0];
+    cdef floating* Bp = <floating*>B.data
 
     cdef int* rowsp = &rows[0];
     cdef int* A_colsp = &A_cols[0];
