@@ -1,3 +1,5 @@
+from typing import List, Union
+
 import numpy as np
 import pytest
 import scipy.sparse as sps
@@ -33,7 +35,6 @@ def test_csc_to_split(X: np.ndarray):
         assert fully_dense.indices[1].shape[0] == S
 
 
-@pytest.fixture()
 def split_mat() -> SplitMatrix:
     X = make_X()
     threshold = 0.1
@@ -49,11 +50,9 @@ def split_mat() -> SplitMatrix:
     return mat
 
 
-@pytest.fixture()
-def split_mat_2() -> SplitMatrix:
-    """
-    Initialized with multiple sparse and dense parts and no indices.
-    """
+def get_split_with_cat_components() -> List[
+    Union[mx.SparseMatrix, mx.DenseMatrix, mx.CategoricalMatrix]
+]:
     n_rows = 10
     np.random.seed(0)
     dense_1 = mx.DenseMatrix(np.random.random((n_rows, 3)))
@@ -62,18 +61,43 @@ def split_mat_2() -> SplitMatrix:
     dense_2 = mx.DenseMatrix(np.random.random((n_rows, 3)))
     sparse_2 = mx.SparseMatrix(sps.random(n_rows, 3, density=0.5).tocsc())
     cat_2 = mx.CategoricalMatrix(np.random.choice(range(3), n_rows))
-    return mx.SplitMatrix([dense_1, sparse_1, cat, dense_2, sparse_2, cat_2])
+    return [dense_1, sparse_1, cat, dense_2, sparse_2, cat_2]
 
 
-def test_init(split_mat_2: SplitMatrix):
-    assert len(split_mat_2.indices) == 4
-    assert len(split_mat_2.matrices) == 4
-    assert (
-        split_mat_2.indices[0] == np.concatenate([np.arange(3), np.arange(9, 12)])
-    ).all()
-    assert split_mat_2.matrices[0].shape == (10, 6)
-    assert split_mat_2.matrices[1].shape == (10, 6)
-    assert split_mat_2.matrices[2].shape == (10, 3)
+def split_with_cat() -> SplitMatrix:
+    """
+    Initialized with multiple sparse and dense parts and no indices.
+    """
+    return mx.SplitMatrix(get_split_with_cat_components())
+
+
+def split_with_cat_64() -> SplitMatrix:
+    mat = mx.SplitMatrix(get_split_with_cat_components())
+    matrices = mat.matrices
+
+    for i, mat_ in enumerate(mat.matrices):
+        if isinstance(mat_, mx.SparseMatrix):
+            matrices[i] = mx.SparseMatrix(
+                (
+                    mat_.data,
+                    mat_.indices.astype(np.int64),
+                    mat_.indptr.astype(np.int64),
+                ),
+                shape=mat_.shape,
+            )
+        elif isinstance(mat_, mx.DenseMatrix):
+            matrices[i] = mat_.astype(np.float64)
+    return mx.SplitMatrix(matrices, mat.indices)
+
+
+@pytest.mark.parametrize("mat", [split_with_cat(), split_with_cat_64()])
+def test_init(mat: SplitMatrix):
+    assert len(mat.indices) == 4
+    assert len(mat.matrices) == 4
+    assert (mat.indices[0] == np.concatenate([np.arange(3), np.arange(9, 12)])).all()
+    assert mat.matrices[0].shape == (10, 6)
+    assert mat.matrices[1].shape == (10, 6)
+    assert mat.matrices[2].shape == (10, 3)
 
 
 def test_sandwich_sparse_dense(X: np.ndarray):
@@ -89,11 +113,12 @@ def test_sandwich_sparse_dense(X: np.ndarray):
     np.testing.assert_allclose(result, expected)
 
 
-def test_sandwich(split_mat: SplitMatrix):
+@pytest.mark.parametrize("mat", [split_mat(), split_with_cat(), split_with_cat_64()])
+def test_sandwich(mat: mx.SplitMatrix):
     for i in range(10):
-        v = np.random.rand(split_mat.shape[0])
-        y1 = split_mat.sandwich(v)
-        y2 = (split_mat.A.T * v[None, :]) @ split_mat.A
+        v = np.random.rand(mat.shape[0])
+        y1 = mat.sandwich(v)
+        y2 = (mat.A.T * v[None, :]) @ mat.A
         np.testing.assert_allclose(y1, y2, atol=1e-12)
 
 
