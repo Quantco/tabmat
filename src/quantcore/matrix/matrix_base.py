@@ -138,7 +138,7 @@ class MatrixBase(ABC):
 
 
 def one_over_var_inf_to_val(arr: np.ndarray, val: float) -> np.ndarray:
-    zeros = np.where(arr == 0)
+    zeros = np.where(np.abs(arr) < 1e-7)
     with np.errstate(divide="ignore"):
         one_over = 1 / arr
     one_over[zeros] = val
