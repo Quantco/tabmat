@@ -495,12 +495,3 @@ def test_pandas_to_matrix():
     }
     for submat in mat.matrices:
         assert submat.shape[1] == nb_col_by_type[type(submat)]
-
-
-def test_transpose_square_dot_weights():
-    n_rows = 100
-    mat = mx.DenseMatrix(np.ones((n_rows, 1)))
-    weights = np.ones(n_rows) / n_rows
-    col_means = np.array([1.0])
-    sds = mat.get_col_stds(weights, col_means)
-    assert np.all(sds == 0)
