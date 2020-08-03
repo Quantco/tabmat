@@ -1,5 +1,7 @@
 # Efficient matrix representations for working with tabular data
 
+![CI](https://github.com/Quantco/quantcore.matrix/workflows/CI/badge.svg)
+
 ## Use case
 Data used in economics, actuarial science, and many other fields is often tabular,
 containing rows and columns. Further properties are also common:
