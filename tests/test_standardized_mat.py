@@ -21,14 +21,16 @@ def test_setup_and_densify_col():
     np.testing.assert_almost_equal(standardized_mat.A, expected_mat)
 
 
-def test_standardized_dot():
+def test_standardized_matvec():
     v = np.random.rand(standardized_mat.shape[1])
-    np.testing.assert_almost_equal(standardized_mat.dot(v), expected_mat.dot(v))
+    np.testing.assert_almost_equal(standardized_mat.matvec(v), expected_mat.dot(v))
 
 
-def test_standardized_transpose_dot():
+def test_standardized_transpose_matvec():
     v = np.random.rand(standardized_mat.shape[0])
-    np.testing.assert_almost_equal(standardized_mat.transpose_dot(v), v @ expected_mat)
+    np.testing.assert_almost_equal(
+        standardized_mat.transpose_matvec(v), v @ expected_mat
+    )
 
 
 def test_standardized_sandwich():
