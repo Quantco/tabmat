@@ -154,20 +154,20 @@ def test_sandwich_many_types():
     many_random_tests(check)
 
 
-def test_transpose_dot_many_types():
+def test_transpose_matvec_many_types():
     def check(mat):
         d = np.random.random(mat.shape[0])
-        res = mat.transpose_dot(d)
+        res = mat.transpose_matvec(d)
         expected = mat.A.T.dot(d)
         np.testing.assert_almost_equal(res, expected)
 
     many_random_tests(check)
 
 
-def test_dot_many_types():
+def test_matvec_many_types():
     def check(mat):
         d = np.random.random(mat.shape[1])
-        res = mat.dot(d)
+        res = mat.matvec(d)
         expected = mat.A.dot(d)
         np.testing.assert_almost_equal(res, expected)
 
