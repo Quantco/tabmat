@@ -212,8 +212,6 @@ class SplitMatrix(MatrixBase):
         if v.shape[0] != self.shape[1]:
             raise ValueError(f"shapes {self.shape} and {v.shape} not aligned")
 
-        if cols is None:
-            cols = np.arange(self.shape[1], dtype=np.int32)
         _, subset_cols, n_cols = self._split_col_subsets(cols)
 
         out_shape = [self.shape[0]] + ([] if v.ndim == 1 else list(v.shape[1:]))
@@ -241,8 +239,6 @@ class SplitMatrix(MatrixBase):
         """
 
         vec = np.asarray(vec)
-        if cols is None:
-            cols = np.arange(self.shape[1], dtype=np.int32)
         subset_cols_indices, subset_cols, n_cols = self._split_col_subsets(cols)
 
         out_shape = [n_cols] + list(vec.shape[1:])
