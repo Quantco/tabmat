@@ -111,11 +111,11 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
             R_cols = np.arange(B.shape[1], dtype=np.int32)
         return csr_dense_sandwich(self.x_csr, B, d, rows, L_cols, R_cols)
 
-    def dot_helper(self, vec, rows, cols, transpose):
+    def matvec_helper(self, vec, rows, cols, transpose):
         X = self.T if transpose else self
-        matrix_dot = lambda x, v: sps.csc_matrix.dot(x, v)
+        matrix_matvec = lambda x, v: sps.csc_matrix.dot(x, v)
         if transpose:
-            matrix_dot = lambda x, v: sps.csr_matrix.dot(x.T, v)
+            matrix_matvec = lambda x, v: sps.csr_matrix.dot(x.T, v)
 
         vec = np.asarray(vec)
 
@@ -127,7 +127,7 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
                 return dot_product_mkl(X, vec)
             elif vec.ndim == 2 and vec.shape[1] == 1:
                 return dot_product_mkl(X, vec[:, 0])[:, None]
-            return matrix_dot(self, vec)
+            return matrix_matvec(self, vec)
         else:
             rows, cols = setup_restrictions(
                 self.shape, rows, cols, dtype=self.idx_dtype
@@ -140,22 +140,22 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
                 return fast_fnc(vec)
             elif vec.ndim == 2 and vec.shape[1] == 1:
                 return fast_fnc(vec[:, 0])[:, None]
-            return matrix_dot(
+            return matrix_matvec(
                 self[np.ix_(rows, cols)], vec[rows] if transpose else vec[cols]
             )
 
-    def dot(self, vec, cols: np.ndarray = None):
-        return self.dot_helper(vec, None, cols, False)
+    def matvec(self, vec, cols: np.ndarray = None):
+        return self.matvec_helper(vec, None, cols, False)
 
     __array_priority__ = 12
 
-    def transpose_dot(
+    def transpose_matvec(
         self,
         vec: Union[np.ndarray, List],
         rows: np.ndarray = None,
         cols: np.ndarray = None,
     ) -> np.ndarray:
-        return self.dot_helper(vec, rows, cols, True)
+        return self.matvec_helper(vec, rows, cols, True)
 
     def get_col_stds(self, weights: np.ndarray, col_means: np.ndarray) -> np.ndarray:
         sqrt_arg = (

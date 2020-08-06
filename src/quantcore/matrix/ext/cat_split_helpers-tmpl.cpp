@@ -2,7 +2,7 @@
 
 
 template <typename F>
-void _transpose_dot_all_rows(
+void _transpose_matvec_all_rows(
     int n_rows,
     int* indices,
     F* other,
