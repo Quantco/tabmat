@@ -4,7 +4,12 @@ import numpy as np
 import pandas as pd
 from scipy import sparse as sps
 
-from .ext.categorical import dot, sandwich_categorical, transpose_dot, vec_plus_matvec
+from .ext.categorical import (
+    matvec,
+    sandwich_categorical,
+    transpose_matvec,
+    vec_plus_matvec,
+)
 from .ext.split import sandwich_cat_cat, sandwich_cat_dense
 from .matrix_base import MatrixBase
 
@@ -48,13 +53,13 @@ class CategoricalMatrix(MatrixBase):
         """
         return self.cat.categories[self.cat.codes]
 
-    def _dot_setup(
+    def _matvec_setup(
         self, other: Union[List, np.ndarray], cols: np.ndarray = None,
     ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         other = np.asarray(other)
         if other.ndim > 1:
             raise NotImplementedError(
-                """CategoricalMatrix.dot is only implemented for 1d arrays."""
+                """CategoricalMatrix.matvec is only implemented for 1d arrays."""
             )
         if other.shape[0] != self.shape[1]:
             raise ValueError(
@@ -66,21 +71,21 @@ class CategoricalMatrix(MatrixBase):
             cols = None
         return other, cols
 
-    def dot(
+    def matvec(
         self, other: Union[List, np.ndarray], cols: np.ndarray = None,
     ) -> np.ndarray:
         """
         When other is 1d:
-        mat.dot(other)[i] = sum_j mat[i, j] other[j]
+        mat.matvec(other)[i] = sum_j mat[i, j] other[j]
                           = other[mat.indices[i]]
 
         The cols parameter allows restricting to a subset of the
         matrix without making a copy.
 
         Test:
-        matrix/test_matrices::test_dot
+        matrix/test_matrices::test_matvec
         """
-        other, cols = self._dot_setup(other, cols)
+        other, cols = self._matvec_setup(other, cols)
         n_rows = self.shape[0]
         is_int = np.issubdtype(other.dtype, np.signedinteger)
 
@@ -89,7 +94,7 @@ class CategoricalMatrix(MatrixBase):
         else:
             other_m = other
 
-        res = dot(self.indices, other_m, self.shape[0], other_m.dtype, cols, n_rows)
+        res = matvec(self.indices, other_m, self.shape[0], other_m.dtype, cols, n_rows)
         if is_int:
             return res.astype(int)
         return res
@@ -103,13 +108,13 @@ class CategoricalMatrix(MatrixBase):
         """
         e.g. Lapack gemv
         """
-        other, cols = self._dot_setup(other, cols)
+        other, cols = self._matvec_setup(other, cols)
         # TODO: Not sure if this will work with any int inputs. Let's not support that
         vec_plus_matvec(
             self.indices, other, self.shape[0], cols, self.shape[0], out_vec,
         )
 
-    def transpose_dot(
+    def transpose_matvec(
         self,
         vec: Union[np.ndarray, List],
         rows: np.ndarray = None,
@@ -121,17 +126,17 @@ class CategoricalMatrix(MatrixBase):
         The rows and cols parameters allow restricting to a subset of the
         matrix without making a copy.
 
-        Test: tests/test_matrices::test_transpose_dot
+        Test: tests/test_matrices::test_transpose_matvec
         """
         # TODO: write a function that doesn't reference the data
         # TODO: this should look more like the cat_cat_sandwich
         vec = np.asarray(vec)
         if vec.ndim > 1:
             raise NotImplementedError(
-                "CategoricalMatrix.transpose_dot is only implemented for 1d arrays."
+                "CategoricalMatrix.transpose_matvec is only implemented for 1d arrays."
             )
 
-        res = transpose_dot(self.indices, vec, self.shape[1], vec.dtype, rows)
+        res = transpose_matvec(self.indices, vec, self.shape[1], vec.dtype, rows)
         if cols is not None and len(cols) < self.shape[1]:
             res = res[cols]
         return res
@@ -205,7 +210,7 @@ class CategoricalMatrix(MatrixBase):
         return self
 
     def get_col_stds(self, weights: np.ndarray, col_means: np.ndarray) -> np.ndarray:
-        mean = self.transpose_dot(weights)
+        mean = self.transpose_matvec(weights)
         return np.sqrt(mean - col_means ** 2)
 
     def __getitem__(self, item):
