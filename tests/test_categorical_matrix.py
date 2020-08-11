@@ -20,11 +20,11 @@ def test_recover_orig(cat_vec, vec_dtype):
 
 
 @pytest.mark.parametrize("vec_dtype", [np.float64, np.float32, np.int64, np.int32])
-def test_csr_dot_categorical(cat_vec, vec_dtype):
+def test_csr_matvec_categorical(cat_vec, vec_dtype):
     mat = pd.get_dummies(cat_vec)
     cat_mat = CategoricalMatrix(cat_vec)
     vec = np.random.choice(np.arange(4, dtype=vec_dtype), mat.shape[1])
-    res = cat_mat.dot(vec)
+    res = cat_mat.matvec(vec)
     np.testing.assert_allclose(res, cat_mat.A.dot(vec))
 
 
@@ -35,9 +35,9 @@ def test_tocsr(cat_vec):
     np.testing.assert_allclose(res, expected)
 
 
-def test_transpose_dot(cat_vec):
+def test_transpose_matvec(cat_vec):
     cat_mat = CategoricalMatrix(cat_vec)
     other = np.random.random(cat_mat.shape[0])
-    res = cat_mat.transpose_dot(other)
+    res = cat_mat.transpose_matvec(other)
     expected = cat_mat.A.T.dot(other)
     np.testing.assert_allclose(res, expected)
