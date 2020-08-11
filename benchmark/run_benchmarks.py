@@ -1,5 +1,6 @@
 import time
 import tracemalloc
+from threading import Thread
 from typing import Union
 
 import numpy as np
@@ -8,14 +9,60 @@ from scipy import sparse as sps
 
 import quantcore.matrix as mx
 
+should_bench_memory = False
+n_iterations = 200
+
+
+class MemoryPoller:
+    """
+    Example usage:
+
+    with MemoryPoller() as mp:
+        do some stuff here
+        print('initial memory usage', mp.initial_memory)
+        print('max memory usage', mp.max_memory)
+        excess_memory_used = mp.max_memory - mp.initial_memory
+    """
+
+    def poll_max_memory_usage(self):
+        while not self.stop_polling:
+            self.snapshots.append(tracemalloc.take_snapshot())
+            time.sleep(1e-3)
+
+    def __enter__(self):
+        tracemalloc.start()
+        self.stop_polling = False
+        self.snapshots = [tracemalloc.take_snapshot()]
+        self.t = Thread(target=self.poll_max_memory_usage)
+        self.t.start()
+        return self
+
+    def __exit__(self, *excargs):
+        self.stop_polling = True
+        self.t.join()
+        self.final_usage, self.peak_usage = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+
 
 def track_peak_mem(f):
     def g(*args, **kwargs):
-        tracemalloc.start()
-        f(*args, **kwargs)
-        _, peak = tracemalloc.get_traced_memory()
-        tracemalloc.stop()
-        return peak
+        # The memory benchmark slows down the runtime and makes it less
+        # consistent so it's nice to be able to turn it off.
+        # Also, weirdly, the MemoryPoller causes ipdb to not work correctly?!
+        # Maybe something about the polling frequency and time to store a
+        # snapshot being too high.
+        if should_bench_memory:
+            with MemoryPoller() as mp:
+                f(*args, **kwargs)
+            for s in mp.snapshots:
+                top_stats = s.statistics("lineno")
+                print("[ Top 2 ]")
+                for stat in top_stats[:2]:
+                    print(stat)
+            return mp.peak_usage
+        else:
+            f(*args, **kwargs)
+            return 0
 
     return g
 
@@ -45,15 +92,14 @@ def dot(mat, vec):
     return mat.dot(vec)
 
 
-def run_benchmarks(matrices: dict) -> pd.DataFrame:
+def run_benchmarks(ops, matrices: dict) -> pd.DataFrame:
     assert isinstance(matrices, dict)
     vec = np.random.random(next(iter(matrices.values())).shape[1])
     vec2 = np.random.random(next(iter(matrices.values())).shape[0])
 
     times = pd.DataFrame(
         index=pd.MultiIndex.from_product(
-            [["matrix-vector", "sandwich", "matrix-transpose-vector"], matrices.keys()],
-            names=["operation", "storage"],
+            [ops, matrices.keys()], names=["operation", "storage"],
         ),
         columns=["memory", "time"],
     ).reset_index()
@@ -61,16 +107,18 @@ def run_benchmarks(matrices: dict) -> pd.DataFrame:
     for i, row in times.iterrows():
         mat_ = matrices[row["storage"]]
         op = row["operation"]
-        start = time.time()
-        if op == "matrix-vector":
-            peak_mem = dot(mat_, vec)
-        elif op == "matrix-transpose-vector":
-            peak_mem = transpose_dot(mat_, vec2)
-        else:
-            peak_mem = sandwich(mat_, vec2)
-
-        end = time.time()
-        times["time"].iloc[i] = end - start
+        runtimes = []
+        for j in range(n_iterations):
+            start = time.time()
+            if op == "matrix-vector":
+                peak_mem = dot(mat_, vec)
+            elif op == "matrix-transpose-vector":
+                peak_mem = transpose_dot(mat_, vec2)
+            else:
+                peak_mem = sandwich(mat_, vec2)
+            end = time.time()
+            runtimes.append(end - start)
+        times["time"].iloc[i] = np.min(runtimes)
         times["memory"].iloc[i] = peak_mem
     return times
 
@@ -150,14 +198,21 @@ def make_sparse_matrices(n_rows: int, n_cols: int) -> dict:
 def main():
     n_rows = int(1e6)
     benchmark_matrices = {
-        "dense": lambda: make_dense_matrices(int(1e5), 1000),
-        "one_cat": lambda: make_cat_matrix_all_formats(n_rows, int(1e5)),
-        "sparse": lambda: make_sparse_matrices(n_rows, int(1e3)),
-        "two_cat": lambda: make_cat_matrices(n_rows, int(1e3), int(1e3)),
+        # "dense": lambda: make_dense_matrices(int(1e5), 1000),
+        # "one_cat": lambda: make_cat_matrix_all_formats(n_rows, int(1e5)),
+        # "sparse": lambda: make_sparse_matrices(n_rows, int(1e3)),
+        # "two_cat": lambda: make_cat_matrices(n_rows, int(1e3), int(1e3)),
         "dense_cat": lambda: make_dense_cat_matrices(n_rows, 5, int(1e3), int(1e3)),
+        # "dense_smallcat": lambda: make_dense_cat_matrices(n_rows, 5, 10, int(1e3)),
     }
+    ops = ["matrix-vector", "sandwich", "matrix-transpose-vector"]
+    ops = ["matrix-vector", "matrix-transpose-vector"]
     for name, f in benchmark_matrices.items():
-        times = run_benchmarks(f())
+        mats = f()
+        del mats["scipy.sparse csr"]
+        del mats["scipy.sparse csc"]
+        times = run_benchmarks(ops, mats)
+        print(times)
         times.to_csv(f"benchmark/{name}_times.csv", index=False)
 
 
