@@ -46,7 +46,7 @@ class StandardizedMatrix:
         self.ndim = mat.ndim
         self.dtype = mat.dtype
 
-    def dot(
+    def matvec(
         self, other_mat: Union[np.ndarray, List], cols: np.ndarray = None,
     ) -> np.ndarray:
         """
@@ -64,7 +64,7 @@ class StandardizedMatrix:
             for i in range(len(other_mat.shape) - 1):
                 mult = mult[:, np.newaxis]
             mult_other = mult * other_mat
-        mat_part = self.mat.dot(mult_other, cols)
+        mat_part = self.mat.matvec(mult_other, cols)
 
         shift_part = self.shift[cols].dot(other_mat[cols])
         return mat_part + shift_part
@@ -112,7 +112,7 @@ class StandardizedMatrix:
             cols = np.arange(self.shape[1], dtype=np.int32)
 
         term1 = self.mat.sandwich(d, rows, cols)
-        d_mat = self.mat.transpose_dot(d, rows, cols)
+        d_mat = self.mat.transpose_matvec(d, rows, cols)
         if self.mult is not None:
             d_mat *= self.mult[cols]
         term2 = np.outer(d_mat, self.shift[cols])
@@ -136,7 +136,7 @@ class StandardizedMatrix:
     def unstandardize(self) -> MatrixBase:
         return self.mat
 
-    def transpose_dot(
+    def transpose_matvec(
         self,
         other: Union[np.ndarray, List],
         rows: np.ndarray = None,
@@ -154,7 +154,7 @@ class StandardizedMatrix:
         = outer(shift, other.sum(0))[k, i]
         """
         other = np.asarray(other)
-        mat_part = self.mat.transpose_dot(other, rows, cols)
+        mat_part = self.mat.transpose_matvec(other, rows, cols)
 
         if rows is None:
             rows = np.arange(self.shape[0], dtype=np.int32)
@@ -174,7 +174,7 @@ class StandardizedMatrix:
 
     def __rmatmul__(self, other: Union[np.ndarray, List]) -> np.ndarray:
         """
-        other @ X = (X.T @ other.T).T = X.transpose_dot(other.T).T
+        other @ X = (X.T @ other.T).T = X.transpose_matvec(other.T).T
 
         Parameters
         ----------
@@ -187,11 +187,11 @@ class StandardizedMatrix:
         """
         if not hasattr(other, "T"):
             other = np.asarray(other)
-        return self.transpose_dot(other.T).T  # type: ignore
+        return self.transpose_matvec(other.T).T  # type: ignore
 
     def __matmul__(self, other):
         """ Defines the behavior of 'self @ other'. """
-        return self.dot(other)
+        return self.matvec(other)
 
     def toarray(self) -> np.ndarray:
         mat_part = self.mat.A

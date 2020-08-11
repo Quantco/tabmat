@@ -14,7 +14,7 @@ class MatrixBase(ABC):
     dtype: np.dtype
 
     @abstractmethod
-    def dot(self, other, cols: np.ndarray = None):
+    def matvec(self, other, cols: np.ndarray = None):
         """
         Perform: self[:, cols] @ other
 
@@ -24,7 +24,7 @@ class MatrixBase(ABC):
         pass
 
     @abstractmethod
-    def transpose_dot(
+    def transpose_matvec(
         self,
         vec: Union[np.ndarray, List],
         rows: np.ndarray = None,
@@ -52,7 +52,7 @@ class MatrixBase(ABC):
 
     def __matmul__(self, other):
         """ Defines the behavior of 'self @ other'. """
-        return self.dot(other)
+        return self.matvec(other)
 
     @abstractmethod
     def getcol(self, i: int):
@@ -68,7 +68,7 @@ class MatrixBase(ABC):
 
     def __rmatmul__(self, other: Union[np.ndarray, List]) -> np.ndarray:
         """
-        other @ X = (X.T @ other.T).T = X.transpose_dot(other.T).T
+        other @ X = (X.T @ other.T).T = X.transpose_matvec(other.T).T
 
         Parameters
         ----------
@@ -81,14 +81,14 @@ class MatrixBase(ABC):
         """
         if not hasattr(other, "T"):
             other = np.asarray(other)
-        return self.transpose_dot(other.T).T  # type: ignore
+        return self.transpose_matvec(other.T).T  # type: ignore
 
     @abstractmethod
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
         pass
 
     def get_col_means(self, weights: np.ndarray) -> np.ndarray:
-        return self.transpose_dot(weights)
+        return self.transpose_matvec(weights)
 
     @abstractmethod
     def get_col_stds(self, weights: np.ndarray, col_means: np.ndarray) -> np.ndarray:
