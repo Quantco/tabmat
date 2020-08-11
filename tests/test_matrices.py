@@ -140,7 +140,7 @@ def test_to_array_standardized_mat(mat: mx.StandardizedMatrix):
 )
 @pytest.mark.parametrize("cols", [None, np.arange(1, dtype=np.int32)])
 @pytest.mark.parametrize("other_shape", [[], [1], [2]])
-def test_dot(
+def test_matvec(
     mat: Union[mx.MatrixBase, mx.StandardizedMatrix], other_type, cols, other_shape
 ):
     n_row = mat.shape[1]
@@ -167,9 +167,9 @@ def test_dot(
 
     if has_categorical_component and len(shape) > 1:
         with pytest.raises(NotImplementedError, match="only implemented for 1d"):
-            mat.dot(other, cols)
+            mat.matvec(other, cols)
     else:
-        res = mat.dot(other, cols)
+        res = mat.matvec(other, cols)
 
         mat_subset, vec_subset = process_mat_vec_subsets(mat, other, None, cols, cols)
         expected = mat_subset.dot(vec_subset)
@@ -206,13 +206,13 @@ def process_mat_vec_subsets(mat, vec, mat_rows, mat_cols, vec_idxs):
 )
 @pytest.mark.parametrize("rows", [None, np.arange(2, dtype=np.int32)])
 @pytest.mark.parametrize("cols", [None, np.arange(1, dtype=np.int32)])
-def test_transpose_dot(
+def test_transpose_matvec(
     mat: Union[mx.MatrixBase, mx.StandardizedMatrix], other_type, rows, cols
 ):
     other_as_list = [3.0, -0.1, 0]
     other = other_type(other_as_list)
     assert np.shape(other)[0] == mat.shape[0]
-    res = mat.transpose_dot(other, rows, cols)
+    res = mat.transpose_matvec(other, rows, cols)
 
     mat_subset, vec_subset = process_mat_vec_subsets(
         mat, other_as_list, rows, cols, rows
@@ -341,9 +341,9 @@ def test_rmatmul(mat: Union[mx.MatrixBase, mx.StandardizedMatrix], vec_type):
 
 
 @pytest.mark.parametrize("mat", get_matrices())
-def test_dot_raises(mat: Union[mx.MatrixBase, mx.StandardizedMatrix]):
+def test_matvec_raises(mat: Union[mx.MatrixBase, mx.StandardizedMatrix]):
     with pytest.raises(ValueError):
-        mat.dot(np.ones(11))
+        mat.matvec(np.ones(11))
 
 
 @pytest.mark.parametrize("mat", get_matrices())
@@ -352,7 +352,7 @@ def test_astype(mat: Union[mx.MatrixBase, mx.StandardizedMatrix], dtype):
     new_mat = mat.astype(dtype)
     assert np.issubdtype(new_mat.dtype, dtype)
     vec = np.zeros(mat.shape[1], dtype=dtype)
-    res = new_mat.dot(vec)
+    res = new_mat.matvec(vec)
     assert res.dtype == new_mat.dtype
 
 
@@ -417,7 +417,9 @@ def test_standardize(
     assert isinstance(standardized, mx.StandardizedMatrix)
     assert isinstance(standardized.mat, type(mat))
     if center_predictors:
-        np.testing.assert_allclose(standardized.transpose_dot(weights), 0, atol=1e-11)
+        np.testing.assert_allclose(
+            standardized.transpose_matvec(weights), 0, atol=1e-11
+        )
         np.testing.assert_allclose(means, asarray.T.dot(weights))
     else:
         np.testing.assert_almost_equal(means, 0)

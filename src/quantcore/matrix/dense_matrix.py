@@ -73,7 +73,7 @@ class DenseMatrix(np.ndarray, MatrixBase):
         sqrt_arg[sqrt_arg < 0] = 0
         return np.sqrt(sqrt_arg)
 
-    def dot_helper(
+    def matvec_helper(
         self,
         vec: Union[List, np.ndarray],
         rows: Optional[np.ndarray],
@@ -94,7 +94,7 @@ class DenseMatrix(np.ndarray, MatrixBase):
         unrestricted_rows = rows is None or rows.shape[0] == self.shape[0]
         unrestricted_cols = cols is None or cols.shape[0] == self.shape[1]
         if unrestricted_rows and unrestricted_cols:
-            return X.toarray().dot(vec)
+            return X.dot(vec)
         else:
             rows, cols = setup_restrictions(self.shape, rows, cols)
             fast_fnc = dense_rmatvec if transpose else dense_matvec
@@ -105,13 +105,15 @@ class DenseMatrix(np.ndarray, MatrixBase):
             subset = self[np.ix_(rows, cols)]
             return subset.T.dot(vec[rows]) if transpose else subset.dot(vec[cols])
 
-    def transpose_dot(
+    def transpose_matvec(
         self,
         vec: Union[np.ndarray, List],
         rows: np.ndarray = None,
         cols: np.ndarray = None,
     ) -> np.ndarray:
-        return self.dot_helper(vec, rows, cols, True)
+        return self.matvec_helper(vec, rows, cols, True)
 
-    def dot(self, vec: Union[np.ndarray, List], cols: np.ndarray = None,) -> np.ndarray:
-        return self.dot_helper(vec, None, cols, False)
+    def matvec(
+        self, vec: Union[np.ndarray, List], cols: np.ndarray = None,
+    ) -> np.ndarray:
+        return self.matvec_helper(vec, None, cols, False)

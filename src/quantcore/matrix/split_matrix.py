@@ -206,7 +206,7 @@ class SplitMatrix(MatrixBase):
 
         return col_stds
 
-    def dot(self, v: np.ndarray, cols: np.ndarray = None) -> np.ndarray:
+    def matvec(self, v: np.ndarray, cols: np.ndarray = None) -> np.ndarray:
         assert not isinstance(v, sps.spmatrix)
         v = np.asarray(v)
         if v.shape[0] != self.shape[1]:
@@ -221,21 +221,21 @@ class SplitMatrix(MatrixBase):
             if isinstance(mat, CategoricalMatrix):
                 mat.vec_plus_matvec(one, out, sub_cols)
             else:
-                tmp = mat.dot(one, sub_cols)
+                tmp = mat.matvec(one, sub_cols)
                 out += tmp
         return out
 
-    def transpose_dot(
+    def transpose_matvec(
         self,
         vec: Union[np.ndarray, List],
         rows: np.ndarray = None,
         cols: np.ndarray = None,
     ) -> np.ndarray:
         """
-        self.T.dot(vec)[i] = sum_k self[k, i] vec[k]
+        self.T.matvec(vec)[i] = sum_k self[k, i] vec[k]
         = sum_{k in self.dense_indices} self[k, i] vec[k] +
           sum_{k in self.sparse_indices} self[k, i] vec[k]
-        = self.X_dense.T.dot(vec) + self.X_sparse.T.dot(vec)
+        = self.X_dense.T.matvec(vec) + self.X_sparse.T.matvec(vec)
         """
 
         vec = np.asarray(vec)
@@ -245,7 +245,7 @@ class SplitMatrix(MatrixBase):
         out = np.empty(out_shape, dtype=vec.dtype)
 
         for idx, sub_cols, mat in zip(subset_cols_indices, subset_cols, self.matrices):
-            out[idx, ...] = mat.transpose_dot(vec, rows, sub_cols)
+            out[idx, ...] = mat.transpose_matvec(vec, rows, sub_cols)
         return out
 
     def __getitem__(self, key):
