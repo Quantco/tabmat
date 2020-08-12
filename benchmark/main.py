@@ -5,12 +5,11 @@ from typing import Union
 import click
 import numpy as np
 import pandas as pd
+from generate_matrices import get_all_benchmark_matrices
+from memory_tools import track_peak_mem
 from scipy import sparse as sps
 
 import quantcore.matrix as mx
-
-from .generate_matrices import get_all_benchmark_matrices
-from .memory_tools import track_peak_mem
 
 
 def sandwich(mat: Union[mx.MatrixBase, np.ndarray, sps.csc_matrix], vec: np.ndarray):
@@ -51,7 +50,7 @@ def rvec_setup(matrices):
 
 ops = {
     "matvec": (rvec_setup, matvec),
-    "tranpose-matvec": (lvec_setup, transpose_matvec),
+    "transpose-matvec": (lvec_setup, transpose_matvec),
     "sandwich": (lvec_setup, sandwich),
 }
 
@@ -61,7 +60,7 @@ def get_comma_sep_names(xs: str):
     return [x.strip() for x in xs.split(",")]
 
 
-def get_problem_names():
+def get_matrix_names():
     return ",".join(get_all_benchmark_matrices().keys())
 
 
@@ -76,31 +75,53 @@ def get_op_names():
     help=f"Specify a comma-separated list of operations you want to run. Leaving this blank will default to running all operations. Operation options: {get_op_names()}",
 )
 @click.option(
-    "--problem_name",
+    "--matrix_name",
     type=str,
-    help=f"Specify a comma-separated list of problems you want to run. Leaving this blank will default to running all problems. Problems options: {get_problem_names()}",
+    help=f"Specify a comma-separated list of problems you want to run. Leaving this blank will default to running all problems. Problems options: {get_matrix_names()}",
 )
-def run_all_benchmarks(operation_name, problem_name):
-    # The memory benchmark slows down the runtime and makes it less
-    # consistent so it's nice to be able to turn it off.
-    # Also, weirdly, the MemoryPoller causes ipdb to not work correctly?!
-    # Maybe something about the polling frequency and time to store a
-    # snapshot being too high.
+@click.option(
+    "--bench_memory",
+    type=bool,
+    is_flag=True,
+    help="Should we benchmark memory usage with tracemalloc. Turning this on will make the runtime benchmarks less useful due to memory benchmarking overhead. Also, when memory benchmarking is on, debuggers like pdb and ipdb seem to fail.",
+    default=False,
+)
+@click.option(
+    "--n_iterations",
+    type=int,
+    help="How many times to re-run the benchmark. The maximum memory usage and minimum runtime will be reported. Higher numbers of iterations reduce noise. This defaults to 100 unless memory benchmarking is turned on in which case it will be 1.",
+    default=None,
+)
+@click.option(
+    "--include_baseline",
+    type=bool,
+    is_flag=True,
+    help="Should we include a numpy/scipy baseline performance benchmark.",
+    default=False,
+)
+def run_all_benchmarks(
+    operation_name, matrix_name, bench_memory, n_iterations, include_baseline
+):
+    if n_iterations is None:
+        if bench_memory:
+            n_iterations = 1
+        else:
+            n_iterations = 100
 
-    should_bench_memory = False
-
-    if should_bench_memory:
-        n_iterations = 1
+    if operation_name is None:
+        ops_to_run = list(ops.keys())
     else:
-        n_iterations = 100
+        ops_to_run = get_comma_sep_names(operation_name)
 
-    include_baseline = True
+    all_benchmark_matrices = get_all_benchmark_matrices()
 
-    ops_to_run = get_comma_sep_names(operation_name)
+    if matrix_name is None:
+        benchmark_matrices = list(all_benchmark_matrices.keys())
+    else:
+        benchmark_matrices = get_comma_sep_names(matrix_name)
 
-    benchmark_matrices = get_all_benchmark_matrices()
-
-    for name, f in benchmark_matrices.items():
+    for name in benchmark_matrices:
+        f = all_benchmark_matrices[name]
         with open(f"benchmark/data/{name}_data.pkl", "rb") as f:
             matrices = pickle.load(f)
 
@@ -124,7 +145,7 @@ def run_all_benchmarks(operation_name, problem_name):
             peak_mems = []
             for j in range(n_iterations):
                 start = time.time()
-                if should_bench_memory:
+                if bench_memory:
                     peak_mem = track_peak_mem(op_fnc, mat_, *setup_data)
                 else:
                     op_fnc(mat_, *setup_data)
