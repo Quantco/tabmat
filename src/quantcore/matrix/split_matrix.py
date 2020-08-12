@@ -206,7 +206,9 @@ class SplitMatrix(MatrixBase):
 
         return col_stds
 
-    def matvec(self, v: np.ndarray, cols: np.ndarray = None) -> np.ndarray:
+    def matvec(
+        self, v: np.ndarray, cols: np.ndarray = None, out: np.ndarray = None
+    ) -> np.ndarray:
         assert not isinstance(v, sps.spmatrix)
         v = np.asarray(v)
         if v.shape[0] != self.shape[1]:
@@ -230,6 +232,7 @@ class SplitMatrix(MatrixBase):
         vec: Union[np.ndarray, List],
         rows: np.ndarray = None,
         cols: np.ndarray = None,
+        out: np.ndarray = None,
     ) -> np.ndarray:
         """
         self.T.matvec(vec)[i] = sum_k self[k, i] vec[k]
