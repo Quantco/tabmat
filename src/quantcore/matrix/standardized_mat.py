@@ -47,7 +47,10 @@ class StandardizedMatrix:
         self.dtype = mat.dtype
 
     def matvec(
-        self, other_mat: Union[np.ndarray, List], cols: np.ndarray = None,
+        self,
+        other_mat: Union[np.ndarray, List],
+        cols: np.ndarray = None,
+        out: np.ndarray = None,
     ) -> np.ndarray:
         """
         This function returns a dense output, so it is best geared for the
@@ -64,10 +67,11 @@ class StandardizedMatrix:
             for i in range(len(other_mat.shape) - 1):
                 mult = mult[:, np.newaxis]
             mult_other = mult * other_mat
-        mat_part = self.mat.matvec(mult_other, cols)
+        mat_part = self.mat.matvec(mult_other, cols, out=out)
 
-        shift_part = self.shift[cols].dot(other_mat[cols])
-        return mat_part + shift_part
+        # Add shift part to mat_part
+        mat_part += self.shift[cols].dot(other_mat[cols])
+        return mat_part
 
     def getcol(self, i: int):
         """
@@ -141,6 +145,7 @@ class StandardizedMatrix:
         other: Union[np.ndarray, List],
         rows: np.ndarray = None,
         cols: np.ndarray = None,
+        out: np.ndarray = None,
     ) -> np.ndarray:
         """
         Let self.shape = (N, K) and other.shape = (M, N).
@@ -154,7 +159,7 @@ class StandardizedMatrix:
         = outer(shift, other.sum(0))[k, i]
         """
         other = np.asarray(other)
-        mat_part = self.mat.transpose_matvec(other, rows, cols)
+        mat_part = self.mat.transpose_matvec(other, rows, cols, out=out)
 
         if rows is None:
             rows = np.arange(self.shape[0], dtype=np.int32)
@@ -168,9 +173,12 @@ class StandardizedMatrix:
             # Avoiding an outer product by matching dimensions.
             for i in range(len(mat_part.shape) - 1):
                 mult = mult[:, np.newaxis]
-            return mult[cols] * mat_part + shift_part
+            mat_part *= mult[cols]
+            mat_part += shift_part
+            return mat_part
         else:
-            return mat_part + shift_part
+            mat_part += shift_part
+            return mat_part
 
     def __rmatmul__(self, other: Union[np.ndarray, List]) -> np.ndarray:
         """
