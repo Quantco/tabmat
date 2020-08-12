@@ -1,5 +1,6 @@
 import pickle
 
+import click
 import numpy as np
 from scipy import sparse as sps
 
@@ -86,6 +87,8 @@ def get_all_benchmark_matrices():
     return {
         "dense": lambda: make_dense_matrices(int(4e4), 1000),
         "sparse": lambda: make_sparse_matrices(int(4e5), int(1e2)),
+        "sparse_narrow": lambda: make_sparse_matrices(int(3e6), 3),
+        "sparse_wide": lambda: make_sparse_matrices(int(4e4), int(1e4)),
         "one_cat": lambda: make_cat_matrix_all_formats(int(1e6), int(1e5)),
         "two_cat": lambda: make_cat_matrices(int(1e6), int(1e3), int(1e3)),
         "dense_cat": lambda: make_dense_cat_matrices(int(3e6), 5, int(1e3), int(1e3)),
@@ -93,9 +96,31 @@ def get_all_benchmark_matrices():
     }
 
 
-def generate_matrices():
-    benchmark_matrices = get_all_benchmark_matrices()
-    for name, f in benchmark_matrices.items():
+# TODO: duplication with glm_benchmarks
+def get_comma_sep_names(xs: str):
+    return [x.strip() for x in xs.split(",")]
+
+
+def get_matrix_names():
+    return ",".join(get_all_benchmark_matrices().keys())
+
+
+@click.command()
+@click.option(
+    "--matrix_name",
+    type=str,
+    help=f"Specify a comma-separated list of matrices you want to build. Leaving this blank will default to building all matrices. Matrix options: {get_matrix_names()}",
+)
+def generate_matrices(matrix_name):
+    all_benchmark_matrices = get_all_benchmark_matrices()
+
+    if matrix_name is None:
+        benchmark_matrices = list(all_benchmark_matrices.keys())
+    else:
+        benchmark_matrices = get_comma_sep_names(matrix_name)
+
+    for name in benchmark_matrices:
+        f = all_benchmark_matrices[name]
         mats = f()
         with open(get_matrix_path(name), "wb") as f:
             pickle.dump(mats, f)

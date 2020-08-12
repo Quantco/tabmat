@@ -100,6 +100,36 @@ def get_matrices():
     )
 
 
+# TODO: add column/row restrictions here
+@pytest.mark.parametrize("mat", get_matrices())
+def test_matvec_out_parameter(mat):
+    out = np.random.rand(mat.shape[0])
+    out_copy = out.copy()
+    v = np.random.rand(mat.shape[1])
+
+    # This should modify out in place.
+    out2 = mat.matvec(v, out=out)
+
+    correct = out_copy + mat.matvec(v)
+    np.testing.assert_almost_equal(out, out2)
+    np.testing.assert_almost_equal(out, correct)
+
+
+# TODO: add column/row restrictions here
+@pytest.mark.parametrize("mat", get_matrices())
+def test_transpose_matvec_out_parameter(mat):
+    out = np.random.rand(mat.shape[1])
+    out_copy = out.copy()
+    v = np.random.rand(mat.shape[0])
+
+    # This should modify out in place.
+    out2 = mat.transpose_matvec(v, out=out)
+
+    correct = out_copy + mat.transpose_matvec(v)
+    np.testing.assert_almost_equal(out, out2)
+    np.testing.assert_almost_equal(out, correct)
+
+
 @pytest.mark.parametrize("mat", get_matrices())
 @pytest.mark.parametrize("i", [1, -2])
 def test_getcol(mat: Union[mx.MatrixBase, mx.StandardizedMatrix], i):
