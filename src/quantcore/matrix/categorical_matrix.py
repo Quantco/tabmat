@@ -72,15 +72,19 @@ class CategoricalMatrix(MatrixBase):
         return other, cols
 
     def matvec(
-        self, other: Union[List, np.ndarray], cols: np.ndarray = None,
+        self,
+        other: Union[List, np.ndarray],
+        cols: np.ndarray = None,
+        out: np.ndarray = None,
     ) -> np.ndarray:
         """
         When other is 1d:
-        mat.matvec(other)[i] = sum_j mat[i, j] other[j]
-                          = other[mat.indices[i]]
+        out[i] += sum_j mat[i, j] other[j] = other[mat.indices[i]]
 
         The cols parameter allows restricting to a subset of the
         matrix without making a copy.
+
+        If out is None, then a new array will be returned.
 
         Test:
         matrix/test_matrices::test_matvec
@@ -119,12 +123,15 @@ class CategoricalMatrix(MatrixBase):
         vec: Union[np.ndarray, List],
         rows: np.ndarray = None,
         cols: np.ndarray = None,
+        out: np.ndarray = None,
     ) -> np.ndarray:
         """
-        Perform: self[rows, cols].T @ vec
+        Perform: out += self[rows, cols].T @ vec
 
         The rows and cols parameters allow restricting to a subset of the
         matrix without making a copy.
+
+        If out is None, then a new array will be returned.
 
         Test: tests/test_matrices::test_transpose_matvec
         """
