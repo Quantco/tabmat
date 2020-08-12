@@ -78,6 +78,7 @@ class DenseMatrix(np.ndarray, MatrixBase):
         vec: Union[List, np.ndarray],
         rows: Optional[np.ndarray],
         cols: Optional[np.ndarray],
+        out: Optional[np.ndarray],
         transpose: bool,
     ):
         # Because the dense_rmatvec takes a row array and col array, it has
@@ -110,10 +111,14 @@ class DenseMatrix(np.ndarray, MatrixBase):
         vec: Union[np.ndarray, List],
         rows: np.ndarray = None,
         cols: np.ndarray = None,
+        out: np.ndarray = None,
     ) -> np.ndarray:
-        return self.matvec_helper(vec, rows, cols, True)
+        return self.matvec_helper(vec, rows, cols, out, True)
 
     def matvec(
-        self, vec: Union[np.ndarray, List], cols: np.ndarray = None,
+        self,
+        vec: Union[np.ndarray, List],
+        cols: np.ndarray = None,
+        out: np.ndarray = None,
     ) -> np.ndarray:
-        return self.matvec_helper(vec, None, cols, False)
+        return self.matvec_helper(vec, None, cols, out, False)

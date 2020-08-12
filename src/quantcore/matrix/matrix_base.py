@@ -14,7 +14,7 @@ class MatrixBase(ABC):
     dtype: np.dtype
 
     @abstractmethod
-    def matvec(self, other, cols: np.ndarray = None):
+    def matvec(self, other, cols: np.ndarray = None, out: np.ndarray = None):
         """
         Perform: self[:, cols] @ other
 
