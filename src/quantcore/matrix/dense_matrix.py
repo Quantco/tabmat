@@ -95,7 +95,11 @@ class DenseMatrix(np.ndarray, MatrixBase):
         unrestricted_rows = rows is None or rows.shape[0] == self.shape[0]
         unrestricted_cols = cols is None or cols.shape[0] == self.shape[1]
         if unrestricted_rows and unrestricted_cols:
-            return X.dot(vec)
+            if out is None:
+                out = X.dot(vec)
+            else:
+                out += X.dot(vec)
+            return out
         else:
             rows, cols = setup_restrictions(self.shape, rows, cols)
             fast_fnc = dense_rmatvec if transpose else dense_matvec
