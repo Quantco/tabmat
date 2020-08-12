@@ -102,6 +102,23 @@ def get_op_names():
 def run_all_benchmarks(
     operation_name, matrix_name, bench_memory, n_iterations, include_baseline
 ):
+    """
+    Usage examples:
+
+    python benchmark/main.py --operation_name matvec,transpose-matvec --matrix_name sparse --include_baseline
+              operation           storage memory         time
+    0            matvec  scipy.sparse csc      0   0.00129819
+    1            matvec  scipy.sparse csr      0   0.00266385
+    2            matvec  quantcore.matrix      0   0.00199628
+    3  transpose-matvec  scipy.sparse csc      0  0.000838518
+    4  transpose-matvec  scipy.sparse csr      0   0.00239468
+    5  transpose-matvec  quantcore.matrix      0  0.000296116
+
+    python benchmark/main.py --operation_name sandwich --matrix_name dense_cat --bench_memory
+
+      operation           storage    memory      time
+    0  sandwich  quantcore.matrix  52244505  0.159682
+    """
     if n_iterations is None:
         if bench_memory:
             n_iterations = 1
