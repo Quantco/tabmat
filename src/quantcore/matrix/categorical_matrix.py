@@ -4,12 +4,7 @@ import numpy as np
 import pandas as pd
 from scipy import sparse as sps
 
-from .ext.categorical import (
-    matvec,
-    sandwich_categorical,
-    transpose_matvec,
-    vec_plus_matvec,
-)
+from .ext.categorical import matvec, sandwich_categorical, transpose_matvec
 from .ext.split import sandwich_cat_cat, sandwich_cat_dense
 from .matrix_base import MatrixBase
 
@@ -98,25 +93,13 @@ class CategoricalMatrix(MatrixBase):
         else:
             other_m = other
 
-        res = matvec(self.indices, other_m, self.shape[0], other_m.dtype, cols, n_rows)
-        if is_int:
-            return res.astype(int)
-        return res
+        if out is None:
+            out = np.zeros(n_rows, dtype=self.dtype)
 
-    def vec_plus_matvec(
-        self,
-        other: Union[List, np.ndarray],
-        out_vec: np.ndarray,
-        cols: np.ndarray = None,
-    ) -> None:
-        """
-        e.g. Lapack gemv
-        """
-        other, cols = self._matvec_setup(other, cols)
-        # TODO: Not sure if this will work with any int inputs. Let's not support that
-        vec_plus_matvec(
-            self.indices, other, self.shape[0], cols, self.shape[0], out_vec,
-        )
+        matvec(self.indices, other_m, n_rows, cols, n_rows, out)
+        if is_int:
+            return out.astype(int)
+        return out
 
     def transpose_matvec(
         self,
@@ -143,10 +126,13 @@ class CategoricalMatrix(MatrixBase):
                 "CategoricalMatrix.transpose_matvec is only implemented for 1d arrays."
             )
 
-        res = transpose_matvec(self.indices, vec, self.shape[1], vec.dtype, rows)
+        if out is None:
+            out = np.zeros(self.shape[1], dtype=self.dtype)
+
+        transpose_matvec(self.indices, vec, self.shape[1], vec.dtype, rows, out)
         if cols is not None and len(cols) < self.shape[1]:
-            res = res[cols]
-        return res
+            out = out[cols]
+        return out
 
     def sandwich(
         self,
