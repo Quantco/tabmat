@@ -29,6 +29,7 @@ class MatrixBase(ABC):
         vec: Union[np.ndarray, List],
         rows: np.ndarray = None,
         cols: np.ndarray = None,
+        out: np.ndarray = None,
     ) -> np.ndarray:
         """
         Perform: self[rows, cols].T @ vec

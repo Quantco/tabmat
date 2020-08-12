@@ -5,7 +5,11 @@ from typing import Union
 import click
 import numpy as np
 import pandas as pd
-from generate_matrices import get_all_benchmark_matrices
+from generate_matrices import (
+    get_all_benchmark_matrices,
+    get_comma_sep_names,
+    get_matrix_names,
+)
 from memory_tools import track_peak_mem
 from scipy import sparse as sps
 
@@ -55,15 +59,6 @@ ops = {
 }
 
 
-# TODO: duplication with glm_benchmarks
-def get_comma_sep_names(xs: str):
-    return [x.strip() for x in xs.split(",")]
-
-
-def get_matrix_names():
-    return ",".join(get_all_benchmark_matrices().keys())
-
-
 def get_op_names():
     return ",".join(ops.keys())
 
@@ -77,7 +72,7 @@ def get_op_names():
 @click.option(
     "--matrix_name",
     type=str,
-    help=f"Specify a comma-separated list of problems you want to run. Leaving this blank will default to running all problems. Problems options: {get_matrix_names()}",
+    help=f"Specify a comma-separated list of matrices you want to run. Leaving this blank will default to running all matrices. Matrix options: {get_matrix_names()}",
 )
 @click.option(
     "--bench_memory",
@@ -146,6 +141,7 @@ def run_all_benchmarks(
             for k in list(matrices.keys()):
                 if k != "quantcore.matrix":
                     del matrices[k]
+        del matrices["scipy.sparse csr"]
 
         times = pd.DataFrame(
             index=pd.MultiIndex.from_product(

@@ -15,8 +15,8 @@ cdef extern from "cat_split_helpers.cpp":
 
 
 def transpose_matvec(int[:] indices, floating[:] other, int n_cols, dtype,
-                  rows):
-    cdef floating[:] res = np.zeros(n_cols, dtype=dtype)
+                  rows, out):
+    cdef floating[:] res = out
     cdef int i, n_keep_rows
     cdef int n_rows = len(indices)
     cdef int[:] rows_view
@@ -30,8 +30,6 @@ def transpose_matvec(int[:] indices, floating[:] other, int n_cols, dtype,
             i = rows_view[k]
             res[indices[i]] += other[i]
 
-    return np.asarray(res)
-
 
 def get_col_included(int[:] cols, int n_cols):
     cdef int[:] col_included = np.zeros(n_cols, dtype=np.int32)
@@ -41,7 +39,7 @@ def get_col_included(int[:] cols, int n_cols):
     return col_included
 
 
-def vec_plus_matvec(const int[:] indices, floating[:] other, int n_rows, int[:] cols,
+def matvec(const int[:] indices, floating[:] other, int n_rows, int[:] cols,
         int n_cols, floating[:] out_vec):
     cdef int i, col, Ci, k
     cdef int[:] col_included
@@ -57,25 +55,6 @@ def vec_plus_matvec(const int[:] indices, floating[:] other, int n_rows, int[:] 
                 out_vec[i] += other[indices[i]]
     return
 
-
-def matvec(const int[:] indices, floating[:] other, int n_rows, dtype, int[:] cols,
-        int n_cols):
-    cdef floating[:] res = np.zeros(n_rows, dtype=dtype)
-    cdef int i, col, Ci, k
-    cdef int[:] col_included
-
-    if cols is None:
-        for i in prange(n_rows, nogil=True):
-            res[i] = other[indices[i]]
-    else:
-        col_included = get_col_included(cols, n_cols)
-
-        for i in prange(n_rows, nogil=True):
-            col = indices[i]
-            if col_included[col] == 1:
-                res[i] = other[indices[i]]
-
-    return np.asarray(res)
 
 
 def sandwich_categorical(const int[:] indices, floating[:] d,
