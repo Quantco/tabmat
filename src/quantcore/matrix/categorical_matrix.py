@@ -94,7 +94,7 @@ class CategoricalMatrix(MatrixBase):
             other_m = other
 
         if out is None:
-            out = np.zeros(n_rows, dtype=self.dtype)
+            out = np.zeros(n_rows, dtype=other_m.dtype)
 
         matvec(self.indices, other_m, n_rows, cols, n_rows, out)
         if is_int:
