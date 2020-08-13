@@ -126,7 +126,8 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
             if vec.ndim == 1:
                 return dot_product_mkl(X, vec, out=out)
             elif vec.ndim == 2 and vec.shape[1] == 1:
-                return dot_product_mkl(X, vec[:, 0], out=out)[:, None]
+                out_arr = None if out is None else out[:, 0]
+                return dot_product_mkl(X, vec[:, 0], out=out_arr)[:, None]
             return matrix_matvec(self, vec)
         else:
             rows, cols = setup_restrictions(
