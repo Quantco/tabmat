@@ -49,6 +49,7 @@ def from_pandas(
     SplitMatrix
     """
     if object_as_cat:
+        # TODO!
         for colname in df.select_dtypes("object"):
             df[colname] = df[colname].astype("category")
 
@@ -58,7 +59,7 @@ def from_pandas(
 
     dense_dfidx = []  # column index in original DataFrame
     dense_mxidx = []  # index in the new SplitMatrix
-    sparse_dfidx = []  # column index in original DataFrame
+    sparse_dfcols = []  # column index in original DataFrame
     sparse_mxidx = []  # index in the new SplitMatrix
     ignored_cols = []
 
@@ -108,8 +109,9 @@ def from_pandas(
             if (coldata != 0).mean() <= sparse_threshold:
                 if not isinstance(coldata.dtype, pd.SparseDtype):
                     sparse_dtype = pd.SparseDtype(coldata.dtype, fill_value=0)
-                    df.iloc[:, dfcolidx] = coldata.astype(sparse_dtype)
-                sparse_dfidx.append(dfcolidx)
+                    sparse_dfcols.append(coldata.astype(sparse_dtype))
+                else:
+                    sparse_dfcols.append(coldata)
                 sparse_mxidx.append(mxcolidx)
                 mxcolidx += 1
             else:
@@ -129,10 +131,10 @@ def from_pandas(
         matrices.append(DenseMatrix(df.iloc[:, dense_dfidx].astype(dtype)))
         indices.append(dense_mxidx)
         is_cat.append(False)
-    if len(sparse_dfidx) > 0:
-        matrices.append(
-            SparseMatrix(df.iloc[:, sparse_dfidx].sparse.to_coo(), dtype=dtype)
-        )
+    if len(sparse_dfcols) > 0:
+        sparse_dict = {i: v for i, v in enumerate(sparse_dfcols)}
+        full_sparse = pd.DataFrame(sparse_dict).sparse.to_coo()
+        matrices.append(SparseMatrix(full_sparse, dtype=dtype))
         indices.append(sparse_mxidx)
         is_cat.append(False)
 
