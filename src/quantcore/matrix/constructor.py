@@ -48,11 +48,6 @@ def from_pandas(
     -------
     SplitMatrix
     """
-    if object_as_cat:
-        # TODO!
-        for colname in df.select_dtypes("object"):
-            df[colname] = df[colname].astype("category")
-
     matrices: List[Union[DenseMatrix, SparseMatrix, CategoricalMatrix]] = []
     indices: List[List[int]] = []
     is_cat: List[bool] = []
@@ -67,6 +62,8 @@ def from_pandas(
 
     for dfcolidx, (colname, coldata) in enumerate(df.iteritems()):
         # categorical
+        if object_as_cat and coldata.dtype == object:
+            coldata = coldata.astype("category")
         if isinstance(coldata.dtype, pd.CategoricalDtype):
             if len(coldata.cat.categories) < cat_threshold:
                 (
