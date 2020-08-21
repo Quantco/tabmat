@@ -481,12 +481,14 @@ def test_pandas_to_matrix():
             "d": dense_ser,
             "ds": lowdense_ser,
             "s": sparse_ser,
-            "cl": cat_ser_lowdim,
+            "cl_obj": cat_ser_lowdim.astype(object),
             "ch": cat_ser_highdim,
         }
     )
 
-    mat = mx.from_pandas(df, dtype=np.float64, sparse_threshold=0.3, cat_threshold=4)
+    mat = mx.from_pandas(
+        df, dtype=np.float64, sparse_threshold=0.3, cat_threshold=4, object_as_cat=True
+    )
 
     assert mat.shape == (n_rows, n_rows + 5)
     assert len(mat.matrices) == 3
@@ -502,4 +504,5 @@ def test_pandas_to_matrix():
 
     # Prevent a regression where the column type of sparsified dense columns
     # was being changed in place.
+    assert df["cl_obj"].dtype == object
     assert df["ds"].dtype == np.float64
