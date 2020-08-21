@@ -54,7 +54,7 @@ def from_pandas(
 
     dense_dfidx = []  # column index in original DataFrame
     dense_mxidx = []  # index in the new SplitMatrix
-    sparse_dfcols = []  # column index in original DataFrame
+    sparse_dfcols = []  # sparse columns to join together
     sparse_mxidx = []  # index in the new SplitMatrix
     ignored_cols = []
 
