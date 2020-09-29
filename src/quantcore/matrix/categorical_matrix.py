@@ -299,5 +299,19 @@ class CategoricalMatrix(MatrixBase):
 
         return res
 
+    def multiply(self, other) -> sps.csr_matrix:
+        """Element-wise multiplication of each column with other"""
+        if self.shape[0] != other.shape[0]:
+            raise ValueError(
+                f"Shape do not match. Expected a length of {self.shape[0]} but got {len(other)}."
+            )
+
+        return sps.csr_matrix(
+            (np.squeeze(other), self.indices, np.arange(self.shape[0] + 1, dtype=int)),
+            shape=self.shape,
+        )
+
+    __mul__ = multiply
+
     def __repr__(self):
         return str(self.cat)
