@@ -2,6 +2,12 @@
 
 ![CI](https://github.com/Quantco/quantcore.matrix/workflows/CI/badge.svg)
 
+## Installation
+If you are using the `quantcore.glm` conda package as described 
+[here](https://github.com/Quantco/quantcore.glm#installation), `quantcore.matrix`
+will automatically be installed. If you want to install `quantcore.matrix` individually,
+you can install it following the same instructions as linked above for `quantcore.glm`.
+
 ## Use case
 Data used in economics, actuarial science, and many other fields is often tabular,
 containing rows and columns. Further properties are also common:
