@@ -489,12 +489,15 @@ def test_indexing_range_row(mat: Union[mx.MatrixBase, mx.StandardizedMatrix]):
 def test_pandas_to_matrix():
     n_rows = 50
     dense_column = np.linspace(-10, 10, num=n_rows, dtype=np.float64)
+    dense_column_with_lots_of_zeros = dense_column.copy()
+    dense_column_with_lots_of_zeros[:44] = 0.0
     sparse_column = np.zeros(n_rows, dtype=np.float64)
     sparse_column[0] = 1.0
     cat_column_lowdim = np.tile(["a", "b"], n_rows // 2)
     cat_column_highdim = np.arange(n_rows)
 
     dense_ser = pd.Series(dense_column)
+    lowdense_ser = pd.Series(dense_column_with_lots_of_zeros)
     sparse_ser = pd.Series(sparse_column, dtype=pd.SparseDtype("float", 0.0))
     cat_ser_lowdim = pd.Categorical(cat_column_lowdim)
     cat_ser_highdim = pd.Categorical(cat_column_highdim)
@@ -502,22 +505,30 @@ def test_pandas_to_matrix():
     df = pd.DataFrame(
         data={
             "d": dense_ser,
+            "ds": lowdense_ser,
             "s": sparse_ser,
-            "cl": cat_ser_lowdim,
+            "cl_obj": cat_ser_lowdim.astype(object),
             "ch": cat_ser_highdim,
         }
     )
 
-    mat = mx.from_pandas(df, dtype=np.float64, sparse_threshold=0.3, cat_threshold=4)
+    mat = mx.from_pandas(
+        df, dtype=np.float64, sparse_threshold=0.3, cat_threshold=4, object_as_cat=True
+    )
 
-    assert mat.shape == (n_rows, n_rows + 4)
+    assert mat.shape == (n_rows, n_rows + 5)
     assert len(mat.matrices) == 3
     assert isinstance(mat, mx.SplitMatrix)
 
     nb_col_by_type = {
         mx.DenseMatrix: 3,  # includes low-dimension categorical
-        mx.SparseMatrix: 1,  # sparse column
+        mx.SparseMatrix: 2,  # sparse column
         mx.CategoricalMatrix: n_rows,
     }
     for submat in mat.matrices:
         assert submat.shape[1] == nb_col_by_type[type(submat)]
+
+    # Prevent a regression where the column type of sparsified dense columns
+    # was being changed in place.
+    assert df["cl_obj"].dtype == object
+    assert df["ds"].dtype == np.float64
