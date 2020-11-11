@@ -28,6 +28,16 @@ def test_csr_matvec_categorical(cat_vec, vec_dtype):
     np.testing.assert_allclose(res, cat_mat.A.dot(vec))
 
 
+@pytest.mark.parametrize("vec_dtype", [np.float64, np.float32, np.int64, np.int32])
+def test_csr_matvec_categorical_wide(cat_vec, vec_dtype):
+    """
+    Test matvec using the specific matrix that gave us issues in the past.
+    """
+    mat = CategoricalMatrix([4, 4, 5, 6, 0, 1, 5, 3, 7, 1, 7, 9, 8, 8, 2])
+    mat_missing_cat = mat[:5]
+    mat_missing_cat.matvec(np.zeros(mat_missing_cat.shape[1]))
+
+
 def test_tocsr(cat_vec):
     cat_mat = CategoricalMatrix(cat_vec)
     res = cat_mat.tocsr().A
