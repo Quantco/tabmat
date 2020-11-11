@@ -17,7 +17,7 @@ import quantcore.matrix as mx
 
 
 def sandwich(mat: Union[mx.MatrixBase, np.ndarray, sps.csc_matrix], vec: np.ndarray):
-    if isinstance(mat, mx.MatrixBase):
+    if isinstance(mat, (mx.MatrixBase, mx.StandardizedMatrix)):
         mat.sandwich(vec)
     elif isinstance(mat, np.ndarray):
         (mat * vec[:, None]).T @ mat
@@ -29,15 +29,15 @@ def sandwich(mat: Union[mx.MatrixBase, np.ndarray, sps.csc_matrix], vec: np.ndar
 def transpose_matvec(
     mat: Union[mx.MatrixBase, np.ndarray, sps.csc_matrix], vec: np.ndarray
 ):
-    if isinstance(mat, mx.MatrixBase):
+    if isinstance(mat, (mx.MatrixBase, mx.StandardizedMatrix)):
         out = np.zeros(mat.shape[1])
         return mat.transpose_matvec(vec, out=out)
     else:
         return mat.T.dot(vec)
 
 
-def matvec(mat, vec):
-    if isinstance(mat, mx.MatrixBase):
+def matvec(mat, vec: np.ndarray) -> np.ndarray:
+    if isinstance(mat, (mx.MatrixBase, mx.StandardizedMatrix)):
         out = np.zeros(mat.shape[0])
         return mat.matvec(vec, out=out)
     else:
@@ -94,24 +94,36 @@ def get_op_names():
     help="Should we include a numpy/scipy baseline performance benchmark.",
     default=False,
 )
+@click.option(
+    "--standardized",
+    type=bool,
+    is_flag=True,
+    help="Should we test with a quantcore.matrix.StandardizedMatrix?",
+    default=False,
+)
 def run_all_benchmarks(
-    operation_name, matrix_name, bench_memory, n_iterations, include_baseline
+    operation_name: str,
+    matrix_name: str,
+    bench_memory: bool,
+    n_iterations: int,
+    include_baseline: bool,
+    standardized: bool,
 ):
     """
     Usage examples:
 
-    python benchmark/main.py --operation_name matvec,transpose-matvec --matrix_name sparse --include_baseline
-              operation           storage memory         time
-    0            matvec  scipy.sparse csc      0   0.00129819
-    1            matvec  scipy.sparse csr      0   0.00266385
-    2            matvec  quantcore.matrix      0   0.00199628
-    3  transpose-matvec  scipy.sparse csc      0  0.000838518
-    4  transpose-matvec  scipy.sparse csr      0   0.00239468
-    5  transpose-matvec  quantcore.matrix      0  0.000296116
+    python benchmark/main.py --operation_name matvec,transpose-matvec --matrix_name sparse --include_baseline\n
+              operation           storage memory         time\n
+    0            matvec  scipy.sparse csc      0   0.00129819\n
+    1            matvec  scipy.sparse csr      0   0.00266385\n
+    2            matvec  quantcore.matrix      0   0.00199628\n
+    3  transpose-matvec  scipy.sparse csc      0  0.000838518\n
+    4  transpose-matvec  scipy.sparse csr      0   0.00239468\n
+    5  transpose-matvec  quantcore.matrix      0  0.000296116\n
 
     python benchmark/main.py --operation_name sandwich --matrix_name dense_cat --bench_memory
 
-      operation           storage    memory      time
+      operation           storage    memory      time\n
     0  sandwich  quantcore.matrix  52244505  0.159682
     """
     if n_iterations is None:
@@ -133,7 +145,6 @@ def run_all_benchmarks(
         benchmark_matrices = get_comma_sep_names(matrix_name)
 
     for name in benchmark_matrices:
-        f = all_benchmark_matrices[name]
         with open(f"benchmark/data/{name}_data.pkl", "rb") as f:
             matrices = pickle.load(f)
 
@@ -141,7 +152,23 @@ def run_all_benchmarks(
             for k in list(matrices.keys()):
                 if k != "quantcore.matrix":
                     del matrices[k]
-        del matrices["scipy.sparse csr"]
+
+        # ES note: Mysterious legacy code.
+        if name not in ["dense"]:
+            del matrices["scipy.sparse csr"]
+
+        if standardized:
+
+            def _to_standardized_mat(mat):
+                if isinstance(mat, mx.MatrixBase):
+                    return mx.StandardizedMatrix(mat, np.zeros(mat.shape[1]))
+                print(
+                    f"""For benchmarking a {type(mat)}, the baseline matrix will not
+                    be standardized."""
+                )
+                return mat
+
+            matrices = {k: _to_standardized_mat(v) for k, v in matrices.items()}
 
         times = pd.DataFrame(
             index=pd.MultiIndex.from_product(
@@ -178,6 +205,7 @@ def run_all_benchmarks(
             # the tracker
             times["memory"].iloc[i] = np.max(peak_mems)
 
+        times["design"] = name
         print(times)
 
         times.to_csv(f"benchmark/{name}_times.csv", index=False)
