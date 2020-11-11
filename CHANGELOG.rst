@@ -17,7 +17,7 @@ Changelog
 
 **Bug fix:**
 
-- Fix a bug in matvec for categorical components when the number of categories exceeds the number of rows.
+- Fix a bug in `matvec` for categorical components when the number of categories exceeds the number of rows.
 
 
 0.0.6 - 2020-08-03 
