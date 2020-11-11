@@ -41,3 +41,13 @@ def test_transpose_matvec(cat_vec):
     res = cat_mat.transpose_matvec(other)
     expected = cat_mat.A.T.dot(other)
     np.testing.assert_allclose(res, expected)
+
+
+def test_multiply(cat_vec):
+    cat_mat = CategoricalMatrix(cat_vec)
+    other = np.arange(len(cat_vec))[:, None]
+    res = cat_mat * other
+    res2 = cat_mat.multiply(other)
+    expected = cat_mat.A * other
+    np.testing.assert_allclose(res.A, expected)
+    np.testing.assert_allclose(res2.A, expected)
