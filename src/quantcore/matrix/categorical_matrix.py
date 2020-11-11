@@ -86,7 +86,6 @@ class CategoricalMatrix(MatrixBase):
         matrix/test_matrices::test_matvec
         """
         other, cols = self._matvec_setup(other, cols)
-        n_rows = self.shape[0]
         is_int = np.issubdtype(other.dtype, np.signedinteger)
 
         if is_int:
@@ -94,7 +93,9 @@ class CategoricalMatrix(MatrixBase):
         else:
             other_m = other
 
-        res = matvec(self.indices, other_m, self.shape[0], other_m.dtype, cols, n_rows)
+        res = matvec(
+            self.indices, other_m, self.shape[0], other_m.dtype, cols, self.shape[1]
+        )
         if is_int:
             return res.astype(int)
         return res
@@ -111,7 +112,7 @@ class CategoricalMatrix(MatrixBase):
         other, cols = self._matvec_setup(other, cols)
         # TODO: Not sure if this will work with any int inputs. Let's not support that
         vec_plus_matvec(
-            self.indices, other, self.shape[0], cols, self.shape[0], out_vec,
+            self.indices, other, self.shape[0], cols, self.shape[1], out_vec,
         )
 
     def transpose_matvec(
