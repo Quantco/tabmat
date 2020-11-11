@@ -73,7 +73,8 @@ class CategoricalMatrix(MatrixBase):
         out: np.ndarray = None,
     ) -> np.ndarray:
         """
-        When other is 1d:
+        Multiply self with vector 'other', and add vector 'out' if it is present.
+
         out[i] += sum_j mat[i, j] other[j] = other[mat.indices[i]]
 
         The cols parameter allows restricting to a subset of the
@@ -85,7 +86,6 @@ class CategoricalMatrix(MatrixBase):
         matrix/test_matrices::test_matvec
         """
         other, cols = self._matvec_setup(other, cols)
-        n_rows = self.shape[0]
         is_int = np.issubdtype(other.dtype, np.signedinteger)
 
         if is_int:
@@ -94,9 +94,9 @@ class CategoricalMatrix(MatrixBase):
             other_m = other
 
         if out is None:
-            out = np.zeros(n_rows, dtype=other_m.dtype)
+            out = np.zeros(self.shape[0], dtype=other_m.dtype)
 
-        matvec(self.indices, other_m, n_rows, cols, n_rows, out)
+        matvec(self.indices, other_m, self.shape[0], cols, self.shape[1], out)
         if is_int:
             return out.astype(int)
         return out
@@ -291,6 +291,20 @@ class CategoricalMatrix(MatrixBase):
         res = term_1.T.dot(other[rows, :][:, _none_to_slice(R_cols, other.shape[1])]).A
 
         return res
+
+    def multiply(self, other) -> sps.csr_matrix:
+        """Element-wise multiplication of each column with other"""
+        if self.shape[0] != other.shape[0]:
+            raise ValueError(
+                f"Shape do not match. Expected a length of {self.shape[0]} but got {len(other)}."
+            )
+
+        return sps.csr_matrix(
+            (np.squeeze(other), self.indices, np.arange(self.shape[0] + 1, dtype=int)),
+            shape=self.shape,
+        )
+
+    __mul__ = multiply
 
     def __repr__(self):
         return str(self.cat)
