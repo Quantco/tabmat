@@ -64,7 +64,11 @@ Individual subclasses may support significantly more operations.
     a significant speedup in matrix multiplications.
     
 ## Benchmarks
-???
+To generate the data to run all benchmarks, run 
+`python src/quantcore/matrix/benchmark/generate_matrices.py`.
+
+For more info on the benchmark CLI: 
+`python src/quantcore/matrix/benchmark/main.py --help`.
 
 ## Categorical data
 One-hot encoding a feature creates a sparse matrix that has some special properties: 
