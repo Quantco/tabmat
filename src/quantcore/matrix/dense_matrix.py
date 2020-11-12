@@ -78,6 +78,7 @@ class DenseMatrix(np.ndarray, MatrixBase):
         vec: Union[List, np.ndarray],
         rows: Optional[np.ndarray],
         cols: Optional[np.ndarray],
+        out: Optional[np.ndarray],
         transpose: bool,
     ):
         # Because the dense_rmatvec takes a row array and col array, it has
@@ -94,7 +95,11 @@ class DenseMatrix(np.ndarray, MatrixBase):
         unrestricted_rows = rows is None or rows.shape[0] == self.shape[0]
         unrestricted_cols = cols is None or cols.shape[0] == self.shape[1]
         if unrestricted_rows and unrestricted_cols:
-            return X.dot(vec)
+            if out is None:
+                out = X.dot(vec)
+            else:
+                out += X.dot(vec)
+            return out
         else:
             rows, cols = setup_restrictions(self.shape, rows, cols)
             fast_fnc = dense_rmatvec if transpose else dense_matvec
@@ -110,10 +115,14 @@ class DenseMatrix(np.ndarray, MatrixBase):
         vec: Union[np.ndarray, List],
         rows: np.ndarray = None,
         cols: np.ndarray = None,
+        out: np.ndarray = None,
     ) -> np.ndarray:
-        return self.matvec_helper(vec, rows, cols, True)
+        return self.matvec_helper(vec, rows, cols, out, True)
 
     def matvec(
-        self, vec: Union[np.ndarray, List], cols: np.ndarray = None,
+        self,
+        vec: Union[np.ndarray, List],
+        cols: np.ndarray = None,
+        out: np.ndarray = None,
     ) -> np.ndarray:
-        return self.matvec_helper(vec, None, cols, False)
+        return self.matvec_helper(vec, None, cols, out, False)

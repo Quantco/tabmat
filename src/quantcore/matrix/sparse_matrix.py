@@ -111,7 +111,7 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
             R_cols = np.arange(B.shape[1], dtype=np.int32)
         return csr_dense_sandwich(self.x_csr, B, d, rows, L_cols, R_cols)
 
-    def matvec_helper(self, vec, rows, cols, transpose):
+    def matvec_helper(self, vec, rows, cols, out, transpose):
         X = self.T if transpose else self
         matrix_matvec = lambda x, v: sps.csc_matrix.dot(x, v)
         if transpose:
@@ -124,9 +124,10 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         unrestricted_cols = cols is None or cols.shape[0] == self.shape[1]
         if unrestricted_rows and unrestricted_cols:
             if vec.ndim == 1:
-                return dot_product_mkl(X, vec)
+                return dot_product_mkl(X, vec, out=out)
             elif vec.ndim == 2 and vec.shape[1] == 1:
-                return dot_product_mkl(X, vec[:, 0])[:, None]
+                out_arr = None if out is None else out[:, 0]
+                return dot_product_mkl(X, vec[:, 0], out=out_arr)[:, None]
             return matrix_matvec(self, vec)
         else:
             rows, cols = setup_restrictions(
@@ -144,8 +145,8 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
                 self[np.ix_(rows, cols)], vec[rows] if transpose else vec[cols]
             )
 
-    def matvec(self, vec, cols: np.ndarray = None):
-        return self.matvec_helper(vec, None, cols, False)
+    def matvec(self, vec, cols: np.ndarray = None, out: np.ndarray = None):
+        return self.matvec_helper(vec, None, cols, out, False)
 
     __array_priority__ = 12
 
@@ -154,8 +155,9 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         vec: Union[np.ndarray, List],
         rows: np.ndarray = None,
         cols: np.ndarray = None,
+        out: np.ndarray = None,
     ) -> np.ndarray:
-        return self.matvec_helper(vec, rows, cols, True)
+        return self.matvec_helper(vec, rows, cols, out, True)
 
     def get_col_stds(self, weights: np.ndarray, col_means: np.ndarray) -> np.ndarray:
         sqrt_arg = (
