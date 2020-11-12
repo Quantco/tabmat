@@ -34,6 +34,25 @@ def csc_to_split(mat: sps.csc_matrix, threshold=0.1):
     return SplitMatrix([dense, sparse], [dense_idx, sparse_idx])
 
 
+def prepare_out_array(out, out_shape, out_dtype):
+    if out is None:
+        out = np.zeros(out_shape, out_dtype)
+    else:
+        # TODO: make this a re-usable method that all the matrix classes
+        # can use to check their out parameter
+        if list(out.shape) != out_shape:
+            raise ValueError(
+                f"out array is required to have shape {out_shape} but has"
+                f"shape {out.shape}"
+            )
+        if out.dtype != out_dtype:
+            raise ValueError(
+                f"out array is required to have dtype {out_dtype} but has"
+                f"dtype {out.dtype}"
+            )
+    return out
+
+
 class SplitMatrix(MatrixBase):
     def __init__(
         self,
@@ -206,7 +225,9 @@ class SplitMatrix(MatrixBase):
 
         return col_stds
 
-    def matvec(self, v: np.ndarray, cols: np.ndarray = None) -> np.ndarray:
+    def matvec(
+        self, v: np.ndarray, cols: np.ndarray = None, out: np.ndarray = None
+    ) -> np.ndarray:
         assert not isinstance(v, sps.spmatrix)
         v = np.asarray(v)
         if v.shape[0] != self.shape[1]:
@@ -215,37 +236,37 @@ class SplitMatrix(MatrixBase):
         _, subset_cols, n_cols = self._split_col_subsets(cols)
 
         out_shape = [self.shape[0]] + ([] if v.ndim == 1 else list(v.shape[1:]))
-        out = np.zeros(out_shape, np.result_type(self.dtype, v.dtype))
+        out_dtype = np.result_type(self.dtype, v.dtype)
+        out = prepare_out_array(out, out_shape, out_dtype)
+
         for sub_cols, idx, mat in zip(subset_cols, self.indices, self.matrices):
             one = v[idx, ...]
-            if isinstance(mat, CategoricalMatrix):
-                mat.vec_plus_matvec(one, out, sub_cols)
-            else:
-                tmp = mat.matvec(one, sub_cols)
-                out += tmp
+            mat.matvec(one, sub_cols, out=out)
         return out
 
     def transpose_matvec(
         self,
-        vec: Union[np.ndarray, List],
+        v: Union[np.ndarray, List],
         rows: np.ndarray = None,
         cols: np.ndarray = None,
+        out: np.ndarray = None,
     ) -> np.ndarray:
         """
-        self.T.matvec(vec)[i] = sum_k self[k, i] vec[k]
-        = sum_{k in self.dense_indices} self[k, i] vec[k] +
-          sum_{k in self.sparse_indices} self[k, i] vec[k]
-        = self.X_dense.T.matvec(vec) + self.X_sparse.T.matvec(vec)
+        self.T.matvec(v)[i] = sum_k self[k, i] v[k]
+        = sum_{k in self.dense_indices} self[k, i] v[k] +
+          sum_{k in self.sparse_indices} self[k, i] v[k]
+        = self.X_dense.T.matvec(v) + self.X_sparse.T.matvec(v)
         """
 
-        vec = np.asarray(vec)
+        v = np.asarray(v)
         subset_cols_indices, subset_cols, n_cols = self._split_col_subsets(cols)
 
-        out_shape = [n_cols] + list(vec.shape[1:])
-        out = np.empty(out_shape, dtype=vec.dtype)
+        out_shape = [n_cols] + list(v.shape[1:])
+        out_dtype = np.result_type(self.dtype, v.dtype)
+        out = prepare_out_array(out, out_shape, out_dtype)
 
         for idx, sub_cols, mat in zip(subset_cols_indices, subset_cols, self.matrices):
-            out[idx, ...] = mat.transpose_matvec(vec, rows, sub_cols)
+            out[idx, ...] += mat.transpose_matvec(v, rows, sub_cols)
         return out
 
     def __getitem__(self, key):
