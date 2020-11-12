@@ -1,19 +1,19 @@
 import pickle
 import time
-from typing import Union
+from typing import Dict, Union
 
 import click
 import numpy as np
 import pandas as pd
-from generate_matrices import (
+from scipy import sparse as sps
+
+import quantcore.matrix as mx
+from quantcore.matrix.benchmark.generate_matrices import (
     get_all_benchmark_matrices,
     get_comma_sep_names,
     get_matrix_names,
 )
-from memory_tools import track_peak_mem
-from scipy import sparse as sps
-
-import quantcore.matrix as mx
+from quantcore.matrix.benchmark.memory_tools import track_peak_mem
 
 
 def sandwich(mat: Union[mx.MatrixBase, np.ndarray, sps.csc_matrix], vec: np.ndarray):
@@ -61,6 +61,78 @@ ops = {
 
 def get_op_names():
     return ",".join(ops.keys())
+
+
+def run_one_benchmark_set(
+    matrices: Dict[
+        str, Union[mx.MatrixBase, mx.StandardizedMatrix, np.ndarray, sps.spmatrix]
+    ],
+    include_baseline: bool,
+    name: str,
+    standardized: bool,
+    ops_to_run,
+    n_iterations: int,
+    bench_memory: bool,
+) -> pd.DataFrame:
+    if not include_baseline:
+        for k in list(matrices.keys()):
+            if k != "quantcore.matrix":
+                del matrices[k]
+
+    # ES note: Mysterious legacy code.
+    if "scipy.sparse csr" in matrices.keys():
+        del matrices["scipy.sparse csr"]
+
+    if standardized:
+
+        def _to_standardized_mat(mat):
+            if isinstance(mat, mx.MatrixBase):
+                return mx.StandardizedMatrix(mat, np.zeros(mat.shape[1]))
+            print(
+                f"""For benchmarking a {type(mat)}, the baseline matrix will not
+                be standardized."""
+            )
+            return mat
+
+        matrices = {k: _to_standardized_mat(v) for k, v in matrices.items()}
+
+    times = pd.DataFrame(
+        index=pd.MultiIndex.from_product(
+            [ops_to_run, matrices.keys()], names=["operation", "storage"],
+        ),
+        columns=["memory", "time"],
+    ).reset_index()
+
+    for i, row in times.iterrows():
+        mat_ = matrices[row["storage"]]
+        setup_fnc, op_fnc = ops[row["operation"]]
+        setup_data = setup_fnc(matrices)
+        runtimes = []
+        peak_mems = []
+        for j in range(n_iterations):
+            start = time.time()
+            if bench_memory:
+                peak_mem = track_peak_mem(op_fnc, mat_, *setup_data)
+            else:
+                op_fnc(mat_, *setup_data)
+                peak_mem = 0
+            end = time.time()
+            peak_mems.append(peak_mem)
+            runtimes.append(end - start)
+
+        # We want to get a consistent measure of runtime so we take the
+        # minimum. Any increase in runtime is due to warmup or other
+        # processes running at the same time.
+        times["time"].iloc[i] = np.min(runtimes)
+
+        # On the other hand, we want the maximum memory usage because this
+        # metric is isolated to our current python process. Any lower
+        # values will be because the highest memory usage was "missed" by
+        # the tracker
+        times["memory"].iloc[i] = np.max(peak_mems)
+
+    times["design"] = name
+    return times
 
 
 @click.command()
@@ -148,64 +220,15 @@ def run_all_benchmarks(
         with open(f"benchmark/data/{name}_data.pkl", "rb") as f:
             matrices = pickle.load(f)
 
-        if not include_baseline:
-            for k in list(matrices.keys()):
-                if k != "quantcore.matrix":
-                    del matrices[k]
-
-        # ES note: Mysterious legacy code.
-        if name not in ["dense"]:
-            del matrices["scipy.sparse csr"]
-
-        if standardized:
-
-            def _to_standardized_mat(mat):
-                if isinstance(mat, mx.MatrixBase):
-                    return mx.StandardizedMatrix(mat, np.zeros(mat.shape[1]))
-                print(
-                    f"""For benchmarking a {type(mat)}, the baseline matrix will not
-                    be standardized."""
-                )
-                return mat
-
-            matrices = {k: _to_standardized_mat(v) for k, v in matrices.items()}
-
-        times = pd.DataFrame(
-            index=pd.MultiIndex.from_product(
-                [ops_to_run, matrices.keys()], names=["operation", "storage"],
-            ),
-            columns=["memory", "time"],
-        ).reset_index()
-
-        for i, row in times.iterrows():
-            mat_ = matrices[row["storage"]]
-            setup_fnc, op_fnc = ops[row["operation"]]
-            setup_data = setup_fnc(matrices)
-            runtimes = []
-            peak_mems = []
-            for j in range(n_iterations):
-                start = time.time()
-                if bench_memory:
-                    peak_mem = track_peak_mem(op_fnc, mat_, *setup_data)
-                else:
-                    op_fnc(mat_, *setup_data)
-                    peak_mem = 0
-                end = time.time()
-                peak_mems.append(peak_mem)
-                runtimes.append(end - start)
-
-            # We want to get a consistent measure of runtime so we take the
-            # minimum. Any increase in runtime is due to warmup or other
-            # processes running at the same time.
-            times["time"].iloc[i] = np.min(runtimes)
-
-            # On the other hand, we want the maximum memory usage because this
-            # metric is isolated to our current python process. Any lower
-            # values will be because the highest memory usage was "missed" by
-            # the tracker
-            times["memory"].iloc[i] = np.max(peak_mems)
-
-        times["design"] = name
+        times = run_one_benchmark_set(
+            matrices,
+            include_baseline,
+            name,
+            standardized,
+            ops_to_run,
+            n_iterations,
+            bench_memory,
+        )
         print(times)
 
         times.to_csv(f"benchmark/{name}_times.csv", index=False)
