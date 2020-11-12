@@ -111,7 +111,7 @@ def get_matrix_names():
     type=str,
     help=f"Specify a comma-separated list of matrices you want to build. Leaving this blank will default to building all matrices. Matrix options: {get_matrix_names()}",
 )
-def generate_matrices(matrix_name):
+def generate_matrices(matrix_name: str) -> None:
     all_benchmark_matrices = get_all_benchmark_matrices()
 
     if matrix_name is None:
@@ -122,8 +122,8 @@ def generate_matrices(matrix_name):
     for name in benchmark_matrices:
         f = all_benchmark_matrices[name]
         mats = f()
-        with open(get_matrix_path(name), "wb") as f:
-            pickle.dump(mats, f)
+        with open(get_matrix_path(name), "wb") as fname:
+            pickle.dump(mats, fname)
 
 
 if __name__ == "__main__":
