@@ -138,7 +138,7 @@ def test_to_array_standardized_mat(mat: mx.StandardizedMatrix):
 @pytest.mark.parametrize(
     "other_type", [lambda x: x, np.asarray, mx.DenseMatrix],
 )
-@pytest.mark.parametrize("cols", [None, np.arange(1, dtype=np.int32)])
+@pytest.mark.parametrize("cols", [None, [], [1], np.array([1])])
 @pytest.mark.parametrize("other_shape", [[], [1], [2]])
 def test_matvec(
     mat: Union[mx.MatrixBase, mx.StandardizedMatrix], other_type, cols, other_shape
@@ -204,8 +204,8 @@ def process_mat_vec_subsets(mat, vec, mat_rows, mat_cols, vec_idxs):
 @pytest.mark.parametrize(
     "other_type", [lambda x: x, np.array, mx.DenseMatrix],
 )
-@pytest.mark.parametrize("rows", [None, np.arange(2, dtype=np.int32)])
-@pytest.mark.parametrize("cols", [None, np.arange(1, dtype=np.int32)])
+@pytest.mark.parametrize("rows", [None, [], [2], np.arange(2)])
+@pytest.mark.parametrize("cols", [None, [], [1], np.arange(1)])
 def test_transpose_matvec(
     mat: Union[mx.MatrixBase, mx.StandardizedMatrix], other_type, rows, cols
 ):
@@ -250,9 +250,9 @@ def test_transpose_matvec(
         (categorical_matrix(), categorical_matrix()),
     ],
 )
-@pytest.mark.parametrize("rows", [None, np.arange(2, dtype=np.int32)])
-@pytest.mark.parametrize("L_cols", [None, np.arange(1, dtype=np.int32)])
-@pytest.mark.parametrize("R_cols", [None, np.arange(1, dtype=np.int32)])
+@pytest.mark.parametrize("rows", [None, [2], np.arange(2)])
+@pytest.mark.parametrize("L_cols", [None, [1], np.arange(1)])
+@pytest.mark.parametrize("R_cols", [None, [1], np.arange(1)])
 def test_cross_sandwich(
     mat_i: Union[mx.DenseMatrix, mx.SparseMatrix, mx.CategoricalMatrix],
     mat_j: Union[mx.DenseMatrix, mx.SparseMatrix, mx.CategoricalMatrix],
@@ -273,8 +273,8 @@ def test_cross_sandwich(
 @pytest.mark.parametrize(
     "vec_type", [lambda x: x, np.array, mx.DenseMatrix],
 )
-@pytest.mark.parametrize("rows", [None, np.arange(2, dtype=np.int32)])
-@pytest.mark.parametrize("cols", [None, np.arange(1, dtype=np.int32)])
+@pytest.mark.parametrize("rows", [None, [], [1], np.arange(2)])
+@pytest.mark.parametrize("cols", [None, [], [0], np.arange(1)])
 def test_self_sandwich(
     mat: Union[mx.MatrixBase, mx.StandardizedMatrix], vec_type, rows, cols
 ):
@@ -289,20 +289,20 @@ def test_self_sandwich(
     np.testing.assert_allclose(res, expected)
 
 
-@pytest.mark.parametrize("rows", [None, np.arange(2, dtype=np.int32)])
-@pytest.mark.parametrize("cols", [None, np.arange(1, dtype=np.int32)])
+@pytest.mark.parametrize("rows", [None, [], [0], np.arange(2)])
+@pytest.mark.parametrize("cols", [None, [], [0], np.arange(1)])
 def test_split_sandwich(rows: Optional[np.ndarray], cols: Optional[np.ndarray]):
     mat = complex_split_matrix()
     d = np.random.random(mat.shape[0])
     result = mat.sandwich(d, rows=rows, cols=cols)
 
     mat_as_dense = mat.A
-    d_rows = d
     if rows is not None:
         mat_as_dense = mat_as_dense[rows, :]
         d_rows = d[rows]
     if cols is not None:
         mat_as_dense = mat_as_dense[:, cols]
+        d_rows = d
 
     expected = mat_as_dense.T @ np.diag(d_rows) @ mat_as_dense
     np.testing.assert_almost_equal(result, expected)
