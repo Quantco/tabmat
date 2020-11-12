@@ -67,10 +67,18 @@ class CategoricalMatrix(MatrixBase):
                 but it has shape {other.shape}"""
             )
 
-        if cols is not None and len(cols) == self.shape[1]:
-            cols = None
+        if cols is not None:
+            if len(cols) == self.shape[1]:
+                cols = None
+            else:
+                # Needs to be single-precision for compatibility with cython 'int' type
+                # Since we have the same restriction on self.indices, this is not an
+                # additional restriction (as column numbers can't exceed 2^32 anyway)
+                cols = np.asarray(cols).astype(np.int32)
+
         return other, cols
 
+    # TODO: doesn't work with certain values of cols like [] and [0]
     def matvec(
         self, other: Union[List, np.ndarray], cols: np.ndarray = None,
     ) -> np.ndarray:
