@@ -4,12 +4,7 @@ import numpy as np
 import pandas as pd
 from scipy import sparse as sps
 
-from .ext.categorical import (
-    matvec,
-    sandwich_categorical,
-    transpose_matvec,
-    vec_plus_matvec,
-)
+from .ext.categorical import matvec, sandwich_categorical, transpose_matvec
 from .ext.split import sandwich_cat_cat, sandwich_cat_dense
 from .matrix_base import MatrixBase
 
@@ -72,15 +67,20 @@ class CategoricalMatrix(MatrixBase):
         return other, cols
 
     def matvec(
-        self, other: Union[List, np.ndarray], cols: np.ndarray = None,
+        self,
+        other: Union[List, np.ndarray],
+        cols: np.ndarray = None,
+        out: np.ndarray = None,
     ) -> np.ndarray:
         """
-        When other is 1d:
-        mat.matvec(other)[i] = sum_j mat[i, j] other[j]
-                          = other[mat.indices[i]]
+        Multiply self with vector 'other', and add vector 'out' if it is present.
+
+        out[i] += sum_j mat[i, j] other[j] = other[mat.indices[i]]
 
         The cols parameter allows restricting to a subset of the
         matrix without making a copy.
+
+        If out is None, then a new array will be returned.
 
         Test:
         matrix/test_matrices::test_matvec
@@ -93,39 +93,28 @@ class CategoricalMatrix(MatrixBase):
         else:
             other_m = other
 
-        res = matvec(
-            self.indices, other_m, self.shape[0], other_m.dtype, cols, self.shape[1]
-        )
-        if is_int:
-            return res.astype(int)
-        return res
+        if out is None:
+            out = np.zeros(self.shape[0], dtype=other_m.dtype)
 
-    def vec_plus_matvec(
-        self,
-        other: Union[List, np.ndarray],
-        out_vec: np.ndarray,
-        cols: np.ndarray = None,
-    ) -> None:
-        """
-        e.g. Lapack gemv
-        """
-        other, cols = self._matvec_setup(other, cols)
-        # TODO: Not sure if this will work with any int inputs. Let's not support that
-        vec_plus_matvec(
-            self.indices, other, self.shape[0], cols, self.shape[1], out_vec,
-        )
+        matvec(self.indices, other_m, self.shape[0], cols, self.shape[1], out)
+        if is_int:
+            return out.astype(int)
+        return out
 
     def transpose_matvec(
         self,
         vec: Union[np.ndarray, List],
         rows: np.ndarray = None,
         cols: np.ndarray = None,
+        out: np.ndarray = None,
     ) -> np.ndarray:
         """
-        Perform: self[rows, cols].T @ vec
+        Perform: out += self[rows, cols].T @ vec
 
         The rows and cols parameters allow restricting to a subset of the
         matrix without making a copy.
+
+        If out is None, then a new array will be returned.
 
         Test: tests/test_matrices::test_transpose_matvec
         """
@@ -137,10 +126,13 @@ class CategoricalMatrix(MatrixBase):
                 "CategoricalMatrix.transpose_matvec is only implemented for 1d arrays."
             )
 
-        res = transpose_matvec(self.indices, vec, self.shape[1], vec.dtype, rows)
+        if out is None:
+            out = np.zeros(self.shape[1], dtype=self.dtype)
+
+        transpose_matvec(self.indices, vec, self.shape[1], vec.dtype, rows, out)
         if cols is not None and len(cols) < self.shape[1]:
-            res = res[cols]
-        return res
+            out = out[cols]
+        return out
 
     def sandwich(
         self,
