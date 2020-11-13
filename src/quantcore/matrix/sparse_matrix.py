@@ -12,7 +12,12 @@ from .ext.sparse import (
     transpose_square_dot_weights,
 )
 from .matrix_base import MatrixBase
-from .util import set_up_rows_or_cols, setup_restrictions
+from .util import (
+    check_matvec_out_shape,
+    check_transpose_matvec_out_shape,
+    set_up_rows_or_cols,
+    setup_restrictions,
+)
 
 
 class SparseMatrix(sps.csc_matrix, MatrixBase):
@@ -131,7 +136,11 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
             elif vec.ndim == 2 and vec.shape[1] == 1:
                 out_arr = None if out is None else out[:, 0]
                 return dot_product_mkl(X, vec[:, 0], out=out_arr)[:, None]
-            return matrix_matvec(self, vec)
+            res = matrix_matvec(self, vec)
+            if out is None:
+                return res
+            out += res
+            return out
         else:
             rows, cols = setup_restrictions(
                 self.shape, rows, cols, dtype=self.idx_dtype
@@ -141,14 +150,23 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
             else:
                 fast_fnc = lambda v: csr_matvec(self.x_csr, v, rows, cols)
             if vec.ndim == 1:
-                return fast_fnc(vec)
+                res = fast_fnc(vec)
             elif vec.ndim == 2 and vec.shape[1] == 1:
-                return fast_fnc(vec[:, 0])[:, None]
-            return matrix_matvec(
-                self[np.ix_(rows, cols)], vec[rows] if transpose else vec[cols]
-            )
+                res = fast_fnc(vec[:, 0])[:, None]
+            else:
+                res = matrix_matvec(
+                    self[np.ix_(rows, cols)], vec[rows] if transpose else vec[cols]
+                )
+            if out is None:
+                return res
+            if transpose:
+                out[cols] += res
+            else:
+                out[rows] += res
+            return out
 
     def matvec(self, vec, cols: np.ndarray = None, out: np.ndarray = None):
+        check_matvec_out_shape(self, out)
         return self.matvec_helper(vec, None, cols, out, False)
 
     __array_priority__ = 12
@@ -160,6 +178,7 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         cols: np.ndarray = None,
         out: np.ndarray = None,
     ) -> np.ndarray:
+        check_transpose_matvec_out_shape(self, out)
         return self.matvec_helper(vec, rows, cols, out, True)
 
     def get_col_stds(self, weights: np.ndarray, col_means: np.ndarray) -> np.ndarray:

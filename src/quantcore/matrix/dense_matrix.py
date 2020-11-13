@@ -9,7 +9,11 @@ from .ext.dense import (
     transpose_square_dot_weights,
 )
 from .matrix_base import MatrixBase
-from .util import setup_restrictions
+from .util import (
+    check_matvec_out_shape,
+    check_transpose_matvec_out_shape,
+    setup_restrictions,
+)
 
 
 class DenseMatrix(np.ndarray, MatrixBase):
@@ -111,7 +115,11 @@ class DenseMatrix(np.ndarray, MatrixBase):
                 res = subset.T.dot(vec[rows]) if transpose else subset.dot(vec[cols])
             if out is None:
                 return res
-            out += res
+            if transpose:
+                out[cols] += res
+            else:
+                # Note that currently 'rows' will always be all rows
+                out[rows] += res
             return out
 
     def transpose_matvec(
@@ -121,6 +129,7 @@ class DenseMatrix(np.ndarray, MatrixBase):
         cols: np.ndarray = None,
         out: np.ndarray = None,
     ) -> np.ndarray:
+        check_transpose_matvec_out_shape(self, out)
         return self.matvec_helper(vec, rows, cols, out, True)
 
     def matvec(
@@ -129,4 +138,5 @@ class DenseMatrix(np.ndarray, MatrixBase):
         cols: np.ndarray = None,
         out: np.ndarray = None,
     ) -> np.ndarray:
+        check_matvec_out_shape(self, out)
         return self.matvec_helper(vec, None, cols, out, False)
