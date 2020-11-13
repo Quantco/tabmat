@@ -7,7 +7,12 @@ from scipy import sparse as sps
 from .ext.categorical import matvec, sandwich_categorical, transpose_matvec
 from .ext.split import sandwich_cat_cat, sandwich_cat_dense
 from .matrix_base import MatrixBase
-from .util import set_up_rows_or_cols, setup_restrictions
+from .util import (
+    check_matvec_out_shape,
+    check_transpose_matvec_out_shape,
+    set_up_rows_or_cols,
+    setup_restrictions,
+)
 
 
 def _none_to_slice(arr: Optional[np.ndarray], n: int) -> Union[slice, np.ndarray]:
@@ -74,7 +79,6 @@ class CategoricalMatrix(MatrixBase):
 
         return other, cols
 
-    # TODO: doesn't work with certain values of cols like [] and [0]
     def matvec(
         self,
         other: Union[List, np.ndarray],
@@ -94,6 +98,7 @@ class CategoricalMatrix(MatrixBase):
         Test:
         matrix/test_matrices::test_matvec
         """
+        check_matvec_out_shape(self, out)
         other, cols = self._matvec_setup(other, cols)
         is_int = np.issubdtype(other.dtype, np.signedinteger)
 
@@ -118,7 +123,19 @@ class CategoricalMatrix(MatrixBase):
         out: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """
-        Perform: out += self[rows, cols].T @ vec
+        Perform, for i in cols, out[i] += sum_{j in rows} self[j, i] vec[j]
+        self[j, i] = 1(indices[j] == i)
+
+
+        for j in rows,
+            for i in cols,
+                out[i] += 1(indices[j] == i) vec[j]
+
+        If cols == range(self.shape[1]), then for every row j, there will be exactly
+            one relevant column, so you can do
+
+        for j in rows,
+            out[indices[j]] += vec[j]
 
         The rows and cols parameters allow restricting to a subset of the
         matrix without making a copy.
@@ -135,15 +152,23 @@ class CategoricalMatrix(MatrixBase):
                 "CategoricalMatrix.transpose_matvec is only implemented for 1d arrays."
             )
 
-        if out is None:
+        out_is_none = out is None
+        if out_is_none:
             out = np.zeros(self.shape[1], dtype=self.dtype)
+        else:
+            check_transpose_matvec_out_shape(self, out)
 
-        if rows is not None:
-            rows = set_up_rows_or_cols(rows, self.shape[0])
+        rows, cols = setup_restrictions(self.shape, rows, cols)
 
+        # TODO: Make this function work with 'cols'
+        if cols is not None:
+            raise NotImplementedError(
+                """
+                quantcore.matrix.CategoricalMatrix.transpose_matvec does not support
+                'cols' being not None.
+                """
+            )
         transpose_matvec(self.indices, vec, self.shape[1], vec.dtype, rows, out)
-        if cols is not None and len(cols) < self.shape[1]:
-            out = out[cols]
         return out
 
     def sandwich(
