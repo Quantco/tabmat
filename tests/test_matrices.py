@@ -164,6 +164,7 @@ def test_to_array_standardized_mat(mat: mx.StandardizedMatrix):
     np.testing.assert_allclose(mat.A, true_mat_part + mat.shift)
 
 
+# TODO: add test for 'out'
 @pytest.mark.parametrize("mat", get_matrices())
 @pytest.mark.parametrize(
     "other_type", [lambda x: x, np.asarray, mx.DenseMatrix],
@@ -173,6 +174,14 @@ def test_to_array_standardized_mat(mat: mx.StandardizedMatrix):
 def test_matvec(
     mat: Union[mx.MatrixBase, mx.StandardizedMatrix], other_type, cols, other_shape
 ):
+    """
+    mat
+    other_type: Function transforming list to list, array, or DenseMatrix
+    cols: Argument 1 to matvec, specifying which columns of the matrix (and
+        which elements of 'other') to use
+    other_shape: Second dimension of 'other.shape', if any. If other_shape is [], then
+        other is 1d.
+    """
     n_row = mat.shape[1]
     shape = [n_row] + other_shape
     other_as_list = np.random.random(shape).tolist()
@@ -321,12 +330,12 @@ def test_split_sandwich(rows: Optional[np.ndarray], cols: Optional[np.ndarray]):
     result = mat.sandwich(d, rows=rows, cols=cols)
 
     mat_as_dense = mat.A
+    d_rows = d
     if rows is not None:
         mat_as_dense = mat_as_dense[rows, :]
         d_rows = d[rows]
     if cols is not None:
         mat_as_dense = mat_as_dense[:, cols]
-        d_rows = d
 
     expected = mat_as_dense.T @ np.diag(d_rows) @ mat_as_dense
     np.testing.assert_almost_equal(result, expected)
