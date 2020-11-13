@@ -7,6 +7,7 @@ from scipy import sparse as sps
 from .ext.categorical import matvec, sandwich_categorical, transpose_matvec
 from .ext.split import sandwich_cat_cat, sandwich_cat_dense
 from .matrix_base import MatrixBase
+from .util import set_up_rows_or_cols, setup_restrictions
 
 
 def _none_to_slice(arr: Optional[np.ndarray], n: int) -> Union[slice, np.ndarray]:
@@ -69,7 +70,7 @@ class CategoricalMatrix(MatrixBase):
                 # Needs to be single-precision for compatibility with cython 'int' type
                 # Since we have the same restriction on self.indices, this is not an
                 # additional restriction (as column numbers can't exceed 2^32 anyway)
-                cols = np.asarray(cols).astype(np.int32)
+                cols = set_up_rows_or_cols(cols, self.shape[1])
 
         return other, cols
 
@@ -112,9 +113,9 @@ class CategoricalMatrix(MatrixBase):
     def transpose_matvec(
         self,
         vec: Union[np.ndarray, List],
-        rows: np.ndarray = None,
-        cols: np.ndarray = None,
-        out: np.ndarray = None,
+        rows: Optional[np.ndarray] = None,
+        cols: Optional[np.ndarray] = None,
+        out: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """
         Perform: out += self[rows, cols].T @ vec
@@ -136,6 +137,9 @@ class CategoricalMatrix(MatrixBase):
 
         if out is None:
             out = np.zeros(self.shape[1], dtype=self.dtype)
+
+        if rows is not None:
+            rows = set_up_rows_or_cols(rows, self.shape[0])
 
         transpose_matvec(self.indices, vec, self.shape[1], vec.dtype, rows, out)
         if cols is not None and len(cols) < self.shape[1]:
@@ -160,8 +164,7 @@ class CategoricalMatrix(MatrixBase):
         matrix without making a copy.
         """
         d = np.asarray(d)
-        if rows is None:
-            rows = np.arange(self.shape[0], dtype=np.int32)
+        rows = set_up_rows_or_cols(rows, self.shape[0])
         res_diag = sandwich_categorical(self.indices, d, rows, d.dtype, self.shape[1])
         if cols is not None and len(cols) < self.shape[1]:
             res_diag = res_diag[cols]
@@ -243,10 +246,7 @@ class CategoricalMatrix(MatrixBase):
                 "Input array needs to be either C-contiguous or F-contiguous."
             )
 
-        if rows is None:
-            rows = np.arange(self.shape[0], dtype=np.int32)
-        if R_cols is None:
-            R_cols = np.arange(other.shape[1], dtype=np.int32)
+        rows, R_cols = setup_restrictions((self.shape[0], other.shape[1]), rows, R_cols)
 
         res = sandwich_cat_dense(
             self.indices, self.shape[1], d, other, rows, R_cols, is_c_contiguous
@@ -268,8 +268,7 @@ class CategoricalMatrix(MatrixBase):
 
         i_indices = self.indices
         j_indices = other.indices
-        if rows is None:
-            rows = np.arange(self.shape[0], dtype=np.int32)
+        rows = set_up_rows_or_cols(rows, self.shape[0])
 
         res = sandwich_cat_cat(
             i_indices, j_indices, self.shape[1], other.shape[1], d, rows, d.dtype

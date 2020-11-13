@@ -9,6 +9,7 @@ from .dense_matrix import DenseMatrix
 from .ext.split import split_col_subsets
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
+from .util import set_up_rows_or_cols
 
 
 def split_sparse_and_dense_parts(
@@ -148,6 +149,7 @@ class SplitMatrix(MatrixBase):
             subset_cols = [None for i in range(len(self.indices))]
             return subset_cols_indices, subset_cols, self.shape[1]
 
+        cols = set_up_rows_or_cols(cols, self.shape[1])
         return split_col_subsets(self, cols)
 
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
@@ -241,6 +243,8 @@ class SplitMatrix(MatrixBase):
 
         for sub_cols, idx, mat in zip(subset_cols, self.indices, self.matrices):
             one = v[idx, ...]
+            # TODO: uh-oh! This doesn't seem to be working with a DenseMatrix. out
+            # doesn't update
             mat.matvec(one, sub_cols, out=out)
         return out
 
