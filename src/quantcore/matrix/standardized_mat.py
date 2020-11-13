@@ -4,6 +4,7 @@ import numpy as np
 from scipy import sparse as sps
 
 from . import MatrixBase, SparseMatrix
+from .util import set_up_rows_or_cols, setup_restrictions
 
 
 class StandardizedMatrix:
@@ -56,8 +57,7 @@ class StandardizedMatrix:
         This function returns a dense output, so it is best geared for the
         matrix-vector case.
         """
-        if cols is None:
-            cols = np.arange(self.shape[1], dtype=np.int32)
+        cols = set_up_rows_or_cols(cols, self.shape[1])
 
         other_mat = np.asarray(other_mat)
         mult_other = other_mat
@@ -70,7 +70,8 @@ class StandardizedMatrix:
         mat_part = self.mat.matvec(mult_other, cols, out=out)
 
         # Add shift part to mat_part
-        mat_part += self.shift[cols].dot(other_mat[cols])
+        shift_part = self.shift[cols].dot(other_mat[cols, ...])  # scalar
+        mat_part += shift_part
         return mat_part
 
     def getcol(self, i: int):
@@ -110,10 +111,7 @@ class StandardizedMatrix:
                 while d is of type {d.dtype}."""
             )
 
-        if rows is None:
-            rows = np.arange(self.shape[0], dtype=np.int32)
-        if cols is None:
-            cols = np.arange(self.shape[1], dtype=np.int32)
+        rows, cols = setup_restrictions(self.shape, rows, cols)
 
         term1 = self.mat.sandwich(d, rows, cols)
         d_mat = self.mat.transpose_matvec(d, rows, cols)
@@ -157,28 +155,38 @@ class StandardizedMatrix:
         = sum_j shift[k] other[j, i]
         = shift[k] other.sum(0)[i]
         = outer(shift, other.sum(0))[k, i]
+
+        With row and col restrictions:
+
+        self.transpose_matvec(other, rows, cols)[i, j]
+            = self.mat.transpose_matvec(other, rows, cols)[i, j]
+              + (outer(self.shift, ones(N))[rows, cols] @ other[cols])
+            = self.mat.transpose_matvec(other, rows, cols)[i, j]
+              + shift[cols[i]] other.sum(0)[rows[j]
         """
         other = np.asarray(other)
-        mat_part = self.mat.transpose_matvec(other, rows, cols, out=out)
+        out_is_none = out is None
+        out = self.mat.transpose_matvec(other, rows, cols, out=out)
 
-        if rows is None:
-            rows = np.arange(self.shape[0], dtype=np.int32)
-        if cols is None:
-            cols = np.arange(self.shape[1], dtype=np.int32)
+        rows, cols = setup_restrictions(self.shape, rows, cols)
         other_sum = np.sum(other[rows], 0)
-        shift_part = np.reshape(np.outer(self.shift[cols], other_sum), mat_part.shape)
+
+        shift_part_tmp = np.outer(self.shift[cols], other_sum)
+        output_shape = ((self.shape[1] if cols is None else len(cols)),) + out.shape[1:]
+        shift_part = np.reshape(shift_part_tmp, output_shape)
 
         if self.mult is not None:
             mult = self.mult
             # Avoiding an outer product by matching dimensions.
-            for i in range(len(mat_part.shape) - 1):
+            for i in range(len(out.shape) - 1):
                 mult = mult[:, np.newaxis]
-            mat_part *= mult[cols]
-            mat_part += shift_part
-            return mat_part
+            out *= mult[cols]
+
+        if out_is_none:
+            out += shift_part
         else:
-            mat_part += shift_part
-            return mat_part
+            out[cols] += shift_part
+        return out
 
     def __rmatmul__(self, other: Union[np.ndarray, List]) -> np.ndarray:
         """
