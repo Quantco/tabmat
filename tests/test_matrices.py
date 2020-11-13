@@ -100,32 +100,64 @@ def get_matrices():
     )
 
 
-# TODO: add column/row restrictions here
 @pytest.mark.parametrize("mat", get_matrices())
-def test_matvec_out_parameter(mat):
+@pytest.mark.parametrize("cols", [None, [], [1], np.array([1])])
+def test_matvec_out_parameter_wrong_shape(mat, cols):
+    out = np.zeros(mat.shape[0] + 1)
+    v = np.zeros(mat.shape[1])
+    with pytest.raises(ValueError, match="first dimension of 'out' must be"):
+        mat.matvec(v, cols, out)
+
+
+@pytest.mark.parametrize("mat", get_matrices())
+@pytest.mark.parametrize("cols", [None, [], [1], np.array([1])])
+@pytest.mark.parametrize("rows", [None, [], [1], np.array([1])])
+def test_transpose_matvec_out_parameter_wrong_shape(mat, cols, rows):
+    out = np.zeros(mat.shape[1] + 1)
+    v = np.zeros(mat.shape[0])
+    with pytest.raises(ValueError, match="dimension of 'out' must be"):
+        mat.transpose_matvec(v, rows, cols, out)
+
+
+@pytest.mark.parametrize("mat", get_matrices())
+@pytest.mark.parametrize("cols", [None, [], [1], np.array([1])])
+def test_matvec_out_parameter(mat, cols):
     out = np.random.rand(mat.shape[0])
     out_copy = out.copy()
     v = np.random.rand(mat.shape[1])
 
     # This should modify out in place.
-    out2 = mat.matvec(v, out=out)
+    out2 = mat.matvec(v, cols=cols, out=out)
 
-    correct = out_copy + mat.matvec(v)
+    correct = out_copy + mat.matvec(v, cols=cols)
     np.testing.assert_almost_equal(out, out2)
     np.testing.assert_almost_equal(out, correct)
 
 
-# TODO: add column/row restrictions here
 @pytest.mark.parametrize("mat", get_matrices())
-def test_transpose_matvec_out_parameter(mat):
+@pytest.mark.parametrize("cols", [None, [], [1], np.array([1])])
+@pytest.mark.parametrize("rows", [None, [], [1], np.array([1])])
+def test_transpose_matvec_out_parameter(mat, cols, rows):
     out = np.random.rand(mat.shape[1])
     out_copy = out.copy()
     v = np.random.rand(mat.shape[0])
 
     # This should modify out in place.
-    out2 = mat.transpose_matvec(v, out=out)
+    out2 = mat.transpose_matvec(v, cols=cols, rows=rows, out=out)
+    # Check that modification has been in-place
+    assert out.__array_interface__["data"][0] == out2.__array_interface__["data"][0]
+    assert out.shape == out_copy.shape
 
-    correct = out_copy + mat.transpose_matvec(v)
+    matvec_part = mat.transpose_matvec(v, cols=cols, rows=rows)
+    expected_shape = (out.shape[0] if cols is None else len(cols),)
+    assert matvec_part.shape == expected_shape
+
+    if cols is None:
+        correct = out_copy + matvec_part
+    else:
+        correct = out_copy
+        correct[cols] += matvec_part
+
     np.testing.assert_almost_equal(out, out2)
     np.testing.assert_almost_equal(out, correct)
 
@@ -164,7 +196,6 @@ def test_to_array_standardized_mat(mat: mx.StandardizedMatrix):
     np.testing.assert_allclose(mat.A, true_mat_part + mat.shift)
 
 
-# TODO: add test for 'out'
 @pytest.mark.parametrize("mat", get_matrices())
 @pytest.mark.parametrize(
     "other_type", [lambda x: x, np.asarray, mx.DenseMatrix],
