@@ -15,7 +15,6 @@ cdef extern from "cat_split_helpers.cpp":
     void _transpose_matvec_all_rows[F](int, int*, F*, F*, int)
 
 
-# TODO: make this work with 'cols'
 def transpose_matvec(int[:] indices, floating[:] other, int n_cols, dtype,
                   rows, cols, out):
     cdef floating[:] res = out
