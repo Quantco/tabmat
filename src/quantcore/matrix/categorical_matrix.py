@@ -158,17 +158,15 @@ class CategoricalMatrix(MatrixBase):
         else:
             check_transpose_matvec_out_shape(self, out)
 
-        rows, cols = setup_restrictions(self.shape, rows, cols)
+        rows = set_up_rows_or_cols(rows, self.shape[0])
 
         # TODO: Make this function work with 'cols'
         if cols is not None:
-            raise NotImplementedError(
-                """
-                quantcore.matrix.CategoricalMatrix.transpose_matvec does not support
-                'cols' being not None.
-                """
-            )
-        transpose_matvec(self.indices, vec, self.shape[1], vec.dtype, rows, out)
+            cols = set_up_rows_or_cols(cols, self.shape[1])
+
+        transpose_matvec(self.indices, vec, self.shape[1], vec.dtype, rows, cols, out)
+        if out_is_none and cols is not None:
+            return out[cols, ...]  # type: ignore
         return out
 
     def sandwich(
