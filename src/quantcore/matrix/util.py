@@ -1,10 +1,10 @@
-from typing import List, Optional, Tuple, Union
+from typing import Optional, Tuple
 
 import numpy as np
 
 
 def set_up_rows_or_cols(
-    arr: Optional[Union[List[int], np.ndarray]], length: int, dtype=np.int32
+    arr: Optional[np.ndarray], length: int, dtype=np.int32
 ) -> np.ndarray:
     if arr is None:
         return np.arange(length, dtype=dtype)
