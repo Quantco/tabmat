@@ -99,7 +99,7 @@ class CategoricalMatrix(MatrixBase):
         If out is None, then a new array will be returned.
 
         Test:
-        matrix/test_matrices::test_matvec
+        test_matrices::test_matvec
         """
         check_matvec_out_shape(self, out)
         other, cols = self._matvec_setup(other, cols)
