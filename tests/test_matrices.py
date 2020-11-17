@@ -135,22 +135,22 @@ def test_matvec_out_parameter(mat, cols):
 
 
 @pytest.mark.parametrize("mat", get_matrices())
-@pytest.mark.parametrize("cols", [None, [], [1], np.array([1])])
-@pytest.mark.parametrize("rows", [None, [], [1], np.array([1])])
+@pytest.mark.parametrize("cols", [None, [], [1], np.array([0, 1])])
+@pytest.mark.parametrize("rows", [None, [], [1], np.array([0, 2])])
 def test_transpose_matvec_out_parameter(mat, cols, rows):
     out = np.random.rand(mat.shape[1])
     out_copy = out.copy()
     v = np.random.rand(mat.shape[0])
 
     # This should modify out in place.
-    out2 = mat.transpose_matvec(v, cols=cols, rows=rows, out=out)
+    out2 = mat.transpose_matvec(v, rows=rows, cols=cols, out=out)
     # Check that modification has been in-place
     assert out.__array_interface__["data"][0] == out2.__array_interface__["data"][0]
     assert out.shape == out_copy.shape
 
-    matvec_part = mat.transpose_matvec(v, cols=cols, rows=rows)
-    expected_shape = (out.shape[0] if cols is None else len(cols),)
-    assert matvec_part.shape == expected_shape
+    col_idx = np.arange(mat.shape[1], dtype=int) if cols is None else cols
+    row_idx = np.arange(mat.shape[0], dtype=int) if rows is None else rows
+    matvec_part = mat.A[row_idx, :][:, col_idx].T.dot(v[row_idx])
 
     if cols is None:
         correct = out_copy + matvec_part

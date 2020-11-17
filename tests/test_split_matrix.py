@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Optional, Union
 
 import numpy as np
 import pytest
@@ -100,26 +100,69 @@ def test_init(mat: SplitMatrix):
     assert mat.matrices[2].shape == (10, 3)
 
 
-def test_sandwich_sparse_dense(X: np.ndarray):
+@pytest.mark.parametrize(
+    "Acols", [np.arange(2, dtype=np.int32), np.array([1], dtype=np.int32)]
+)
+@pytest.mark.parametrize(
+    "Bcols",
+    [
+        np.arange(4, dtype=np.int32),
+        np.array([1], dtype=np.int32),
+        np.array([1, 3], dtype=np.int32),
+    ],
+)
+def test_sandwich_sparse_dense(X: np.ndarray, Acols, Bcols):
     np.random.seed(0)
     n, k = X.shape
     d = np.random.random((n,))
     A = sps.random(n, 2).tocsr()
     rows = np.arange(d.shape[0], dtype=np.int32)
-    Acols = np.arange(A.shape[1], dtype=np.int32)
-    Bcols = np.arange(X.shape[1], dtype=np.int32)
     result = csr_dense_sandwich(A, X, d, rows, Acols, Bcols)
-    expected = A.T.A @ np.diag(d) @ X
+    expected = A.T.A[Acols, :] @ np.diag(d) @ X[:, Bcols]
     np.testing.assert_allclose(result, expected)
 
 
+# TODO: ensure cols are in order
 @pytest.mark.parametrize("mat", [split_mat(), split_with_cat(), split_with_cat_64()])
-def test_sandwich(mat: mx.SplitMatrix):
+@pytest.mark.parametrize(
+    "cols", [None, [0], [1, 2, 3], [1, 5]],
+)
+def test_sandwich(mat: mx.SplitMatrix, cols):
     for i in range(10):
         v = np.random.rand(mat.shape[0])
-        y1 = mat.sandwich(v)
-        y2 = (mat.A.T * v[None, :]) @ mat.A
+        y1 = mat.sandwich(v, cols=cols)
+        mat_limited = mat.A if cols is None else mat.A[:, cols]
+        y2 = (mat_limited.T * v[None, :]) @ mat_limited
         np.testing.assert_allclose(y1, y2, atol=1e-12)
+
+
+@pytest.mark.parametrize("mat", [split_mat(), split_with_cat(), split_with_cat_64()])
+@pytest.mark.parametrize("cols", [None, [0], [1, 2, 3], [1, 5]])
+def test_split_col_subsets(mat: mx.SplitMatrix, cols):
+    subset_cols_indices, subset_cols, n_cols = mat._split_col_subsets(cols)
+    n_cols_correct = mat.shape[1] if cols is None else len(cols)
+
+    def _get_lengths(vec_list: List[Optional[np.ndarray]]):
+        return (
+            mat_.shape[1] if v is None else len(v)
+            for v, mat_ in zip(vec_list, mat.matrices)
+        )
+
+    assert n_cols == n_cols_correct
+    assert sum(_get_lengths(subset_cols_indices)) == n_cols
+    assert sum(_get_lengths(subset_cols)) == n_cols
+
+    if cols is not None:
+        cols = np.asarray(cols)
+
+    for i in range(len(mat.indices)):
+        if cols is not None:
+            assert (
+                mat.indices[i][subset_cols[i]] == cols[subset_cols_indices[i]]
+            ).all()
+        else:
+            assert subset_cols[i] is None
+            assert (mat.indices[i] == subset_cols_indices[i]).all()
 
 
 def random_split_matrix(seed=0, n_rows=10, n_cols_per=3):
