@@ -8,6 +8,7 @@ cimport cython
 from cython.parallel import prange
 ctypedef np.uint8_t uint8
 ctypedef np.int8_t int8
+from libcpp cimport bool
 
 
 cdef extern from "cat_split_helpers.cpp":
@@ -16,20 +17,53 @@ cdef extern from "cat_split_helpers.cpp":
 
 # TODO: make this work with 'cols'
 def transpose_matvec(int[:] indices, floating[:] other, int n_cols, dtype,
-                  rows, out):
+                  rows, cols, out):
     cdef floating[:] res = out
-    cdef int i, n_keep_rows
+    cdef int i, j, row_idx, n_keep_rows, c, c_idx
     cdef int n_rows = len(indices)
-    cdef int[:] rows_view
+    cdef int[:] rows_view, cols_view
 
-    if rows is None or len(rows) == n_rows:
+    cdef bool no_row_restrictions = rows is None or len(rows) == n_rows
+    cdef bool no_col_restrictions = cols is None or len(cols) == n_cols
+
+    # Case 1: No row or col restrictions
+    if no_row_restrictions and no_col_restrictions:
         _transpose_matvec_all_rows(n_rows, &indices[0], &other[0], &res[0], res.size)
-    else:
+    # Case 2: row restrictions but no col restrictions
+    elif no_col_restrictions:
         rows_view = rows
         n_keep_rows = len(rows_view)
-        for k in range(n_keep_rows):
-            i = rows_view[k]
+        for row_idx in range(n_keep_rows):
+            i = rows_view[row_idx]
             res[indices[i]] += other[i]
+    # Cases 3 and 4: col restrictions
+    else:
+        cols_view = cols
+        # Case 3: Col restrictions but no row restrictions
+        if no_col_restrictions:
+            for row_idx in range(n_rows):
+                j = indices[row_idx]
+                if j in cols_view:
+                    res[j] += other[row_idx]
+                # for c_idx in range(n_cols):
+                #     c = cols_view[c_idx]
+                #     if j == c:
+                #         res[j] += other[row_idx]
+                #         break
+        # Case 4: Both col restrictions and row restrictions
+        else:
+            rows_view = rows
+            n_keep_rows = len(rows_view)
+            for row_idx in range(n_keep_rows):
+                i = rows_view[row_idx]
+                j = indices[i]
+                if j in cols_view:
+                    res[j] += other[i]
+                # for c_idx in range(n_cols):
+                #     c = cols_view[c_idx]
+                #     if c == j:
+                #         res[j] += other[i]
+                #         break
 
 
 def get_col_included(int[:] cols, int n_cols):
