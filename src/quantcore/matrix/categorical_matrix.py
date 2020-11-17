@@ -161,9 +161,8 @@ class CategoricalMatrix(MatrixBase):
         else:
             check_transpose_matvec_out_shape(self, out)
 
-        rows = set_up_rows_or_cols(rows, self.shape[0])
-
-        # TODO: Make this function work with 'cols'
+        if rows is not None:
+            rows = set_up_rows_or_cols(rows, self.shape[0])
         if cols is not None:
             cols = set_up_rows_or_cols(cols, self.shape[1])
 
