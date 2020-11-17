@@ -141,8 +141,22 @@ class SplitMatrix(MatrixBase):
         assert self.shape[1] > 0
 
     def _split_col_subsets(
-        self, cols
+        self, cols: Optional[Union[List[int], np.ndarray]]
     ) -> Tuple[List[np.ndarray], List[Optional[np.ndarray]], int]:
+        """"
+        Return a tuple of things that are helpful for applying column restrictions to \
+        sub-matrices.
+
+        - subset_cols_indices
+        - subset_cols
+        - n_cols
+
+        Outputs obey
+            self.indices[i][subset_cols[i]] == cols[subset_cols_indices[i]]
+        for all i when cols is not None, and
+            mat.indices[i] == subset_cols_indices[i]
+        when cols is None.
+        """
         if cols is None:
             subset_cols_indices = self.indices
             subset_cols = [None for _ in range(len(self.indices))]
@@ -270,10 +284,17 @@ class SplitMatrix(MatrixBase):
 
         out_shape = [n_cols] + list(v.shape[1:])
         out_dtype = np.result_type(self.dtype, v.dtype)
+        out_is_none = out is None
         out = prepare_out_array(out, out_shape, out_dtype)
+        if cols is not None:
+            cols = np.asarray(cols, dtype=np.int32)
 
         for idx, sub_cols, mat in zip(subset_cols_indices, subset_cols, self.matrices):
-            out[idx, ...] += mat.transpose_matvec(v, rows, sub_cols)
+            res = mat.transpose_matvec(v, rows=rows, cols=sub_cols)
+            if out_is_none or cols is None:
+                out[idx, ...] += res
+            else:
+                out[cols[idx], ...] += res
         return out
 
     def __getitem__(self, key):
