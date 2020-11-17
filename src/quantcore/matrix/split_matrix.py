@@ -141,7 +141,7 @@ class SplitMatrix(MatrixBase):
         assert self.shape[1] > 0
 
     def _split_col_subsets(
-        self, cols: Optional[Union[List[int], np.ndarray]]
+        self, cols: Optional[np.ndarray]
     ) -> Tuple[List[np.ndarray], List[Optional[np.ndarray]], int]:
         """"
         Return a tuple of things that are helpful for applying column restrictions to \

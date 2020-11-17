@@ -77,8 +77,8 @@ class DenseMatrix(np.ndarray, MatrixBase):
     def matvec_helper(
         self,
         vec: Union[List, np.ndarray],
-        rows: Optional[Union[List[int], np.ndarray]],
-        cols: Optional[Union[List[int], np.ndarray]],
+        rows: Optional[np.ndarray],
+        cols: Optional[np.ndarray],
         out: Optional[Union[np.ndarray]],
         transpose: bool,
     ):
