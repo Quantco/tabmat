@@ -258,8 +258,6 @@ class SplitMatrix(MatrixBase):
 
         for sub_cols, idx, mat in zip(subset_cols, self.indices, self.matrices):
             one = v[idx, ...]
-            # TODO: uh-oh! This doesn't seem to be working with a DenseMatrix. out
-            # doesn't update
             mat.matvec(one, sub_cols, out=out)
         return out
 
