@@ -19,7 +19,7 @@ cdef extern from "cat_split_helpers.cpp":
 def transpose_matvec(int[:] indices, floating[:] other, int n_cols, dtype,
                   rows, cols, out):
     cdef floating[:] res = out
-    cdef int i, j, row_idx, n_keep_rows, c, c_idx
+    cdef int row, row_idx, n_keep_rows, col, col_idx, j
     cdef int n_rows = len(indices)
     cdef int[:] rows_view, cols_view
 
@@ -34,31 +34,31 @@ def transpose_matvec(int[:] indices, floating[:] other, int n_cols, dtype,
         rows_view = rows
         n_keep_rows = len(rows_view)
         for row_idx in range(n_keep_rows):
-            i = rows_view[row_idx]
-            res[indices[i]] += other[i]
+            row = rows_view[row_idx]
+            res[indices[row]] += other[row]
     # Cases 3 and 4: col restrictions
     else:
         cols_view = cols
         # Case 3: Col restrictions but no row restrictions
         if no_col_restrictions:
             for row_idx in range(n_rows):
-                j = indices[row_idx]
-                if j in cols_view:
-                    res[j] += other[row_idx]
-                # for c_idx in range(n_cols):
-                #     c = cols_view[c_idx]
-                #     if j == c:
-                #         res[j] += other[row_idx]
-                #         break
+                col = indices[row_idx]
+                # if col in cols_view:
+                #    res[col] += other[row_idx]
+                for col_idx in range(n_cols):
+                    j = cols_view[col_idx]
+                    if col == j:
+                        res[col] += other[row_idx]
+                        break
         # Case 4: Both col restrictions and row restrictions
         else:
             rows_view = rows
             n_keep_rows = len(rows_view)
             for row_idx in range(n_keep_rows):
-                i = rows_view[row_idx]
-                j = indices[i]
-                if j in cols_view:
-                    res[j] += other[i]
+                row = rows_view[row_idx]
+                col = indices[row]
+                if col in cols_view:
+                    res[col] += other[row]
                 # for c_idx in range(n_cols):
                 #     c = cols_view[c_idx]
                 #     if c == j:
