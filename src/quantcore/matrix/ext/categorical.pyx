@@ -21,7 +21,7 @@ def transpose_matvec(int[:] indices, floating[:] other, int n_cols, dtype,
     cdef floating[:] res = out
     cdef int row, row_idx, n_keep_rows, col, col_idx, j
     cdef int n_rows = len(indices)
-    cdef int[:] rows_view, cols_view
+    cdef int[:] rows_view, cols_view, cols_included
 
     cdef bool no_row_restrictions = rows is None or len(rows) == n_rows
     cdef bool no_col_restrictions = cols is None or len(cols) == n_cols
@@ -39,15 +39,13 @@ def transpose_matvec(int[:] indices, floating[:] other, int n_cols, dtype,
     # Cases 3 and 4: col restrictions
     else:
         cols_view = cols
+        cols_included = get_col_included(cols, n_cols)
         # Case 3: Col restrictions but no row restrictions
         if no_col_restrictions:
             for row_idx in range(n_rows):
                 col = indices[row_idx]
-                # if col in cols_view:
-                for col_idx in range(n_cols):
-                    if col == cols_view[col_idx]:
-                        res[col] += other[row_idx]
-                        break
+                if cols_included[col]:
+                    res[col] += other[row_idx]
         # Case 4: Both col restrictions and row restrictions
         else:
             rows_view = rows
@@ -55,13 +53,8 @@ def transpose_matvec(int[:] indices, floating[:] other, int n_cols, dtype,
             for row_idx in range(n_keep_rows):
                 row = rows_view[row_idx]
                 col = indices[row]
-                if col in cols_view:
+                if cols_included[col]:
                     res[col] += other[row]
-                # This doesn't work for some reason
-                # for c_idx in range(n_cols):
-                #     if col == cols_view[c_idx]:
-                #         res[col] += other[row]
-                #         break
 
 
 def get_col_included(int[:] cols, int n_cols):
