@@ -115,8 +115,8 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
     def matvec_helper(
         self,
         vec: Union[List, np.ndarray],
-        rows: Optional[Union[List, np.ndarray]],
-        cols: Optional[Union[List, np.ndarray]],
+        rows: Optional[np.ndarray],
+        cols: Optional[np.ndarray],
         out: Optional[np.ndarray],
         transpose: bool,
     ):

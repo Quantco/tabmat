@@ -16,9 +16,8 @@ cdef extern from "cat_split_helpers.cpp":
 
 
 def transpose_matvec(int[:] indices, floating[:] other, int n_cols, dtype,
-                  rows, cols, out):
-    cdef floating[:] res = out
-    cdef int row, row_idx, n_keep_rows, col, col_idx, j
+                  rows, cols, floating[:] out):
+    cdef int row, row_idx, n_keep_rows, col
     cdef int n_rows = len(indices)
     cdef int[:] rows_view, cols_view, cols_included
 
@@ -27,24 +26,24 @@ def transpose_matvec(int[:] indices, floating[:] other, int n_cols, dtype,
 
     # Case 1: No row or col restrictions
     if no_row_restrictions and no_col_restrictions:
-        _transpose_matvec_all_rows(n_rows, &indices[0], &other[0], &res[0], res.size)
+        _transpose_matvec_all_rows(n_rows, &indices[0], &other[0], &out[0], out.size)
     # Case 2: row restrictions but no col restrictions
     elif no_col_restrictions:
         rows_view = rows
         n_keep_rows = len(rows_view)
         for row_idx in range(n_keep_rows):
             row = rows_view[row_idx]
-            res[indices[row]] += other[row]
+            out[indices[row]] += other[row]
     # Cases 3 and 4: col restrictions
     else:
         cols_view = cols
         cols_included = get_col_included(cols, n_cols)
         # Case 3: Col restrictions but no row restrictions
-        if no_col_restrictions:
+        if no_row_restrictions:
             for row_idx in range(n_rows):
                 col = indices[row_idx]
                 if cols_included[col]:
-                    res[col] += other[row_idx]
+                    out[col] += other[row_idx]
         # Case 4: Both col restrictions and row restrictions
         else:
             rows_view = rows
@@ -53,7 +52,7 @@ def transpose_matvec(int[:] indices, floating[:] other, int n_cols, dtype,
                 row = rows_view[row_idx]
                 col = indices[row]
                 if cols_included[col]:
-                    res[col] += other[row]
+                    out[col] += other[row]
 
 
 def get_col_included(int[:] cols, int n_cols):
