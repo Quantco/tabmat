@@ -44,10 +44,8 @@ def transpose_matvec(int[:] indices, floating[:] other, int n_cols, dtype,
             for row_idx in range(n_rows):
                 col = indices[row_idx]
                 # if col in cols_view:
-                #    res[col] += other[row_idx]
                 for col_idx in range(n_cols):
-                    j = cols_view[col_idx]
-                    if col == j:
+                    if col == cols_view[col_idx]:
                         res[col] += other[row_idx]
                         break
         # Case 4: Both col restrictions and row restrictions
@@ -59,10 +57,10 @@ def transpose_matvec(int[:] indices, floating[:] other, int n_cols, dtype,
                 col = indices[row]
                 if col in cols_view:
                     res[col] += other[row]
+                # This doesn't work for some reason
                 # for c_idx in range(n_cols):
-                #     c = cols_view[c_idx]
-                #     if c == j:
-                #         res[j] += other[i]
+                #     if col == cols_view[c_idx]:
+                #         res[col] += other[row]
                 #         break
 
 
