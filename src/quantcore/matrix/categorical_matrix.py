@@ -34,6 +34,9 @@ class CategoricalMatrix(MatrixBase):
         cat_vec: array-like vector of categorical data.
         dtype:
         """
+        if pd.isnull(cat_vec).any():
+            raise ValueError("Categorical data can't have missing values.")
+
         if isinstance(cat_vec, pd.Categorical):
             self.cat = cat_vec
         else:
