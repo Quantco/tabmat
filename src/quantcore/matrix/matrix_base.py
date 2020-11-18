@@ -16,10 +16,13 @@ class MatrixBase(ABC):
     @abstractmethod
     def matvec(self, other, cols: np.ndarray = None, out: np.ndarray = None):
         """
-        Perform: self[:, cols] @ other
+        Perform: self[:, cols] @ other, so result[i] = sum_j self[i, j] other[j].
 
-        The cols parameter allows restricting to a subset of the
-        matrix without making a copy.
+        The 'cols' parameter allows restricting to a subset of the matrix without making
+        a copy. If provided, result[i] = sum_{j in cols} self[i, j] other[j].
+
+        If 'out' is provided, modify 'out' in place by adding the output of this
+        operation to it.
         """
         pass
 
@@ -32,10 +35,13 @@ class MatrixBase(ABC):
         out: np.ndarray = None,
     ) -> np.ndarray:
         """
-        Perform: self[rows, cols].T @ vec
+        Perform: self[rows, cols].T @ vec, so result[i] = sum_j self[j, i] vec[j].
 
         The rows and cols parameters allow restricting to a subset of the
-        matrix without making a copy.
+        matrix without making a copy. If 'rows' and 'cols' are provided,
+        result[i] = sum_{j in rows} self[j, cols[i]] vec[j].
+        Note that the length of the output is len(cols).
+        If 'out' is provided, out[cols[i]] += sum_{j in rows} self[j, cols[i]] vec[j]
         """
         pass
 
