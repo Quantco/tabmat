@@ -9,7 +9,11 @@ from .ext.dense import (
     transpose_square_dot_weights,
 )
 from .matrix_base import MatrixBase
-from .util import setup_restrictions
+from .util import (
+    check_matvec_out_shape,
+    check_transpose_matvec_out_shape,
+    setup_restrictions,
+)
 
 
 class DenseMatrix(np.ndarray, MatrixBase):
@@ -44,10 +48,7 @@ class DenseMatrix(np.ndarray, MatrixBase):
         self, d: np.ndarray, rows: np.ndarray = None, cols: np.ndarray = None
     ) -> np.ndarray:
         d = np.asarray(d)
-        if rows is None:
-            rows = np.arange(self.shape[0], dtype=np.int32)
-        if cols is None:
-            cols = np.arange(self.shape[1], dtype=np.int32)
+        rows, cols = setup_restrictions(self.shape, rows, cols)
         return dense_sandwich(self, d, rows, cols)
 
     def cross_sandwich(
@@ -78,7 +79,7 @@ class DenseMatrix(np.ndarray, MatrixBase):
         vec: Union[List, np.ndarray],
         rows: Optional[np.ndarray],
         cols: Optional[np.ndarray],
-        out: Optional[np.ndarray],
+        out: Optional[Union[np.ndarray]],
         transpose: bool,
     ):
         # Because the dense_rmatvec takes a row array and col array, it has
@@ -92,8 +93,9 @@ class DenseMatrix(np.ndarray, MatrixBase):
         vec = np.asarray(vec)
 
         # NOTE: We assume that rows and cols are unique
-        unrestricted_rows = rows is None or rows.shape[0] == self.shape[0]
-        unrestricted_cols = cols is None or cols.shape[0] == self.shape[1]
+        unrestricted_rows = rows is None or len(rows) == self.shape[0]
+        unrestricted_cols = cols is None or len(cols) == self.shape[1]
+
         if unrestricted_rows and unrestricted_cols:
             if out is None:
                 out = X.dot(vec)
@@ -102,13 +104,23 @@ class DenseMatrix(np.ndarray, MatrixBase):
             return out
         else:
             rows, cols = setup_restrictions(self.shape, rows, cols)
+            # TODO: should take 'out' parameter
             fast_fnc = dense_rmatvec if transpose else dense_matvec
             if vec.ndim == 1:
-                return fast_fnc(self, vec, rows, cols)
+                res = fast_fnc(self, vec, rows, cols)
             elif vec.ndim == 2 and vec.shape[1] == 1:
-                return fast_fnc(self, vec[:, 0], rows, cols)[:, None]
-            subset = self[np.ix_(rows, cols)]
-            return subset.T.dot(vec[rows]) if transpose else subset.dot(vec[cols])
+                res = fast_fnc(self, vec[:, 0], rows, cols)[:, None]
+            else:
+                subset = self[np.ix_(rows, cols)]
+                res = subset.T.dot(vec[rows]) if transpose else subset.dot(vec[cols])
+            if out is None:
+                return res
+            if transpose:
+                out[cols] += res
+            else:
+                # Note that currently 'rows' will always be all rows
+                out[rows] += res
+            return out
 
     def transpose_matvec(
         self,
@@ -117,6 +129,7 @@ class DenseMatrix(np.ndarray, MatrixBase):
         cols: np.ndarray = None,
         out: np.ndarray = None,
     ) -> np.ndarray:
+        check_transpose_matvec_out_shape(self, out)
         return self.matvec_helper(vec, rows, cols, out, True)
 
     def matvec(
@@ -125,4 +138,5 @@ class DenseMatrix(np.ndarray, MatrixBase):
         cols: np.ndarray = None,
         out: np.ndarray = None,
     ) -> np.ndarray:
+        check_matvec_out_shape(self, out)
         return self.matvec_helper(vec, None, cols, out, False)
