@@ -100,32 +100,64 @@ def get_matrices():
     )
 
 
-# TODO: add column/row restrictions here
 @pytest.mark.parametrize("mat", get_matrices())
-def test_matvec_out_parameter(mat):
+@pytest.mark.parametrize("cols", [None, [], [1], np.array([1])])
+def test_matvec_out_parameter_wrong_shape(mat, cols):
+    out = np.zeros(mat.shape[0] + 1)
+    v = np.zeros(mat.shape[1])
+    with pytest.raises(ValueError, match="first dimension of 'out' must be"):
+        mat.matvec(v, cols, out)
+
+
+@pytest.mark.parametrize("mat", get_matrices())
+@pytest.mark.parametrize("cols", [None, [], [1], np.array([1])])
+@pytest.mark.parametrize("rows", [None, [], [1], np.array([1])])
+def test_transpose_matvec_out_parameter_wrong_shape(mat, cols, rows):
+    out = np.zeros(mat.shape[1] + 1)
+    v = np.zeros(mat.shape[0])
+    with pytest.raises(ValueError, match="dimension of 'out' must be"):
+        mat.transpose_matvec(v, rows, cols, out)
+
+
+@pytest.mark.parametrize("mat", get_matrices())
+@pytest.mark.parametrize("cols", [None, [], [1], np.array([1])])
+def test_matvec_out_parameter(mat, cols):
     out = np.random.rand(mat.shape[0])
     out_copy = out.copy()
     v = np.random.rand(mat.shape[1])
 
     # This should modify out in place.
-    out2 = mat.matvec(v, out=out)
+    out2 = mat.matvec(v, cols=cols, out=out)
 
-    correct = out_copy + mat.matvec(v)
+    correct = out_copy + mat.matvec(v, cols=cols)
     np.testing.assert_almost_equal(out, out2)
     np.testing.assert_almost_equal(out, correct)
 
 
-# TODO: add column/row restrictions here
 @pytest.mark.parametrize("mat", get_matrices())
-def test_transpose_matvec_out_parameter(mat):
+@pytest.mark.parametrize("cols", [None, [], [1], np.array([0, 1])])
+@pytest.mark.parametrize("rows", [None, [], [1], np.array([0, 2])])
+def test_transpose_matvec_out_parameter(mat, cols, rows):
     out = np.random.rand(mat.shape[1])
     out_copy = out.copy()
     v = np.random.rand(mat.shape[0])
 
     # This should modify out in place.
-    out2 = mat.transpose_matvec(v, out=out)
+    out2 = mat.transpose_matvec(v, rows=rows, cols=cols, out=out)
+    # Check that modification has been in-place
+    assert out.__array_interface__["data"][0] == out2.__array_interface__["data"][0]
+    assert out.shape == out_copy.shape
 
-    correct = out_copy + mat.transpose_matvec(v)
+    col_idx = np.arange(mat.shape[1], dtype=int) if cols is None else cols
+    row_idx = np.arange(mat.shape[0], dtype=int) if rows is None else rows
+    matvec_part = mat.A[row_idx, :][:, col_idx].T.dot(v[row_idx])
+
+    if cols is None:
+        correct = out_copy + matvec_part
+    else:
+        correct = out_copy
+        correct[cols] += matvec_part
+
     np.testing.assert_almost_equal(out, out2)
     np.testing.assert_almost_equal(out, correct)
 
@@ -168,11 +200,19 @@ def test_to_array_standardized_mat(mat: mx.StandardizedMatrix):
 @pytest.mark.parametrize(
     "other_type", [lambda x: x, np.asarray, mx.DenseMatrix],
 )
-@pytest.mark.parametrize("cols", [None, np.arange(1, dtype=np.int32)])
+@pytest.mark.parametrize("cols", [None, [], [1], np.array([1])])
 @pytest.mark.parametrize("other_shape", [[], [1], [2]])
 def test_matvec(
     mat: Union[mx.MatrixBase, mx.StandardizedMatrix], other_type, cols, other_shape
 ):
+    """
+    mat
+    other_type: Function transforming list to list, array, or DenseMatrix
+    cols: Argument 1 to matvec, specifying which columns of the matrix (and
+        which elements of 'other') to use
+    other_shape: Second dimension of 'other.shape', if any. If other_shape is [], then
+        other is 1d.
+    """
     n_row = mat.shape[1]
     shape = [n_row] + other_shape
     other_as_list = np.random.random(shape).tolist()
@@ -228,8 +268,8 @@ def process_mat_vec_subsets(mat, vec, mat_rows, mat_cols, vec_idxs):
 @pytest.mark.parametrize(
     "other_type", [lambda x: x, np.array, mx.DenseMatrix],
 )
-@pytest.mark.parametrize("rows", [None, np.arange(2, dtype=np.int32)])
-@pytest.mark.parametrize("cols", [None, np.arange(1, dtype=np.int32)])
+@pytest.mark.parametrize("rows", [None, [], [2], np.arange(2)])
+@pytest.mark.parametrize("cols", [None, [], [1], np.arange(1)])
 def test_transpose_matvec(
     mat: Union[mx.MatrixBase, mx.StandardizedMatrix], other_type, rows, cols
 ):
@@ -274,9 +314,9 @@ def test_transpose_matvec(
         (categorical_matrix(), categorical_matrix()),
     ],
 )
-@pytest.mark.parametrize("rows", [None, np.arange(2, dtype=np.int32)])
-@pytest.mark.parametrize("L_cols", [None, np.arange(1, dtype=np.int32)])
-@pytest.mark.parametrize("R_cols", [None, np.arange(1, dtype=np.int32)])
+@pytest.mark.parametrize("rows", [None, [2], np.arange(2)])
+@pytest.mark.parametrize("L_cols", [None, [1], np.arange(1)])
+@pytest.mark.parametrize("R_cols", [None, [1], np.arange(1)])
 def test_cross_sandwich(
     mat_i: Union[mx.DenseMatrix, mx.SparseMatrix, mx.CategoricalMatrix],
     mat_j: Union[mx.DenseMatrix, mx.SparseMatrix, mx.CategoricalMatrix],
@@ -297,8 +337,8 @@ def test_cross_sandwich(
 @pytest.mark.parametrize(
     "vec_type", [lambda x: x, np.array, mx.DenseMatrix],
 )
-@pytest.mark.parametrize("rows", [None, np.arange(2, dtype=np.int32)])
-@pytest.mark.parametrize("cols", [None, np.arange(1, dtype=np.int32)])
+@pytest.mark.parametrize("rows", [None, [], [1], np.arange(2)])
+@pytest.mark.parametrize("cols", [None, [], [0], np.arange(1)])
 def test_self_sandwich(
     mat: Union[mx.MatrixBase, mx.StandardizedMatrix], vec_type, rows, cols
 ):
@@ -313,8 +353,8 @@ def test_self_sandwich(
     np.testing.assert_allclose(res, expected)
 
 
-@pytest.mark.parametrize("rows", [None, np.arange(2, dtype=np.int32)])
-@pytest.mark.parametrize("cols", [None, np.arange(1, dtype=np.int32)])
+@pytest.mark.parametrize("rows", [None, [], [0], np.arange(2)])
+@pytest.mark.parametrize("cols", [None, [], [0], np.arange(1)])
 def test_split_sandwich(rows: Optional[np.ndarray], cols: Optional[np.ndarray]):
     mat = complex_split_matrix()
     d = np.random.random(mat.shape[0])

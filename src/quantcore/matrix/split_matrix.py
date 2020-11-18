@@ -9,6 +9,11 @@ from .dense_matrix import DenseMatrix
 from .ext.split import split_col_subsets
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
+from .util import (
+    check_matvec_out_shape,
+    check_transpose_matvec_out_shape,
+    set_up_rows_or_cols,
+)
 
 
 def split_sparse_and_dense_parts(
@@ -34,17 +39,12 @@ def csc_to_split(mat: sps.csc_matrix, threshold=0.1):
     return SplitMatrix([dense, sparse], [dense_idx, sparse_idx])
 
 
-def prepare_out_array(out, out_shape, out_dtype):
+def prepare_out_array(out: Optional[np.ndarray], out_shape, out_dtype):
     if out is None:
         out = np.zeros(out_shape, out_dtype)
     else:
         # TODO: make this a re-usable method that all the matrix classes
         # can use to check their out parameter
-        if list(out.shape) != out_shape:
-            raise ValueError(
-                f"out array is required to have shape {out_shape} but has"
-                f"shape {out.shape}"
-            )
         if out.dtype != out_dtype:
             raise ValueError(
                 f"out array is required to have dtype {out_dtype} but has"
@@ -141,13 +141,28 @@ class SplitMatrix(MatrixBase):
         assert self.shape[1] > 0
 
     def _split_col_subsets(
-        self, cols
+        self, cols: Optional[np.ndarray]
     ) -> Tuple[List[np.ndarray], List[Optional[np.ndarray]], int]:
+        """"
+        Return a tuple of things that are helpful for applying column restrictions to \
+        sub-matrices.
+
+        - subset_cols_indices
+        - subset_cols
+        - n_cols
+
+        Outputs obey
+            self.indices[i][subset_cols[i]] == cols[subset_cols_indices[i]]
+        for all i when cols is not None, and
+            mat.indices[i] == subset_cols_indices[i]
+        when cols is None.
+        """
         if cols is None:
             subset_cols_indices = self.indices
-            subset_cols = [None for i in range(len(self.indices))]
+            subset_cols = [None for _ in range(len(self.indices))]
             return subset_cols_indices, subset_cols, self.shape[1]
 
+        cols = set_up_rows_or_cols(cols, self.shape[1])
         return split_col_subsets(self, cols)
 
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
@@ -229,6 +244,8 @@ class SplitMatrix(MatrixBase):
         self, v: np.ndarray, cols: np.ndarray = None, out: np.ndarray = None
     ) -> np.ndarray:
         assert not isinstance(v, sps.spmatrix)
+        check_matvec_out_shape(self, out)
+
         v = np.asarray(v)
         if v.shape[0] != self.shape[1]:
             raise ValueError(f"shapes {self.shape} and {v.shape} not aligned")
@@ -252,21 +269,30 @@ class SplitMatrix(MatrixBase):
         out: np.ndarray = None,
     ) -> np.ndarray:
         """
-        self.T.matvec(v)[i] = sum_k self[k, i] v[k]
-        = sum_{k in self.dense_indices} self[k, i] v[k] +
-          sum_{k in self.sparse_indices} self[k, i] v[k]
-        = self.X_dense.T.matvec(v) + self.X_sparse.T.matvec(v)
+        self.transpose_matvec(v, rows, cols) = self[rows, cols].T @ v[rows]
+        self.transpose_matvec(v, rows, cols)[i]
+            = sum_{j in rows} self[j, cols[i]] v[j]
+            = sum_{j in rows} sum_{mat in self.matrices} 1(cols[i] in mat)
+                                                        self[j, cols[i]] v[j]
         """
+        check_transpose_matvec_out_shape(self, out)
 
         v = np.asarray(v)
         subset_cols_indices, subset_cols, n_cols = self._split_col_subsets(cols)
 
         out_shape = [n_cols] + list(v.shape[1:])
         out_dtype = np.result_type(self.dtype, v.dtype)
+        out_is_none = out is None
         out = prepare_out_array(out, out_shape, out_dtype)
+        if cols is not None:
+            cols = np.asarray(cols, dtype=np.int32)
 
         for idx, sub_cols, mat in zip(subset_cols_indices, subset_cols, self.matrices):
-            out[idx, ...] += mat.transpose_matvec(v, rows, sub_cols)
+            res = mat.transpose_matvec(v, rows=rows, cols=sub_cols)
+            if out_is_none or cols is None:
+                out[idx, ...] += res
+            else:
+                out[cols[idx], ...] += res
         return out
 
     def __getitem__(self, key):
