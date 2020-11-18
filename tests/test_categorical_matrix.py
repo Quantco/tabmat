@@ -10,7 +10,7 @@ def cat_vec():
     m = 10
     seed = 0
     np.random.seed(seed)
-    return np.random.choice(np.arange(4, dtype=int), m)
+    return np.random.choice([0, 1, 2, np.inf, -np.inf], m)
 
 
 @pytest.mark.parametrize("vec_dtype", [np.float64, np.float32, np.int64, np.int32])
@@ -51,3 +51,10 @@ def test_multiply(cat_vec):
     expected = cat_mat.A * other
     np.testing.assert_allclose(res.A, expected)
     np.testing.assert_allclose(res2.A, expected)
+
+
+@pytest.mark.parametrize("mi_element", [np.nan, None])
+def test_nulls(mi_element):
+    vec = [0, mi_element, 1]
+    with pytest.raises(ValueError, match="Categorical data can't have missing values"):
+        CategoricalMatrix(vec)
