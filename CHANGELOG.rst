@@ -7,9 +7,20 @@
 Changelog
 =========
 
+1.0.1 - 2020-11-24
+------------------
+
+**Bug fixes:**
+
+- Handling for nulls when setting up a ``CategoricalMatrix``
+- Fixes to make several functions work with both row and col restrictions and out
+
+**Other changes:**
+
+- Added various tests and documentation improvements
 
 1.0.0 - 2020-11-11
--------------------
+------------------
 
 **Breaking change:**
 
