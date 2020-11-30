@@ -1,0 +1,14 @@
+# Global owners
+@tbenthompson @ElizabethSantorellaQC @MarcAntoineSchmidtQC
+
+# Core
+/src/quantcore/matrix/ @ElizabethSantorellaQC
+
+# Cython / C++
+*.pyx @tbenthompson
+*.cpp @tbenthompson
+*.h @tbenthompson
+
+# CI
+/.github/  @tbenthompson
+/conda.recipe/ @tbenthompson
