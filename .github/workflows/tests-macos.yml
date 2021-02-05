@@ -39,7 +39,6 @@ jobs:
           show-channel-urls: true
           use-only-tar-bz2: true
           mamba-version: "*"
-          channels: quantco_main,conda-forge
           condarc-file: .github/workflows/.condarc
       - name: Run Unit Tests
         shell: bash -l {0}
