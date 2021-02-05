@@ -32,7 +32,7 @@ jobs:
         env:
           CONDA_CHANNEL_UPLOAD_USER: ${{ secrets.CONDA_CHANNEL_UPLOAD_USER }}
           CONDA_CHANNEL_UPLOAD_PASSWORD: ${{ secrets.CONDA_CHANNEL_UPLOAD_PASSWORD }}
-      - uses: conda-incubator/setup-miniconda@v2
+      - uses: conda-incubator/setup-miniconda@master
         with:
           installer-url: https://github.com/conda-forge/miniforge/releases/download/4.9.0-4/Miniforge3-4.9.0-4-MacOSX-x86_64.sh
           allow-softlinks: true
