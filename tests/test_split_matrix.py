@@ -125,7 +125,8 @@ def test_sandwich_sparse_dense(X: np.ndarray, Acols, Bcols):
 # TODO: ensure cols are in order
 @pytest.mark.parametrize("mat", [split_mat(), split_with_cat(), split_with_cat_64()])
 @pytest.mark.parametrize(
-    "cols", [None, [0], [1, 2, 3], [1, 5]],
+    "cols",
+    [None, [0], [1, 2, 3], [1, 5]],
 )
 def test_sandwich(mat: mx.SplitMatrix, cols):
     for i in range(10):
