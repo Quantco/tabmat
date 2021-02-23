@@ -98,7 +98,8 @@ def run_one_benchmark_set(
 
     times = pd.DataFrame(
         index=pd.MultiIndex.from_product(
-            [ops_to_run, matrices.keys()], names=["operation", "storage"],
+            [ops_to_run, matrices.keys()],
+            names=["operation", "storage"],
         ),
         columns=["memory", "time"],
     ).reset_index()
