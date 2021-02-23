@@ -59,8 +59,8 @@ class DenseMatrix(np.ndarray, MatrixBase):
         L_cols: Optional[np.ndarray] = None,
         R_cols: Optional[np.ndarray] = None,
     ):
-        from .sparse_matrix import SparseMatrix
         from .categorical_matrix import CategoricalMatrix
+        from .sparse_matrix import SparseMatrix
 
         if isinstance(other, SparseMatrix) or isinstance(other, CategoricalMatrix):
             return other.cross_sandwich(self, d, rows, R_cols, L_cols).T
