@@ -58,7 +58,9 @@ class CategoricalMatrix(MatrixBase):
         return self.cat.categories[self.cat.codes]
 
     def _matvec_setup(
-        self, other: Union[List, np.ndarray], cols: np.ndarray = None,
+        self,
+        other: Union[List, np.ndarray],
+        cols: np.ndarray = None,
     ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         other = np.asarray(other)
         if other.ndim > 1:
