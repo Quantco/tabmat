@@ -55,7 +55,7 @@ jobs:
         uses: actions/checkout@v2.1.0
         with:
           ref: ${{ github.head_ref }}
-      - uses: conda-incubator/setup-miniconda@e23d871
+      - uses: conda-incubator/setup-miniconda@723ab12c1d66bb893c5ac701f8e387f00b24549e
         with:
           miniforge-variant: Mambaforge
           miniforge-version: 4.9.2-5
