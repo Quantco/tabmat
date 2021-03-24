@@ -9,4 +9,4 @@ yq -Y ". + {dependencies: [.dependencies[], \"python=${PYTHON_VERSION}\"] }" env
 mamba env create -f /tmp/environment.yml
 conda activate $(yq -r .name environment.yml)
 pip install --no-use-pep517 --no-deps --disable-pip-version-check -e .
-pytest -nauto tests --doctest-modules src/
+pytest tests --doctest-modules src/
