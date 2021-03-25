@@ -7,7 +7,7 @@ on:
 jobs:
   macos-conda-build:
     name: "MacOS - conda-build - ${{ matrix.CONDA_BUILD_YML }}"
-    runs-on: macos-latest
+    runs-on: macos-11.0
     env:
       CI: True
       CONDA_CHANNEL_UPLOAD_USER: ${{ secrets.CONDA_CHANNEL_UPLOAD_USER }}
