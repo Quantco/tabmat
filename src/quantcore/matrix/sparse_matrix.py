@@ -24,7 +24,7 @@ if platform.machine() in {"arm64", "aarch64"}:
         return np.dot(matrix_a, matrix_b, out=out)
 else:
     # Intel MKL obviously is only available on Intel-based architectures
-    from sparse_dot_mkl import dot_product_mkl
+    from sparse_dot_mkl import dot_product_mkl  # type: ignore
 
 class SparseMatrix(sps.csc_matrix, MatrixBase):
     """
