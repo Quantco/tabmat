@@ -1,5 +1,5 @@
-from typing import List, Optional, Union
 import platform
+from typing import List, Optional, Union
 
 import numpy as np
 from scipy import sparse as sps
@@ -20,11 +20,15 @@ from .util import (
 )
 
 if platform.machine() in {"arm64", "aarch64"}:
+
     def dot_product_mkl(matrix_a, matrix_b, out):
         return np.dot(matrix_a, matrix_b, out=out)
+
+
 else:
     # Intel MKL obviously is only available on Intel-based architectures
     from sparse_dot_mkl import dot_product_mkl  # type: ignore
+
 
 class SparseMatrix(sps.csc_matrix, MatrixBase):
     """
