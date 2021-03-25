@@ -6,13 +6,13 @@ on:
       - 'conda.recipe/**'
 jobs:
   macos-conda-build:
-    name: "MacOS - conda-build - Python ${{ matrix.PYTHON_VERSION }}"
+    name: "MacOS - conda-build - ${{ matrix.CONDA_BUILD_YML }}"
     runs-on: macos-latest
     env:
       CI: True
       ***REMOVED***: ${{ secrets.***REMOVED*** }}
       ***REMOVED***: ${{ secrets.***REMOVED*** }}
-      PYTHON_VERSION: ${{ matrix.PYTHON_VERSION }}
+      CONDA_BUILD_YML: "${{ matrix.CONDA_BUILD_YML }}"
     strategy:
       fail-fast: false
       matrix:
