@@ -27,7 +27,8 @@ requirements:
     - jemalloc     # [not win]
     - llvm-openmp  # [osx]
     - mako
-    - numpy 1.16
+    - numpy 1.16   # [not (osx and arm64)]
+    - numpy 1.19   # [osx and arm64]
     - pip
     - scikit-learn >=0.23
     - setuptools_scm
@@ -40,7 +41,7 @@ requirements:
     - pandas
     - scikit-learn >=0.23
     - scipy
-    - sparse_dot_mkl >=0.4.0
+    - sparse_dot_mkl >=0.4.0  # [not (osx and arm64)]
 
 test:
   requires:
