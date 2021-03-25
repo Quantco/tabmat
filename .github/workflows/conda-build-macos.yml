@@ -7,7 +7,7 @@ on:
 jobs:
   macos-conda-build:
     name: "MacOS - conda-build - ${{ matrix.CONDA_BUILD_YML }}"
-    runs-on: macos-11.0
+    runs-on: macos-latest
     env:
       CI: True
       CONDA_CHANNEL_UPLOAD_USER: ${{ secrets.CONDA_CHANNEL_UPLOAD_USER }}
@@ -44,7 +44,7 @@ jobs:
           mamba-version: "*"
           channels: quantco_main,conda-forge
           condarc-file: .github/workflows/.condarc
-      - name: Run Unit Tests
+      - name: Build conda package
         shell: bash -l {0}
         run: ./.github/workflows/macos-conda-build.sh
 
