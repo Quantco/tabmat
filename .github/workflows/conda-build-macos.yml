@@ -16,7 +16,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        PYTHON_VERSION: ['3.7']
+        CONDA_BUILD_YML:
+          - osx_64_python3.7.____cpython.yaml
+          - osx_64_python3.8.____cpython.yaml
+          - osx_64_python3.9.____cpython.yaml
+          - osx_arm64_python3.8.____cpython.yaml
+          - osx_arm64_python3.9.____cpython.yaml
     steps:
       - name: Checkout branch
         uses: actions/checkout@v2.1.0
