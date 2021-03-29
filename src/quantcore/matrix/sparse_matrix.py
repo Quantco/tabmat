@@ -1,8 +1,8 @@
+import platform
 from typing import List, Optional, Union
 
 import numpy as np
 from scipy import sparse as sps
-from sparse_dot_mkl import dot_product_mkl
 
 from .ext.sparse import (
     csc_rmatvec,
@@ -18,6 +18,20 @@ from .util import (
     set_up_rows_or_cols,
     setup_restrictions,
 )
+
+if platform.machine() in {"arm64", "aarch64"}:
+
+    def dot_product_maybe_mkl(matrix_a, matrix_b, out):
+        mult = matrix_a.dot(matrix_b)
+        if out is None:
+            return mult
+        out[:] += mult
+        return out
+
+
+else:
+    # Intel MKL obviously is only available on Intel-based architectures
+    from sparse_dot_mkl import dot_product_mkl as dot_product_maybe_mkl  # type: ignore
 
 
 class SparseMatrix(sps.csc_matrix, MatrixBase):
@@ -132,10 +146,10 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         unrestricted_cols = cols is None or len(cols) == self.shape[1]
         if unrestricted_rows and unrestricted_cols:
             if vec.ndim == 1:
-                return dot_product_mkl(X, vec, out=out)
+                return dot_product_maybe_mkl(X, vec, out=out)
             elif vec.ndim == 2 and vec.shape[1] == 1:
                 out_arr = None if out is None else out[:, 0]
-                return dot_product_mkl(X, vec[:, 0], out=out_arr)[:, None]
+                return dot_product_maybe_mkl(X, vec[:, 0], out=out_arr)[:, None]
             res = matrix_matvec(self, vec)
             if out is None:
                 return res
