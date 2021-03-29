@@ -6,17 +6,22 @@ on:
       - 'conda.recipe/**'
 jobs:
   macos-conda-build:
-    name: "MacOS - conda-build - Python ${{ matrix.PYTHON_VERSION }}"
+    name: "MacOS - conda-build - ${{ matrix.CONDA_BUILD_YML }}"
     runs-on: macos-latest
     env:
       CI: True
       CONDA_CHANNEL_UPLOAD_USER: ${{ secrets.CONDA_CHANNEL_UPLOAD_USER }}
       CONDA_CHANNEL_UPLOAD_PASSWORD: ${{ secrets.CONDA_CHANNEL_UPLOAD_PASSWORD }}
-      PYTHON_VERSION: ${{ matrix.PYTHON_VERSION }}
+      CONDA_BUILD_YML: "${{ matrix.CONDA_BUILD_YML }}"
     strategy:
       fail-fast: false
       matrix:
-        PYTHON_VERSION: ['3.7']
+        CONDA_BUILD_YML:
+          - osx_64_python3.7.____cpython
+          - osx_64_python3.8.____cpython
+          - osx_64_python3.9.____cpython
+          - osx_arm64_python3.8.____cpython
+          - osx_arm64_python3.9.____cpython
     steps:
       - name: Checkout branch
         uses: actions/checkout@v2.1.0
@@ -39,7 +44,7 @@ jobs:
           mamba-version: "*"
           channels: quantco_main,conda-forge
           condarc-file: .github/workflows/.condarc
-      - name: Run Unit Tests
+      - name: Build conda package
         shell: bash -l {0}
         run: ./.github/workflows/macos-conda-build.sh
 
