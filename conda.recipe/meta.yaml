@@ -18,6 +18,10 @@ build:
 
 requirements:
   build:
+    - python                                 # [build_platform != target_platform]
+    - cross-python_{{ target_platform }}     # [build_platform != target_platform]
+    - cython                                 # [build_platform != target_platform]
+    - numpy                                  # [build_platform != target_platform]
     - {{ compiler("c") }}
     - {{ compiler("cxx") }}
     - llvm-openmp  # [osx]
@@ -27,7 +31,7 @@ requirements:
     - jemalloc     # [not win]
     - llvm-openmp  # [osx]
     - mako
-    - numpy 1.16
+    - numpy
     - pip
     - scikit-learn >=0.23
     - setuptools_scm
@@ -36,11 +40,11 @@ requirements:
     - python
     - joblib
     - numexpr
-    - {{ pin_compatible('numpy', lower_bound='1.16') }}
+    - {{ pin_compatible('numpy') }}
     - pandas
     - scikit-learn >=0.23
     - scipy
-    - sparse_dot_mkl >=0.4.0
+    - sparse_dot_mkl >=0.4.0  # [not (osx and arm64)]
 
 test:
   requires:
