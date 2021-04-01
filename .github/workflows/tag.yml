@@ -43,13 +43,19 @@ jobs:
       CI: True
       ***REMOVED***: ${{ secrets.***REMOVED*** }}
       ***REMOVED***: ${{ secrets.***REMOVED*** }}
-      PYTHON_VERSION: ${{ matrix.PYTHON_VERSION }}
-      GLM_ARCHITECTURE: ${{ matrix.GLM_ARCHITECTURE }}
+      CONDA_BUILD_YML: "${{ matrix.CONDA_BUILD_YML }}"
     strategy:
       fail-fast: false
       matrix:
-        PYTHON_VERSION: ['3.7', '3.8']
-        GLM_ARCHITECTURE: ['default', 'skylake']
+        CONDA_BUILD_YML:
+          - osx_64_python3.7_default.____cpython
+          - osx_64_python3.7_skylake.____cpython
+          - osx_64_python3.8_default.____cpython
+          - osx_64_python3.8_skylake.____cpython
+          - osx_64_python3.9_default.____cpython
+          - osx_64_python3.9_skylake.____cpython
+          - osx_arm64_python3.8.____cpython
+          - osx_arm64_python3.9.____cpython
     steps:
       - name: Checkout branch
         uses: actions/checkout@v2.1.0
@@ -64,4 +70,3 @@ jobs:
       - name: Build and upload conda package
         shell: bash -l {0}
         run: ./.github/workflows/macos-tag.sh
-
