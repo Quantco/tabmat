@@ -54,7 +54,6 @@ jobs:
           - osx_64_python3.8_skylake.____cpython
           - osx_64_python3.9_default.____cpython
           - osx_64_python3.9_skylake.____cpython
-          - osx_64_python3.8_default.____cpython
           - osx_arm64_python3.8.____cpython
           - osx_arm64_python3.9.____cpython
     steps:
@@ -71,4 +70,3 @@ jobs:
       - name: Build and upload conda package
         shell: bash -l {0}
         run: ./.github/workflows/macos-tag.sh
-
