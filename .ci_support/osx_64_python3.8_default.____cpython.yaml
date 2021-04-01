@@ -1,3 +1,5 @@
+GLM_ARCHITECTURE:
+- 'default'
 MACOSX_DEPLOYMENT_TARGET:
 - '10.9'
 c_compiler:
@@ -13,6 +15,6 @@ macos_machine:
 numpy:
 - '1.16'
 python:
-- 3.7.* *_cpython
+- 3.8.* *_cpython
 target_platform:
 - osx-64
