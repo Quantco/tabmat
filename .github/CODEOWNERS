@@ -1,8 +1,8 @@
 # Global owners
-* @tbenthompson @ElizabethSantorellaQC @MarcAntoineSchmidtQC
+* @tbenthompson @MarcAntoineSchmidtQC
 
 # Core
-/src/quantcore/matrix/ @ElizabethSantorellaQC
+/src/quantcore/matrix/ @MarcAntoineSchmidtQC
 
 # Cython / C++
 *.pyx @tbenthompson
