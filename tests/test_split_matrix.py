@@ -216,3 +216,10 @@ def test_matvec_many_types():
         np.testing.assert_almost_equal(res, expected)
 
     many_random_tests(check)
+
+
+def test_oned_dense_mat():
+    m1 = mx.CategoricalMatrix(np.random.randint(0, 10, 10))
+    m2 = mx.DenseMatrix(np.random.rand(10))
+    with pytest.raises(ValueError):
+        mx.SplitMatrix([m1, m2])
