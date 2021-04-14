@@ -15,6 +15,10 @@ Unreleased
 - Added a check that matrices are two-dimensional in the ``SplitMatrix.__init__``
 - Replace np.int with np.int64 where appropriate due to numpy deprecation of `np.int`.
 
+**Other changes:**
+
+- Added Python 3.9 support.
+
 1.0.1 - 2020-11-25
 ------------------
 
