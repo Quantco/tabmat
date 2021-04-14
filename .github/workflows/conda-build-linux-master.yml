@@ -1,8 +1,8 @@
 name: conda-build Linux
-on: [push]
-  # push:
-  #   branches:
-  #     - master
+on:
+  push:
+    branches:
+      - master
 jobs:
   linux-conda-build:
     name: "Linux - conda-build - Python ${{ matrix.PYTHON_VERSION }}"
