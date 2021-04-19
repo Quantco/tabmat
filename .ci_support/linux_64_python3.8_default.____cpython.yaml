@@ -1,20 +1,16 @@
 GLM_ARCHITECTURE:
 - 'default'
-MACOSX_DEPLOYMENT_TARGET:
-- '10.9'
 c_compiler:
-- clang
+- gcc
 c_compiler_version:
-- '11'
+- '9'
 cxx_compiler:
-- clangxx
+- gxx
 cxx_compiler_version:
-- '11'
-macos_machine:
-- x86_64-apple-darwin13.4.0
+- '9'
 numpy:
 - '1.17'
 python:
 - 3.8.* *_cpython
 target_platform:
-- osx-64
+- linux-64
