@@ -13,7 +13,7 @@ cxx_compiler_version:
 macos_machine:
 - x86_64-apple-darwin13.4.0
 numpy:
-- '1.16'
+- '1.17'
 python:
 - 3.8.* *_cpython
 target_platform:
