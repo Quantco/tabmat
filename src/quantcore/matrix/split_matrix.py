@@ -55,21 +55,21 @@ def prepare_out_array(out: Optional[np.ndarray], out_shape, out_dtype):
 
 def combine_matrices(matrices, indices):
     """
-    Combine multiple SparseMatrix and DenseMatrix objects into a single object 
-    of each type. `matrices` is  and `indices` 
-    marks which columns they correspond to. Categorical matrices remain 
-    unmodified by this function since categorical matrices cannot be 
+    Combine multiple SparseMatrix and DenseMatrix objects into a single object
+    of each type. `matrices` is  and `indices`
+    marks which columns they correspond to. Categorical matrices remain
+    unmodified by this function since categorical matrices cannot be
     combined (each categorical matrix represents a single category).
     Parameters
     ----------
-    matrices: 
+    matrices:
         The MatrixBase matrices to be combined.
-        
-    indices: 
+
+    indices:
         The columns the each matrix corresponds to.
     """
     n_row = matrices[0].shape[0]
-    
+
     for mat_type_, stack_fn in [
         (DenseMatrix, np.hstack),
         (SparseMatrix, sps.hstack),
