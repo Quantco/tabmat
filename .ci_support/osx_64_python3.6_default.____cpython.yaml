@@ -15,6 +15,6 @@ macos_machine:
 numpy:
 - '1.17'
 python:
-- 3.8.* *_cpython
+- 3.6.* *_cpython
 target_platform:
 - osx-64
