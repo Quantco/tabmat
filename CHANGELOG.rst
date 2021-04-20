@@ -7,8 +7,8 @@
 Changelog
 =========
 
-Unreleased
-----------
+1.0.2 - 2020-04-20
+------------------
 
 **Bug fixes:**
 
@@ -18,6 +18,7 @@ Unreleased
 **Other changes:**
 
 - Added Python 3.9 support.
+- Use ``scipy.sparse`` dot product when MKL isn't available.
 
 1.0.1 - 2020-11-25
 ------------------
