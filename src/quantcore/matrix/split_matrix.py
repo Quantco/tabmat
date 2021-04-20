@@ -53,19 +53,87 @@ def prepare_out_array(out: Optional[np.ndarray], out_shape, out_dtype):
     return out
 
 
+def combine_matrices(matrices, indices):
+    """
+    Combine multiple SparseMatrix and DenseMatrix objects into a single object
+    of each type. `matrices` is  and `indices`
+    marks which columns they correspond to. Categorical matrices remain
+    unmodified by this function since categorical matrices cannot be
+    combined (each categorical matrix represents a single category).
+    Parameters
+    ----------
+    matrices:
+        The MatrixBase matrices to be combined.
+
+    indices:
+        The columns the each matrix corresponds to.
+    """
+    n_row = matrices[0].shape[0]
+
+    for mat_type_, stack_fn in [
+        (DenseMatrix, np.hstack),
+        (SparseMatrix, sps.hstack),
+    ]:
+        this_type_matrices = [
+            i for i, mat in enumerate(matrices) if isinstance(mat, mat_type_)
+        ]
+        if len(this_type_matrices) > 1:
+            matrices[this_type_matrices[0]] = mat_type_(
+                stack_fn([matrices[i] for i in this_type_matrices])
+            )
+            assert matrices[this_type_matrices[0]].shape[0] == n_row
+            indices[this_type_matrices[0]] = np.concatenate(
+                [indices[i] for i in this_type_matrices]
+            )
+            indices = [
+                idx for i, idx in enumerate(indices) if i not in this_type_matrices[1:]
+            ]
+            matrices = [
+                mat for i, mat in enumerate(matrices) if i not in this_type_matrices[1:]
+            ]
+    return matrices, indices
+
+
 class SplitMatrix(MatrixBase):
     def __init__(
         self,
         matrices: List[Union[DenseMatrix, SparseMatrix, CategoricalMatrix]],
         indices: Optional[List[np.ndarray]] = None,
     ):
+        # First check that all matrices are valid types
+        for i, mat in enumerate(matrices):
+            if not isinstance(mat, MatrixBase):
+                raise ValueError(
+                    "Expected all elements of matrices to be subclasses of MatrixBase."
+                )
+            if isinstance(mat, SplitMatrix):
+                raise ValueError("Elements of matrices cannot be SplitMatrix.")
+
+        # Now that we know these are all MatrixBase, we can check consistent
+        # shapes and dtypes.
+        self.dtype = matrices[0].dtype
+        n_row = matrices[0].shape[0]
+        for i, mat in enumerate(matrices):
+            if mat.dtype != self.dtype:
+                warnings.warn(
+                    "Matrices do not all have the same dtype. Dtypes are "
+                    f"{[elt.dtype for elt in matrices]}."
+                )
+            if not mat.shape[0] == n_row:
+                raise ValueError(
+                    "All matrices should have the same first dimension, "
+                    f"but the first matrix has first dimension {n_row} and matrix {i} has "
+                    f"first dimension {mat.shape[0]}."
+                )
+            if len(mat.shape) != 2:
+                raise ValueError("All matrices should be two dimensional.")
 
         if indices is None:
             indices = []
             current_idx = 0
             for mat in matrices:
                 indices.append(
-                    np.arange(current_idx, current_idx + mat.shape[1], dtype=np.int)
+                    np.arange(current_idx, current_idx + mat.shape[1], dtype=np.int64)
                 )
                 current_idx += mat.shape[1]
             n_col = current_idx
@@ -73,69 +141,25 @@ class SplitMatrix(MatrixBase):
             all_indices = np.concatenate(indices)
             n_col = len(all_indices)
 
-            if (np.arange(n_col, dtype=np.int) != np.sort(all_indices)).any():
+            if (np.arange(n_col, dtype=np.int64) != np.sort(all_indices)).any():
                 raise ValueError(
                     "Indices should contain all integers from 0 to one less than the "
                     "number of columns."
                 )
 
         assert isinstance(indices, list)
-        n_row = matrices[0].shape[0]
-        self.dtype = matrices[0].dtype
 
         for i, (mat, idx) in enumerate(zip(matrices, indices)):
-            if not mat.shape[0] == n_row:
-                raise ValueError(
-                    "All matrices should have the same first dimension, "
-                    f"but the first matrix has first dimension {n_row} and matrix {i} has "
-                    f"first dimension {mat.shape[0]}."
-                )
-            if not isinstance(mat, MatrixBase):
-                raise ValueError(
-                    "Expected all elements of matrices to be subclasses of MatrixBase."
-                )
-            if isinstance(mat, SplitMatrix):
-                raise ValueError("Elements of matrices cannot be SplitMatrix.")
             if not mat.shape[1] == len(idx):
                 raise ValueError(
                     f"Element {i} of indices should should have length {mat.shape[1]}, "
                     f"but it has shape {idx.shape}"
                 )
-            if mat.dtype != self.dtype:
-                warnings.warn(
-                    "Matrices do not all have the same dtype. Dtypes are "
-                    f"{[elt.dtype for elt in matrices]}."
-                )
 
-        # If there are multiple spares and dense matrices, combine them
-        for mat_type_, stack_fn in [
-            (DenseMatrix, np.hstack),
-            (SparseMatrix, sps.hstack),
-        ]:
-            this_type_matrices = [
-                i for i, mat in enumerate(matrices) if isinstance(mat, mat_type_)
-            ]
-            if len(this_type_matrices) > 1:
-                matrices[this_type_matrices[0]] = mat_type_(
-                    stack_fn([matrices[i] for i in this_type_matrices])
-                )
-                assert matrices[this_type_matrices[0]].shape[0] == n_row
-                indices[this_type_matrices[0]] = np.concatenate(
-                    [indices[i] for i in this_type_matrices]
-                )
-                indices = [
-                    idx
-                    for i, idx in enumerate(indices)
-                    if i not in this_type_matrices[1:]
-                ]
-                matrices = [
-                    mat
-                    for i, mat in enumerate(matrices)
-                    if i not in this_type_matrices[1:]
-                ]
+        combined_matrices, combined_indices = combine_matrices(matrices, indices)
 
-        self.matrices = matrices
-        self.indices = [np.asarray(elt) for elt in indices]
+        self.matrices = combined_matrices
+        self.indices = [np.asarray(elt) for elt in combined_indices]
         self.shape = (n_row, n_col)
 
         assert self.shape[1] > 0
