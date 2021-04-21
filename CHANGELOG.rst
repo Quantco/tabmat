@@ -7,6 +7,12 @@
 Changelog
 =========
 
+1.0.3 - 2020-04-21
+------------------
+
+Maintenance release that fixes deployment for osx.
+
+
 1.0.2 - 2020-04-20
 ------------------
 
