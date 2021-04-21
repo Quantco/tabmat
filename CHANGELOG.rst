@@ -7,13 +7,17 @@
 Changelog
 =========
 
-1.0.2 - 2020-04-20
+1.0.3 - 2020-04-21
 ------------------
 
 **Bug fixes:**
 
 - Added a check that matrices are two-dimensional in the ``SplitMatrix.__init__``
-- Replace np.int with np.int64 where appropriate due to numpy deprecation of `np.int`.
+- Replace ``np.int`` with ``np.int64`` where appropriate due to NumPy deprecation of ``np.int``.
+
+
+1.0.2 - 2020-04-20
+------------------
 
 **Other changes:**
 
