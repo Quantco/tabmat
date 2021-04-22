@@ -7,4 +7,6 @@ source ${SCRIPT_DIR}/macos-conda-build.sh $*
 
 mamba install -y conda-channel-client
 
-upload-conda-package $(conda render .ci_support/${CONDA_BUILD_YML}.yaml --output conda.recipe)
+if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+  upload-conda-package $(conda render .ci_support/${CONDA_BUILD_YML}.yaml --output conda.recipe)
+fi
