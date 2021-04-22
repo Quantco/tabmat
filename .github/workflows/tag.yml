@@ -1,10 +1,8 @@
 name: Deploy on tag
-on: [push]
-#  push:
-#    paths:
-#      - '.github/**'
-#    tags:
-#      - '*'
+on:
+  push:
+    tags:
+      - '*'
 
 jobs:
   linux-deployment:
