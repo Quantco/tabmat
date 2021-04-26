@@ -84,3 +84,42 @@ jobs:
       - name: Build and upload conda package
         shell: bash -l {0}
         run: ./.github/workflows/macos-tag.sh
+
+  windows-conda-build:
+    name: "Windows - conda-build - ${{ matrix.CONDA_BUILD_YML }}"
+    runs-on: windows-latest
+    env:
+      CI: True
+      ***REMOVED***: ${{ secrets.***REMOVED*** }}
+      ***REMOVED***: ${{ secrets.***REMOVED*** }}
+      CONDA_BUILD_YML: "${{ matrix.CONDA_BUILD_YML }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        CONDA_BUILD_YML:
+          - win_64_python3.6.____cpython
+          - win_64_python3.7.____cpython
+          - win_64_python3.8.____cpython
+          - win_64_python3.9.____cpython
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v2.1.0
+        with:
+          ref: ${{ github.head_ref }}
+      - name: Create .condarc
+        shell: pwsh
+        run: |
+          ((Get-Content -path .github/workflows/.condarc) -replace '***REMOVED***', '${{ secrets.***REMOVED*** }}') | Set-Content .github/workflows/.condarc
+          ((Get-Content -path .github/workflows/.condarc) -replace '***REMOVED***', '${{ secrets.***REMOVED*** }}') | Set-Content .github/workflows/.condarc
+      - uses: conda-incubator/setup-miniconda@723ab12c1d66bb893c5ac701f8e387f00b24549e
+        with:
+          miniforge-variant: Mambaforge
+          miniforge-version: 4.10.0-0
+          use-mamba: true
+          condarc-file: .github/workflows/.condarc
+      - name: Build conda package
+        shell: pwsh
+        run: |
+          mamba install -n base -y conda-build
+          conda build -m .ci_support/${{ matrix.CONDA_BUILD_YML}}.yaml conda.recipe
+          upload-conda-package (conda render -m .ci_support/${{ matrix.CONDA_BUILD_YML }}.yaml --output conda.recipe)
