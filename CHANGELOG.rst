@@ -7,6 +7,14 @@
 Changelog
 =========
 
+1.0.4 - 2020-04-26
+------------------
+
+**Other changes**:
+
+We are now also making releases for Windows.
+
+
 1.0.3 - 2020-04-21
 ------------------
 
