@@ -123,4 +123,4 @@ jobs:
           mamba install -n base -y conda-build
           conda build -m .ci_support/${{ matrix.CONDA_BUILD_YML}}.yaml conda.recipe
           mamba install -y conda-channel-client
-          upload-conda-package (conda render -m .ci_support/${{ matrix.CONDA_BUILD_YML }}.yaml --output conda.recipe)
+          python -m upload-conda-package (conda render -m .ci_support/${{ matrix.CONDA_BUILD_YML }}.yaml --output conda.recipe)
