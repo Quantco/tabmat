@@ -38,4 +38,4 @@ jobs:
         shell: pwsh
         run: |
           mamba install -n base -y conda-build
-          conda build -m .ci_support/${{ matrix.CONDA_BUILD_YML}}.yaml conda.recipe
+          conda build -m .ci_support/${{ matrix.CONDA_BUILD_YML }}.yaml conda.recipe
