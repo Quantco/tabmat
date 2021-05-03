@@ -52,7 +52,7 @@ jobs:
      # - name: Publish Docs
      #   run: cd docs/_build/html && gsutil -m cp -r * gs://***REMOVED***/${GITHUB_REPOSITORY}/${GITHUB_SHA}/
   linux-conda-build:
-    name: "Linux - conda-build - Python ${{ matrix.PYTHON_VERSION }}"
+    name: "Linux - conda-build - Python ${{ matrix.CONDA_BUILD_YML }}"
     runs-on: ubuntu-latest
     env:
       CI: True

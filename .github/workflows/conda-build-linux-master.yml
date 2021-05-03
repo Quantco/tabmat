@@ -5,7 +5,7 @@ on:
       - master
 jobs:
   linux-conda-build:
-    name: "Linux - conda-build - Python ${{ matrix.PYTHON_VERSION }}"
+    name: "Linux - conda-build - Python ${{ matrix.CONDA_BUILD_YML }}"
     runs-on: ubuntu-latest
     env:
       CI: True
