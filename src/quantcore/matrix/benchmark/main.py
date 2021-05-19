@@ -278,15 +278,21 @@ def run_all_benchmarks(
         if dense:
             for params in dense:
                 n_rows, n_cols = (int(float(x)) for x in params)
-                benchmark_matrices[f"dense, #rows:{n_rows}, #cols:{n_cols}"] = make_dense_matrices(n_rows, n_cols)
+                benchmark_matrices[
+                    f"dense, #rows:{n_rows}, #cols:{n_cols}"
+                ] = make_dense_matrices(n_rows, n_cols)
         if sparse:
             for params in sparse:
                 n_rows, n_cols = (int(float(x)) for x in params)
-                benchmark_matrices[f"sparse, #rows:{n_rows}, #cols:{n_cols}"] = make_sparse_matrices(n_rows, n_cols)
+                benchmark_matrices[
+                    f"sparse, #rows:{n_rows}, #cols:{n_cols}"
+                ] = make_sparse_matrices(n_rows, n_cols)
         if one_cat:
             for params in one_cat:
                 n_rows, n_cats = (int(float(x)) for x in params)
-                benchmark_matrices[f"one_cat, #rows:{n_rows}, #cats:{n_cats}"] = make_cat_matrix_all_formats(n_rows, n_cats)
+                benchmark_matrices[
+                    f"one_cat, #rows:{n_rows}, #cats:{n_cats}"
+                ] = make_cat_matrix_all_formats(n_rows, n_cats)
         if two_cat:
             for params in two_cat:
                 n_rows, n_cat_cols_1, n_cat_cols_2 = (int(float(x)) for x in params)
@@ -295,10 +301,14 @@ def run_all_benchmarks(
                 ] = make_cat_matrices(n_rows, n_cat_cols_1, n_cat_cols_2)
         if dense_cat:
             for params in dense_cat:
-                n_rows, n_dense_cols, n_cat_cols_1, n_cat_cols_2 = (int(float(x)) for x in params)
+                n_rows, n_dense_cols, n_cat_cols_1, n_cat_cols_2 = (
+                    int(float(x)) for x in params
+                )
                 benchmark_matrices[
                     f"dense_cat #rows:{n_rows}, #dense:{n_dense_cols}, #cats_1:{n_cat_cols_1}, #cats_2:{n_cat_cols_2}"
-                ] = make_dense_cat_matrices(n_rows, n_dense_cols, n_cat_cols_1, n_cat_cols_2)
+                ] = make_dense_cat_matrices(
+                    n_rows, n_dense_cols, n_cat_cols_1, n_cat_cols_2
+                )
     else:
         for k in get_comma_sep_names(matrix_name):
             with open(f"benchmark/data/{k}_data.pkl", "rb") as f:
