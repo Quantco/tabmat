@@ -1,6 +1,6 @@
 import pickle
 import time
-from typing import Dict, Union, List
+from typing import Dict, List, Union
 
 import click
 import numpy as np
