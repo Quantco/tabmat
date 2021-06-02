@@ -1,11 +1,12 @@
 # cython: boundscheck=False, wraparound=False, cdivision=True
 import numpy as np
-cimport numpy as np
 
-from libcpp.vector cimport vector
-from libcpp cimport bool
-from libc.stdlib cimport malloc, free
+cimport numpy as np
 from cython cimport floating
+from libc.stdlib cimport free, malloc
+from libcpp cimport bool
+from libcpp.vector cimport vector
+
 
 # This is necessary because it's quite difficult to have a dynamic array of
 # memoryviews in Cython

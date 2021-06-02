@@ -1,6 +1,6 @@
 import pickle
 import time
-from typing import Dict, Union
+from typing import Dict, List, Union
 
 import click
 import numpy as np
@@ -12,6 +12,11 @@ from quantcore.matrix.benchmark.generate_matrices import (
     get_all_benchmark_matrices,
     get_comma_sep_names,
     get_matrix_names,
+    make_cat_matrices,
+    make_cat_matrix_all_formats,
+    make_dense_cat_matrices,
+    make_dense_matrices,
+    make_sparse_matrices,
 )
 from quantcore.matrix.benchmark.memory_tools import track_peak_mem
 
@@ -145,7 +150,45 @@ def run_one_benchmark_set(
 @click.option(
     "--matrix_name",
     type=str,
-    help=f"Specify a comma-separated list of matrices you want to run. Leaving this blank will default to running all matrices. Matrix options: {get_matrix_names()}",
+    help=(
+        f"Specify a comma-separated list of matrices you want to run or specify. Leaving this blank will default to running all predefined matrices. Matrix options: {get_matrix_names()} OR custom. "
+        f"If custom, specify details using additional custom matrix options. See --dense, --sparse, --one_cat, --two_cat, and --dense_cat options for more details"
+    ),
+)
+@click.option(
+    "--dense",
+    nargs=2,
+    multiple=True,
+    help="Specify n_rows, n_cols for custom dense matrix. Only used if 'custom' included in matrix_name.",
+    default=None,
+)
+@click.option(
+    "--sparse",
+    nargs=2,
+    multiple=True,
+    help="Specify n_rows, n_cols for custom sparse matrix. Only used if 'custom' included in matrix_name.",
+    default=None,
+)
+@click.option(
+    "--one_cat",
+    nargs=2,
+    multiple=True,
+    help="Specify n_rows, n_cats for custom one_cat matrix. Only used if 'custom' included in matrix_name.",
+    default=None,
+)
+@click.option(
+    "--two_cat",
+    nargs=3,
+    multiple=True,
+    help="Specify n_rows, n_cat_cols_1, n_cat_cols_2 for custom dense matrix. Only used if 'custom' included in matrix_name.",
+    default=None,
+)
+@click.option(
+    "--dense_cat",
+    nargs=4,
+    multiple=True,
+    help="Specify n_rows, n_dense_cols, n_cat_cols_1, n_cat_cols_2 for custom dense matrix. Only used if 'custom' included in matrix_name.",
+    default=None,
 )
 @click.option(
     "--bench_memory",
@@ -177,6 +220,11 @@ def run_one_benchmark_set(
 def run_all_benchmarks(
     operation_name: str,
     matrix_name: str,
+    dense: List,
+    sparse: List,
+    one_cat: List,
+    two_cat: List,
+    dense_cat: List,
     bench_memory: bool,
     n_iterations: int,
     include_baseline: bool,
@@ -194,10 +242,18 @@ def run_all_benchmarks(
     4  transpose-matvec  scipy.sparse csr      0   0.00239468\n
     5  transpose-matvec  quantcore.matrix      0  0.000296116\n
 
-    python benchmark/main.py --operation_name sandwich --matrix_name dense_cat --bench_memory
+    python benchmark/main.py --operation_name sandwich --matrix_name dense_cat --bench_memory\n
 
       operation           storage    memory      time\n
-    0  sandwich  quantcore.matrix  52244505  0.159682
+    0  sandwich  quantcore.matrix  52244505  0.159682\n
+
+    --operation_name matvec --matrix_name custom --sparse 3e6 1 --sparse 3e6 10 --dense 10 10\n
+    operation           storage memory      time                            design \n
+    0    matvec  quantcore.matrix      0  0.000006  dense, #rows:10, #cols:10      \n
+    operation           storage memory      time                            design \n
+    0    matvec  quantcore.matrix      0  0.046355  sparse, #rows:3000000, #cols:1 \n
+    operation           storage memory      time                            design \n
+    0    matvec  quantcore.matrix      0  0.048141  sparse, #rows:3000000, #cols:10\n
     """
     if n_iterations is None:
         if bench_memory:
@@ -212,15 +268,53 @@ def run_all_benchmarks(
 
     all_benchmark_matrices = get_all_benchmark_matrices()
 
+    benchmark_matrices = {}
     if matrix_name is None:
-        benchmark_matrices = list(all_benchmark_matrices.keys())
+        for k in all_benchmark_matrices.keys():
+            with open(f"benchmark/data/{k}_data.pkl", "rb") as f:
+                benchmark_matrices[k] = pickle.load(f)
+
+    elif "custom" in matrix_name:
+        if dense:
+            for params in dense:
+                n_rows, n_cols = (int(float(x)) for x in params)
+                benchmark_matrices[
+                    f"dense, #rows:{n_rows}, #cols:{n_cols}"
+                ] = make_dense_matrices(n_rows, n_cols)
+        if sparse:
+            for params in sparse:
+                n_rows, n_cols = (int(float(x)) for x in params)
+                benchmark_matrices[
+                    f"sparse, #rows:{n_rows}, #cols:{n_cols}"
+                ] = make_sparse_matrices(n_rows, n_cols)
+        if one_cat:
+            for params in one_cat:
+                n_rows, n_cats = (int(float(x)) for x in params)
+                benchmark_matrices[
+                    f"one_cat, #rows:{n_rows}, #cats:{n_cats}"
+                ] = make_cat_matrix_all_formats(n_rows, n_cats)
+        if two_cat:
+            for params in two_cat:
+                n_rows, n_cat_cols_1, n_cat_cols_2 = (int(float(x)) for x in params)
+                benchmark_matrices[
+                    f"two_cat #rows:{n_rows}, #cats_1:{n_cat_cols_1}, #cats_2:{n_cat_cols_2}"
+                ] = make_cat_matrices(n_rows, n_cat_cols_1, n_cat_cols_2)
+        if dense_cat:
+            for params in dense_cat:
+                n_rows, n_dense_cols, n_cat_cols_1, n_cat_cols_2 = (
+                    int(float(x)) for x in params
+                )
+                benchmark_matrices[
+                    f"dense_cat #rows:{n_rows}, #dense:{n_dense_cols}, #cats_1:{n_cat_cols_1}, #cats_2:{n_cat_cols_2}"
+                ] = make_dense_cat_matrices(
+                    n_rows, n_dense_cols, n_cat_cols_1, n_cat_cols_2
+                )
     else:
-        benchmark_matrices = get_comma_sep_names(matrix_name)
+        for k in get_comma_sep_names(matrix_name):
+            with open(f"benchmark/data/{k}_data.pkl", "rb") as f:
+                benchmark_matrices[k] = pickle.load(f)
 
-    for name in benchmark_matrices:
-        with open(f"benchmark/data/{name}_data.pkl", "rb") as f:
-            matrices = pickle.load(f)
-
+    for name, matrices in benchmark_matrices.items():
         times = run_one_benchmark_set(
             matrices,
             include_baseline,
@@ -232,7 +326,7 @@ def run_all_benchmarks(
         )
         print(times)
 
-        times.to_csv(f"benchmark/{name}_times.csv", index=False)
+        times.to_csv(f"benchmark/data/{name}_times.csv", index=False)
 
 
 if __name__ == "__main__":
