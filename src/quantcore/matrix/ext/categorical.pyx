@@ -1,11 +1,13 @@
 # cython: boundscheck=False, wraparound=False, cdivision=True
 
 import numpy as np
-cimport numpy as np
 
-from cython cimport floating
 cimport cython
+cimport numpy as np
+from cython cimport floating
+
 from cython.parallel import prange
+
 ctypedef np.uint8_t uint8
 ctypedef np.int8_t int8
 from libcpp cimport bool
