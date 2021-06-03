@@ -2,6 +2,34 @@
 
 ![CI](https://github.com/Quantco/quantcore.matrix/workflows/CI/badge.svg)
 
+## Installation
+For development, you should do an editable installation: 
+
+```bash
+# First, make sure you have conda-forge as your primary conda channel:
+conda config --add channels conda-forge
+# And install pre-commit
+conda install -y pre-commit
+
+git clone git@github.com:Quantco/quantcore.matrix.git
+cd quantcore.matrix
+
+# Set up our pre-commit hooks for black, mypy, isort and flake8.
+pre-commit install
+
+# Set up the quantco_main conda channel. For the password, substitute in the correct password. You should be able to get the password by searching around on slack
+conda config --system --prepend channels quantco_main
+conda config --system --set custom_channels.quantco_main https://dil_ro:password@conda.quantco.cloud
+  
+# Set up a conda environment with name "quantcore.matrix"
+conda install mamba=0.2.12
+mamba env create
+
+# Install this package in editable mode. 
+conda activate quantcore.matrix
+pip install --no-use-pep517 --disable-pip-version-check -e .
+```
+
 ## Use case
 Data used in economics, actuarial science, and many other fields is often tabular,
 containing rows and columns. Further properties are also common:
