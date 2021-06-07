@@ -1,4 +1,3 @@
-import platform
 from typing import List, Optional, Union
 
 import numpy as np
@@ -19,7 +18,8 @@ from .util import (
     setup_restrictions,
 )
 
-if platform.machine() in {"arm64", "aarch64"}:
+# For unknown reasons, MKL seems to be slower on both OSX and Linux. Use only scipy for now
+if True:  # platform.machine() in {"arm64", "aarch64"}:
 
     def dot_product_maybe_mkl(matrix_a, matrix_b, out):
         mult = matrix_a.dot(matrix_b)
