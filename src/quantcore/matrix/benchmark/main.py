@@ -35,7 +35,7 @@ def transpose_matvec(
     mat: Union[mx.MatrixBase, np.ndarray, sps.csc_matrix], vec: np.ndarray
 ):
     if isinstance(mat, (mx.MatrixBase, mx.StandardizedMatrix)):
-        out = np.zeros(mat.shape[1])
+        out = None  # np.zeros(mat.shape[1])
         return mat.transpose_matvec(vec, out=out)
     else:
         return mat.T.dot(vec)
@@ -43,7 +43,7 @@ def transpose_matvec(
 
 def matvec(mat, vec: np.ndarray) -> np.ndarray:
     if isinstance(mat, (mx.MatrixBase, mx.StandardizedMatrix)):
-        out = np.zeros(mat.shape[0])
+        out = None  # np.zeros(mat.shape[0])
         return mat.matvec(vec, out=out)
     else:
         return mat.dot(vec)
@@ -247,7 +247,7 @@ def run_all_benchmarks(
       operation           storage    memory      time\n
     0  sandwich  quantcore.matrix  52244505  0.159682\n
 
-    --operation_name matvec --matrix_name custom --sparse 3e6 1 --sparse 3e6 10 --dense 10 10\n
+    python benchmark/main.py --operation_name matvec --matrix_name custom --sparse 3e6 1 --sparse 3e6 10 --dense 10 10\n
     operation           storage memory      time                            design \n
     0    matvec  quantcore.matrix      0  0.000006  dense, #rows:10, #cols:10      \n
     operation           storage memory      time                            design \n
