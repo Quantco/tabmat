@@ -175,7 +175,7 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
             return out
 
     def matvec(self, vec, cols: np.ndarray = None, out: np.ndarray = None):
-        """Perform self[:, cols] @ other."""
+        """Perform self[:, cols] @ other[cols]."""
         check_matvec_out_shape(self, out)
         return self._matvec_helper(vec, None, cols, out, False)
 
