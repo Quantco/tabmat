@@ -103,7 +103,8 @@ def get_comma_sep_names(xs: str):
     return [x.strip() for x in xs.split(",")]
 
 
-def _get_matrix_names():
+def get_matrix_names():
+    """Return names for benchmark_matrices."""
     return ",".join(get_all_benchmark_matrices().keys())
 
 
@@ -114,7 +115,7 @@ def _get_matrix_names():
     help=(
         f"Specify a comma-separated list of matrices you want to build. "
         f"Leaving this blank will default to building all matrices. "
-        f"Matrix options: {_get_matrix_names()}"
+        f"Matrix options: {get_matrix_names()}"
     ),
 )
 def generate_matrices(matrix_name: str) -> None:
