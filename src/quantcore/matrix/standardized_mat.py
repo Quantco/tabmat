@@ -8,9 +8,7 @@ from .util import set_up_rows_or_cols, setup_restrictions
 
 
 class StandardizedMatrix:
-    """
-    Matrix with ij element equal to mat[i, j] + shift[0, j]
-    """
+    """Matrix with ij element equal to mat[i, j] + shift[0, j]."""
 
     __array_priority__ = 11
 
@@ -54,6 +52,8 @@ class StandardizedMatrix:
         out: np.ndarray = None,
     ) -> np.ndarray:
         """
+        Perform self[:, cols] @ other.
+
         This function returns a dense output, so it is best geared for the
         matrix-vector case.
         """
@@ -64,7 +64,7 @@ class StandardizedMatrix:
         if self.mult is not None:
             mult = self.mult
             # Avoiding an outer product by matching dimensions.
-            for i in range(len(other_mat.shape) - 1):
+            for _ in range(len(other_mat.shape) - 1):
                 mult = mult[:, np.newaxis]
             mult_other = mult * other_mat
         mat_part = self.mat.matvec(mult_other, cols, out=out)
@@ -76,6 +76,8 @@ class StandardizedMatrix:
 
     def getcol(self, i: int):
         """
+        Return matrix column at specified index.
+
         Returns a StandardizedMatrix.
 
         >>> from scipy import sparse as sps
@@ -99,9 +101,7 @@ class StandardizedMatrix:
     def sandwich(
         self, d: np.ndarray, rows: np.ndarray = None, cols: np.ndarray = None
     ) -> np.ndarray:
-        """
-        Performs a sandwich product: X.T @ diag(d) @ X
-        """
+        """Perform a sandwich product: X.T @ diag(d) @ X."""
         if not hasattr(d, "dtype"):
             d = np.asarray(d)
         if not self.mat.dtype == d.dtype:
@@ -136,6 +136,7 @@ class StandardizedMatrix:
         return res
 
     def unstandardize(self) -> MatrixBase:
+        """Get unstandardized (base) matrix."""
         return self.mat
 
     def transpose_matvec(
@@ -146,6 +147,8 @@ class StandardizedMatrix:
         out: np.ndarray = None,
     ) -> np.ndarray:
         """
+        Perform: self[rows, cols].T @ vec.
+
         Let self.shape = (N, K) and other.shape = (M, N).
         Let shift_mat = outer(ones(N), shift)
 
@@ -178,7 +181,7 @@ class StandardizedMatrix:
         if self.mult is not None:
             mult = self.mult
             # Avoiding an outer product by matching dimensions.
-            for i in range(len(out.shape) - 1):
+            for _ in range(len(out.shape) - 1):
                 mult = mult[:, np.newaxis]
             out *= mult[cols]
 
@@ -190,6 +193,8 @@ class StandardizedMatrix:
 
     def __rmatmul__(self, other: Union[np.ndarray, List]) -> np.ndarray:
         """
+        Return matrix multiplication with other.
+
         other @ X = (X.T @ other.T).T = X.transpose_matvec(other.T).T
 
         Parameters
@@ -206,10 +211,11 @@ class StandardizedMatrix:
         return self.transpose_matvec(other.T).T  # type: ignore
 
     def __matmul__(self, other):
-        """ Defines the behavior of 'self @ other'. """
+        """Define the behavior of 'self @ other'."""
         return self.matvec(other)
 
     def toarray(self) -> np.ndarray:
+        """Return array representation of matrix."""
         mat_part = self.mat.A
         if self.mult is not None:
             mat_part = self.mult[None, :] * mat_part
@@ -217,9 +223,11 @@ class StandardizedMatrix:
 
     @property
     def A(self) -> np.ndarray:
+        """Return array representation of self."""
         return self.toarray()
 
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
+        """Return StandardizedMatrix cast to new type."""
         return type(self)(
             self.mat.astype(dtype, casting=casting, copy=copy),
             self.shift.astype(dtype, order=order, casting=casting, copy=copy),

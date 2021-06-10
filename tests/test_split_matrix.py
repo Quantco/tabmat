@@ -65,9 +65,7 @@ def get_split_with_cat_components() -> List[
 
 
 def split_with_cat() -> SplitMatrix:
-    """
-    Initialized with multiple sparse and dense parts and no indices.
-    """
+    """Initialized with multiple sparse and dense parts and no indices."""
     return mx.SplitMatrix(get_split_with_cat_components())
 
 
@@ -129,7 +127,7 @@ def test_sandwich_sparse_dense(X: np.ndarray, Acols, Bcols):
     [None, [0], [1, 2, 3], [1, 5]],
 )
 def test_sandwich(mat: mx.SplitMatrix, cols):
-    for i in range(10):
+    for _ in range(10):
         v = np.random.rand(mat.shape[0])
         y1 = mat.sandwich(v, cols=cols)
         mat_limited = mat.A if cols is None else mat.A[:, cols]
