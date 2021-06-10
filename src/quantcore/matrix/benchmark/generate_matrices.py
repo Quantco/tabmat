@@ -98,7 +98,8 @@ def get_all_benchmark_matrices():
 
 
 # TODO: duplication with glm_benchmarks
-def _get_comma_sep_names(xs: str):
+def get_comma_sep_names(xs: str):
+    """Return comma separated names from names in input string."""
     return [x.strip() for x in xs.split(",")]
 
 
@@ -123,7 +124,7 @@ def generate_matrices(matrix_name: str) -> None:
     if matrix_name is None:
         benchmark_matrices = list(all_benchmark_matrices.keys())
     else:
-        benchmark_matrices = _get_comma_sep_names(matrix_name)
+        benchmark_matrices = get_comma_sep_names(matrix_name)
 
     for name in benchmark_matrices:
         f = all_benchmark_matrices[name]
