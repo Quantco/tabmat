@@ -53,7 +53,7 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
 
     @property
     def x_csr(self):
-        """Caching the CSR representation of the matrix."""
+        """Cache the CSR representation of the matrix."""
         if self._x_csr is None:
             self._x_csr = self.tocsr(copy=False)
             if self._x_csr.indices.dtype != self.idx_dtype:
