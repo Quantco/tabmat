@@ -60,7 +60,7 @@ def from_pandas(
 
     mxcolidx = 0
 
-    for dfcolidx, (colname, coldata) in enumerate(df.iteritems()):  # noqa B301
+    for dfcolidx, (colname, coldata) in enumerate(df.items()):
         # categorical
         if object_as_cat and coldata.dtype == object:
             coldata = coldata.astype("category")
