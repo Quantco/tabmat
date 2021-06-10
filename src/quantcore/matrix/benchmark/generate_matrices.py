@@ -7,7 +7,8 @@ from scipy import sparse as sps
 import quantcore.matrix as mx
 
 
-def _make_dense_matrices(n_rows: int, n_cols: int) -> dict:
+def make_dense_matrices(n_rows: int, n_cols: int) -> dict:
+    """Make dense matrices for benchmarks."""
     dense_matrices = {"numpy_C": np.random.random((n_rows, n_cols))}
     dense_matrices["numpy_F"] = dense_matrices["numpy_C"].copy(order="F")
     assert dense_matrices["numpy_F"].flags["F_CONTIGUOUS"]
@@ -15,13 +16,15 @@ def _make_dense_matrices(n_rows: int, n_cols: int) -> dict:
     return dense_matrices
 
 
-def _make_cat_matrix(n_rows: int, n_cats: int) -> mx.CategoricalMatrix:
+def make_cat_matrix(n_rows: int, n_cats: int) -> mx.CategoricalMatrix:
+    """Make categorical matrix for benchmarks."""
     mat = mx.CategoricalMatrix(np.random.choice(np.arange(n_cats, dtype=int), n_rows))
     return mat
 
 
-def _make_cat_matrix_all_formats(n_rows: int, n_cats: int) -> dict:
-    mat = _make_cat_matrix(n_rows, n_cats)
+def make_cat_matrix_all_formats(n_rows: int, n_cats: int) -> dict:
+    """Make categorical matrix with all formats for benchmarks."""
+    mat = make_cat_matrix(n_rows, n_cats)
     d = {
         "quantcore.matrix": mat,
         "scipy.sparse csr": mat.tocsr(),
@@ -30,12 +33,13 @@ def _make_cat_matrix_all_formats(n_rows: int, n_cats: int) -> dict:
     return d
 
 
-def _make_cat_matrices(n_rows: int, n_cat_cols_1: int, n_cat_cols_2: int) -> dict:
+def make_cat_matrices(n_rows: int, n_cat_cols_1: int, n_cat_cols_2: int) -> dict:
+    """Make two categorical matrices for benchmarks."""
     two_cat_matrices = {
         "quantcore.matrix": mx.SplitMatrix(
             [
-                _make_cat_matrix(n_rows, n_cat_cols_1),
-                _make_cat_matrix(n_rows, n_cat_cols_2),
+                make_cat_matrix(n_rows, n_cat_cols_1),
+                make_cat_matrix(n_rows, n_cat_cols_2),
             ]
         )
     }
@@ -46,14 +50,14 @@ def _make_cat_matrices(n_rows: int, n_cat_cols_1: int, n_cat_cols_2: int) -> dic
     return two_cat_matrices
 
 
-def _make_dense_cat_matrices(
+def make_dense_cat_matrices(
     n_rows: int, n_dense_cols: int, n_cats_1: int, n_cats_2: int
 ) -> dict:
-
+    """Make dense categorical matrices for benchmarks."""
     dense_block = np.random.random((n_rows, n_dense_cols))
     two_cat_matrices = [
-        _make_cat_matrix(n_rows, n_cats_1),
-        _make_cat_matrix(n_rows, n_cats_2),
+        make_cat_matrix(n_rows, n_cats_1),
+        make_cat_matrix(n_rows, n_cats_2),
     ]
     dense_cat_matrices = {
         "quantcore.matrix": mx.SplitMatrix(
@@ -69,7 +73,8 @@ def _make_dense_cat_matrices(
     return dense_cat_matrices
 
 
-def _make_sparse_matrices(n_rows: int, n_cols: int) -> dict:
+def make_sparse_matrices(n_rows: int, n_cols: int) -> dict:
+    """Make sparse matrices for benchmarks."""
     mat = sps.random(n_rows, n_cols).tocsc()
     matrices = {
         "scipy.sparse csc": mat,
@@ -86,14 +91,14 @@ def _get_matrix_path(name):
 def get_all_benchmark_matrices():
     """Get all matrices used in benchmarks."""
     return {
-        "dense": lambda: _make_dense_matrices(int(4e4), 1000),
-        "sparse": lambda: _make_sparse_matrices(int(4e5), int(1e2)),
-        "sparse_narrow": lambda: _make_sparse_matrices(int(3e6), 3),
-        "sparse_wide": lambda: _make_sparse_matrices(int(4e4), int(1e4)),
-        "one_cat": lambda: _make_cat_matrix_all_formats(int(1e6), int(1e5)),
-        "two_cat": lambda: _make_cat_matrices(int(1e6), int(1e3), int(1e3)),
-        "dense_cat": lambda: _make_dense_cat_matrices(int(3e6), 5, int(1e3), int(1e3)),
-        "dense_smallcat": lambda: _make_dense_cat_matrices(int(3e6), 5, 10, int(1e3)),
+        "dense": lambda: make_dense_matrices(int(4e4), 1000),
+        "sparse": lambda: make_sparse_matrices(int(4e5), int(1e2)),
+        "sparse_narrow": lambda: make_sparse_matrices(int(3e6), 3),
+        "sparse_wide": lambda: make_sparse_matrices(int(4e4), int(1e4)),
+        "one_cat": lambda: make_cat_matrix_all_formats(int(1e6), int(1e5)),
+        "two_cat": lambda: make_cat_matrices(int(1e6), int(1e3), int(1e3)),
+        "dense_cat": lambda: make_dense_cat_matrices(int(3e6), 5, int(1e3), int(1e3)),
+        "dense_smallcat": lambda: make_dense_cat_matrices(int(3e6), 5, 10, int(1e3)),
     }
 
 
