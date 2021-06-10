@@ -7,6 +7,21 @@
 Changelog
 =========
 
+2.0.0 - 2021-06-10
+------------------
+
+**Breaking change**:
+
+Renaming several public functions to make them private.
+
+**Other changes**:
+
+Updating linter
+
+
+Changelog
+=========
+
 1.0.6 - 2020-04-26
 ------------------
 
