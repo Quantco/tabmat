@@ -64,7 +64,8 @@ ops = {
 }
 
 
-def _get_op_names():
+def get_op_names():
+    """Get names of operations."""
     return ",".join(ops.keys())
 
 
@@ -147,7 +148,7 @@ def _run_one_benchmark_set(
     type=str,
     help=(
         f"Specify a comma-separated list of operations you want to run. Leaving this blank "
-        f"will default to running all operations. Operation options: {_get_op_names()}"
+        f"will default to running all operations. Operation options: {get_op_names()}"
     ),
 )
 @click.option(
