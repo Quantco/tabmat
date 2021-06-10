@@ -21,7 +21,7 @@ from .util import (
 
 if platform.machine() in {"arm64", "aarch64"}:
 
-    def dot_product_maybe_mkl(matrix_a, matrix_b, out):
+    def _dot_product_maybe_mkl(matrix_a, matrix_b, out):
         mult = matrix_a.dot(matrix_b)
         if out is None:
             return mult
@@ -31,20 +31,14 @@ if platform.machine() in {"arm64", "aarch64"}:
 
 else:
     # Intel MKL obviously is only available on Intel-based architectures
-    from sparse_dot_mkl import dot_product_mkl as dot_product_maybe_mkl  # type: ignore
+    from sparse_dot_mkl import dot_product_mkl as _dot_product_maybe_mkl  # type: ignore
 
 
 class SparseMatrix(sps.csc_matrix, MatrixBase):
-    """
-    A scipy.sparse csc matrix subclass that will use MKL for sparse
-    matrix-vector products and will use the fast sparse_sandwich function
-    for sandwich products.
-    """
+    """A scipy.sparse csc matrix subclass."""
 
     def __init__(self, arg1, shape=None, dtype=None, copy=False):
-        """
-        Instantiate in the same way as scipy.sparse.csc_matrix
-        """
+        """Instantiate in the same way as scipy.sparse.csc_matrix."""
         super().__init__(arg1, shape, dtype, copy)
         self.idx_dtype = max(self.indices.dtype, self.indptr.dtype)
         if self.indices.dtype != self.idx_dtype:
@@ -59,6 +53,7 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
 
     @property
     def x_csr(self):
+        """Definition of x_csr ."""
         if self._x_csr is None:
             self._x_csr = self.tocsr(copy=False)
             if self._x_csr.indices.dtype != self.idx_dtype:
@@ -71,6 +66,7 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
     def sandwich(
         self, d: np.ndarray, rows: np.ndarray = None, cols: np.ndarray = None
     ) -> np.ndarray:
+        """Perform a sandwich product: X.T @ diag(d) @ X."""
         if not hasattr(d, "dtype"):
             d = np.asarray(d)
         if not self.dtype == d.dtype:
@@ -91,6 +87,7 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         L_cols: Optional[np.ndarray] = None,
         R_cols: Optional[np.ndarray] = None,
     ):
+        """Perform a sandwich product: X.T @ diag(d) @ Y."""
         if isinstance(other, np.ndarray):
             return self.sandwich_dense(other, d, rows, L_cols, R_cols)
         from .categorical_matrix import CategoricalMatrix
@@ -107,9 +104,7 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         L_cols: np.ndarray,
         R_cols: np.ndarray,
     ) -> np.ndarray:
-        """
-        sandwich product: self.T @ diag(d) @ B
-        """
+        """Perform a sandwich product: self.T @ diag(d) @ B."""
         if not hasattr(d, "dtype"):
             d = np.asarray(d)
 
@@ -126,7 +121,7 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         R_cols = set_up_rows_or_cols(R_cols, B.shape[1])
         return csr_dense_sandwich(self.x_csr, B, d, rows, L_cols, R_cols)
 
-    def matvec_helper(
+    def _matvec_helper(
         self,
         vec: Union[List, np.ndarray],
         rows: Optional[np.ndarray],
@@ -146,10 +141,10 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         unrestricted_cols = cols is None or len(cols) == self.shape[1]
         if unrestricted_rows and unrestricted_cols:
             if vec.ndim == 1:
-                return dot_product_maybe_mkl(X, vec, out=out)
+                return _dot_product_maybe_mkl(X, vec, out=out)
             elif vec.ndim == 2 and vec.shape[1] == 1:
                 out_arr = None if out is None else out[:, 0]
-                return dot_product_maybe_mkl(X, vec[:, 0], out=out_arr)[:, None]
+                return _dot_product_maybe_mkl(X, vec[:, 0], out=out_arr)[:, None]
             res = matrix_matvec(self, vec)
             if out is None:
                 return res
@@ -180,8 +175,9 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
             return out
 
     def matvec(self, vec, cols: np.ndarray = None, out: np.ndarray = None):
+        """Perform self[:, cols] @ other."""
         check_matvec_out_shape(self, out)
-        return self.matvec_helper(vec, None, cols, out, False)
+        return self._matvec_helper(vec, None, cols, out, False)
 
     __array_priority__ = 12
 
@@ -192,10 +188,12 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         cols: np.ndarray = None,
         out: np.ndarray = None,
     ) -> np.ndarray:
+        """Perform: self[rows, cols].T @ vec."""
         check_transpose_matvec_out_shape(self, out)
-        return self.matvec_helper(vec, rows, cols, out, True)
+        return self._matvec_helper(vec, rows, cols, out, True)
 
     def get_col_stds(self, weights: np.ndarray, col_means: np.ndarray) -> np.ndarray:
+        """Get standard deviations of columns."""
         sqrt_arg = (
             transpose_square_dot_weights(
                 self.data, self.indices, self.indptr, weights, weights.dtype
@@ -209,4 +207,5 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         return np.sqrt(sqrt_arg)
 
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
+        """Return SparseMatrix cast to new type."""
         return super(SparseMatrix, self).astype(dtype, casting, copy)
