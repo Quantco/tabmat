@@ -83,7 +83,8 @@ def _get_matrix_path(name):
     return f"benchmark/data/{name}_data.pkl"
 
 
-def _get_all_benchmark_matrices():
+def get_all_benchmark_matrices():
+    """Get all matrices used in benchmarks."""
     return {
         "dense": lambda: _make_dense_matrices(int(4e4), 1000),
         "sparse": lambda: _make_sparse_matrices(int(4e5), int(1e2)),
@@ -102,7 +103,7 @@ def _get_comma_sep_names(xs: str):
 
 
 def _get_matrix_names():
-    return ",".join(_get_all_benchmark_matrices().keys())
+    return ",".join(get_all_benchmark_matrices().keys())
 
 
 @click.command()
@@ -117,7 +118,7 @@ def _get_matrix_names():
 )
 def generate_matrices(matrix_name: str) -> None:
     """Generate example matrices for benchmarks."""
-    all_benchmark_matrices = _get_all_benchmark_matrices()
+    all_benchmark_matrices = get_all_benchmark_matrices()
 
     if matrix_name is None:
         benchmark_matrices = list(all_benchmark_matrices.keys())
