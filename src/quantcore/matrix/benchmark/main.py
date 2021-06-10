@@ -69,7 +69,7 @@ def get_op_names():
     return ",".join(ops.keys())
 
 
-def _run_one_benchmark_set(
+def run_one_benchmark_set(
     matrices: Dict[
         str, Union[mx.MatrixBase, mx.StandardizedMatrix, np.ndarray, sps.spmatrix]
     ],
@@ -80,6 +80,7 @@ def _run_one_benchmark_set(
     n_iterations: int,
     bench_memory: bool,
 ) -> pd.DataFrame:
+    """Run a single round of benchmarks."""
     if not include_baseline:
         for k in list(matrices.keys()):
             if k != "quantcore.matrix":
@@ -347,7 +348,7 @@ def run_all_benchmarks(
                 benchmark_matrices[k] = pickle.load(f)
 
     for name, matrices in benchmark_matrices.items():
-        times = _run_one_benchmark_set(
+        times = run_one_benchmark_set(
             matrices,
             include_baseline,
             name,
