@@ -19,9 +19,16 @@ from .util import (
 def split_sparse_and_dense_parts(
     arg1: sps.csc_matrix, threshold: float = 0.1
 ) -> Tuple[DenseMatrix, SparseMatrix, np.ndarray, np.ndarray]:
+    """
+    Split matrix.
+
+    Return the dense and sparse parts of a matrix and the corresponding indices
+    for each at the provided threshhold.
+    """
     if not isinstance(arg1, sps.csc_matrix):
         raise TypeError(
-            f"X must be of type scipy.sparse.csc_matrix or matrix.SparseMatrix, not {type(arg1)}"
+            f"X must be of type scipy.sparse.csc_matrix or matrix.SparseMatrix,"
+            f"not {type(arg1)}"
         )
     if not 0 <= threshold <= 1:
         raise ValueError("Threshold must be between 0 and 1.")
@@ -35,11 +42,12 @@ def split_sparse_and_dense_parts(
 
 
 def csc_to_split(mat: sps.csc_matrix, threshold=0.1):
+    """Convert a csc matrix into a split matrix at the provided threshold."""
     dense, sparse, dense_idx, sparse_idx = split_sparse_and_dense_parts(mat, threshold)
     return SplitMatrix([dense, sparse], [dense_idx, sparse_idx])
 
 
-def prepare_out_array(out: Optional[np.ndarray], out_shape, out_dtype):
+def _prepare_out_array(out: Optional[np.ndarray], out_shape, out_dtype):
     if out is None:
         out = np.zeros(out_shape, out_dtype)
     else:
@@ -55,11 +63,12 @@ def prepare_out_array(out: Optional[np.ndarray], out_shape, out_dtype):
 
 def combine_matrices(matrices, indices):
     """
-    Combine multiple SparseMatrix and DenseMatrix objects into a single object
-    of each type. `matrices` is  and `indices`
-    marks which columns they correspond to. Categorical matrices remain
-    unmodified by this function since categorical matrices cannot be
-    combined (each categorical matrix represents a single category).
+    Combine multiple SparseMatrix and DenseMatrix objects into a single object of each type.
+
+    `matrices` is  and `indices` marks which columns they correspond to.
+    Categorical matrices remain unmodified by this function since categorical
+    matrices cannot be combined (each categorical matrix represents a single category).
+
     Parameters
     ----------
     matrices:
@@ -95,13 +104,21 @@ def combine_matrices(matrices, indices):
 
 
 class SplitMatrix(MatrixBase):
+    """
+    A class for matrices with both sparse and dense parts.
+
+    For real-world data that contains some dense columns and some sparse columns,
+    the split representation allows for a significant speedup in matrix multiplications
+    compared to representations that are entirely dense or entirely sparse.
+    """
+
     def __init__(
         self,
         matrices: List[Union[DenseMatrix, SparseMatrix, CategoricalMatrix]],
         indices: Optional[List[np.ndarray]] = None,
     ):
         # First check that all matrices are valid types
-        for i, mat in enumerate(matrices):
+        for _, mat in enumerate(matrices):
             if not isinstance(mat, MatrixBase):
                 raise ValueError(
                     "Expected all elements of matrices to be subclasses of MatrixBase."
@@ -167,9 +184,8 @@ class SplitMatrix(MatrixBase):
     def _split_col_subsets(
         self, cols: Optional[np.ndarray]
     ) -> Tuple[List[np.ndarray], List[Optional[np.ndarray]], int]:
-        """"
-        Return a tuple of things that are helpful for applying column restrictions to \
-        sub-matrices.
+        """
+        Return tuple of things helpful for applying column restrictions to sub-matrices.
 
         - subset_cols_indices
         - subset_cols
@@ -190,6 +206,7 @@ class SplitMatrix(MatrixBase):
         return split_col_subsets(self, cols)
 
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
+        """Return SplitMatrix cast to new type."""
         if copy:
             new_matrices = [
                 mat.astype(dtype=dtype, order=order, casting=casting, copy=True)
@@ -203,12 +220,14 @@ class SplitMatrix(MatrixBase):
         return SplitMatrix(self.matrices, self.indices)
 
     def toarray(self) -> np.ndarray:
+        """Return array representation of matrix."""
         out = np.empty(self.shape)
         for mat, idx in zip(self.matrices, self.indices):
             out[:, idx] = mat.A
         return out
 
     def getcol(self, i: int) -> Union[np.ndarray, sps.csr_matrix]:
+        """Return matrix column at specified index."""
         # wrap-around indexing
         i %= self.shape[1]
         for mat, idx in zip(self.matrices, self.indices):
@@ -223,6 +242,7 @@ class SplitMatrix(MatrixBase):
         rows: np.ndarray = None,
         cols: np.ndarray = None,
     ) -> np.ndarray:
+        """Perform a sandwich product: X.T @ diag(d) @ X."""
         if np.shape(d) != (self.shape[0],):
             raise ValueError
         d = np.asarray(d)
@@ -252,12 +272,14 @@ class SplitMatrix(MatrixBase):
         return out
 
     def get_col_means(self, weights: np.ndarray) -> np.ndarray:
+        """Get means of columns."""
         col_means = np.empty(self.shape[1], dtype=self.dtype)
         for idx, mat in zip(self.indices, self.matrices):
             col_means[idx] = mat.get_col_means(weights)
         return col_means
 
     def get_col_stds(self, weights: np.ndarray, col_means: np.ndarray) -> np.ndarray:
+        """Get standard deviations of columns."""
         col_stds = np.empty(self.shape[1], dtype=self.dtype)
         for idx, mat in zip(self.indices, self.matrices):
             col_stds[idx] = mat.get_col_stds(weights, col_means[idx])
@@ -267,6 +289,7 @@ class SplitMatrix(MatrixBase):
     def matvec(
         self, v: np.ndarray, cols: np.ndarray = None, out: np.ndarray = None
     ) -> np.ndarray:
+        """Perform self[:, cols] @ other."""
         assert not isinstance(v, sps.spmatrix)
         check_matvec_out_shape(self, out)
 
@@ -278,7 +301,7 @@ class SplitMatrix(MatrixBase):
 
         out_shape = [self.shape[0]] + ([] if v.ndim == 1 else list(v.shape[1:]))
         out_dtype = np.result_type(self.dtype, v.dtype)
-        out = prepare_out_array(out, out_shape, out_dtype)
+        out = _prepare_out_array(out, out_shape, out_dtype)
 
         for sub_cols, idx, mat in zip(subset_cols, self.indices, self.matrices):
             one = v[idx, ...]
@@ -293,6 +316,8 @@ class SplitMatrix(MatrixBase):
         out: np.ndarray = None,
     ) -> np.ndarray:
         """
+        Perform: self[rows, cols].T @ vec.
+
         self.transpose_matvec(v, rows, cols) = self[rows, cols].T @ v[rows]
         self.transpose_matvec(v, rows, cols)[i]
             = sum_{j in rows} self[j, cols[i]] v[j]
@@ -307,7 +332,7 @@ class SplitMatrix(MatrixBase):
         out_shape = [n_cols] + list(v.shape[1:])
         out_dtype = np.result_type(self.dtype, v.dtype)
         out_is_none = out is None
-        out = prepare_out_array(out, out_shape, out_dtype)
+        out = _prepare_out_array(out, out_shape, out_dtype)
         if cols is not None:
             cols = np.asarray(cols, dtype=np.int32)
 

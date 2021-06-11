@@ -22,14 +22,16 @@ def _none_to_slice(arr: Optional[np.ndarray], n: int) -> Union[slice, np.ndarray
 
 
 class CategoricalMatrix(MatrixBase):
+    """A faster, more memory efficinient version of a cat_vec with one-hot encoding."""
+
     def __init__(
         self,
         cat_vec: Union[List, np.ndarray, pd.Categorical],
-        dtype: np.dtype = np.dtype("float64"),
+        dtype: np.dtype = np.float64,
     ):
         """
-        Constructs an object that behaves like cat_vec with one-hot encoding, but
-        with more memory efficiency and speed.
+        Construct the CategoricalMatrix.
+
         ---
         cat_vec: array-like vector of categorical data.
         dtype:
@@ -49,10 +51,8 @@ class CategoricalMatrix(MatrixBase):
 
     def recover_orig(self) -> np.ndarray:
         """
+        Return 1d numpy array with same data as what was initially fed to __init__.
 
-        Returns
-        -------
-        1d numpy array with same data as what was initially fed to __init__.
         Test: matrix/test_categorical_matrix::test_recover_orig
         """
         return self.cat.categories[self.cat.codes]
@@ -128,7 +128,9 @@ class CategoricalMatrix(MatrixBase):
         out: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """
-        Perform, for i in cols, out[i] += sum_{j in rows} self[j, i] vec[j]
+        Perform: self[rows, cols].T @ vec.
+
+        for i in cols, out[i] += sum_{j in rows} self[j, i] vec[j]
         self[j, i] = 1(indices[j] == i)
 
 
@@ -180,6 +182,8 @@ class CategoricalMatrix(MatrixBase):
         cols: np.ndarray = None,
     ) -> sps.dia_matrix:
         """
+        Perform a sandwich product: X.T @ diag(d) @ X.
+
         sandwich(self, d)[i, j] = (self.T @ diag(d) @ self)[i, j]
             = sum_k (self[k, i] (diag(d) @ self)[k, j])
             = sum_k self[k, i] sum_m diag(d)[k, m] self[m, j]
@@ -205,6 +209,7 @@ class CategoricalMatrix(MatrixBase):
         L_cols: Optional[np.ndarray] = None,
         R_cols: Optional[np.ndarray] = None,
     ) -> np.ndarray:
+        """Perform a sandwich product: X.T @ diag(d) @ Y."""
         if isinstance(other, np.ndarray):
             return self._cross_dense(other, d, rows, L_cols, R_cols)
         if isinstance(other, sps.csc_matrix):
@@ -216,11 +221,13 @@ class CategoricalMatrix(MatrixBase):
     # TODO: best way to return this depends on the use case. See what that is
     # See how csr getcol works
     def getcol(self, i: int) -> sps.csc_matrix:
+        """Return matrix column at specified index."""
         i %= self.shape[1]  # wrap-around indexing
         col_i = sps.csc_matrix((self.indices == i).astype(int)[:, None])
         return col_i
 
     def tocsr(self) -> sps.csr_matrix:
+        """Return scipy csr representation of matrix."""
         # TODO: data should be uint8
         data = np.ones(self.shape[0], dtype=int)
 
@@ -230,10 +237,13 @@ class CategoricalMatrix(MatrixBase):
         )
 
     def toarray(self) -> np.ndarray:
+        """Return array representation of matrix."""
         return self.tocsr().A
 
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
         """
+        Return SplitMatrix cast to new type.
+
         This method doesn't make a lot of sense since indices needs to be of int dtype,
         but it needs to be implemented.
         """
@@ -241,6 +251,7 @@ class CategoricalMatrix(MatrixBase):
         return self
 
     def get_col_stds(self, weights: np.ndarray, col_means: np.ndarray) -> np.ndarray:
+        """Get standard deviations of columns."""
         mean = self.transpose_matvec(weights)
         return np.sqrt(mean - col_means ** 2)
 
@@ -327,10 +338,10 @@ class CategoricalMatrix(MatrixBase):
         return res
 
     def multiply(self, other) -> sps.csr_matrix:
-        """Element-wise multiplication of each column with other"""
+        """Element-wise multiplication of each column with other."""
         if self.shape[0] != other.shape[0]:
             raise ValueError(
-                f"Shape do not match. Expected a length of {self.shape[0]} but got {len(other)}."
+                f"Shapes do not match. Expected length of {self.shape[0]}. Got {len(other)}."
             )
 
         return sps.csr_matrix(
