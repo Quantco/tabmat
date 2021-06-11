@@ -21,7 +21,7 @@ from quantcore.matrix.benchmark.generate_matrices import (
 from quantcore.matrix.benchmark.memory_tools import track_peak_mem
 
 
-def sandwich(mat: Union[mx.MatrixBase, np.ndarray, sps.csc_matrix], vec: np.ndarray):
+def _sandwich(mat: Union[mx.MatrixBase, np.ndarray, sps.csc_matrix], vec: np.ndarray):
     if isinstance(mat, (mx.MatrixBase, mx.StandardizedMatrix)):
         mat.sandwich(vec)
     elif isinstance(mat, np.ndarray):
@@ -31,7 +31,7 @@ def sandwich(mat: Union[mx.MatrixBase, np.ndarray, sps.csc_matrix], vec: np.ndar
     return
 
 
-def transpose_matvec(
+def _transpose_matvec(
     mat: Union[mx.MatrixBase, np.ndarray, sps.csc_matrix], vec: np.ndarray
 ):
     if isinstance(mat, (mx.MatrixBase, mx.StandardizedMatrix)):
@@ -41,7 +41,7 @@ def transpose_matvec(
         return mat.T.dot(vec)
 
 
-def matvec(mat, vec: np.ndarray) -> np.ndarray:
+def _matvec(mat, vec: np.ndarray) -> np.ndarray:
     if isinstance(mat, (mx.MatrixBase, mx.StandardizedMatrix)):
         out = np.zeros(mat.shape[0])
         return mat.matvec(vec, out=out)
@@ -49,22 +49,23 @@ def matvec(mat, vec: np.ndarray) -> np.ndarray:
         return mat.dot(vec)
 
 
-def lvec_setup(matrices):
+def _lvec_setup(matrices):
     return (np.random.random(next(iter(matrices.values())).shape[0]),)
 
 
-def rvec_setup(matrices):
+def _rvec_setup(matrices):
     return (np.random.random(next(iter(matrices.values())).shape[1]),)
 
 
 ops = {
-    "matvec": (rvec_setup, matvec),
-    "transpose-matvec": (lvec_setup, transpose_matvec),
-    "sandwich": (lvec_setup, sandwich),
+    "matvec": (_rvec_setup, _matvec),
+    "transpose-matvec": (_lvec_setup, _transpose_matvec),
+    "sandwich": (_lvec_setup, _sandwich),
 }
 
 
 def get_op_names():
+    """Get names of operations."""
     return ",".join(ops.keys())
 
 
@@ -79,6 +80,7 @@ def run_one_benchmark_set(
     n_iterations: int,
     bench_memory: bool,
 ) -> pd.DataFrame:
+    """Run a single round of benchmarks."""
     if not include_baseline:
         for k in list(matrices.keys()):
             if k != "quantcore.matrix":
@@ -115,7 +117,7 @@ def run_one_benchmark_set(
         setup_data = setup_fnc(matrices)
         runtimes = []
         peak_mems = []
-        for j in range(n_iterations):
+        for _ in range(n_iterations):
             start = time.time()
             if bench_memory:
                 peak_mem = track_peak_mem(op_fnc, mat_, *setup_data)
@@ -145,62 +147,91 @@ def run_one_benchmark_set(
 @click.option(
     "--operation_name",
     type=str,
-    help=f"Specify a comma-separated list of operations you want to run. Leaving this blank will default to running all operations. Operation options: {get_op_names()}",
+    help=(
+        f"Specify a comma-separated list of operations you want to run. Leaving this blank "
+        f"will default to running all operations. Operation options: {get_op_names()}"
+    ),
 )
 @click.option(
     "--matrix_name",
     type=str,
     help=(
-        f"Specify a comma-separated list of matrices you want to run or specify. Leaving this blank will default to running all predefined matrices. Matrix options: {get_matrix_names()} OR custom. "
-        f"If custom, specify details using additional custom matrix options. See --dense, --sparse, --one_cat, --two_cat, and --dense_cat options for more details"
+        f"Specify a comma-separated list of matrices you want to run or specify. "
+        f"Leaving this blank will default to running all predefined matrices. "
+        f"Matrix options: {get_matrix_names()} OR custom. If custom, specify details using "
+        f"additional custom matrix options. See --dense, --sparse, --one_cat, --two_cat, "
+        f"and --dense_cat options for more details"
     ),
 )
 @click.option(
     "--dense",
     nargs=2,
     multiple=True,
-    help="Specify n_rows, n_cols for custom dense matrix. Only used if 'custom' included in matrix_name.",
+    help=(
+        "Specify n_rows, n_cols for custom dense matrix. "
+        "Only used if 'custom' included in matrix_name."
+    ),
     default=None,
 )
 @click.option(
     "--sparse",
     nargs=2,
     multiple=True,
-    help="Specify n_rows, n_cols for custom sparse matrix. Only used if 'custom' included in matrix_name.",
+    help=(
+        "Specify n_rows, n_cols for custom sparse matrix. "
+        "Only used if 'custom' included in matrix_name."
+    ),
     default=None,
 )
 @click.option(
     "--one_cat",
     nargs=2,
     multiple=True,
-    help="Specify n_rows, n_cats for custom one_cat matrix. Only used if 'custom' included in matrix_name.",
+    help=(
+        "Specify n_rows, n_cols for custom one_cat matrix. "
+        "Only used if 'custom' included in matrix_name."
+    ),
     default=None,
 )
 @click.option(
     "--two_cat",
     nargs=3,
     multiple=True,
-    help="Specify n_rows, n_cat_cols_1, n_cat_cols_2 for custom dense matrix. Only used if 'custom' included in matrix_name.",
+    help=(
+        "Specify n_rows, n_cols for custom two_cat matrix. "
+        "Only used if 'custom' included in matrix_name."
+    ),
     default=None,
 )
 @click.option(
     "--dense_cat",
     nargs=4,
     multiple=True,
-    help="Specify n_rows, n_dense_cols, n_cat_cols_1, n_cat_cols_2 for custom dense matrix. Only used if 'custom' included in matrix_name.",
+    help=(
+        "Specify n_rows, n_cols for custom dense_cat matrix. "
+        "Only used if 'custom' included in matrix_name."
+    ),
     default=None,
 )
 @click.option(
     "--bench_memory",
     type=bool,
     is_flag=True,
-    help="Should we benchmark memory usage with tracemalloc. Turning this on will make the runtime benchmarks less useful due to memory benchmarking overhead. Also, when memory benchmarking is on, debuggers like pdb and ipdb seem to fail.",
+    help=(
+        "Should we benchmark memory usage with tracemalloc. Turning this on will make "
+        "the runtime benchmarks less useful due to memory benchmarking overhead. "
+        "Also, when memory benchmarking is on, debuggers like pdb and ipdb seem to fail."
+    ),
     default=False,
 )
 @click.option(
     "--n_iterations",
     type=int,
-    help="How many times to re-run the benchmark. The maximum memory usage and minimum runtime will be reported. Higher numbers of iterations reduce noise. This defaults to 100 unless memory benchmarking is turned on in which case it will be 1.",
+    help=(
+        "How many times to re-run the benchmark. The maximum memory usage and minimum "
+        "runtime will be reported. Higher numbers of iterations reduce noise. This defaults "
+        "to 100 unless memory benchmarking is turned on in which case it will be 1."
+    ),
     default=None,
 )
 @click.option(
@@ -231,10 +262,11 @@ def run_all_benchmarks(
     standardized: bool,
 ):
     """
-    Usage examples:
+    Usage examples.
 
     python benchmark/main.py --operation_name matvec,transpose-matvec --matrix_name sparse --include_baseline\n
-              operation           storage memory         time\n
+              operation           storage memory         time
+
     0            matvec  scipy.sparse csc      0   0.00129819\n
     1            matvec  scipy.sparse csr      0   0.00266385\n
     2            matvec  quantcore.matrix      0   0.00199628\n
@@ -247,14 +279,14 @@ def run_all_benchmarks(
       operation           storage    memory      time\n
     0  sandwich  quantcore.matrix  52244505  0.159682\n
 
-    --operation_name matvec --matrix_name custom --sparse 3e6 1 --sparse 3e6 10 --dense 10 10\n
+    python benchmark/main.py --operation_name matvec --matrix_name custom --sparse 3e6 1 --sparse 3e6 10 --dense 10 10\n
     operation           storage memory      time                            design \n
     0    matvec  quantcore.matrix      0  0.000006  dense, #rows:10, #cols:10      \n
     operation           storage memory      time                            design \n
     0    matvec  quantcore.matrix      0  0.046355  sparse, #rows:3000000, #cols:1 \n
     operation           storage memory      time                            design \n
     0    matvec  quantcore.matrix      0  0.048141  sparse, #rows:3000000, #cols:10\n
-    """
+    """  # noqa
     if n_iterations is None:
         if bench_memory:
             n_iterations = 1
@@ -305,7 +337,8 @@ def run_all_benchmarks(
                     int(float(x)) for x in params
                 )
                 benchmark_matrices[
-                    f"dense_cat #rows:{n_rows}, #dense:{n_dense_cols}, #cats_1:{n_cat_cols_1}, #cats_2:{n_cat_cols_2}"
+                    f"dense_cat #rows:{n_rows}, #dense:{n_dense_cols}, "
+                    f" cats_1:{n_cat_cols_1}, #cats_2:{n_cat_cols_2}"
                 ] = make_dense_cat_matrices(
                     n_rows, n_dense_cols, n_cat_cols_1, n_cat_cols_2
                 )

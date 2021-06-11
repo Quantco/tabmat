@@ -207,7 +207,8 @@ def test_matvec(
     mat: Union[mx.MatrixBase, mx.StandardizedMatrix], other_type, cols, other_shape
 ):
     """
-    mat
+    Mat.
+
     other_type: Function transforming list to list, array, or DenseMatrix
     cols: Argument 1 to matvec, specifying which columns of the matrix (and
         which elements of 'other') to use
