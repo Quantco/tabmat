@@ -6,6 +6,7 @@ import numpy as np
 def set_up_rows_or_cols(
     arr: Optional[np.ndarray], length: int, dtype=np.int32
 ) -> np.ndarray:
+    """Set up rows or columns using input array and input length."""
     if arr is None:
         return np.arange(length, dtype=dtype)
     return np.asarray(arr).astype(dtype)
@@ -17,6 +18,7 @@ def setup_restrictions(
     cols: Optional[np.ndarray],
     dtype=np.int32,
 ) -> Tuple[np.ndarray, np.ndarray]:
+    """Set up row and column restrictions."""
     rows = set_up_rows_or_cols(rows, shape[0], dtype)
     cols = set_up_rows_or_cols(cols, shape[1], dtype)
     return rows, cols
@@ -31,8 +33,10 @@ def _check_out_shape(out: Optional[np.ndarray], expected_first_dim: int) -> None
 
 
 def check_transpose_matvec_out_shape(mat, out: Optional[np.ndarray]) -> None:
+    """Assert that the first dimension of the transpose_matvec output is correct."""
     _check_out_shape(out, mat.shape[1])
 
 
 def check_matvec_out_shape(mat, out: Optional[np.ndarray]) -> None:
+    """Assert that the first dimension of the matvec output is correct."""
     _check_out_shape(out, mat.shape[0])

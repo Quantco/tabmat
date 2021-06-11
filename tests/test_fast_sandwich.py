@@ -10,7 +10,7 @@ from quantcore.matrix.ext.sparse import sparse_sandwich
 @pytest.mark.parametrize("dtype", [np.float64, np.float32])
 def test_fast_sandwich_sparse(dtype):
     np.random.seed(123)
-    for i in range(10):
+    for _ in range(10):
         nrows, ncols = np.random.randint(200, size=2)
 
         A = simulate_matrix(shape=(nrows, ncols), seed=None, dtype=dtype).tocsc()
@@ -29,7 +29,7 @@ def test_fast_sandwich_sparse(dtype):
 
 
 def test_fast_sandwich_dense():
-    for i in range(5):
+    for _ in range(5):
         A = simulate_matrix(shape=np.random.randint(1000, size=2))
         d = np.random.rand(A.shape[0])
 
