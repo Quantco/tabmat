@@ -6,7 +6,9 @@ import numpy as np
 
 class MatrixBase(ABC):
     """
-    Base class for all matrix classes. Cannot be instantiated.
+    Base class for all matrix classes.
+
+    Cannot be instantiated.
     """
 
     ndim = 2
@@ -50,7 +52,7 @@ class MatrixBase(ABC):
         self, d: np.ndarray, rows: np.ndarray = None, cols: np.ndarray = None
     ) -> np.ndarray:
         """
-        Perform a sandwich product: (self[rows, cols].T * d[rows]) @ self[rows, cols]
+        Perform a sandwich product: (self[rows, cols].T * d[rows]) @ self[rows, cols].
 
         The rows and cols parameters allow restricting to a subset of the
         matrix without making a copy.
@@ -58,24 +60,25 @@ class MatrixBase(ABC):
         pass
 
     def __matmul__(self, other):
-        """ Defines the behavior of 'self @ other'. """
+        """Define the behavior of 'self @ other'."""
         return self.matvec(other)
 
     @abstractmethod
-    def getcol(self, i: int):
+    def getcol(self, i: int):  # noqa D102
         pass
 
     @property
     def A(self) -> np.ndarray:
+        """Return array representation of self."""
         return self.toarray()
 
     @abstractmethod
-    def toarray(self) -> np.ndarray:
+    def toarray(self) -> np.ndarray:  # noqa D102
         pass
 
     def __rmatmul__(self, other: Union[np.ndarray, List]) -> np.ndarray:
         """
-        other @ X = (X.T @ other.T).T = X.transpose_matvec(other.T).T
+        Perform other @ X = (X.T @ other.T).T = X.transpose_matvec(other.T).T.
 
         Parameters
         ----------
@@ -91,21 +94,24 @@ class MatrixBase(ABC):
         return self.transpose_matvec(other.T).T  # type: ignore
 
     @abstractmethod
-    def astype(self, dtype, order="K", casting="unsafe", copy=True):
+    def astype(self, dtype, order="K", casting="unsafe", copy=True):  # noqa D102
         pass
 
     def get_col_means(self, weights: np.ndarray) -> np.ndarray:
+        """Get means of columns."""
         return self.transpose_matvec(weights)
 
     @abstractmethod
-    def get_col_stds(self, weights: np.ndarray, col_means: np.ndarray) -> np.ndarray:
+    def get_col_stds(  # noqa D102
+        self, weights: np.ndarray, col_means: np.ndarray
+    ) -> np.ndarray:
         pass
 
     def standardize(
         self, weights: np.ndarray, center_predictors: bool, scale_predictors: bool
     ) -> Tuple[Any, np.ndarray, Optional[np.ndarray]]:
         """
-        Returns a StandardizedMatrix, col_means, and col_stds
+        Return a StandardizedMatrix, col_means, and col_stds.
 
         If center_predictors is False, col_means will be zeros
 
@@ -145,6 +151,11 @@ class MatrixBase(ABC):
 
 
 def one_over_var_inf_to_val(arr: np.ndarray, val: float) -> np.ndarray:
+    """
+    Return 1/arr unless the values are zeros.
+
+    If values are zeros, return val.
+    """
     zeros = np.where(np.abs(arr) < 1e-7)
     with np.errstate(divide="ignore"):
         one_over = 1 / arr

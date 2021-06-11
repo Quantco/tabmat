@@ -21,7 +21,7 @@ def from_pandas(
     cat_position: str = "expand",
 ) -> MatrixBase:
     """
-    Transform a pandas.DataFrame into an efficient SplitMatrix
+    Transform a pandas.DataFrame into an efficient SplitMatrix.
 
     Parameters
     ----------
@@ -60,7 +60,7 @@ def from_pandas(
 
     mxcolidx = 0
 
-    for dfcolidx, (colname, coldata) in enumerate(df.iteritems()):
+    for dfcolidx, (colname, coldata) in enumerate(df.items()):
         # categorical
         if object_as_cat and coldata.dtype == object:
             coldata = coldata.astype("category")

@@ -8,6 +8,7 @@ import quantcore.matrix as mx
 
 
 def make_dense_matrices(n_rows: int, n_cols: int) -> dict:
+    """Make dense matrices for benchmarks."""
     dense_matrices = {"numpy_C": np.random.random((n_rows, n_cols))}
     dense_matrices["numpy_F"] = dense_matrices["numpy_C"].copy(order="F")
     assert dense_matrices["numpy_F"].flags["F_CONTIGUOUS"]
@@ -16,11 +17,13 @@ def make_dense_matrices(n_rows: int, n_cols: int) -> dict:
 
 
 def make_cat_matrix(n_rows: int, n_cats: int) -> mx.CategoricalMatrix:
+    """Make categorical matrix for benchmarks."""
     mat = mx.CategoricalMatrix(np.random.choice(np.arange(n_cats, dtype=int), n_rows))
     return mat
 
 
 def make_cat_matrix_all_formats(n_rows: int, n_cats: int) -> dict:
+    """Make categorical matrix with all formats for benchmarks."""
     mat = make_cat_matrix(n_rows, n_cats)
     d = {
         "quantcore.matrix": mat,
@@ -31,6 +34,7 @@ def make_cat_matrix_all_formats(n_rows: int, n_cats: int) -> dict:
 
 
 def make_cat_matrices(n_rows: int, n_cat_cols_1: int, n_cat_cols_2: int) -> dict:
+    """Make two categorical matrices for benchmarks."""
     two_cat_matrices = {
         "quantcore.matrix": mx.SplitMatrix(
             [
@@ -49,7 +53,7 @@ def make_cat_matrices(n_rows: int, n_cat_cols_1: int, n_cat_cols_2: int) -> dict
 def make_dense_cat_matrices(
     n_rows: int, n_dense_cols: int, n_cats_1: int, n_cats_2: int
 ) -> dict:
-
+    """Make dense categorical matrices for benchmarks."""
     dense_block = np.random.random((n_rows, n_dense_cols))
     two_cat_matrices = [
         make_cat_matrix(n_rows, n_cats_1),
@@ -70,6 +74,7 @@ def make_dense_cat_matrices(
 
 
 def make_sparse_matrices(n_rows: int, n_cols: int) -> dict:
+    """Make sparse matrices for benchmarks."""
     mat = sps.random(n_rows, n_cols).tocsc()
     matrices = {
         "scipy.sparse csc": mat,
@@ -79,11 +84,12 @@ def make_sparse_matrices(n_rows: int, n_cols: int) -> dict:
     return matrices
 
 
-def get_matrix_path(name):
+def _get_matrix_path(name):
     return f"benchmark/data/{name}_data.pkl"
 
 
 def get_all_benchmark_matrices():
+    """Get all matrices used in benchmarks."""
     return {
         "dense": lambda: make_dense_matrices(int(4e4), 1000),
         "sparse": lambda: make_sparse_matrices(int(4e5), int(1e2)),
@@ -98,10 +104,12 @@ def get_all_benchmark_matrices():
 
 # TODO: duplication with glm_benchmarks
 def get_comma_sep_names(xs: str):
+    """Return comma separated names from names in input string."""
     return [x.strip() for x in xs.split(",")]
 
 
 def get_matrix_names():
+    """Return names for benchmark_matrices."""
     return ",".join(get_all_benchmark_matrices().keys())
 
 
@@ -109,9 +117,14 @@ def get_matrix_names():
 @click.option(
     "--matrix_name",
     type=str,
-    help=f"Specify a comma-separated list of matrices you want to build. Leaving this blank will default to building all matrices. Matrix options: {get_matrix_names()}",
+    help=(
+        f"Specify a comma-separated list of matrices you want to build. "
+        f"Leaving this blank will default to building all matrices. "
+        f"Matrix options: {get_matrix_names()}"
+    ),
 )
 def generate_matrices(matrix_name: str) -> None:
+    """Generate example matrices for benchmarks."""
     all_benchmark_matrices = get_all_benchmark_matrices()
 
     if matrix_name is None:
@@ -122,7 +135,7 @@ def generate_matrices(matrix_name: str) -> None:
     for name in benchmark_matrices:
         f = all_benchmark_matrices[name]
         mats = f()
-        with open(get_matrix_path(name), "wb") as fname:
+        with open(_get_matrix_path(name), "wb") as fname:
             pickle.dump(mats, fname)
 
 
