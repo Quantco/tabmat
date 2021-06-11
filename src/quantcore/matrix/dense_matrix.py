@@ -18,6 +18,8 @@ from .util import (
 
 class DenseMatrix(np.ndarray, MatrixBase):
     """
+    A numpy ndarray subclass.
+
     We want to add several function to a numpy ndarray so that it conforms to
     the matrix interface we expect.
 
@@ -25,10 +27,12 @@ class DenseMatrix(np.ndarray, MatrixBase):
     * getcol
     * toarray
 
-    np.ndarray subclassing is explained here: https://docs.scipy.org/doc/numpy/user/basics.subclassing.html#slightly-more-realistic-example-attribute-added-to-existing-array
+    np.ndarray subclassing is explained here:
+    https://docs.scipy.org/doc/numpy/user/basics.subclassing.html\
+        #slightly-more-realistic-example-attribute-added-to-existing-array
     """
 
-    def __new__(cls, input_array):
+    def __new__(cls, input_array):  # noqa
         obj = np.asarray(input_array).view(cls)
         if not np.issubdtype(obj.dtype, np.floating):
             raise NotImplementedError("DenseMatrix is only implemented for float data")
@@ -39,14 +43,17 @@ class DenseMatrix(np.ndarray, MatrixBase):
             return
 
     def getcol(self, i):
+        """Return matrix column at specified index."""
         return self[:, [i]]
 
     def toarray(self):
+        """Return array representation of matrix."""
         return np.asarray(self)
 
     def sandwich(
         self, d: np.ndarray, rows: np.ndarray = None, cols: np.ndarray = None
     ) -> np.ndarray:
+        """Perform a sandwich product: X.T @ diag(d) @ X."""
         d = np.asarray(d)
         rows, cols = setup_restrictions(self.shape, rows, cols)
         return dense_sandwich(self, d, rows, cols)
@@ -59,6 +66,7 @@ class DenseMatrix(np.ndarray, MatrixBase):
         L_cols: Optional[np.ndarray] = None,
         R_cols: Optional[np.ndarray] = None,
     ):
+        """Perform a sandwich product: X.T @ diag(d) @ Y."""
         from .categorical_matrix import CategoricalMatrix
         from .sparse_matrix import SparseMatrix
 
@@ -67,6 +75,7 @@ class DenseMatrix(np.ndarray, MatrixBase):
         raise TypeError
 
     def get_col_stds(self, weights: np.ndarray, col_means: np.ndarray) -> np.ndarray:
+        """Get standard deviations of columns."""
         sqrt_arg = transpose_square_dot_weights(self, weights) - col_means ** 2
         # Minor floating point errors above can result in a very slightly
         # negative sqrt_arg (e.g. -5e-16). We just set those values equal to
@@ -74,7 +83,7 @@ class DenseMatrix(np.ndarray, MatrixBase):
         sqrt_arg[sqrt_arg < 0] = 0
         return np.sqrt(sqrt_arg)
 
-    def matvec_helper(
+    def _matvec_helper(
         self,
         vec: Union[List, np.ndarray],
         rows: Optional[np.ndarray],
@@ -129,8 +138,9 @@ class DenseMatrix(np.ndarray, MatrixBase):
         cols: np.ndarray = None,
         out: np.ndarray = None,
     ) -> np.ndarray:
+        """Perform: self[rows, cols].T @ vec."""
         check_transpose_matvec_out_shape(self, out)
-        return self.matvec_helper(vec, rows, cols, out, True)
+        return self._matvec_helper(vec, rows, cols, out, True)
 
     def matvec(
         self,
@@ -138,5 +148,6 @@ class DenseMatrix(np.ndarray, MatrixBase):
         cols: np.ndarray = None,
         out: np.ndarray = None,
     ) -> np.ndarray:
+        """Perform self[:, cols] @ other."""
         check_matvec_out_shape(self, out)
-        return self.matvec_helper(vec, None, cols, out, False)
+        return self._matvec_helper(vec, None, cols, out, False)
