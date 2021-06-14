@@ -12,7 +12,7 @@ Changelog
 
 **Other changes**:
 
-Updating linter
+No longer using sparse_dot_mkl 
 
 2.0.0 - 2021-06-10
 ------------------
