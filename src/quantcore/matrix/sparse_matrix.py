@@ -114,7 +114,11 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         out: Optional[np.ndarray],
         transpose: bool,
     ):
-        matrix_matvec = lambda x, v: sps.csc_matrix.dot(x, v)
+        if self.shape[1] != np.array(vec).shape[0]:
+            raise ValueError(
+                f"shapes {self.shape} and {np.array(vec).shape} not aligned:"
+                f"{self.shape[1]} (dim 1) != {np.array(vec).shape[0]} (dim 0)"
+            )
         if transpose:
             matrix_matvec = lambda x, v: sps.csr_matrix.dot(x.T, v)
 
