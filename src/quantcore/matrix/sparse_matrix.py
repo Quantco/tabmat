@@ -114,6 +114,13 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         out: Optional[np.ndarray],
         transpose: bool,
     ):
+        match_dim = 0 if transpose else 1
+        vec_shape = np.array(vec).shape
+        if self.shape[match_dim] != vec_shape[0]:
+            raise ValueError(
+                f"shapes {self.shape} and {vec_shape} not aligned:"
+                f"{self.shape[match_dim]} (dim {match_dim}) != {vec_shape[0]} (dim 0)"
+            )
         matrix_matvec = lambda x, v: sps.csc_matrix.dot(x, v)
         if transpose:
             matrix_matvec = lambda x, v: sps.csr_matrix.dot(x.T, v)
@@ -142,11 +149,6 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
 
     def matvec(self, vec, cols: np.ndarray = None, out: np.ndarray = None):
         """Perform self[:, cols] @ other[cols]."""
-        if self.shape[1] != np.array(vec).shape[0]:
-            raise ValueError(
-                f"shapes {self.shape} and {np.array(vec).shape} not aligned:"
-                f"{self.shape[1]} (dim 1) != {np.array(vec).shape[0]} (dim 0)"
-            )
         check_matvec_out_shape(self, out)
         return self._matvec_helper(vec, None, cols, out, False)
 
