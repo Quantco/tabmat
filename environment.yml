@@ -19,7 +19,6 @@ dependencies:
   - pytest
   - pytest-xdist
   - setuptools_scm
-  - sparse_dot_mkl>=0.6.0
   - xsimd
   - matplotlib
   - seaborn
