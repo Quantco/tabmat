@@ -7,12 +7,12 @@
 Changelog
 =========
 
-2.0.1 - 2021-06-11
+2.0.1 - 2021-06-15
 ------------------
 
 **Other changes**:
 
-No longer using sparse_dot_mkl 
+We removed the dependency on ``sparse_dot_mkl``. We now use ``scipy.sparse.csr_matvec`` instead of ``sparse_dot_mkl.dot_product_mkl`` on all platforms, because the former suffered from poor performance, especially on narrow problems.
 
 2.0.0 - 2021-06-10
 ------------------
