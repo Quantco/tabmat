@@ -35,16 +35,14 @@ def _transpose_matvec(
     mat: Union[mx.MatrixBase, np.ndarray, sps.csc_matrix], vec: np.ndarray
 ):
     if isinstance(mat, (mx.MatrixBase, mx.StandardizedMatrix)):
-        out = np.zeros(mat.shape[1])
-        return mat.transpose_matvec(vec, out=out)
+        return mat.transpose_matvec(vec, out=None)
     else:
         return mat.T.dot(vec)
 
 
 def _matvec(mat, vec: np.ndarray) -> np.ndarray:
     if isinstance(mat, (mx.MatrixBase, mx.StandardizedMatrix)):
-        out = np.zeros(mat.shape[0])
-        return mat.matvec(vec, out=out)
+        return mat.matvec(vec, out=None)
     else:
         return mat.dot(vec)
 
