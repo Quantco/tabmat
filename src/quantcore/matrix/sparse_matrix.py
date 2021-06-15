@@ -1,4 +1,3 @@
-import platform
 from typing import List, Optional, Union
 
 import numpy as np
@@ -18,20 +17,6 @@ from .util import (
     set_up_rows_or_cols,
     setup_restrictions,
 )
-
-if platform.machine() in {"arm64", "aarch64"}:
-
-    def _dot_product_maybe_mkl(matrix_a, matrix_b, out):
-        mult = matrix_a.dot(matrix_b)
-        if out is None:
-            return mult
-        out[:] += mult
-        return out
-
-
-else:
-    # Intel MKL obviously is only available on Intel-based architectures
-    from sparse_dot_mkl import dot_product_mkl as _dot_product_maybe_mkl  # type: ignore
 
 
 class SparseMatrix(sps.csc_matrix, MatrixBase):
@@ -129,50 +114,38 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         out: Optional[np.ndarray],
         transpose: bool,
     ):
-        X = self.T if transpose else self
+        match_dim = 0 if transpose else 1
+        vec_shape = np.array(vec).shape
+        if self.shape[match_dim] != vec_shape[0]:
+            raise ValueError(
+                f"shapes {self.shape} and {vec_shape} not aligned:"
+                f"{self.shape[match_dim]} (dim {match_dim}) != {vec_shape[0]} (dim 0)"
+            )
         matrix_matvec = lambda x, v: sps.csc_matrix.dot(x, v)
         if transpose:
             matrix_matvec = lambda x, v: sps.csr_matrix.dot(x.T, v)
 
         vec = np.asarray(vec)
-
-        # NOTE: We assume that rows and cols are unique
-        unrestricted_rows = rows is None or len(rows) == self.shape[0]
-        unrestricted_cols = cols is None or len(cols) == self.shape[1]
-        if unrestricted_rows and unrestricted_cols:
-            if vec.ndim == 1:
-                return _dot_product_maybe_mkl(X, vec, out=out)
-            elif vec.ndim == 2 and vec.shape[1] == 1:
-                out_arr = None if out is None else out[:, 0]
-                return _dot_product_maybe_mkl(X, vec[:, 0], out=out_arr)[:, None]
-            res = matrix_matvec(self, vec)
-            if out is None:
-                return res
-            out += res
-            return out
+        rows, cols = setup_restrictions(self.shape, rows, cols, dtype=self.idx_dtype)
+        if transpose:
+            fast_fnc = lambda v: csc_rmatvec(self, v, rows, cols)
         else:
-            rows, cols = setup_restrictions(
-                self.shape, rows, cols, dtype=self.idx_dtype
+            fast_fnc = lambda v: csr_matvec(self.x_csr, v, rows, cols)
+        if vec.ndim == 1:
+            res = fast_fnc(vec)
+        elif vec.ndim == 2 and vec.shape[1] == 1:
+            res = fast_fnc(vec[:, 0])[:, None]
+        else:
+            res = matrix_matvec(
+                self[np.ix_(rows, cols)], vec[rows] if transpose else vec[cols]
             )
-            if transpose:
-                fast_fnc = lambda v: csc_rmatvec(self, v, rows, cols)
-            else:
-                fast_fnc = lambda v: csr_matvec(self.x_csr, v, rows, cols)
-            if vec.ndim == 1:
-                res = fast_fnc(vec)
-            elif vec.ndim == 2 and vec.shape[1] == 1:
-                res = fast_fnc(vec[:, 0])[:, None]
-            else:
-                res = matrix_matvec(
-                    self[np.ix_(rows, cols)], vec[rows] if transpose else vec[cols]
-                )
-            if out is None:
-                return res
-            if transpose:
-                out[cols] += res
-            else:
-                out[rows] += res
-            return out
+        if out is None:
+            return res
+        if transpose:
+            out[cols] += res
+        else:
+            out[rows] += res
+        return out
 
     def matvec(self, vec, cols: np.ndarray = None, out: np.ndarray = None):
         """Perform self[:, cols] @ other[cols]."""
