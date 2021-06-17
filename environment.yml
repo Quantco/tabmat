@@ -11,6 +11,7 @@ dependencies:
   - flake8
   - jemalloc
   - libblas>=0=*mkl
+  - make
   - mako
   - matplotlib-base
   - mkl-include
