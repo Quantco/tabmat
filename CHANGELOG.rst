@@ -7,27 +7,23 @@
 Changelog
 =========
 
-2.0.1 - 2021-06-15
+2.0.0 - 2021-06-17
 ------------------
+
+**Breaking changes**:
+
+We renamed several public functions to make them private. These include functions in :mod:`quantcore.matrix.benchmark` that are unlikely to be used outside of this package as well as
+
+   - :func:`quantcore.matrix.dense_matrix._matvec_helper`
+   - :func:`quantcore.matrix.sparse_matrix._matvec_helper`.
+   - :func:`quantcore.matrix.split_matrix._prepare_out_array`.
+
 
 **Other changes**:
 
-We removed the dependency on ``sparse_dot_mkl``. We now use ``scipy.sparse.csr_matvec`` instead of ``sparse_dot_mkl.dot_product_mkl`` on all platforms, because the former suffered from poor performance, especially on narrow problems.
+- We removed the dependency on ``sparse_dot_mkl``. We now use :func:`scipy.sparse.csr_matvec` instead of :func:`sparse_dot_mkl.dot_product_mkl` on all platforms, because the former suffered from poor performance, especially on narrow problems. This also means that we removed the function :func:`quantcore.matrix.sparse_matrix._dot_product_maybe_mkl`.
+- We updated the pre-commit hooks and made sure the code is line with the new hooks.
 
-2.0.0 - 2021-06-10
-------------------
-
-**Breaking change**:
-
-Renaming several public functions to make them private.
-
-**Other changes**:
-
-Updating linter
-
-
-Changelog
-=========
 
 1.0.6 - 2020-04-26
 ------------------
