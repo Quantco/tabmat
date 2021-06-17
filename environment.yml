@@ -12,13 +12,17 @@ dependencies:
   - jemalloc
   - libblas>=0=*mkl
   - mako
+  - matplotlib
   - mkl-include
+  - numpydoc
   - pandas
   - pip
   - pre-commit
   - pytest
   - pytest-xdist
+  - seaborn-base
   - setuptools_scm
+  - sphinx
+  - sphinx_rtd_theme
+  - sphinxcontrib-apidoc
   - xsimd
-  - matplotlib
-  - seaborn
