@@ -12,7 +12,7 @@ dependencies:
   - jemalloc
   - libblas>=0=*mkl
   - mako
-  - matplotlib
+  - matplotlib-base
   - mkl-include
   - numpydoc
   - pandas
