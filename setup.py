@@ -68,7 +68,7 @@ if architecture != "default":
         extra_compile_args.append("-march=" + architecture)
 
 extension_args = dict(
-    include_dirs=[np.get_include()],
+    include_dirs=[np.get_include(), os.path.join(sys.prefix, "Library", "include")],
     extra_compile_args=extra_compile_args,
     extra_link_args=extra_link_args,
     language="c++",
