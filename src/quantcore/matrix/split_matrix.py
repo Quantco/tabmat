@@ -176,7 +176,7 @@ class SplitMatrix(MatrixBase):
         combined_matrices, combined_indices = combine_matrices(matrices, indices)
 
         self.matrices = combined_matrices
-        self.indices = [np.asarray(elt) for elt in combined_indices]
+        self.indices = [np.asarray(elt, dtype=np.int64) for elt in combined_indices]
         self.shape = (n_row, n_col)
 
         assert self.shape[1] > 0
