@@ -7,6 +7,14 @@
 Changelog
 =========
 
+2.0.1 - UNRELEASED
+------------------
+
+**Bug fix**:
+
+Split matrices now also work on Windows.
+
+
 2.0.0 - 2021-06-17
 ------------------
 

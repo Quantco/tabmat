@@ -12,8 +12,8 @@ from libcpp.vector cimport vector
 # memoryviews in Cython
 # https://stackoverflow.com/questions/56915835/how-to-have-a-list-of-memory-views-in-cython
 cdef struct ArrayableMemoryView:
-    long* data
-    long length
+    Py_ssize_t* data
+    Py_ssize_t length
 ctypedef np.uint8_t uint8
 ctypedef np.int8_t int8
 
@@ -133,7 +133,7 @@ def split_col_subsets(self, int[:] cols):
     cdef ArrayableMemoryView* indices_arrs = <ArrayableMemoryView*> malloc(
         sizeof(ArrayableMemoryView) * n_matrices
     );
-    cdef long[:] this_idx_view
+    cdef Py_ssize_t[:] this_idx_view
     for j in range(n_matrices):
         this_idx_view = self.indices[j]
         indices_arrs[j].length = len(this_idx_view)
