@@ -7,7 +7,7 @@ on:
       - '**/*.cpp'
 jobs:
   windows-ci:
-    name: "Win - tests"
+    name: "Win - tests - Python ${{ matrix.PYTHON_VERSION }}"
     runs-on: windows-latest
     env:
       CI: True
@@ -15,6 +15,8 @@ jobs:
       CONDA_CHANNEL_UPLOAD_PASSWORD: ${{ secrets.CONDA_CHANNEL_UPLOAD_PASSWORD }}
     strategy:
       fail-fast: true
+      matrix:
+        PYTHON_VERSION: ['3.7']
     steps:
       - name: Set git to use LF
         run: |
@@ -31,6 +33,7 @@ jobs:
           ((Get-Content -path .github/workflows/.condarc) -replace 'CONDA_CHANNEL_UPLOAD_PASSWORD', '${{ secrets.CONDA_CHANNEL_UPLOAD_PASSWORD }}') | Set-Content .github/workflows/.condarc
       - uses: conda-incubator/setup-miniconda@723ab12c1d66bb893c5ac701f8e387f00b24549e
         with:
+          python-version: ${{ matrix.PYTHON_VERSION }}
           miniforge-variant: Mambaforge
           miniforge-version: 4.10.0-0
           use-mamba: true
