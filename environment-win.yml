@@ -1,0 +1,28 @@
+name: quantcore.matrix
+channels:
+  - quantco_main
+  - conda-forge
+  - nodefaults
+dependencies:
+  - black
+  - c-compiler
+  - cxx-compiler
+  - cython
+  - flake8
+  - libblas>=0=*mkl
+  - make
+  - mako
+  - matplotlib-base
+  - mkl-include
+  - numpydoc
+  - pandas
+  - pip
+  - pre-commit
+  - pytest
+  - pytest-xdist
+  - seaborn-base
+  - setuptools_scm
+  - sphinx
+  - sphinx_rtd_theme
+  - sphinxcontrib-apidoc
+  - xsimd
