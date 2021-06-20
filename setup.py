@@ -45,10 +45,15 @@ for fn in templates:
         with open(out_fn, "w") as f:
             f.write(rendered_src)
 
+# add numpy headers
+include_dirs = [np.get_include()]
+
 if sys.platform == "win32":
     allocator_libs = []
     extra_compile_args = ["/openmp", "/O2"]
     extra_link_args = ["/openmp"]
+    # make sure we can find xsimd headers
+    include_dirs.append(os.path.join(sys.prefix, "Library", "include"))
 else:
     allocator_libs = ["jemalloc"]
     extra_compile_args = [
@@ -68,7 +73,7 @@ if architecture != "default":
         extra_compile_args.append("-march=" + architecture)
 
 extension_args = dict(
-    include_dirs=[np.get_include()],
+    include_dirs=include_dirs,
     extra_compile_args=extra_compile_args,
     extra_link_args=extra_link_args,
     language="c++",
