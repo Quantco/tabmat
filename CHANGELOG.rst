@@ -10,6 +10,10 @@ Changelog
 Unreleased
 ----------
 
+
+2.0.2 - 2021-06-24
+------------------
+
 **Bug fix**
 
 Sparse matrices now accept 64-bit indices on Windows.
