@@ -31,8 +31,15 @@ def test_csc_to_split(X: np.ndarray):
             sps.csc_matrix(X), T
         )
         fully_dense = SplitMatrix([dense, sparse], [dense_ix, sparse_ix])
-        assert fully_dense.indices[0].shape[0] == D
-        assert fully_dense.indices[1].shape[0] == S
+        if S == 0:
+            assert fully_dense.indices[0].shape[0] == D
+            assert len(fully_dense.indices) == 1
+        elif D == 0:
+            assert fully_dense.indices[0].shape[0] == S
+            assert len(fully_dense.indices) == 1
+        else:
+            assert fully_dense.indices[0].shape[0] == D
+            assert fully_dense.indices[1].shape[0] == S
 
 
 def split_mat() -> SplitMatrix:
@@ -96,6 +103,12 @@ def test_init(mat: SplitMatrix):
     assert mat.matrices[0].shape == (10, 6)
     assert mat.matrices[1].shape == (10, 6)
     assert mat.matrices[2].shape == (10, 3)
+
+
+def test_init_unsorted_indices():
+    dense = mx.DenseMatrix(np.random.random((10, 3)))
+    with pytest.raises(ValueError):
+        mx.SplitMatrix([dense], [[1, 0, 2]])
 
 
 @pytest.mark.parametrize(

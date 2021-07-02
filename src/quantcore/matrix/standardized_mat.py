@@ -111,27 +111,34 @@ class StandardizedMatrix:
                 while d is of type {d.dtype}."""
             )
 
-        rows, cols = setup_restrictions(self.shape, rows, cols)
+        if rows is not None or cols is not None:
+            setup_rows, setup_cols = setup_restrictions(self.shape, rows, cols)
+            if rows is not None:
+                rows = setup_rows
+            if cols is not None:
+                cols = setup_cols
 
         term1 = self.mat.sandwich(d, rows, cols)
         d_mat = self.mat.transpose_matvec(d, rows, cols)
         if self.mult is not None:
-            d_mat *= self.mult[cols]
+            limited_mult = self.mult[cols] if cols is not None else self.mult
+            d_mat *= limited_mult
         term2 = np.outer(d_mat, self.shift[cols])
-        term3_and_4 = np.outer(
-            self.shift[cols], d_mat + self.shift[cols] * d[rows].sum()
-        )
+
+        limited_shift = self.shift[cols] if cols is not None else self.shift
+        limited_d = d[rows] if rows is not None else d
+        term3_and_4 = np.outer(limited_shift, d_mat + limited_shift * limited_d.sum())
         res = term2 + term3_and_4
         if isinstance(term1, sps.dia_matrix):
             idx = np.arange(res.shape[0])
             to_add = term1.data[0, :]
             if self.mult is not None:
-                to_add *= self.mult[cols] ** 2
+                to_add *= limited_mult ** 2
             res[idx, idx] += to_add
         else:
             to_add = term1
             if self.mult is not None:
-                to_add *= np.outer(self.mult[cols], self.mult[cols])
+                to_add *= np.outer(limited_mult, limited_mult)
             res += to_add
         return res
 
