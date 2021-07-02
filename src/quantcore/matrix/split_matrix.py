@@ -6,7 +6,7 @@ from scipy import sparse as sps
 
 from .categorical_matrix import CategoricalMatrix
 from .dense_matrix import DenseMatrix
-from .ext.split import split_col_subsets
+from .ext.split import is_sorted, split_col_subsets
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .util import (
@@ -61,7 +61,14 @@ def _prepare_out_array(out: Optional[np.ndarray], out_shape, out_dtype):
     return out
 
 
-def combine_matrices(matrices, indices):
+def _filter_out_empty(matrices, indices):
+    keep_idxs = [i for i, m in enumerate(matrices) if m.shape[1] > 0]
+    out_mats = [matrices[i] for i in keep_idxs]
+    out_idxs = [indices[i] for i in keep_idxs]
+    return out_mats, out_idxs
+
+
+def _combine_matrices(matrices, indices):
     """
     Combine multiple SparseMatrix and DenseMatrix objects into a single object of each type.
 
@@ -87,13 +94,15 @@ def combine_matrices(matrices, indices):
             i for i, mat in enumerate(matrices) if isinstance(mat, mat_type_)
         ]
         if len(this_type_matrices) > 1:
-            matrices[this_type_matrices[0]] = mat_type_(
-                stack_fn([matrices[i] for i in this_type_matrices])
-            )
-            assert matrices[this_type_matrices[0]].shape[0] == n_row
-            indices[this_type_matrices[0]] = np.concatenate(
-                [indices[i] for i in this_type_matrices]
-            )
+            new_matrix = mat_type_(stack_fn([matrices[i] for i in this_type_matrices]))
+            new_indices = np.concatenate([indices[i] for i in this_type_matrices])
+            sorter = np.argsort(new_indices)
+            sorted_matrix = new_matrix[:, sorter]
+            sorted_indices = new_indices[sorter]
+
+            assert sorted_matrix.shape[0] == n_row
+            matrices[this_type_matrices[0]] = sorted_matrix
+            indices[this_type_matrices[0]] = sorted_indices
             indices = [
                 idx for i, idx in enumerate(indices) if i not in this_type_matrices[1:]
             ]
@@ -164,6 +173,14 @@ class SplitMatrix(MatrixBase):
                     "number of columns."
                 )
 
+            for i in range(len(indices)):
+                indices[i] = np.asarray(indices[i])
+                if not is_sorted(indices[i]):
+                    raise ValueError(
+                        f"Each index block should be sorted, but indices[{i}] was "
+                        "not sorted"
+                    )
+
         assert isinstance(indices, list)
 
         for i, (mat, idx) in enumerate(zip(matrices, indices)):
@@ -173,7 +190,10 @@ class SplitMatrix(MatrixBase):
                     f"but it has shape {idx.shape}"
                 )
 
-        combined_matrices, combined_indices = combine_matrices(matrices, indices)
+        filtered_mats, filtered_idxs = _filter_out_empty(matrices, indices)
+        combined_matrices, combined_indices = _combine_matrices(
+            filtered_mats, filtered_idxs
+        )
 
         self.matrices = combined_matrices
         self.indices = [np.asarray(elt, dtype=np.int64) for elt in combined_indices]
@@ -364,7 +384,7 @@ class SplitMatrix(MatrixBase):
     def __repr__(self):
         out = "SplitMatrix:"
         for i, mat in enumerate(self.matrices):
-            out += f"\nComponent {i}:\n" + str(mat)
+            out += f"\n\nComponent {i} with type {mat.__class__.__name__}\n" + str(mat)
         return out
 
     __array_priority__ = 13

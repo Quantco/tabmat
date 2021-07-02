@@ -252,6 +252,10 @@ class CategoricalMatrix(MatrixBase):
 
     def get_col_stds(self, weights: np.ndarray, col_means: np.ndarray) -> np.ndarray:
         """Get standard deviations of columns."""
+        # To calculate a variance, we'd normally need to compute E[X^2]:
+        # sum_i X_ij^2 w_i
+        # but because X_ij is either {0, 1}
+        # we don't actually need to square.
         mean = self.transpose_matvec(weights)
         return np.sqrt(mean - col_means ** 2)
 
