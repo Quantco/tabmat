@@ -2,7 +2,7 @@
 import numpy as np
 
 cimport numpy as np
-from cython cimport floating
+from cython cimport floating, integral
 from libc.stdlib cimport free, malloc
 from libcpp cimport bool
 from libcpp.vector cimport vector
@@ -16,6 +16,9 @@ cdef struct ArrayableMemoryView:
     Py_ssize_t length
 ctypedef np.uint8_t uint8
 ctypedef np.int8_t int8
+ctypedef fused win_integral:
+    integral
+    long long
 
 
 cdef extern from "cat_split_helpers.cpp":
@@ -147,11 +150,13 @@ def split_col_subsets(self, int[:] cols):
 
     for i in range(n_cols):
         for j in range(n_matrices):
+
             while (
                 next_subset_idx[j] < indices_arrs[j].length
                 and indices_arrs[j].data[next_subset_idx[j]] < cols[i]
             ):
                 next_subset_idx[j] += 1
+
             if (
                 next_subset_idx[j] < indices_arrs[j].length
                 and indices_arrs[j].data[next_subset_idx[j]] == cols[i]
@@ -173,3 +178,11 @@ def split_col_subsets(self, int[:] cols):
         ],
         n_cols
     )
+
+def is_sorted(win_integral[:] a):
+    cdef win_integral* a_ptr = &a[0]
+    cdef win_integral i
+    for i in range(a.size - 1):
+        if a_ptr[i + 1] < a_ptr[i]:
+            return False
+    return True
