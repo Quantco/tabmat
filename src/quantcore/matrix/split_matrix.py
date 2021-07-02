@@ -63,8 +63,8 @@ def _prepare_out_array(out: Optional[np.ndarray], out_shape, out_dtype):
 
 def _filter_out_empty(matrices, indices):
     keep_idxs = [i, m for i in enumerate(matrices) if m.shape[1] > 0]
-    out_mats = [m for i, m in enumerate(matrices) if i in keep_idxs]
-    out_idxs = [idxs for i, idxs in enumerate(indices) if i in keep_idxs]
+    out_mats = [matrices[i] for i in keep_idxs]
+    out_idxs = [indices[i] for i in keep_idxs]
     return out_mats, out_idxs
 
 
