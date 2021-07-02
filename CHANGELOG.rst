@@ -11,11 +11,13 @@ Unreleased
 ----------
 
 **Bug fix**
+
 - In :func:`SplitMatrix.sandwich`, when a col subset was specified, incorrect output was produced if the components of the indices array were not sorted. :func:`SplitMatrix.__init__` now checks for sorted indices and maintains sorted index lists when combining matrices.
 
 **Other changes**
+
 - :func:`SplitMatrix.__init__` now filters out any empty matrices.
-- :func:`StandardizedMatrix.sandwich` uses passes `rows=None` and `cols=None` onwards to the underlying matrix instead of replacing them with full array of indices. This should improve performance slightly.
+- :func:`StandardizedMatrix.sandwich` passes ``rows=None`` and ``cols=None`` onwards to the underlying matrix instead of replacing them with full arrays of indices. This should improve performance slightly.
 - :func:`SplitMatrix.__repr__` now includes the type of the underlying matrix objects in the string output.
 
 2.0.2 - 2021-06-24
