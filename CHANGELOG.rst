@@ -10,6 +10,9 @@ Changelog
 Unreleased
 ----------
 
+**Bug fix**
+
+In :func:`SplitMatrix.sandwich`, when a col subset was specified, incorrect output was produced if the components of the indices array were not sorted. :func:`SplitMatrix.__init__` now checks for sorted indices and maintains sorted index lists when combining matrices.
 
 2.0.2 - 2021-06-24
 ------------------
