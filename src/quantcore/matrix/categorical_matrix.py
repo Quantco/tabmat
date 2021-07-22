@@ -1,4 +1,4 @@
-from typing import List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -7,12 +7,28 @@ from scipy import sparse as sps
 from .ext.categorical import matvec, sandwich_categorical, transpose_matvec
 from .ext.split import sandwich_cat_cat, sandwich_cat_dense
 from .matrix_base import MatrixBase
+from .sparse_matrix import SparseMatrix
 from .util import (
     check_matvec_out_shape,
     check_transpose_matvec_out_shape,
     set_up_rows_or_cols,
     setup_restrictions,
 )
+
+
+def _is_indexer_full_length(full_length: int, indexer: Any):
+    if isinstance(indexer, list):
+        if (np.asarray(indexer) > full_length - 1).any():
+            raise IndexError("Index out-of-range.")
+        return len(set(indexer)) == full_length
+    elif isinstance(indexer, np.ndarray):
+        if (indexer > full_length - 1).any():
+            raise IndexError("Index out-of-range.")
+        return len(np.unique(indexer)) == full_length
+    elif isinstance(indexer, slice):
+        return len(range(*indexer.indices(full_length))) == full_length
+    else:
+        raise ValueError(f"Indexing with {type(indexer)} is not allowed.")
 
 
 def _none_to_slice(arr: Optional[np.ndarray], n: int) -> Union[slice, np.ndarray]:
@@ -262,8 +278,13 @@ class CategoricalMatrix(MatrixBase):
     def __getitem__(self, item):
         if isinstance(item, tuple):
             row, col = item
-            if not (isinstance(col, slice) and col == slice(None, None, None)):
-                raise IndexError("Only column indexing is supported.")
+            if _is_indexer_full_length(self.shape[1], col):
+                if isinstance(row, int):
+                    row = [row]
+                return CategoricalMatrix(self.cat[row])
+            else:
+                # return a SparseMatrix if we subset columns
+                return SparseMatrix(self.tocsr()[row, col], dtype=self.dtype)
         else:
             row = item
         if isinstance(row, int):

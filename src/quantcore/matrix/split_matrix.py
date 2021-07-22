@@ -127,13 +127,16 @@ class SplitMatrix(MatrixBase):
         indices: Optional[List[np.ndarray]] = None,
     ):
         # First check that all matrices are valid types
-        for _, mat in enumerate(matrices):
+        for i, mat in enumerate(matrices):
             if not isinstance(mat, MatrixBase):
                 raise ValueError(
                     "Expected all elements of matrices to be subclasses of MatrixBase."
                 )
             if isinstance(mat, SplitMatrix):
-                raise ValueError("Elements of matrices cannot be SplitMatrix.")
+                # Flatten out the SplitMatrix
+                for j, imat in enumerate(mat.matrices):
+                    matrices.insert(i + j, imat)
+                del matrices[i + j + 1]  # removing the original SplitMatrix
 
         # Now that we know these are all MatrixBase, we can check consistent
         # shapes and dtypes.
@@ -151,8 +154,10 @@ class SplitMatrix(MatrixBase):
                     f"but the first matrix has first dimension {n_row} and matrix {i} has "
                     f"first dimension {mat.shape[0]}."
                 )
-            if len(mat.shape) != 2:
-                raise ValueError("All matrices should be two dimensional.")
+            if mat.ndim == 1:
+                matrices[i] = mat[:, np.newaxis]
+            elif mat.ndim > 2:
+                raise ValueError("All matrices should be at most two dimensional.")
 
         if indices is None:
             indices = []
@@ -377,14 +382,35 @@ class SplitMatrix(MatrixBase):
 
             return SplitMatrix([mat[row, :] for mat in self.matrices], self.indices)
         else:
-            raise NotImplementedError(
-                f"Only row indexing is supported. Index passed was {key}."
+            if isinstance(col, int):
+                return self.getcol(col)
+            elif isinstance(col, list):
+                col_array = np.asarray(col)
+            elif isinstance(col, slice):
+                col_array = np.arange(*col.indices(self.shape[1]))
+            else:
+                raise ValueError(f"Indexing with {type(col)} is not allowed.")
+            subset_cols_indices, subset_cols, n_cols = self._split_col_subsets(
+                col_array
             )
+            new_mat = []
+            new_ind = []
+            for (
+                nind,
+                oind,
+                mat,
+            ) in zip(subset_cols_indices, subset_cols, self.matrices):
+                new_mat.append(mat[row, oind])
+                new_ind.append(nind)
+            return SplitMatrix(matrices=new_mat, indices=new_ind)
 
     def __repr__(self):
         out = "SplitMatrix:"
         for i, mat in enumerate(self.matrices):
-            out += f"\n\nComponent {i} with type {mat.__class__.__name__}\n" + str(mat)
+            out += (
+                f"\n\nComponent {i} with type {mat.__class__.__name__}\n"
+                + mat.__repr__()
+            )
         return out
 
     __array_priority__ = 13
