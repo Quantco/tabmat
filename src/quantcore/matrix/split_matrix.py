@@ -206,6 +206,25 @@ class SplitMatrix(MatrixBase):
 
         assert self.shape[1] > 0
 
+        self.column_map = self._create_col_mapping()
+
+    def _create_col_mapping(self):
+        colmap = np.empty(shape=(self.shape[1], 2), dtype=int)
+        for i, comp_idx in enumerate(self.indices):
+            for j, idx in enumerate(comp_idx):
+                colmap[idx] = [i, j]
+        return colmap
+
+    def _split_col_subsets_unordered(self, cols):
+        n_comp = len(self.indices)
+        new_idx = [[] for _ in range(n_comp)]
+        current_col_loc = [[] for _ in range(n_comp)]
+        for counter, i in enumerate(cols):
+            comp, idx = self.column_map[i]
+            new_idx[comp].append(counter)
+            current_col_loc[comp].append(idx)
+        return new_idx, current_col_loc
+
     def _split_col_subsets(
         self, cols: Optional[np.ndarray]
     ) -> Tuple[List[np.ndarray], List[Optional[np.ndarray]], int]:
@@ -255,11 +274,8 @@ class SplitMatrix(MatrixBase):
         """Return matrix column at specified index."""
         # wrap-around indexing
         i %= self.shape[1]
-        for mat, idx in zip(self.matrices, self.indices):
-            if i in idx:
-                loc = np.where(idx == i)[0][0]
-                return mat.getcol(loc)
-        raise RuntimeError(f"Column {i} was not found.")
+        comp, idx = self.column_map[i]
+        return self.matrices[comp].getcol(idx)
 
     def sandwich(
         self,
@@ -390,7 +406,7 @@ class SplitMatrix(MatrixBase):
                 col_array = np.arange(*col.indices(self.shape[1]))
             else:
                 raise ValueError(f"Indexing with {type(col)} is not allowed.")
-            subset_cols_indices, subset_cols, n_cols = self._split_col_subsets(
+            subset_cols_indices, subset_cols = self._split_col_subsets_unordered(
                 col_array
             )
             new_mat = []
