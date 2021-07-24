@@ -577,3 +577,10 @@ def test_pandas_to_matrix():
     # was being changed in place.
     assert df["cl_obj"].dtype == object
     assert df["ds"].dtype == np.float64
+
+
+@pytest.mark.parametrize("mat", get_all_matrix_base_subclass_mats())
+def test_split_matrix_creation(mat):
+    sm = mx.SplitMatrix(matrices=[mat, mat])
+    assert sm.shape[0] == mat.shape[0]
+    assert sm.shape[1] == 2 * mat.shape[1]
