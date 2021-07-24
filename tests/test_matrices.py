@@ -96,7 +96,7 @@ def get_matrices():
     return (
         get_all_matrix_base_subclass_mats()
         + get_standardized_shifted_matrices()
-        + get_standardized_shifted_matrices()
+        + get_standardized_shifted_scaled_matrices()
     )
 
 
