@@ -180,7 +180,6 @@ class StandardizedMatrix:
         """
         check_transpose_matvec_out_shape(self, out)
         other = np.asarray(other)
-        out_is_none = out is None
         res = self.mat.transpose_matvec(other, rows, cols)
 
         rows, cols = setup_restrictions(self.shape, rows, cols)
@@ -198,10 +197,10 @@ class StandardizedMatrix:
             res *= mult[cols]
         res += shift_part
 
-        if out_is_none:
+        if out is None:
             return res
         else:
-            out[cols] += res  # type: ignore
+            out[cols] += res
             return out
 
     def __rmatmul__(self, other: Union[np.ndarray, List]) -> np.ndarray:
