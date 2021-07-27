@@ -4,7 +4,11 @@ import numpy as np
 from scipy import sparse as sps
 
 from . import MatrixBase, SparseMatrix
-from .util import set_up_rows_or_cols, setup_restrictions
+from .util import (
+    check_transpose_matvec_out_shape,
+    set_up_rows_or_cols,
+    setup_restrictions,
+)
 
 
 class StandardizedMatrix:
@@ -174,8 +178,11 @@ class StandardizedMatrix:
             = self.mat.transpose_matvec(other, rows, cols)[i, j]
               + shift[cols[i]] other.sum(0)[rows[j]
         """
+        check_transpose_matvec_out_shape(self, out)
         other = np.asarray(other)
         out_is_none = out is None
+        if self.mult is not None and not out_is_none:
+            out_correction = out * (self.mult - 1)
         out = self.mat.transpose_matvec(other, rows, cols, out=out)
 
         rows, cols = setup_restrictions(self.shape, rows, cols)
@@ -190,7 +197,9 @@ class StandardizedMatrix:
             # Avoiding an outer product by matching dimensions.
             for _ in range(len(out.shape) - 1):
                 mult = mult[:, np.newaxis]
-            out *= mult[cols]
+            out[cols] *= mult[cols]
+            if not out_is_none:
+                out[cols] -= out_correction[cols]
 
         if out_is_none:
             out += shift_part
