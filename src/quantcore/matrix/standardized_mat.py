@@ -197,8 +197,10 @@ class StandardizedMatrix:
             # Avoiding an outer product by matching dimensions.
             for _ in range(len(out.shape) - 1):
                 mult = mult[:, np.newaxis]
-            out[cols] *= mult[cols]
+            if out_is_none:
+                out *= mult[cols]
             if not out_is_none:
+                out[cols] *= mult[cols]
                 out[cols] -= out_correction[cols]
 
         if out_is_none:
