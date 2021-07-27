@@ -181,33 +181,28 @@ class StandardizedMatrix:
         check_transpose_matvec_out_shape(self, out)
         other = np.asarray(other)
         out_is_none = out is None
-        if self.mult is not None and not out_is_none:
-            out_correction = out * (self.mult - 1)
-        out = self.mat.transpose_matvec(other, rows, cols, out=out)
+        res = self.mat.transpose_matvec(other, rows, cols)
 
         rows, cols = setup_restrictions(self.shape, rows, cols)
         other_sum = np.sum(other[rows], 0)
 
         shift_part_tmp = np.outer(self.shift[cols], other_sum)
-        output_shape = ((self.shape[1] if cols is None else len(cols)),) + out.shape[1:]
+        output_shape = ((self.shape[1] if cols is None else len(cols)),) + res.shape[1:]
         shift_part = np.reshape(shift_part_tmp, output_shape)
 
         if self.mult is not None:
             mult = self.mult
             # Avoiding an outer product by matching dimensions.
-            for _ in range(len(out.shape) - 1):
+            for _ in range(res.ndim - 1):
                 mult = mult[:, np.newaxis]
-            if out_is_none:
-                out *= mult[cols]
-            if not out_is_none:
-                out[cols] *= mult[cols]
-                out[cols] -= out_correction[cols]
+            res *= mult[cols]
+        res += shift_part
 
         if out_is_none:
-            out += shift_part
+            return res
         else:
-            out[cols] += shift_part
-        return out
+            out[cols] += res  # type: ignore
+            return out
 
     def __rmatmul__(self, other: Union[np.ndarray, List]) -> np.ndarray:
         """
