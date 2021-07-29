@@ -211,6 +211,7 @@ class SplitMatrix(MatrixBase):
         self.column_map = self._create_col_mapping()
 
     def _create_col_mapping(self):
+        """Define an array that maps from the true column index in the implicitly defined matrix to the local index within the indices array."""
         colmap = np.empty(shape=(self.shape[1], 2), dtype=int)
         for i, comp_idx in enumerate(self.indices):
             for j, idx in enumerate(comp_idx):
