@@ -126,27 +126,29 @@ class SplitMatrix(MatrixBase):
         matrices: List[Union[DenseMatrix, SparseMatrix, CategoricalMatrix]],
         indices: Optional[List[np.ndarray]] = None,
     ):
+        flatten_matrices = []
         # First check that all matrices are valid types
-        for i, mat in enumerate(matrices):
+        for mat in matrices:
             if not isinstance(mat, MatrixBase):
                 raise ValueError(
                     "Expected all elements of matrices to be subclasses of MatrixBase."
                 )
             if isinstance(mat, SplitMatrix):
                 # Flatten out the SplitMatrix
-                for j, imat in enumerate(mat.matrices):
-                    matrices.insert(i + j, imat)
-                del matrices[i + j + 1]  # removing the original SplitMatrix
+                for imat in mat.matrices:
+                    flatten_matrices.append(imat)
+            else:
+                flatten_matrices.append(mat)
 
         # Now that we know these are all MatrixBase, we can check consistent
         # shapes and dtypes.
-        self.dtype = matrices[0].dtype
-        n_row = matrices[0].shape[0]
-        for i, mat in enumerate(matrices):
+        self.dtype = flatten_matrices[0].dtype
+        n_row = flatten_matrices[0].shape[0]
+        for i, mat in enumerate(flatten_matrices):
             if mat.dtype != self.dtype:
                 warnings.warn(
                     "Matrices do not all have the same dtype. Dtypes are "
-                    f"{[elt.dtype for elt in matrices]}."
+                    f"{[elt.dtype for elt in flatten_matrices]}."
                 )
             if not mat.shape[0] == n_row:
                 raise ValueError(
@@ -155,14 +157,14 @@ class SplitMatrix(MatrixBase):
                     f"first dimension {mat.shape[0]}."
                 )
             if mat.ndim == 1:
-                matrices[i] = mat[:, np.newaxis]
+                flatten_matrices[i] = mat[:, np.newaxis]
             elif mat.ndim > 2:
                 raise ValueError("All matrices should be at most two dimensional.")
 
         if indices is None:
             indices = []
             current_idx = 0
-            for mat in matrices:
+            for mat in flatten_matrices:
                 indices.append(
                     np.arange(current_idx, current_idx + mat.shape[1], dtype=np.int64)
                 )
@@ -188,14 +190,14 @@ class SplitMatrix(MatrixBase):
 
         assert isinstance(indices, list)
 
-        for i, (mat, idx) in enumerate(zip(matrices, indices)):
+        for i, (mat, idx) in enumerate(zip(flatten_matrices, indices)):
             if not mat.shape[1] == len(idx):
                 raise ValueError(
                     f"Element {i} of indices should should have length {mat.shape[1]}, "
                     f"but it has shape {idx.shape}"
                 )
 
-        filtered_mats, filtered_idxs = _filter_out_empty(matrices, indices)
+        filtered_mats, filtered_idxs = _filter_out_empty(flatten_matrices, indices)
         combined_matrices, combined_indices = _combine_matrices(
             filtered_mats, filtered_idxs
         )
