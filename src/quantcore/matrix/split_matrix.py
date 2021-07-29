@@ -394,7 +394,7 @@ class SplitMatrix(MatrixBase):
             row = key
             col = slice(None, None, None)  # all columns
 
-        if col == slice(None, None, None):
+        if np.any(col == slice(None, None, None)):
             if isinstance(row, int):
                 row = [row]
 
@@ -404,6 +404,8 @@ class SplitMatrix(MatrixBase):
                 return self.getcol(col)
             elif isinstance(col, list):
                 col_array = np.asarray(col)
+            elif isinstance(col, np.ndarray):
+                col_array = col
             elif isinstance(col, slice):
                 col_array = np.arange(*col.indices(self.shape[1]))
             else:
@@ -420,7 +422,8 @@ class SplitMatrix(MatrixBase):
             ) in zip(subset_cols_indices, subset_cols, self.matrices):
                 new_mat.append(mat[row, oind])
                 new_ind.append(nind)
-            return SplitMatrix(matrices=new_mat, indices=new_ind)
+            filtered_mat, filtered_ind = _filter_out_empty(new_mat, new_ind)
+            return SplitMatrix(matrices=filtered_mat, indices=filtered_ind)
 
     def __repr__(self):
         out = "SplitMatrix:"
