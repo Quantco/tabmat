@@ -584,3 +584,9 @@ def test_split_matrix_creation(mat):
     sm = mx.SplitMatrix(matrices=[mat, mat])
     assert sm.shape[0] == mat.shape[0]
     assert sm.shape[1] == 2 * mat.shape[1]
+
+
+def test_Luca():
+    df = pd.DataFrame({"u": ["a", "b"], "v": ["a", "b"]})
+    X = mx.from_pandas(df, cat_threshold=False, object_as_cat=True)
+    X[:, [0, 1]]
