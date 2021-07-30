@@ -96,7 +96,7 @@ def get_matrices():
     return (
         get_all_matrix_base_subclass_mats()
         + get_standardized_shifted_matrices()
-        + get_standardized_shifted_matrices()
+        + get_standardized_shifted_scaled_matrices()
     )
 
 
@@ -128,6 +128,8 @@ def test_matvec_out_parameter(mat, cols):
 
     # This should modify out in place.
     out2 = mat.matvec(v, cols=cols, out=out)
+    assert out.__array_interface__["data"][0] == out2.__array_interface__["data"][0]
+    assert out.shape == out_copy.shape
 
     correct = out_copy + mat.matvec(v, cols=cols)
     np.testing.assert_almost_equal(out, out2)
