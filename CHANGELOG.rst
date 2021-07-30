@@ -7,6 +7,13 @@
 Changelog
 =========
 
+Unreleased
+----------
+
+**Bug fix**
+
+- :func:`StandardizedMatrix.transpose_matvec` was giving the wrong answer when the `out` parameter was provided. This is now fixed.
+
 2.0.3 - 2021-07-15
 ------------------
 
