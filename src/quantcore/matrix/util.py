@@ -40,3 +40,27 @@ def check_transpose_matvec_out_shape(mat, out: Optional[np.ndarray]) -> None:
 def check_matvec_out_shape(mat, out: Optional[np.ndarray]) -> None:
     """Assert that the first dimension of the matvec output is correct."""
     _check_out_shape(out, mat.shape[0])
+
+
+def _get_expected_axis_length(orig_length, indexer):
+    if isinstance(indexer, int):
+        return 1
+    if isinstance(indexer, list):
+        return len(indexer)
+    elif isinstance(indexer, np.ndarray):
+        assert indexer.ndim < 2
+        return len(indexer)
+    elif isinstance(indexer, slice):
+        return len(range(*indexer.indices(orig_length)))
+    else:
+        raise ValueError(f"Indexing with {type(indexer)} is not allowed.")
+
+
+def _get_expected_shape(orig_shape, indexer):
+    if isinstance(indexer, tuple):
+        row, col = indexer
+        new_row_shape = _get_expected_axis_length(orig_shape[0], row)
+        new_col_shape = _get_expected_axis_length(orig_shape[1], col)
+        return (new_row_shape, new_col_shape)
+    else:
+        return (_get_expected_axis_length(orig_shape[0], indexer),) + orig_shape[1:]

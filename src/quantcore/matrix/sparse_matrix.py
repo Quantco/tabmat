@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import List, Optional, Union
 
 import numpy as np
@@ -182,3 +183,13 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
         """Return SparseMatrix cast to new type."""
         return super(SparseMatrix, self).astype(dtype, casting, copy)
+
+    def __getitem__(self, item):
+        if isinstance(item, tuple) and len(item) == 2:
+            row, col = item
+            if isinstance(row, (Sequence, np.ndarray)) and isinstance(
+                col, (Sequence, np.ndarray)
+            ):
+                return super().__getitem__(np.ix_(row, col))
+
+        return super().__getitem__(item)
