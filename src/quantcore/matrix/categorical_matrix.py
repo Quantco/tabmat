@@ -17,7 +17,9 @@ from .util import (
 
 
 def _is_indexer_full_length(full_length: int, indexer: Any):
-    if isinstance(indexer, list):
+    if isinstance(indexer, int):
+        return full_length == 1
+    elif isinstance(indexer, list):
         if (np.asarray(indexer) > full_length - 1).any():
             raise IndexError("Index out-of-range.")
         return len(set(indexer)) == full_length
@@ -78,7 +80,7 @@ class CategoricalMatrix(MatrixBase):
         other: Union[List, np.ndarray],
         cols: np.ndarray = None,
     ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
-        other = np.asarray(other)
+        other = np.squeeze(np.asarray(other))
         if other.ndim > 1:
             raise NotImplementedError(
                 """CategoricalMatrix.matvec is only implemented for 1d arrays."""
@@ -284,6 +286,7 @@ class CategoricalMatrix(MatrixBase):
                 return CategoricalMatrix(self.cat[row])
             else:
                 # return a SparseMatrix if we subset columns
+                # TODO: this is inefficient. See issue #101.
                 return SparseMatrix(self.tocsr()[row, col], dtype=self.dtype)
         else:
             row = item

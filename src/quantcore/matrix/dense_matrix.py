@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import List, Optional, Union
 
 import numpy as np
@@ -36,6 +37,13 @@ class DenseMatrix(np.ndarray, MatrixBase):
         obj = np.asarray(input_array).view(cls)
         if not np.issubdtype(obj.dtype, np.floating):
             raise NotImplementedError("DenseMatrix is only implemented for float data")
+        if obj.ndim == 1:
+            # when input is one-dimensional, convert to a N x 1 matrix
+            obj = obj[:, np.newaxis]
+        elif obj.ndim > 2:
+            raise ValueError(
+                "DenseMatrix only accepts inputs with at most two dimensions"
+            )
         return obj
 
     def __array_finalize__(self, obj):
@@ -151,3 +159,13 @@ class DenseMatrix(np.ndarray, MatrixBase):
         """Perform self[:, cols] @ other."""
         check_matvec_out_shape(self, out)
         return self._matvec_helper(vec, None, cols, out, False)
+
+    def __getitem__(self, item):
+        if isinstance(item, tuple) and len(item) == 2:
+            row, col = item
+            if isinstance(row, (Sequence, np.ndarray)) and isinstance(
+                col, (Sequence, np.ndarray)
+            ):
+                return super().__getitem__(np.ix_(row, col))
+
+        return super().__getitem__(item)
