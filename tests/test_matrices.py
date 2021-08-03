@@ -9,6 +9,13 @@ from scipy import sparse as sps
 import quantcore.matrix as mx
 
 
+def safe_to_array(a):
+    if hasattr(a, "A"):
+        return a.A
+    else:
+        return a
+
+
 def base_array(order="F") -> np.ndarray:
     return np.array([[0, 0], [0, -1.0], [0, 2.0]], order=order)
 
@@ -98,6 +105,14 @@ def get_matrices():
         + get_standardized_shifted_matrices()
         + get_standardized_shifted_matrices()
     )
+
+
+def get_basic_indices():
+    return (1, [0], slice(0, 10, 2), slice(None))
+
+
+def get_advanced_indices():
+    return ([0], [0, 1], np.arange(2))
 
 
 @pytest.mark.parametrize("mat", get_matrices())
@@ -237,7 +252,7 @@ def test_matvec(
         )
     )
 
-    if has_categorical_component and len(shape) > 1:
+    if has_categorical_component and len(np.squeeze(other).shape) > 1:
         with pytest.raises(NotImplementedError, match="only implemented for 1d"):
             mat.matvec(other, cols)
     else:
@@ -246,12 +261,12 @@ def test_matvec(
         mat_subset, vec_subset = process_mat_vec_subsets(mat, other, None, cols, cols)
         expected = mat_subset.dot(vec_subset)
 
-        np.testing.assert_allclose(res, expected)
+        np.testing.assert_allclose(np.squeeze(res), np.squeeze(expected))
         assert isinstance(res, np.ndarray)
 
         if cols is None:
             res2 = mat @ other
-            np.testing.assert_allclose(res2, expected)
+            np.testing.assert_allclose(np.squeeze(res2), np.squeeze(expected))
 
 
 def process_mat_vec_subsets(mat, vec, mat_rows, mat_cols, vec_idxs):
@@ -511,6 +526,41 @@ def test_standardize(
     unstandardized = standardized.unstandardize()
     assert isinstance(unstandardized, type(mat))
     np.testing.assert_allclose(unstandardized.A, asarray)
+
+
+@pytest.mark.parametrize("mat", get_matrices())
+@pytest.mark.parametrize("rows", get_basic_indices())
+@pytest.mark.parametrize("cols", get_basic_indices())
+def test_basic_indexing(mat, rows, cols):
+    # row only
+    np.testing.assert_allclose(
+        np.squeeze(mat.A[rows]), np.squeeze(safe_to_array(mat[rows]))
+    )
+    # col and row
+    np.testing.assert_allclose(
+        np.squeeze(mat.A[rows, cols]), np.squeeze(safe_to_array(mat[rows, cols]))
+    )
+
+
+@pytest.mark.parametrize("mat", get_matrices())
+@pytest.mark.parametrize("rows", get_advanced_indices())
+@pytest.mark.parametrize("cols", get_advanced_indices())
+def test_advanced_indexing(mat, rows, cols):
+    """quantcore.matrix does not support advanced indexing.
+
+    Here, we are testing our multi-sequences indexing (e.g. a[[0, 1], [0, 1]]).
+    This means that we select the rows 0 and 1 and columns 0 and 1, resulting
+    in a 2 x 2 matrix. For numpy, this would result is a 1d matrix with 2 elements.
+    """
+    # row only
+    np.testing.assert_allclose(
+        np.squeeze(mat.A[rows]), np.squeeze(safe_to_array(mat[rows]))
+    )
+    # col and row
+    np.testing.assert_allclose(
+        np.squeeze(mat.A[np.ix_(rows, cols)]),
+        np.squeeze(safe_to_array(mat[rows, cols])),
+    )
 
 
 @pytest.mark.parametrize("mat", get_matrices())

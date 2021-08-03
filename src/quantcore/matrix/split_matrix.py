@@ -1,5 +1,5 @@
 import warnings
-from typing import List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 from scipy import sparse as sps
@@ -9,11 +9,30 @@ from .dense_matrix import DenseMatrix
 from .ext.split import is_sorted, split_col_subsets
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
+from .standardized_mat import StandardizedMatrix
 from .util import (
     check_matvec_out_shape,
     check_transpose_matvec_out_shape,
     set_up_rows_or_cols,
 )
+
+
+def as_mx(a: Any):
+    """Convert an array to a corresponding MatrixBase type.
+
+    If the input is already a MatrixBase, return untouched.
+    If the input is sparse, return a SparseMatrix.
+    If the input is a numpy array, return a DenseMatrix.
+    Raise an error is input is another type.
+    """
+    if isinstance(a, (MatrixBase, StandardizedMatrix)):
+        return a
+    elif sps.issparse(a):
+        return SparseMatrix(a)
+    elif isinstance(a, np.ndarray):
+        return DenseMatrix(a)
+    else:
+        raise ValueError(f"Cannot convert type {type(a)} to Matrix.")
 
 
 def split_sparse_and_dense_parts(
@@ -342,7 +361,7 @@ class SplitMatrix(MatrixBase):
         assert not isinstance(v, sps.spmatrix)
         check_matvec_out_shape(self, out)
 
-        v = np.asarray(v)
+        v = np.squeeze(np.asarray(v))
         if v.shape[0] != self.shape[1]:
             raise ValueError(f"shapes {self.shape} and {v.shape} not aligned")
 
@@ -407,7 +426,7 @@ class SplitMatrix(MatrixBase):
             return SplitMatrix([mat[row, :] for mat in self.matrices], self.indices)
         else:
             if isinstance(col, int):
-                return self.getcol(col)
+                return self.getcol(col)[row]
             elif isinstance(col, list):
                 col_array = np.asarray(col)
             elif isinstance(col, np.ndarray):
@@ -426,7 +445,9 @@ class SplitMatrix(MatrixBase):
                 oind,
                 mat,
             ) in zip(subset_cols_indices, subset_cols, self.matrices):
-                new_mat.append(mat[row, oind])
+                if len(oind) == 0:
+                    continue
+                new_mat.append(as_mx(mat[row, oind].reshape(-1, len(nind))))
                 new_ind.append(nind)
             filtered_mat, filtered_ind = _filter_out_empty(new_mat, new_ind)
             return SplitMatrix(matrices=filtered_mat, indices=filtered_ind)

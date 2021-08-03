@@ -3,8 +3,9 @@ from typing import List, Union
 import numpy as np
 from scipy import sparse as sps
 
-from . import MatrixBase, SparseMatrix
-from .util import set_up_rows_or_cols, setup_restrictions
+from .matrix_base import MatrixBase
+from .sparse_matrix import SparseMatrix
+from .util import _get_expected_shape, set_up_rows_or_cols, setup_restrictions
 
 
 class StandardizedMatrix:
@@ -248,10 +249,18 @@ class StandardizedMatrix:
             col = slice(None, None, None)
 
         mat_part = self.mat.__getitem__(item)
+        if hasattr(mat_part, "reshape"):
+            expected_shape = _get_expected_shape(self.shape, item)
+            mat_part = mat_part.reshape(expected_shape)
         shift_part = self.shift[col]
         mult_part = self.mult
         if mult_part is not None:
             mult_part = np.atleast_1d(mult_part[col])
+
+        if not isinstance(mat_part, MatrixBase):
+            if mult_part is not None:
+                mat_part = mat_part * mult_part
+            return mat_part + shift_part
 
         if isinstance(row, int):
             out = mat_part.A
