@@ -14,6 +14,10 @@ Unreleased
 
 - :func:`StandardizedMatrix.transpose_matvec` was giving the wrong answer when the `out` parameter was provided. This is now fixed.
 
+**Other changes**
+
+- Implemented :func:`CategoricalMatrix.__rmul__`
+
 2.0.3 - 2021-07-15
 ------------------
 
