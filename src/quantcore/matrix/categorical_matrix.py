@@ -354,6 +354,7 @@ class CategoricalMatrix(MatrixBase):
         )
 
     __mul__ = multiply
+    __rmul__ = multiply
 
     def __repr__(self):
         return str(self.cat)
