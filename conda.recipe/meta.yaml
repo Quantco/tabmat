@@ -33,7 +33,7 @@ requirements:
     - mako
     - numpy
     - pip
-    - quantcore.blis >=0.8.2
+    - quantcore.blis >0.8.1
     - scikit-learn >=0.23
     - setuptools_scm
     - xsimd
@@ -43,7 +43,7 @@ requirements:
     - numexpr
     - {{ pin_compatible('numpy') }}
     - pandas
-    - quantcore.blis >=0.8.2
+    - quantcore.blis >0.8.1
     - scikit-learn >=0.23
     - scipy
 
