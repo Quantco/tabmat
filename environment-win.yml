@@ -20,6 +20,7 @@ dependencies:
   - pre-commit
   - pytest
   - pytest-xdist
+  - quantcore.blis >=0.8.2
   - seaborn-base
   - setuptools_scm
   - sphinx
