@@ -7,6 +7,17 @@ from cython cimport floating
 from cython.parallel import prange
 
 
+cdef extern from "<blis/blis.h>":
+    struct obj_s:
+        pass
+    ctypedef int num_t
+    ctypedef int dim_t
+    ctypedef int inc_t
+
+    void bli_obj_create_with_attached_buffer(num_t, dim_t, dim_t, void*, inc_t, inc_t, obj_s*)
+    void bls_gemm(obj_s*, obj_s*, obj_s*, obj_s*, obj_s*, obj_s*)
+    void* bli_obj_buffer(obj_s*)
+
 cdef extern from "dense_helpers.cpp":
     void _denseC_sandwich[F](int*, int*, F*, F*, F*, int, int, int, int, int, int, int) nogil
     void _denseF_sandwich[F](int*, int*, F*, F*, F*, int, int, int, int, int, int, int) nogil
