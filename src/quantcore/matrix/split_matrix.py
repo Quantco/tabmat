@@ -1,5 +1,5 @@
 import warnings
-from typing import List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
 from scipy import sparse as sps
@@ -9,11 +9,30 @@ from .dense_matrix import DenseMatrix
 from .ext.split import is_sorted, split_col_subsets
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
+from .standardized_mat import StandardizedMatrix
 from .util import (
     check_matvec_out_shape,
     check_transpose_matvec_out_shape,
     set_up_rows_or_cols,
 )
+
+
+def as_mx(a: Any):
+    """Convert an array to a corresponding MatrixBase type.
+
+    If the input is already a MatrixBase, return untouched.
+    If the input is sparse, return a SparseMatrix.
+    If the input is a numpy array, return a DenseMatrix.
+    Raise an error is input is another type.
+    """
+    if isinstance(a, (MatrixBase, StandardizedMatrix)):
+        return a
+    elif sps.issparse(a):
+        return SparseMatrix(a)
+    elif isinstance(a, np.ndarray):
+        return DenseMatrix(a)
+    else:
+        raise ValueError(f"Cannot convert type {type(a)} to Matrix.")
 
 
 def split_sparse_and_dense_parts(
@@ -126,24 +145,29 @@ class SplitMatrix(MatrixBase):
         matrices: List[Union[DenseMatrix, SparseMatrix, CategoricalMatrix]],
         indices: Optional[List[np.ndarray]] = None,
     ):
+        flatten_matrices = []
         # First check that all matrices are valid types
-        for _, mat in enumerate(matrices):
+        for mat in matrices:
             if not isinstance(mat, MatrixBase):
                 raise ValueError(
                     "Expected all elements of matrices to be subclasses of MatrixBase."
                 )
             if isinstance(mat, SplitMatrix):
-                raise ValueError("Elements of matrices cannot be SplitMatrix.")
+                # Flatten out the SplitMatrix
+                for imat in mat.matrices:
+                    flatten_matrices.append(imat)
+            else:
+                flatten_matrices.append(mat)
 
         # Now that we know these are all MatrixBase, we can check consistent
         # shapes and dtypes.
-        self.dtype = matrices[0].dtype
-        n_row = matrices[0].shape[0]
-        for i, mat in enumerate(matrices):
+        self.dtype = flatten_matrices[0].dtype
+        n_row = flatten_matrices[0].shape[0]
+        for i, mat in enumerate(flatten_matrices):
             if mat.dtype != self.dtype:
                 warnings.warn(
                     "Matrices do not all have the same dtype. Dtypes are "
-                    f"{[elt.dtype for elt in matrices]}."
+                    f"{[elt.dtype for elt in flatten_matrices]}."
                 )
             if not mat.shape[0] == n_row:
                 raise ValueError(
@@ -151,13 +175,15 @@ class SplitMatrix(MatrixBase):
                     f"but the first matrix has first dimension {n_row} and matrix {i} has "
                     f"first dimension {mat.shape[0]}."
                 )
-            if len(mat.shape) != 2:
-                raise ValueError("All matrices should be two dimensional.")
+            if mat.ndim == 1:
+                flatten_matrices[i] = mat[:, np.newaxis]
+            elif mat.ndim > 2:
+                raise ValueError("All matrices should be at most two dimensional.")
 
         if indices is None:
             indices = []
             current_idx = 0
-            for mat in matrices:
+            for mat in flatten_matrices:
                 indices.append(
                     np.arange(current_idx, current_idx + mat.shape[1], dtype=np.int64)
                 )
@@ -183,14 +209,14 @@ class SplitMatrix(MatrixBase):
 
         assert isinstance(indices, list)
 
-        for i, (mat, idx) in enumerate(zip(matrices, indices)):
+        for i, (mat, idx) in enumerate(zip(flatten_matrices, indices)):
             if not mat.shape[1] == len(idx):
                 raise ValueError(
                     f"Element {i} of indices should should have length {mat.shape[1]}, "
                     f"but it has shape {idx.shape}"
                 )
 
-        filtered_mats, filtered_idxs = _filter_out_empty(matrices, indices)
+        filtered_mats, filtered_idxs = _filter_out_empty(flatten_matrices, indices)
         combined_matrices, combined_indices = _combine_matrices(
             filtered_mats, filtered_idxs
         )
