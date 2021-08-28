@@ -579,3 +579,9 @@ def test_pandas_to_matrix():
     # was being changed in place.
     assert df["cl_obj"].dtype == object
     assert df["ds"].dtype == np.float64
+
+
+def test_categorical_indexing():
+    catvec = [0, 1, 2, 0, 1, 2]
+    mat = mx.CategoricalMatrix(catvec)
+    mat[:, [0, 1]]
