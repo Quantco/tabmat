@@ -384,7 +384,10 @@ class SplitMatrix(MatrixBase):
     def __repr__(self):
         out = "SplitMatrix:"
         for i, mat in enumerate(self.matrices):
-            out += f"\n\nComponent {i} with type {mat.__class__.__name__}\n" + str(mat)
+            out += (
+                f"\n\nComponent {i} with type {mat.__class__.__name__}\n"
+                + mat.__repr__()
+            )
         return out
 
     __array_priority__ = 13
