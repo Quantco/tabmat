@@ -3,7 +3,8 @@ from typing import List, Union
 import numpy as np
 from scipy import sparse as sps
 
-from . import MatrixBase, SparseMatrix
+from .matrix_base import MatrixBase
+from .sparse_matrix import SparseMatrix
 from .util import (
     check_transpose_matvec_out_shape,
     set_up_rows_or_cols,
