@@ -58,3 +58,9 @@ def test_nulls(mi_element):
     vec = [0, mi_element, 1]
     with pytest.raises(ValueError, match="Categorical data can't have missing values"):
         CategoricalMatrix(vec)
+
+
+def test_categorical_indexing():
+    catvec = [0, 1, 2, 0, 1, 2]
+    mat = CategoricalMatrix(catvec)
+    mat[:, [0, 1]]
