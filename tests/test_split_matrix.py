@@ -5,6 +5,7 @@ import pytest
 import scipy.sparse as sps
 
 import quantcore.matrix as mx
+from quantcore.matrix.dense_matrix import DenseMatrix
 from quantcore.matrix.ext.sparse import csr_dense_sandwich
 from quantcore.matrix.split_matrix import SplitMatrix, split_sparse_and_dense_parts
 
@@ -229,8 +230,9 @@ def test_matvec_many_types():
     many_random_tests(check)
 
 
-def test_oned_dense_mat():
-    m1 = mx.CategoricalMatrix(np.random.randint(0, 10, 10))
-    m2 = mx.DenseMatrix(np.random.rand(10))
-    with pytest.raises(ValueError):
-        mx.SplitMatrix([m1, m2])
+def test_init_from_1d():
+    m1 = DenseMatrix(np.arange(10, dtype=float))
+    m2 = DenseMatrix(np.ones(shape=(10, 2), dtype=float))
+
+    res = SplitMatrix([m1, m2])
+    assert res.shape == (10, 3)
