@@ -2,10 +2,11 @@ Welcome to quantcore.matrix!
 ==========================================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents:
 
-   API Reference <api/modules>
+   Benchmarks <benchmarks>
+   API Reference <api>
    Changelog <changelog>
 
 
