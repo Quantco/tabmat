@@ -353,7 +353,7 @@ class SplitMatrix(MatrixBase):
         # doesn't provide a blas-like mechanism for specifying that we want to
         # add the result of the matrix-vector product into an existing array.
         # So, we simply use the output of the first dense matrix-vector product
-        # as the target for storing the final output. This reduces the number 
+        # as the target for storing the final output. This reduces the number
         # of output arrays allocated from 2 to 1.
         is_matrix_dense = [isinstance(m, DenseMatrix) for m in self.matrices]
         dense_matrix_idx = np.argmax(is_matrix_dense)
