@@ -350,10 +350,11 @@ class SplitMatrix(MatrixBase):
 
         # If there is a dense matrix in the list of matrices, we want to
         # multiply that one first for memory use reasons. This is because numpy
-        # doesn't provide a blas-like mechanism for specifying the we want to
+        # doesn't provide a blas-like mechanism for specifying that we want to
         # add the result of the matrix-vector product into an existing array.
         # So, we simply use the output of the first dense matrix-vector product
-        # as the target for storing the final output.
+        # as the target for storing the final output. This reduces the number 
+        # of output arrays allocated from 2 to 1.
         is_matrix_dense = [isinstance(m, DenseMatrix) for m in self.matrices]
         dense_matrix_idx = np.argmax(is_matrix_dense)
         if np.any(is_matrix_dense):
