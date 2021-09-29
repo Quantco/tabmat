@@ -347,11 +347,31 @@ class SplitMatrix(MatrixBase):
 
         out_shape = [self.shape[0]] + ([] if v.ndim == 1 else list(v.shape[1:]))
         out_dtype = np.result_type(self.dtype, v.dtype)
-        out = _prepare_out_array(out, out_shape, out_dtype)
 
-        for sub_cols, idx, mat in zip(subset_cols, self.indices, self.matrices):
-            one = v[idx, ...]
-            mat.matvec(one, sub_cols, out=out)
+        # If there is a dense matrix in the list of matrices, we want to
+        # multiply that one first for memory use reasons. This is because numpy
+        # doesn't provide a blas-like mechanism for specifying the we want to
+        # add the result of the matrix-vector product into an existing array.
+        # So, we simply use the output of the first dense matrix-vector product
+        # as the target for storing the final output.
+        is_matrix_dense = [isinstance(m, DenseMatrix) for m in self.matrices]
+        dense_matrix_idx = np.argmax(is_matrix_dense)
+        if np.any(is_matrix_dense):
+            sub_cols = subset_cols[dense_matrix_idx]
+            idx = self.indices[dense_matrix_idx]
+            mat = self.matrices[dense_matrix_idx]
+            in_vec = v[idx, ...]
+            out = np.asarray(mat.matvec(in_vec, sub_cols, out), dtype=out_dtype)
+        else:
+            out = _prepare_out_array(out, out_shape, out_dtype)
+
+        for i, (sub_cols, idx, mat) in enumerate(
+            zip(subset_cols, self.indices, self.matrices)
+        ):
+            if i == dense_matrix_idx:
+                continue
+            in_vec = v[idx, ...]
+            mat.matvec(in_vec, sub_cols, out=out)
         return out
 
     def transpose_matvec(
