@@ -1,29 +1,35 @@
 name: quantcore.matrix
 channels:
-  - ***REMOVED***
   - conda-forge
   - nodefaults
 dependencies:
-  - black
-  - c-compiler
-  - cxx-compiler
-  - cython
-  - flake8
-  - jemalloc
   - libblas>=0=*mkl
-  - make
-  - mako
-  - matplotlib-base
-  - mkl-include
-  - numpydoc
   - pandas
+
+  # development tools
+  - black
+  - flake8
+  - numpydoc
   - pip
   - pre-commit
   - pytest
   - pytest-xdist
-  - seaborn-base
   - setuptools_scm
-  - sphinx
+
+  # build tools
+  - c-compiler
+  - cxx-compiler
+  - cython
+  - jemalloc
+  - make
+  - mako
+  - mkl-include
+  - xsimd
+
+  # documentation dev
+  - jupyterlab
+  - matplotlib-base
+  - seaborn-base
+  - sphinx=3.5.3
   - sphinx_rtd_theme
   - sphinxcontrib-apidoc
-  - xsimd
