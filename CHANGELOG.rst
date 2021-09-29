@@ -17,6 +17,7 @@ Unreleased
 **Other changes**
 
 - Implemented :func:`CategoricalMatrix.__rmul__`
+- Reorganizing the documentation and updating the text to match the current API.
 
 2.0.3 - 2021-07-15
 ------------------
