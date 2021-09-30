@@ -20,6 +20,7 @@ Unreleased
 - Implemented :func:`CategoricalMatrix.__rmul__`
 - Enable indexing the rows of a ``CategoricalMatrix``. Previously :func:`CategoricalMatrix.__getitem__` only supported column indexing.
 - Allow creating a ``SplitMatrix`` from a list of any ``MatrixBase`` objects including another ``SplitMatrix``.
+- Reduced memory usage in :meth:`quantcore.matrix.SplitMatrix.matvec`.
 
 2.0.3 - 2021-07-15
 ------------------
