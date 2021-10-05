@@ -10,9 +10,14 @@ Changelog
 Unreleased
 ----------
 
+**Breaking changes**:
+
+- The :func:`one_over_var_inf_to_val` function has been made private.
+- The :func:`csc_to_split` function has been re-named to :func:`quantcore.matrix.from_csc` to match the :func:`quantcore.matrix.from_pandas` function.
+
 **Bug fix**
 
-- :func:`StandardizedMatrix.transpose_matvec` was giving the wrong answer when the `out` parameter was provided. This is now fixed.
+- :func:`quantcore.matrix.StandardizedMatrix.transpose_matvec` was giving the wrong answer when the ``out`` parameter was provided. This is now fixed.
 
 **Other changes**
 

@@ -20,10 +20,14 @@ from .util import (
 
 
 class SparseMatrix(sps.csc_matrix, MatrixBase):
-    """A scipy.sparse csc matrix subclass."""
+    """
+    A scipy.sparse csc matrix subclass that allows such objects to conform
+    to the ``MatrixBase`` interface.
+
+    SparseMatrix is instantiated in the same way as scipy.sparse.csc_matrix.
+    """
 
     def __init__(self, arg1, shape=None, dtype=None, copy=False):
-        """Instantiate in the same way as scipy.sparse.csc_matrix."""
         super().__init__(arg1, shape, dtype, copy)
         self.idx_dtype = max(self.indices.dtype, self.indptr.dtype)
         if self.indices.dtype != self.idx_dtype:
@@ -64,7 +68,7 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         rows, cols = setup_restrictions(self.shape, rows, cols, dtype=self.idx_dtype)
         return sparse_sandwich(self, self.x_csr, d, rows, cols)
 
-    def cross_sandwich(
+    def _cross_sandwich(
         self,
         other: MatrixBase,
         d: np.ndarray,
@@ -78,7 +82,7 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         from .categorical_matrix import CategoricalMatrix
 
         if isinstance(other, CategoricalMatrix):
-            return other.cross_sandwich(self, d, rows, R_cols, L_cols).T
+            return other._cross_sandwich(self, d, rows, R_cols, L_cols).T
         raise TypeError
 
     def sandwich_dense(
@@ -165,7 +169,7 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         check_transpose_matvec_out_shape(self, out)
         return self._matvec_helper(vec, rows, cols, out, True)
 
-    def get_col_stds(self, weights: np.ndarray, col_means: np.ndarray) -> np.ndarray:
+    def _get_col_stds(self, weights: np.ndarray, col_means: np.ndarray) -> np.ndarray:
         """Get standard deviations of columns."""
         sqrt_arg = (
             transpose_square_dot_weights(
