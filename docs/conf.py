@@ -22,12 +22,9 @@ project = "quantcore.matrix"
 copyright = "2021, QuantCo, Inc."
 author = "QuantCo, Inc."
 
-extensions = [
-    "sphinx.ext.napoleon",
-    # "sphinx.ext.mathjax"
-]
+extensions = ["sphinx.ext.napoleon", "sphinx.ext.mathjax"]
 
-# autodoc_typehints = "description"
+autodoc_typehints = "description"
 
 templates_path = ["_templates"]
 exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]

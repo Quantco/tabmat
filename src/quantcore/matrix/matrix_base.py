@@ -5,11 +5,7 @@ import numpy as np
 
 
 class MatrixBase(ABC):
-    """
-    Base class for all matrix classes.
-
-    Cannot be instantiated.
-    """
+    """Base class for all matrix classes. ``MatrixBase`` cannot be instantiated."""
 
     ndim = 2
     shape: Tuple[int, int]
@@ -21,9 +17,13 @@ class MatrixBase(ABC):
         Perform: self[:, cols] @ other, so result[i] = sum_j self[i, j] other[j].
 
         The 'cols' parameter allows restricting to a subset of the matrix without making
-        a copy. If provided, result[i] = sum_{j in cols} self[i, j] other[j].
+        a copy. If provided:
 
-        If 'out' is provided, modify 'out' in place by adding the output of this
+        ::
+
+            result[i] = sum_{j in cols} self[i, j] other[j].
+
+        If 'out' is provided, we modify 'out' in place by adding the output of this
         operation to it.
         """
         pass
@@ -40,10 +40,22 @@ class MatrixBase(ABC):
         Perform: self[rows, cols].T @ vec, so result[i] = sum_j self[j, i] vec[j].
 
         The rows and cols parameters allow restricting to a subset of the
-        matrix without making a copy. If 'rows' and 'cols' are provided,
-        result[i] = sum_{j in rows} self[j, cols[i]] vec[j].
+        matrix without making a copy.
+
+        If 'rows' and 'cols' are provided:
+
+        ::
+
+            result[i] = sum_{j in rows} self[j, cols[i]] vec[j].
+
         Note that the length of the output is len(cols).
-        If 'out' is provided, out[cols[i]] += sum_{j in rows} self[j, cols[i]] vec[j]
+
+        If ``out`` is provided:
+
+        ::
+
+            out[cols[i]] += sum_{j in rows} self[j, cols[i]] vec[j]
+
         """
         pass
 
@@ -69,11 +81,12 @@ class MatrixBase(ABC):
 
     @property
     def A(self) -> np.ndarray:
-        """Return array representation of self."""
+        """Convert self into an np.ndarray. Synonym for ``toarray()``."""
         return self.toarray()
 
     @abstractmethod
     def toarray(self) -> np.ndarray:  # noqa D102
+        """Convert self into an np.ndarray."""
         pass
 
     def __rmatmul__(self, other: Union[np.ndarray, List]) -> np.ndarray:
@@ -97,12 +110,12 @@ class MatrixBase(ABC):
     def astype(self, dtype, order="K", casting="unsafe", copy=True):  # noqa D102
         pass
 
-    def get_col_means(self, weights: np.ndarray) -> np.ndarray:
+    def _get_col_means(self, weights: np.ndarray) -> np.ndarray:
         """Get means of columns."""
         return self.transpose_matvec(weights)
 
     @abstractmethod
-    def get_col_stds(  # noqa D102
+    def _get_col_stds(  # noqa D102
         self, weights: np.ndarray, col_means: np.ndarray
     ) -> np.ndarray:
         pass
@@ -111,18 +124,24 @@ class MatrixBase(ABC):
         self, weights: np.ndarray, center_predictors: bool, scale_predictors: bool
     ) -> Tuple[Any, np.ndarray, Optional[np.ndarray]]:
         """
-        Return a StandardizedMatrix, col_means, and col_stds.
+        Return a StandardizedMatrix along with the column means and column standard deviations.
 
-        If center_predictors is False, col_means will be zeros
+        It is often useful to modify a dataset so that each column has mean
+        zero and standard deviation one. This function does this "standardization"
+        without modifying the underlying dataset by storing shifting and scaling
+        factors that are then used whenever an operation is performed with the new
+        StandardizedMatrix.
 
-        If scale_predictors is False, col_stds will be None
+        Note: If center_predictors is False, col_means will be zeros.
+
+        Note: If scale_predictors is False, col_stds will be None.
         """
         from .standardized_mat import StandardizedMatrix
 
-        col_means = self.get_col_means(weights)
+        col_means = self._get_col_means(weights)
         if scale_predictors:
-            col_stds = self.get_col_stds(weights, col_means)
-            mult = one_over_var_inf_to_val(col_stds, 1.0)
+            col_stds = self._get_col_stds(weights, col_means)
+            mult = _one_over_var_inf_to_val(col_stds, 1.0)
             if center_predictors:
                 shifter = -col_means * mult
                 out_means = col_means
@@ -150,7 +169,7 @@ class MatrixBase(ABC):
     __array_priority__ = 11
 
 
-def one_over_var_inf_to_val(arr: np.ndarray, val: float) -> np.ndarray:
+def _one_over_var_inf_to_val(arr: np.ndarray, val: float) -> np.ndarray:
     """
     Return 1/arr unless the values are zeros.
 

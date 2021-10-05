@@ -1,6 +1,8 @@
 Welcome to quantcore.matrix!
 ==========================================
 
+Please see the `project README <https://github.com/Quantco/quantcore.matrix>`_ for a broad overview of what ``quantcore.matrix`` is.
+
 .. toctree::
    :maxdepth: 1
    :caption: Contents:
@@ -9,11 +11,4 @@ Welcome to quantcore.matrix!
    API Reference <api>
    Changelog <changelog>
 
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+:ref:`genindex`
