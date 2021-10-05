@@ -18,21 +18,26 @@ from .util import (
 
 class DenseMatrix(np.ndarray, MatrixBase):
     """
-    A numpy ndarray subclass.
+    A ``numpy.ndarray`` subclass with several additional functions that allow
+    it to share the MatrixBase API with SparseMatrix and CategoricalMatrix.
 
-    We want to add several function to a numpy ndarray so that it conforms to
-    the matrix interface we expect.
+    In particular, we have added:
 
-    * sandwich product
-    * getcol
-    * toarray
+    - The ``sandwich`` product
+    - ``getcol`` to support the same interface as SparseMatrix for retrieving a
+      single column
+    - ``toarray``
+    - ``matvec``
 
-    np.ndarray subclassing is explained here:
-    https://docs.scipy.org/doc/numpy/user/basics.subclassing.html\
-        #slightly-more-realistic-example-attribute-added-to-existing-array
     """
 
     def __new__(cls, input_array):  # noqa
+        """
+        Details of how to subclass np.ndarray are explained here:
+
+        https://docs.scipy.org/doc/numpy/user/basics.subclassing.html\
+            #slightly-more-realistic-example-attribute-added-to-existing-array
+        """
         obj = np.asarray(input_array).view(cls)
         if not np.issubdtype(obj.dtype, np.floating):
             raise NotImplementedError("DenseMatrix is only implemented for float data")
@@ -58,7 +63,7 @@ class DenseMatrix(np.ndarray, MatrixBase):
         rows, cols = setup_restrictions(self.shape, rows, cols)
         return dense_sandwich(self, d, rows, cols)
 
-    def cross_sandwich(
+    def _cross_sandwich(
         self,
         other: MatrixBase,
         d: np.ndarray,
@@ -66,15 +71,14 @@ class DenseMatrix(np.ndarray, MatrixBase):
         L_cols: Optional[np.ndarray] = None,
         R_cols: Optional[np.ndarray] = None,
     ):
-        """Perform a sandwich product: X.T @ diag(d) @ Y."""
         from .categorical_matrix import CategoricalMatrix
         from .sparse_matrix import SparseMatrix
 
         if isinstance(other, SparseMatrix) or isinstance(other, CategoricalMatrix):
-            return other.cross_sandwich(self, d, rows, R_cols, L_cols).T
+            return other._cross_sandwich(self, d, rows, R_cols, L_cols).T
         raise TypeError
 
-    def get_col_stds(self, weights: np.ndarray, col_means: np.ndarray) -> np.ndarray:
+    def _get_col_stds(self, weights: np.ndarray, col_means: np.ndarray) -> np.ndarray:
         """Get standard deviations of columns."""
         sqrt_arg = transpose_square_dot_weights(self, weights) - col_means ** 2
         # Minor floating point errors above can result in a very slightly

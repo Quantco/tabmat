@@ -13,7 +13,20 @@ from .util import (
 
 
 class StandardizedMatrix:
-    """Matrix with ij element equal to mat[i, j] + shift[0, j]."""
+    """
+    StandardizedMatrix allows for storing a matrix standardized to have columns
+    that have mean zero and standard deviation one without modifying underlying
+    sparse matrices.
+
+    To be precise, for a StandardizedMatrix:
+
+    ::
+
+        self[i, j] = self.mult[j] * (self.mat[i, j] + self.shift[j])
+
+    This class is returned from
+    :meth:`MatrixBase.standardize <quantcore.matrix.MatrixBase.standardize>`.
+    """
 
     __array_priority__ = 11
 
@@ -23,7 +36,6 @@ class StandardizedMatrix:
         shift: Union[np.ndarray, List],
         mult: Union[np.ndarray, List] = None,
     ):
-
         shift_arr = np.atleast_1d(np.squeeze(shift))
         expected_shape = (mat.shape[1],)
         if not isinstance(mat, MatrixBase):
