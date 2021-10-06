@@ -25,6 +25,7 @@ sns.set(style="whitegrid", font_scale=1.5)
 def make_figure(df, matrix_name="quantcore.matrix", title=None):  # noqa
     df2 = (
         df.set_index(["operation", "storage"])
+        .drop("design", axis=1)
         .stack()
         .reset_index()
         .rename(columns={0: "val", "level_2": "metric"})
@@ -68,7 +69,7 @@ def make_figure(df, matrix_name="quantcore.matrix", title=None):  # noqa
 
 
 # %%
-fname = "../../../../benchmark/sparse_times.csv"
+fname = "../../../../benchmark/data/sparse_times.csv"
 make_figure(pd.read_csv(fname), "mx.SparseMatrix", "Sparse Matrix Benchmarks")
 # plt.savefig(fname[:-4] + '.png')
 
