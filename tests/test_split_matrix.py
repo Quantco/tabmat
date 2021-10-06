@@ -5,9 +5,10 @@ import pytest
 import scipy.sparse as sps
 
 import quantcore.matrix as mx
+from quantcore.matrix.constructor import _split_sparse_and_dense_parts
 from quantcore.matrix.dense_matrix import DenseMatrix
 from quantcore.matrix.ext.sparse import csr_dense_sandwich
-from quantcore.matrix.split_matrix import SplitMatrix, split_sparse_and_dense_parts
+from quantcore.matrix.split_matrix import SplitMatrix
 
 N = 100
 
@@ -28,7 +29,7 @@ def X() -> np.ndarray:
 
 def test_csc_to_split(X: np.ndarray):
     for T, D, S in [(0.05, 4, 0), (0.1, 3, 1), (0.2, 2, 2), (0.3, 2, 2), (1.0, 0, 4)]:
-        dense, sparse, dense_ix, sparse_ix = split_sparse_and_dense_parts(
+        dense, sparse, dense_ix, sparse_ix = _split_sparse_and_dense_parts(
             sps.csc_matrix(X), T
         )
         fully_dense = SplitMatrix([dense, sparse], [dense_ix, sparse_ix])
@@ -47,7 +48,7 @@ def split_mat() -> SplitMatrix:
     X = make_X()
     threshold = 0.1
     cat_mat = mx.CategoricalMatrix(np.random.choice(range(4), X.shape[0]))
-    dense, sparse, dense_ix, sparse_ix = split_sparse_and_dense_parts(
+    dense, sparse, dense_ix, sparse_ix = _split_sparse_and_dense_parts(
         sps.csc_matrix(X), threshold
     )
     cat_start = 1 + max(dense_ix.max(), sparse_ix.max())
