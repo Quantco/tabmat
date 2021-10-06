@@ -17,6 +17,7 @@ Unreleased
 
 **Other changes**
 
+- Optimized the :meth:`quantcore.matrix.SparseMatrix.matvec` and :meth:`quantcore.matrix.SparseMatrix.tranpose_matvec` for when ``rows`` and ``cols`` are None.
 - Implemented :func:`CategoricalMatrix.__rmul__`
 - Enable indexing the rows of a ``CategoricalMatrix``. Previously :func:`CategoricalMatrix.__getitem__` only supported column indexing.
 - Allow creating a ``SplitMatrix`` from a list of any ``MatrixBase`` objects including another ``SplitMatrix``.
