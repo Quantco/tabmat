@@ -19,10 +19,23 @@ import seaborn as sns
 from matplotlib import pyplot as plt
 
 sns.set(style="whitegrid", font_scale=1.5)
-
+# %config InlineBackend.figure_format='retina'
 
 # %%
-def make_figure(df, matrix_name="quantcore.matrix", title=None):  # noqa
+data_dir = "../../../../benchmark/data/"
+docs_dir = "../../../../docs/_static/"
+
+
+def data_path(name):  # noqa
+    return data_dir + name + ".csv"
+
+
+def docs_path(name):  # noqa
+    return docs_dir + name + ".png"
+
+
+def make_figure(bench_name, matrix_name="quantcore.matrix", title=None):  # noqa
+    df = pd.read_csv(data_path(bench_name))
     df2 = (
         df.set_index(["operation", "storage"])
         .drop("design", axis=1)
@@ -66,31 +79,135 @@ def make_figure(df, matrix_name="quantcore.matrix", title=None):  # noqa
         plt.suptitle(title, y=1.05)
 
     plt.tight_layout()
+    plt.savefig(docs_path(bench_name), dpi=300)
 
 
 # %%
-fname = "../../../../benchmark/data/sparse_times.csv"
-make_figure(pd.read_csv(fname), "mx.SparseMatrix", "Sparse Matrix Benchmarks")
-# plt.savefig(fname[:-4] + '.png')
+make_figure("sparse_bench", "SparseMatrix", "Sparse Matrix Benchmark")
 
 # %%
-fname = "dense_times.csv"
-make_figure(pd.read_csv(fname), "mx.DenseMatrix", "Dense Matrix Benchmarks")
-plt.savefig(fname[:-4] + ".png")
+make_figure("dense_bench", "DenseMatrix", "Dense Matrix Benchmark")
 
 # %%
-fname = "one_cat_times.csv"
-make_figure(pd.read_csv(fname), "mx.CategoricalMatrix", "Categorical Matrix Benchmarks")
-plt.savefig(fname[:-4] + ".png")
+make_figure("one_cat_bench", "CategoricalMatrix", "Categorical Matrix Benchmark")
 
 # %%
-fname = "two_cat_times.csv"
-make_figure(pd.read_csv(fname), "mx.SplitMatrix", "Two-Categorical Matrix Benchmarks")
-plt.savefig(fname[:-4] + ".png")
+make_figure("two_cat_bench", "SplitMatrix", "Two-Categorical Matrix Benchmark")
 
 # %%
-fname = "dense_cat_times.csv"
-make_figure(pd.read_csv(fname), "mx.SplitMatrix", "Dense + Two Categoricals Benchmarks")
-plt.savefig(fname[:-4] + ".png")
+make_figure("dense_cat_bench", "SplitMatrix", "Dense + Two Categoricals Benchmark")
+
+# %%
+bench_names = [
+    ("sparse_bench", "sparse"),
+    ("one_cat_bench", "one categorical"),
+    ("two_cat_bench", "two categoricals"),
+    ("dense_cat_bench", "dense plus categoricals"),
+]
+dfs = []
+for n, rename in bench_names:
+    df = pd.read_csv(data_path(n))
+    df = df[df["operation"] == "sandwich"].drop(["operation"], axis=1)
+    df["design"] = rename
+    dfs.append(df)
+
+# %%
+df = pd.concat(dfs).set_index(["design"])  # , 'storage'])
+
+
+def get_ratio_time(x):  # noqa
+    x["time_ratio"] = x["time"] / x[x["storage"] == "quantcore.matrix"]["time"]
+    return x
+
+
+df = df.groupby(["design"]).apply(get_ratio_time)
+
+
+def get_ratio_mem(x):  # noqa
+    x["memory_ratio"] = x["memory"] / x[x["storage"] == "quantcore.matrix"]["memory"]
+    return x
+
+
+df = df.groupby(["design"]).apply(get_ratio_mem)
+
+# %%
+SMALL_SIZE = 13
+MEDIUM_SIZE = 15
+BIGGER_SIZE = 18
+
+plt.rc("font", size=SMALL_SIZE)  # controls default text sizes
+plt.rc("axes", titlesize=SMALL_SIZE)  # fontsize of the axes title
+plt.rc("axes", labelsize=MEDIUM_SIZE)  # fontsize of the x and y labels
+plt.rc("xtick", labelsize=SMALL_SIZE)  # fontsize of the tick labels
+plt.rc("ytick", labelsize=SMALL_SIZE)  # fontsize of the tick labels
+plt.rc("legend", fontsize=SMALL_SIZE)  # legend fontsize
+plt.rc("figure", titlesize=BIGGER_SIZE)  # fontsize of the figure title
+
+# %%
+fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(7.0, 10))
+
+
+plot_df = df[["storage", "time_ratio"]].pivot(columns="storage")
+plot_df.index.name = ""
+plot_df.columns = plot_df.columns.get_level_values(1)
+
+plot_df.plot.bar(
+    ax=axes[0],
+    ylim=[0, 80],
+    title="Runtime of sandwich products",
+    legend=False,
+    width=0.8,
+    ylabel="time (fraction of best)",
+    yticks=[0, 20, 40, 60, 80],
+    cmap="Paired",
+)
+plt.sca(axes[0])
+plt.legend(bbox_to_anchor=(1, 1.05), loc="upper right", ncol=1)
+plt.xticks(rotation=45, ha="right")
+
+ax = plt.gca()
+
+# Hide the right and top spines
+ax.spines["right"].set_visible(False)
+ax.spines["top"].set_visible(False)
+
+# Only show ticks on the left and bottom spines
+ax.yaxis.set_ticks_position("left")
+ax.xaxis.set_ticks_position("bottom")
+
+plt.tight_layout()
+
+plot_df = df[["storage", "memory_ratio"]].pivot(columns="storage")
+plot_df.index.name = ""
+plot_df.columns = plot_df.columns.get_level_values(1)
+
+plot_df.plot.bar(
+    ax=axes[1],
+    ylim=[0, 12],
+    title="Memory usage of sandwich products",
+    legend="upper right",
+    width=0.8,
+    ylabel="memory usage (fraction of best)",
+    yticks=[0, 3, 6, 9, 12],
+    cmap="Paired",
+)
+plt.sca(axes[1])
+plt.legend(bbox_to_anchor=(1.05, 1.05), loc="upper right", ncol=1)
+plt.xticks(rotation=45, ha="right")
+
+ax = plt.gca()
+
+# Hide the right and top spines
+ax.spines["right"].set_visible(False)
+ax.spines["top"].set_visible(False)
+
+# Only show ticks on the left and bottom spines
+ax.yaxis.set_ticks_position("left")
+ax.xaxis.set_ticks_position("bottom")
+
+plt.tight_layout()
+
+plt.savefig(docs_path("headline"), dpi=300)
+plt.show()
 
 # %%
