@@ -17,12 +17,16 @@ Unreleased
 
 **Bug fix**
 
-- :func:`quantcore.matrix.StandardizedMatrix.transpose_matvec` was giving the wrong answer when the ``out`` parameter was provided. This is now fixed.
+- :func:`StandardizedMatrix.transpose_matvec` was giving the wrong answer when the `out` parameter was provided. This is now fixed.
+- :func:`SplitMatrix.__repr__` now calls the `__repr__` method of component matrices instead of `__str__`.
 
 **Other changes**
 
 - Implemented :func:`CategoricalMatrix.__rmul__`
 - Reorganizing the documentation and updating the text to match the current API.
+- Enable indexing the rows of a ``CategoricalMatrix``. Previously :func:`CategoricalMatrix.__getitem__` only supported column indexing.
+- Allow creating a ``SplitMatrix`` from a list of any ``MatrixBase`` objects including another ``SplitMatrix``.
+- Reduced memory usage in :meth:`quantcore.matrix.SplitMatrix.matvec`.
 
 2.0.3 - 2021-07-15
 ------------------
