@@ -79,12 +79,13 @@ def sparse_sandwich(A, AT, floating[:] d, win_integral[:] rows, win_integral[:] 
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def csr_matvec_unrestricted(X, floating[:] v, win_integral[:] X_indices):
+def csr_matvec_unrestricted(X, floating[:] v, out, win_integral[:] X_indices):
     cdef floating[:] Xdata = X.data
     cdef win_integral[:] Xindices = X.indices
     cdef win_integral[:] Xindptr = X.indptr
 
-    out = np.zeros(X.shape[0], dtype=X.dtype)
+    if out is None:
+        out = np.zeros(X.shape[0], dtype=X.dtype)
     cdef floating[:] out_view = out;
 
     cdef floating* Xdatap = &Xdata[0];
@@ -146,13 +147,14 @@ def csr_matvec(
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def csc_rmatvec_unrestricted(XT, floating[:] v, win_integral[:] XT_indices):
+def csc_rmatvec_unrestricted(XT, floating[:] v, out, win_integral[:] XT_indices):
     cdef floating[:] XTdata = XT.data
     cdef win_integral[:] XTindices = XT.indices
     cdef win_integral[:] XTindptr = XT.indptr
 
     cdef int m = XT.shape[1]
-    out = np.zeros(m, dtype=XT.dtype)
+    if out is None:
+        out = np.zeros(m, dtype=XT.dtype)
     cdef floating[:] out_view = out;
 
     cdef floating* XTdatap = &XTdata[0];
