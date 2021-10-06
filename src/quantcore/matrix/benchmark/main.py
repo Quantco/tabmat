@@ -84,10 +84,6 @@ def run_one_benchmark_set(
             if k != "quantcore.matrix":
                 del matrices[k]
 
-    # ES note: Mysterious legacy code.
-    if "scipy.sparse csr" in matrices.keys():
-        del matrices["scipy.sparse csr"]
-
     if standardized:
 
         def _to_standardized_mat(mat):
