@@ -79,6 +79,34 @@ def sparse_sandwich(A, AT, floating[:] d, win_integral[:] rows, win_integral[:] 
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
+def csr_matvec_unrestricted(X, floating[:] v, out, win_integral[:] X_indices):
+    cdef floating[:] Xdata = X.data
+    cdef win_integral[:] Xindices = X.indices
+    cdef win_integral[:] Xindptr = X.indptr
+
+    if out is None:
+        out = np.zeros(X.shape[0], dtype=X.dtype)
+    cdef floating[:] out_view = out;
+
+    cdef floating* Xdatap = &Xdata[0];
+    cdef win_integral* Xindicesp = &Xindices[0];
+    cdef win_integral* Xindptrp = &Xindptr[0];
+    cdef floating* outp = &out_view[0];
+
+    cdef win_integral i, X_idx, j
+    cdef win_integral n = out.shape[0]
+    cdef floating Xval, vval
+
+    for i in prange(n, nogil=True):
+        for X_idx in range(Xindptrp[i], Xindptrp[i+1]):
+            j = Xindicesp[X_idx]
+            Xval = Xdatap[X_idx]
+            vval = v[j]
+            outp[i] = outp[i] + Xval * vval;
+    return out
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
 def csr_matvec(
         X,
         floating[:] v,
@@ -115,6 +143,34 @@ def csr_matvec(
             Xval = Xdatap[X_idx]
             vval = v[j]
             outp[Ci] = outp[Ci] + Xval * vval;
+    return out
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def csc_rmatvec_unrestricted(XT, floating[:] v, out, win_integral[:] XT_indices):
+    cdef floating[:] XTdata = XT.data
+    cdef win_integral[:] XTindices = XT.indices
+    cdef win_integral[:] XTindptr = XT.indptr
+
+    cdef int m = XT.shape[1]
+    if out is None:
+        out = np.zeros(m, dtype=XT.dtype)
+    cdef floating[:] out_view = out;
+
+    cdef floating* XTdatap = &XTdata[0];
+    cdef win_integral* XTindicesp = &XTindices[0];
+    cdef win_integral* XTindptrp = &XTindptr[0];
+    cdef floating* outp = &out_view[0];
+
+    cdef win_integral i, XT_idx, j
+    cdef floating XTval, vval
+
+    for j in prange(m, nogil=True):
+        for XT_idx in range(XTindptrp[j], XTindptrp[j+1]):
+            i = XTindicesp[XT_idx]
+            XTval = XTdatap[XT_idx];
+            vval = v[i]
+            outp[j] = outp[j] + XTval * vval;
     return out
 
 @cython.boundscheck(False)

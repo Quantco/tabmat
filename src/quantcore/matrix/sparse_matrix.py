@@ -5,8 +5,10 @@ from scipy import sparse as sps
 
 from .ext.sparse import (
     csc_rmatvec,
+    csc_rmatvec_unrestricted,
     csr_dense_sandwich,
     csr_matvec,
+    csr_matvec_unrestricted,
     sparse_sandwich,
     transpose_square_dot_weights,
 )
@@ -119,17 +121,25 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         transpose: bool,
     ):
         match_dim = 0 if transpose else 1
-        vec_shape = np.array(vec).shape
-        if self.shape[match_dim] != vec_shape[0]:
+        vec = np.asarray(vec)
+        if self.shape[match_dim] != vec.shape[0]:
             raise ValueError(
-                f"shapes {self.shape} and {vec_shape} not aligned:"
-                f"{self.shape[match_dim]} (dim {match_dim}) != {vec_shape[0]} (dim 0)"
+                f"shapes {self.shape} and {vec.shape} not aligned:"
+                f"{self.shape[match_dim]} (dim {match_dim}) != {vec.shape[0]} (dim 0)"
             )
+
+        unrestricted_rows = rows is None or len(rows) == self.shape[0]
+        unrestricted_cols = cols is None or len(cols) == self.shape[1]
+        if unrestricted_rows and unrestricted_cols and vec.ndim == 1:
+            if transpose:
+                return csc_rmatvec_unrestricted(self, vec, out, self.indices)
+            else:
+                return csr_matvec_unrestricted(self.x_csr, vec, out, self.x_csr.indices)
+
         matrix_matvec = lambda x, v: sps.csc_matrix.dot(x, v)
         if transpose:
             matrix_matvec = lambda x, v: sps.csr_matrix.dot(x.T, v)
 
-        vec = np.asarray(vec)
         rows, cols = setup_restrictions(self.shape, rows, cols, dtype=self.idx_dtype)
         if transpose:
             fast_fnc = lambda v: csc_rmatvec(self, v, rows, cols)
