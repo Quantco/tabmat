@@ -13,8 +13,8 @@ Unreleased
 **Breaking changes**:
 
 - The :func:`one_over_var_inf_to_val` function has been made private.
-- The :func:`csc_to_split` function has been re-named to :func:`quantcore.matrix.from_csc` to match the :func:`quantcore.matrix.from_pandas` function.
-- The :meth:`quantcore.matrix.MatrixBase.get_col_means` and :meth:`quantcore.matrix.MatrixBase.get_col_stds` methods have been made private.
+- The :func:`csc_to_split` function has been re-named to :func:`tabmat.from_csc` to match the :func:`tabmat.from_pandas` function.
+- The :meth:`tabmat.MatrixBase.get_col_means` and :meth:`tabmat.MatrixBase.get_col_stds` methods have been made private.
 - The :meth:`cross_sandwich` method has also been made private.
 
 **Bug fix**
@@ -24,12 +24,12 @@ Unreleased
 
 **Other changes**
 
-- Optimized the :meth:`quantcore.matrix.SparseMatrix.matvec` and :meth:`quantcore.matrix.SparseMatrix.tranpose_matvec` for when ``rows`` and ``cols`` are None.
+- Optimized the :meth:`tabmat.SparseMatrix.matvec` and :meth:`tabmat.SparseMatrix.tranpose_matvec` for when ``rows`` and ``cols`` are None.
 - Implemented :func:`CategoricalMatrix.__rmul__`
 - Reorganizing the documentation and updating the text to match the current API.
 - Enable indexing the rows of a ``CategoricalMatrix``. Previously :func:`CategoricalMatrix.__getitem__` only supported column indexing.
 - Allow creating a ``SplitMatrix`` from a list of any ``MatrixBase`` objects including another ``SplitMatrix``.
-- Reduced memory usage in :meth:`quantcore.matrix.SplitMatrix.matvec`.
+- Reduced memory usage in :meth:`tabmat.SplitMatrix.matvec`.
 
 2.0.3 - 2021-07-15
 ------------------
@@ -65,16 +65,16 @@ Split matrices now also work on Windows.
 
 **Breaking changes**:
 
-We renamed several public functions to make them private. These include functions in :mod:`quantcore.matrix.benchmark` that are unlikely to be used outside of this package as well as
+We renamed several public functions to make them private. These include functions in :mod:`tabmat.benchmark` that are unlikely to be used outside of this package as well as
 
-   - :func:`quantcore.matrix.dense_matrix._matvec_helper`
-   - :func:`quantcore.matrix.sparse_matrix._matvec_helper`.
-   - :func:`quantcore.matrix.split_matrix._prepare_out_array`.
+   - :func:`tabmat.dense_matrix._matvec_helper`
+   - :func:`tabmat.sparse_matrix._matvec_helper`.
+   - :func:`tabmat.split_matrix._prepare_out_array`.
 
 
 **Other changes**:
 
-- We removed the dependency on ``sparse_dot_mkl``. We now use :func:`scipy.sparse.csr_matvec` instead of :func:`sparse_dot_mkl.dot_product_mkl` on all platforms, because the former suffered from poor performance, especially on narrow problems. This also means that we removed the function :func:`quantcore.matrix.sparse_matrix._dot_product_maybe_mkl`.
+- We removed the dependency on ``sparse_dot_mkl``. We now use :func:`scipy.sparse.csr_matvec` instead of :func:`sparse_dot_mkl.dot_product_mkl` on all platforms, because the former suffered from poor performance, especially on narrow problems. This also means that we removed the function :func:`tabmat.sparse_matrix._dot_product_maybe_mkl`.
 - We updated the pre-commit hooks and made sure the code is line with the new hooks.
 
 

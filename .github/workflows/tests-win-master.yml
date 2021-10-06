@@ -37,7 +37,7 @@ jobs:
           use-mamba: true
           condarc-file: .github/workflows/.condarc
           environment-file: environment-win.yml
-          activate-environment: quantcore.matrix
+          activate-environment: tabmat
       - name: Run Unit Tests
         shell: pwsh
         run: |

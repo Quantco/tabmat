@@ -1,4 +1,4 @@
-name: quantcore.matrix
+name: tabmat
 channels:
   - conda-forge
   - nodefaults

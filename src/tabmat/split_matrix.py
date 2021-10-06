@@ -113,7 +113,7 @@ class SplitMatrix(MatrixBase):
     Initialize a SplitMatrix directly with a list of ``matrices`` and a
     list of column ``indices`` for each matrix.
     Most of the time, it will
-    be best to use :func:`quantcore.matrix.from_pandas` or :func:`quantcore.matrix.from_csc`
+    be best to use :func:`tabmat.from_pandas` or :func:`tabmat.from_csc`
     to initialize a ``SplitMatrix``.
 
     Parameters

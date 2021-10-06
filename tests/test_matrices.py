@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 from scipy import sparse as sps
 
-import quantcore.matrix as mx
+import tabmat as mx
 
 
 def base_array(order="F") -> np.ndarray:
