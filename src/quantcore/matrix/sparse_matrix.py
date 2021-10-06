@@ -128,9 +128,9 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         unrestricted_cols = cols is None or len(cols) == self.shape[1]
         if unrestricted_rows and unrestricted_cols and vec.ndim == 1:
             if transpose:
-                return csc_rmatvec_unrestricted(self, vec, self.indices)
+                return csc_rmatvec_unrestricted(self, vec, out, self.indices)
             else:
-                return csr_matvec_unrestricted(self.x_csr, vec, self.x_csr.indices)
+                return csr_matvec_unrestricted(self.x_csr, vec, out, self.x_csr.indices)
 
         matrix_matvec = lambda x, v: sps.csc_matrix.dot(x, v)
         if transpose:
