@@ -12,6 +12,7 @@ Unreleased
 
 **Breaking changes**:
 
+- The package has been renamed to ``tabmat``. CELEBRATE!
 - The :func:`one_over_var_inf_to_val` function has been made private.
 - The :func:`csc_to_split` function has been re-named to :func:`tabmat.from_csc` to match the :func:`tabmat.from_pandas` function.
 - The :meth:`tabmat.MatrixBase.get_col_means` and :meth:`tabmat.MatrixBase.get_col_stds` methods have been made private.
