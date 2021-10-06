@@ -35,14 +35,14 @@ def _transpose_matvec(
     mat: Union[mx.MatrixBase, np.ndarray, sps.csc_matrix], vec: np.ndarray
 ):
     if isinstance(mat, (mx.MatrixBase, mx.StandardizedMatrix)):
-        return mat.transpose_matvec(vec, out=None)
+        return mat.transpose_matvec(vec)
     else:
         return mat.T.dot(vec)
 
 
 def _matvec(mat, vec: np.ndarray) -> np.ndarray:
     if isinstance(mat, (mx.MatrixBase, mx.StandardizedMatrix)):
-        return mat.matvec(vec, out=None)
+        return mat.matvec(vec)
     else:
         return mat.dot(vec)
 
@@ -342,18 +342,35 @@ def run_all_benchmarks(
                 benchmark_matrices[k] = pickle.load(f)
 
     for name, matrices in benchmark_matrices.items():
-        times = run_one_benchmark_set(
+        time_bench = run_one_benchmark_set(
             matrices,
             include_baseline,
             name,
             standardized,
             ops_to_run,
             n_iterations,
-            bench_memory,
+            False,
         )
-        print(times)
 
-        times.to_csv(f"benchmark/data/{name}_times.csv", index=False)
+        if bench_memory:
+            memory_bench = run_one_benchmark_set(
+                matrices,
+                include_baseline,
+                name,
+                standardized,
+                ops_to_run,
+                1,
+                True,
+            )
+
+        full_bench = pd.merge(
+            memory_bench[["operation", "storage", "memory"]],
+            time_bench[["operation", "storage", "time", "design"]],
+            on=["operation", "storage"],
+        )
+        print(full_bench)
+
+        full_bench.to_csv(f"benchmark/data/{name}_bench.csv", index=False)
 
 
 if __name__ == "__main__":
