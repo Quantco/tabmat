@@ -7,8 +7,8 @@ import numpy as np
 import pandas as pd
 from scipy import sparse as sps
 
-import quantcore.matrix as mx
-from quantcore.matrix.benchmark.generate_matrices import (
+import tabmat as mx
+from tabmat.benchmark.generate_matrices import (
     get_all_benchmark_matrices,
     get_comma_sep_names,
     get_matrix_names,
@@ -18,7 +18,7 @@ from quantcore.matrix.benchmark.generate_matrices import (
     make_dense_matrices,
     make_sparse_matrices,
 )
-from quantcore.matrix.benchmark.memory_tools import track_peak_mem
+from tabmat.benchmark.memory_tools import track_peak_mem
 
 
 def _sandwich(mat: Union[mx.MatrixBase, np.ndarray, sps.csc_matrix], vec: np.ndarray):
@@ -81,7 +81,7 @@ def run_one_benchmark_set(
     """Run a single round of benchmarks."""
     if not include_baseline:
         for k in list(matrices.keys()):
-            if k != "quantcore.matrix":
+            if k != "tabmat":
                 del matrices[k]
 
     if standardized:
@@ -239,7 +239,7 @@ def run_one_benchmark_set(
     "--standardized",
     type=bool,
     is_flag=True,
-    help="Should we test with a quantcore.matrix.StandardizedMatrix?",
+    help="Should we test with a tabmat.StandardizedMatrix?",
     default=False,
 )
 def run_all_benchmarks(
@@ -263,23 +263,23 @@ def run_all_benchmarks(
 
     0            matvec  scipy.sparse csc      0   0.00129819\n
     1            matvec  scipy.sparse csr      0   0.00266385\n
-    2            matvec  quantcore.matrix      0   0.00199628\n
+    2            matvec  tabmat      0   0.00199628\n
     3  transpose-matvec  scipy.sparse csc      0  0.000838518\n
     4  transpose-matvec  scipy.sparse csr      0   0.00239468\n
-    5  transpose-matvec  quantcore.matrix      0  0.000296116\n
+    5  transpose-matvec  tabmat      0  0.000296116\n
 
     python benchmark/main.py --operation_name sandwich --matrix_name dense_cat --bench_memory\n
 
       operation           storage    memory      time\n
-    0  sandwich  quantcore.matrix  52244505  0.159682\n
+    0  sandwich  tabmat  52244505  0.159682\n
 
     python benchmark/main.py --operation_name matvec --matrix_name custom --sparse 3e6 1 --sparse 3e6 10 --dense 10 10\n
     operation           storage memory      time                            design \n
-    0    matvec  quantcore.matrix      0  0.000006  dense, #rows:10, #cols:10      \n
+    0    matvec  tabmat      0  0.000006  dense, #rows:10, #cols:10      \n
     operation           storage memory      time                            design \n
-    0    matvec  quantcore.matrix      0  0.046355  sparse, #rows:3000000, #cols:1 \n
+    0    matvec  tabmat      0  0.046355  sparse, #rows:3000000, #cols:1 \n
     operation           storage memory      time                            design \n
-    0    matvec  quantcore.matrix      0  0.048141  sparse, #rows:3000000, #cols:10\n
+    0    matvec  tabmat      0  0.048141  sparse, #rows:3000000, #cols:10\n
     """  # noqa
     if n_iterations is None:
         if bench_memory:

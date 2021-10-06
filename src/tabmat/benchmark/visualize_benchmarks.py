@@ -34,7 +34,7 @@ def docs_path(name):  # noqa
     return docs_dir + name + ".png"
 
 
-def make_figure(bench_name, matrix_name="quantcore.matrix", title=None):  # noqa
+def make_figure(bench_name, matrix_name="tabmat", title=None):  # noqa
     df = pd.read_csv(data_path(bench_name))
     df2 = (
         df.set_index(["operation", "storage"])
@@ -47,11 +47,9 @@ def make_figure(bench_name, matrix_name="quantcore.matrix", title=None):  # noqa
         .sort_index()
     )
 
-    df2["norm"] = df2["val"] / df2[df2["storage"] == "quantcore.matrix"]["val"]
+    df2["norm"] = df2["val"] / df2[df2["storage"] == "tabmat"]["val"]
     df2 = df2.reset_index()
-    df2["storage"] = [
-        {"quantcore.matrix": matrix_name}.get(elt, elt) for elt in df2["storage"]
-    ]
+    df2["storage"] = [{"tabmat": matrix_name}.get(elt, elt) for elt in df2["storage"]]
 
     hue_order = [matrix_name] + [elt for elt in df["storage"] if elt != matrix_name]
     g = sns.FacetGrid(
@@ -72,8 +70,8 @@ def make_figure(bench_name, matrix_name="quantcore.matrix", title=None):  # noqa
             g.axes[j, k].set_title("")
             g.axes[j, k].set_xlabel("")
 
-    g.axes[0, 0].set_title("Memory (fraction of quantcore.matrix)")
-    g.axes[0, 1].set_title("Time (fraction of quantcore.matrix)")
+    g.axes[0, 0].set_title("Memory (fraction of tabmat)")
+    g.axes[0, 1].set_title("Time (fraction of tabmat)")
 
     if title is not None:
         plt.suptitle(title, y=1.05)
@@ -116,7 +114,7 @@ df = pd.concat(dfs).set_index(["design"])  # , 'storage'])
 
 
 def get_ratio_time(x):  # noqa
-    x["time_ratio"] = x["time"] / x[x["storage"] == "quantcore.matrix"]["time"]
+    x["time_ratio"] = x["time"] / x[x["storage"] == "tabmat"]["time"]
     return x
 
 
@@ -124,7 +122,7 @@ df = df.groupby(["design"]).apply(get_ratio_time)
 
 
 def get_ratio_mem(x):  # noqa
-    x["memory_ratio"] = x["memory"] / x[x["storage"] == "quantcore.matrix"]["memory"]
+    x["memory_ratio"] = x["memory"] / x[x["storage"] == "tabmat"]["memory"]
     return x
 
 

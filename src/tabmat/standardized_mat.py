@@ -25,7 +25,7 @@ class StandardizedMatrix:
         self[i, j] = self.mult[j] * (self.mat[i, j] + self.shift[j])
 
     This class is returned from
-    :meth:`MatrixBase.standardize <quantcore.matrix.MatrixBase.standardize>`.
+    :meth:`MatrixBase.standardize <tabmat.MatrixBase.standardize>`.
     """
 
     __array_priority__ = 11

@@ -1,11 +1,11 @@
 import pytest
 from click.testing import CliRunner
 
-from quantcore.matrix.benchmark.generate_matrices import (
+from tabmat.benchmark.generate_matrices import (
     generate_matrices,
     get_all_benchmark_matrices,
 )
-from quantcore.matrix.benchmark.main import (
+from tabmat.benchmark.main import (
     get_comma_sep_names,
     get_op_names,
     run_one_benchmark_set,
