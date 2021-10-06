@@ -40,7 +40,7 @@ def track_peak_mem(f, *args, **kwargs):
         f(*args, **kwargs)
     for s in mp.snapshots:
         top_stats = s.statistics("lineno")
-        print("[ Top 2 ]")
-        for stat in top_stats[:2]:
+        print("[ Top 4 ]")
+        for stat in top_stats[:4]:
             print(stat)
     return mp.peak_usage
