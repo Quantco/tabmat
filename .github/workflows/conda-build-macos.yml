@@ -28,6 +28,7 @@ jobs:
         with:
           miniforge-variant: Mambaforge
           miniforge-version: 4.10.0-0
+          channels: conda-forge
           use-mamba: true
       - name: Build conda package
         shell: bash -l {0}
