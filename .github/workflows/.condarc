@@ -1,5 +1,0 @@
-channels:
-  - quantco_main
-  - conda-forge
-custom_channels:
-  quantco_main: https://CONDA_CHANNEL_UPLOAD_USER:CONDA_CHANNEL_UPLOAD_PASSWORD@conda.quantco.cloud
