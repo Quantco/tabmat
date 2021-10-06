@@ -1,6 +1,5 @@
 name: quantcore.matrix
 channels:
-  - quantco_main
   - conda-forge
   - nodefaults
 dependencies:
