@@ -66,25 +66,25 @@ modeled on [scipy sparse](https://github.com/scipy/scipy/blob/1dc960a33b000b95b1
 
 ::
 
-    >>> def matvec(mat, vec):
-    >>>     n_row = mat.shape[0]
-    >>>     res = np.zeros(n_row)
-    >>>     for i in range(n_row):
-    >>>         for j in range(mat.indptr[i], mat.indptr[i+1]):
-    >>>             res[i] += mat.data[j] * vec[mat.indices[j]]
-    >>>     return res
+    def matvec(mat, vec):
+        n_row = mat.shape[0]
+        res = np.zeros(n_row)
+        for i in range(n_row):
+            for j in range(mat.indptr[i], mat.indptr[i+1]):
+                res[i] += mat.data[j] * vec[mat.indices[j]]
+        return res
 
 With a CSR categorical matrix, ``data`` is all 1 and ``j`` always equals ``i``, so we can
 simplify this function to be
 
 ::
 
-    >>> def matvec(mat, vec):
-    >>>     n_row = mat.shape[0]
-    >>>     res = np.zeros(n_row)
-    >>>     for i in range(n_row):
-    >>>         res[i] = vec[mat.indices[j]]
-    >>>     return res
+    def matvec(mat, vec):
+        n_row = mat.shape[0]
+        res = np.zeros(n_row)
+        for i in range(n_row):
+            res[i] = vec[mat.indices[j]]
+        return res
 
 The original function involved ``6N`` lookups, ``N`` multiplications, and ``N`` additions,
 while the new function involves only ``3N`` lookups. It thus has the potential to be
