@@ -26,6 +26,8 @@ conda activate quantcore.matrix
 pip install --no-use-pep517 --disable-pip-version-check -e .
 ```
 
+<img src="docs/_static/headline.png" width="600px">
+
 ## Use case
 
 TL;DR: We provide matrix classes for efficiently building statistical algorithms with data that is partially dense, partially sparse and partially categorical. 
