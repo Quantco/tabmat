@@ -28,6 +28,7 @@ dependencies:
 
   # documentation dev
   - jupyterlab
+  - jupytext
   - matplotlib-base
   - seaborn-base
   - sphinx=3.5.3
