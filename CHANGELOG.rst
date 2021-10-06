@@ -14,6 +14,8 @@ Unreleased
 
 - The :func:`one_over_var_inf_to_val` function has been made private.
 - The :func:`csc_to_split` function has been re-named to :func:`quantcore.matrix.from_csc` to match the :func:`quantcore.matrix.from_pandas` function.
+- The :meth:`quantcore.matrix.MatrixBase.get_col_means` and :meth:`quantcore.matrix.MatrixBase.get_col_stds` methods have been made private.
+- The :meth:`cross_sandwich` method has also been made private.
 
 **Bug fix**
 

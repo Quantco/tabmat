@@ -432,13 +432,7 @@ class CategoricalMatrix(MatrixBase):
         return self.tocsr().A
 
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
-        """
-        Return CategoricalMatrix cast to new type. Because indices need to have
-        integral type, this method will raise an exception if the ``dtype``
-        specified is not integral.
-        """
-        if not np.issubdtype(dtype, np.integer):
-            raise ValueError("CategoricalMatrix must have integral dtype.")
+        """Return CategoricalMatrix cast to new type."""
         self.dtype = dtype
         return self
 
