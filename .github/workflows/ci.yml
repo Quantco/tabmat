@@ -38,31 +38,6 @@ jobs:
        uses: ./.github/actions/unittests
        with:
          python_version: ${{ matrix.PYTHON_VERSION }}
-  docs:
-    name: "Documentation"
-    runs-on: ubuntu-latest
-    env:
-      CI: True
-    strategy:
-      fail-fast: false
-      matrix:
-        PYTHON_VERSION: ['3.8']
-    steps:
-     - name: Pull image
-       run: docker pull condaforge/mambaforge:latest
-     - name: Checkout branch
-       uses: actions/checkout@v2.3.4
-       with:
-         ref: ${{ github.head_ref }}
-     - name: Run CI inside of container
-       uses: ./.github/actions/docs
-       with:
-         python_version: ${{ matrix.PYTHON_VERSION }}
-     # - name: Publish Docs
-     #   run: cd docs/_build/html && gsutil -m cp -r * gs://***REMOVED***/${GITHUB_REPOSITORY}/${GITHUB_SHA}/
-     # - name: Publish Docs as latest
-     #   run: cd docs/_build/html && gsutil -m cp -r * gs://***REMOVED***/${GITHUB_REPOSITORY}/latest/
-     #   if: github.ref == 'refs/heads/master'
   linux-conda-build:
     name: "Linux - conda-build - Python ${{ matrix.CONDA_BUILD_YML }}"
     runs-on: ubuntu-latest
