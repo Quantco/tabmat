@@ -73,3 +73,10 @@ Alternatively, if you install `entr <http://eradman.com/entrproject/>`_, then yo
 
    cd docs
    ./dev
+
+Conda-forge packaging
+---------------------
+
+See [the feedstock on GitHub here](https://github.com/conda-forge/tabmat-feedstock).
+
+See the packaging and maintenance advice [here](https://conda-forge.org/docs/maintainer/adding_pkgs.html#the-staging-process) and [here](https://conda-forge.org/docs/maintainer/updating_pkgs.html).
