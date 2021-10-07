@@ -29,7 +29,7 @@ jobs:
           miniforge-version: 4.10.0-0
           use-mamba: true
           environment-file: environment-win.yml
-          activate-environment: quantcore.matrix
+          activate-environment: tabmat
       - name: Run Unit Tests
         shell: pwsh
         run: |

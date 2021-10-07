@@ -1,6 +1,6 @@
 # Efficient matrix representations for working with tabular data
 
-![CI](https://github.com/Quantco/quantcore.matrix/workflows/CI/badge.svg)
+![CI](https://github.com/Quantco/tabmat/workflows/CI/badge.svg)
 
 ## Installation
 For development, you should do an editable installation: 
@@ -11,18 +11,18 @@ conda config --add channels conda-forge
 # And install pre-commit
 conda install -y pre-commit
 
-git clone git@github.com:Quantco/quantcore.matrix.git
-cd quantcore.matrix
+git clone git@github.com:Quantco/tabmat.git
+cd tabmat
 
 # Set up our pre-commit hooks for black, mypy, isort and flake8.
 pre-commit install
 
-# Set up a conda environment with name "quantcore.matrix"
+# Set up a conda environment with name "tabmat"
 conda install mamba=0.2.12
 mamba env create
 
 # Install this package in editable mode. 
-conda activate quantcore.matrix
+conda activate tabmat
 pip install --no-use-pep517 --disable-pip-version-check -e .
 ```
 
@@ -66,8 +66,8 @@ Individual subclasses may support significantly more operations.
 
 ## Benchmarks
 
-[See here for detailed benchmarking.](https://docs.dev.***REMOVED***/***REMOVED***/Quantco/quantcore.matrix/latest/benchmarks.html)
+[See here for detailed benchmarking.](https://docs.dev.***REMOVED***/***REMOVED***/Quantco/tabmat/latest/benchmarks.html)
 
 ## API documentation
 
-[See here for detailed API documentation.](https://docs.dev.***REMOVED***/***REMOVED***/Quantco/quantcore.matrix/latest/api/modules.html)
+[See here for detailed API documentation.](https://docs.dev.***REMOVED***/***REMOVED***/Quantco/tabmat/latest/api/modules.html)

@@ -17,9 +17,9 @@ with open(path.join(here, "README.md")) as f:
 # TODO: this should be moved inside the compilation of the extension
 print("templating C source")
 templates = [
-    "src/quantcore/matrix/ext/dense_helpers-tmpl.cpp",
-    "src/quantcore/matrix/ext/sparse_helpers-tmpl.cpp",
-    "src/quantcore/matrix/ext/cat_split_helpers-tmpl.cpp",
+    "src/tabmat/ext/dense_helpers-tmpl.cpp",
+    "src/tabmat/ext/sparse_helpers-tmpl.cpp",
+    "src/tabmat/ext/cat_split_helpers-tmpl.cpp",
 ]
 
 for fn in templates:
@@ -80,37 +80,37 @@ extension_args = dict(
 )
 ext_modules = [
     Extension(
-        name="quantcore.matrix.ext.sparse",
-        sources=["src/quantcore/matrix/ext/sparse.pyx"],
+        name="tabmat.ext.sparse",
+        sources=["src/tabmat/ext/sparse.pyx"],
         libraries=allocator_libs,
         **extension_args,
     ),
     Extension(
-        name="quantcore.matrix.ext.dense",
-        sources=["src/quantcore/matrix/ext/dense.pyx"],
+        name="tabmat.ext.dense",
+        sources=["src/tabmat/ext/dense.pyx"],
         libraries=allocator_libs,
         **extension_args,
     ),
     Extension(
-        name="quantcore.matrix.ext.categorical",
-        sources=["src/quantcore/matrix/ext/categorical.pyx"],
+        name="tabmat.ext.categorical",
+        sources=["src/tabmat/ext/categorical.pyx"],
         **extension_args,
     ),
     Extension(
-        name="quantcore.matrix.ext.split",
-        sources=["src/quantcore/matrix/ext/split.pyx"],
+        name="tabmat.ext.split",
+        sources=["src/tabmat/ext/split.pyx"],
         **extension_args,
     ),
 ]
 
 setup(
-    name="quantcore.matrix",
+    name="tabmat",
     use_scm_version={"version_scheme": "post-release"},
     setup_requires=["setuptools_scm"],
     description="Matrix types useful for working with GLMs and tabular data.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/Quantco/quantcore.matrix",
+    url="https://github.com/Quantco/tabmat",
     author="QuantCo, Inc.",
     author_email="noreply@quantco.com",
     classifiers=[  # Optional

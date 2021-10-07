@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.abspath("."))
 
 # -- Project information -----------------------------------------------------
 
-project = "quantcore.matrix"
+project = "tabmat"
 copyright = "2021, QuantCo, Inc."
 author = "QuantCo, Inc."
 
