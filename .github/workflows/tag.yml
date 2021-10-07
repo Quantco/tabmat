@@ -34,7 +34,7 @@ jobs:
         run: git fetch --depth=1 origin +refs/tags/*:refs/tags/*
       - name: Fetch all
         run: git fetch --prune --unshallow
-      - name: Build and upload conda package
+      - name: Build conda package
         uses: ./.github/actions/deployment
         with:
           conda_build_yml: ${{ matrix.CONDA_BUILD_YML }}
@@ -69,7 +69,7 @@ jobs:
           miniforge-variant: Mambaforge
           miniforge-version: 4.10.0-0
           use-mamba: true
-      - name: Build and upload conda package
+      - name: Build conda package
         shell: bash -l {0}
         run: ./.github/workflows/macos-tag.sh
 
