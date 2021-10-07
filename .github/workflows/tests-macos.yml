@@ -26,6 +26,7 @@ jobs:
         with:
           miniforge-variant: Mambaforge
           miniforge-version: 4.10.0-0
+          channels: conda-forge
           use-mamba: true
       - name: Run Unit Tests
         shell: bash -l {0}
