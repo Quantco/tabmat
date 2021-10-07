@@ -2,7 +2,7 @@
 * @tbenthompson @MarcAntoineSchmidtQC
 
 # Core
-/src/quantcore/matrix/ @MarcAntoineSchmidtQC
+/src/tabmat/ @MarcAntoineSchmidtQC
 
 # Cython / C++
 *.pyx @tbenthompson

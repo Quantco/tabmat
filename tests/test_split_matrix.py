@@ -4,11 +4,11 @@ import numpy as np
 import pytest
 import scipy.sparse as sps
 
-import quantcore.matrix as mx
-from quantcore.matrix.constructor import _split_sparse_and_dense_parts
-from quantcore.matrix.dense_matrix import DenseMatrix
-from quantcore.matrix.ext.sparse import csr_dense_sandwich
-from quantcore.matrix.split_matrix import SplitMatrix
+import tabmat as mx
+from tabmat.constructor import _split_sparse_and_dense_parts
+from tabmat.dense_matrix import DenseMatrix
+from tabmat.ext.sparse import csr_dense_sandwich
+from tabmat.split_matrix import SplitMatrix
 
 N = 100
 

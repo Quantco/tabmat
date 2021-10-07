@@ -1,7 +1,7 @@
-Welcome to quantcore.matrix!
+Welcome to tabmat!
 ==========================================
 
-Please see the `project README <https://github.com/Quantco/quantcore.matrix>`_ for a broad overview of what ``quantcore.matrix`` is.
+Please see the `project README <https://github.com/Quantco/tabmat>`_ for a broad overview of what ``tabmat`` is.
 
 .. toctree::
    :maxdepth: 1

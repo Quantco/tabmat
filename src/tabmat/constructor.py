@@ -23,7 +23,7 @@ def from_pandas(
 ) -> MatrixBase:
     """
     Transform a pandas.DataFrame into an efficient SplitMatrix. For most users, this
-    will be the primary way to construct quantcore.matrix objects from their data.
+    will be the primary way to construct tabmat objects from their data.
 
     Parameters
     ----------

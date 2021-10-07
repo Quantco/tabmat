@@ -1,30 +1,30 @@
-quantcore.matrix package
+tabmat package
 ========================
 
-.. autofunction:: quantcore.matrix.from_pandas
+.. autofunction:: tabmat.from_pandas
 
-.. autofunction:: quantcore.matrix.from_csc
+.. autofunction:: tabmat.from_csc
 
-.. autoclass:: quantcore.matrix.MatrixBase
+.. autoclass:: tabmat.MatrixBase
    :members:
    :show-inheritance:
 
-.. autoclass:: quantcore.matrix.DenseMatrix
+.. autoclass:: tabmat.DenseMatrix
    :members:
    :show-inheritance:
 
-.. autoclass:: quantcore.matrix.SparseMatrix
+.. autoclass:: tabmat.SparseMatrix
    :members:
    :show-inheritance:
 
-.. autoclass:: quantcore.matrix.CategoricalMatrix
+.. autoclass:: tabmat.CategoricalMatrix
    :members:
    :show-inheritance:
 
-.. autoclass:: quantcore.matrix.SplitMatrix
+.. autoclass:: tabmat.SplitMatrix
    :members:
    :show-inheritance:
 
-.. autoclass:: quantcore.matrix.StandardizedMatrix
+.. autoclass:: tabmat.StandardizedMatrix
    :members:
    :show-inheritance:

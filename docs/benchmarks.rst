@@ -1,9 +1,9 @@
 Benchmarks
 ==========
     
-To generate the data to run all the benchmarks: ``python src/quantcore/matrix/benchmark/generate_matrices.py``. Then, to run all the benchmarks: ``python src/quantcore/matrix/benchmark/main.py``. To produce or update these figures, open ``src/quantcore/matrix/benchmark/visualize_benchmarks.py`` as a notebook via ``jupytext``. 
+To generate the data to run all the benchmarks: ``python src/tabmat/benchmark/generate_matrices.py``. Then, to run all the benchmarks: ``python src/tabmat/benchmark/main.py``. To produce or update these figures, open ``src/tabmat/benchmark/visualize_benchmarks.py`` as a notebook via ``jupytext``. 
 
-For more info on the benchmark CLI: ``python src/quantcore/matrix/benchmark/main.py --help``.
+For more info on the benchmark CLI: ``python src/tabmat/benchmark/main.py --help``.
 
 Performance
 ^^^^^^^^^^^
