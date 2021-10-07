@@ -1,5 +1,12 @@
 [build-system]
-requires = ['setuptools', 'setuptools-scm', 'wheel']
+requires = [
+  'setuptools', 
+  'setuptools-scm', 
+  'wheel',
+  'mako',
+  'numpy',
+  'Cython',
+]
 
 [tool.black]
 exclude = '''
@@ -20,3 +27,4 @@ line_length = 88
 known_first_party = "tabmat"
 skip_glob = '\.eggs/*,\.git/*,\.venv/*,build/*,dist/*'
 default_section = 'THIRDPARTY'
+
