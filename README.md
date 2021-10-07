@@ -3,27 +3,10 @@
 ![CI](https://github.com/Quantco/tabmat/workflows/CI/badge.svg)
 
 ## Installation
-For development, you should do an editable installation: 
 
-```bash
-# First, make sure you have conda-forge as your primary conda channel:
-conda config --add channels conda-forge
-# And install pre-commit
-conda install -y pre-commit
-
-git clone git@github.com:Quantco/tabmat.git
-cd tabmat
-
-# Set up our pre-commit hooks for black, mypy, isort and flake8.
-pre-commit install
-
-# Set up a conda environment with name "tabmat"
-conda install mamba=0.2.12
-mamba env create
-
-# Install this package in editable mode. 
-conda activate tabmat
-pip install --no-use-pep517 --disable-pip-version-check -e .
+Simply install via conda-forge!
+```
+conda install -c conda-forge tabmat
 ```
 
 <img src="docs/_static/headline.png" width="600px">
