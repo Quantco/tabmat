@@ -3,8 +3,8 @@ import pytest
 import scipy as sp
 import scipy.sparse
 
-from quantcore.matrix.ext.dense import dense_sandwich
-from quantcore.matrix.ext.sparse import sparse_sandwich
+from tabmat.ext.dense import dense_sandwich
+from tabmat.ext.sparse import sparse_sandwich
 
 
 @pytest.mark.parametrize("dtype", [np.float64, np.float32])

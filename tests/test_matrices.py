@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 from scipy import sparse as sps
 
-import quantcore.matrix as mx
+import tabmat as mx
 
 
 def base_array(order="F") -> np.ndarray:
@@ -334,7 +334,7 @@ def test_cross_sandwich(
     mat_i_, _ = process_mat_vec_subsets(mat_i, None, rows, L_cols, None)
     mat_j_, d_ = process_mat_vec_subsets(mat_j, d, rows, R_cols, rows)
     expected = mat_i_.T @ np.diag(d_) @ mat_j_
-    res = mat_i.cross_sandwich(mat_j, d, rows, L_cols, R_cols)
+    res = mat_i._cross_sandwich(mat_j, d, rows, L_cols, R_cols)
     np.testing.assert_almost_equal(res, expected)
 
 
@@ -432,7 +432,7 @@ def test_get_col_means(mat: mx.MatrixBase):
     weights = np.random.random(mat.shape[0])
     # TODO: make weights sum to 1 within functions
     weights /= weights.sum()
-    means = mat.get_col_means(weights)
+    means = mat._get_col_means(weights)
     expected = mat.A.T.dot(weights)
     np.testing.assert_allclose(means, expected)
 
@@ -442,7 +442,7 @@ def test_get_col_means_unweighted(mat: mx.MatrixBase):
     weights = np.ones(mat.shape[0])
     # TODO: make weights sum to 1 within functions
     weights /= weights.sum()
-    means = mat.get_col_means(weights)
+    means = mat._get_col_means(weights)
     expected = mat.A.mean(0)
     np.testing.assert_allclose(means, expected)
 
@@ -452,9 +452,9 @@ def test_get_col_stds(mat: mx.MatrixBase):
     weights = np.random.random(mat.shape[0])
     # TODO: make weights sum to 1
     weights /= weights.sum()
-    means = mat.get_col_means(weights)
+    means = mat._get_col_means(weights)
     expected = np.sqrt((mat.A ** 2).T.dot(weights) - means ** 2)
-    stds = mat.get_col_stds(weights, means)
+    stds = mat._get_col_stds(weights, means)
     np.testing.assert_allclose(stds, expected)
 
 
@@ -463,9 +463,9 @@ def test_get_col_stds_unweighted(mat: mx.MatrixBase):
     weights = np.ones(mat.shape[0])
     # TODO: make weights sum to 1
     weights /= weights.sum()
-    means = mat.get_col_means(weights)
+    means = mat._get_col_means(weights)
     expected = mat.A.std(0)
-    stds = mat.get_col_stds(weights, means)
+    stds = mat._get_col_stds(weights, means)
     np.testing.assert_allclose(stds, expected)
 
 

@@ -1,9 +1,9 @@
 from .categorical_matrix import CategoricalMatrix
-from .constructor import from_pandas
+from .constructor import from_csc, from_pandas
 from .dense_matrix import DenseMatrix
-from .matrix_base import MatrixBase, one_over_var_inf_to_val
+from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
-from .split_matrix import SplitMatrix, csc_to_split
+from .split_matrix import SplitMatrix
 from .standardized_mat import StandardizedMatrix
 
 __all__ = [
@@ -13,7 +13,6 @@ __all__ = [
     "SparseMatrix",
     "SplitMatrix",
     "CategoricalMatrix",
-    "csc_to_split",
-    "one_over_var_inf_to_val",
+    "from_csc",
     "from_pandas",
 ]

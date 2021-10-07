@@ -1,27 +1,35 @@
-name: quantcore.matrix
+name: tabmat
 channels:
   - conda-forge
   - nodefaults
 dependencies:
-  - black
-  - c-compiler
-  - cxx-compiler
-  - cython
-  - flake8
   - libblas>=0=*mkl
-  - make
-  - mako
-  - matplotlib-base
-  - mkl-include
-  - numpydoc
   - pandas
+
+  # development tools
+  - black
+  - flake8
+  - numpydoc
   - pip
   - pre-commit
   - pytest
   - pytest-xdist
-  - seaborn-base
   - setuptools_scm
+
+  # build tools
+  - c-compiler
+  - cxx-compiler
+  - cython
+  - make
+  - mako
+  - mkl-include
+  - xsimd
+
+  # documentation dev
+  - jupyterlab
+  - jupytext
+  - matplotlib-base
+  - seaborn-base
   - sphinx
   - sphinx_rtd_theme
   - sphinxcontrib-apidoc
-  - xsimd

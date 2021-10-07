@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from quantcore.matrix.categorical_matrix import CategoricalMatrix
+from tabmat.categorical_matrix import CategoricalMatrix
 
 
 @pytest.fixture
