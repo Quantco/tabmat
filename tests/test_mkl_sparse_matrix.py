@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 from scipy import sparse as sps
 
-from quantcore.matrix import SparseMatrix
+from tabmat import SparseMatrix
 
 
 @pytest.fixture

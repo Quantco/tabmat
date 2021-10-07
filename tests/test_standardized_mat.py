@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import sparse as sps
 
-import quantcore.matrix as mx
+import tabmat as mx
 
 # There's a lot more testing happening in the generic setting in
 # test_matrices.py

@@ -35,37 +35,6 @@ def as_mx(a: Any):
         raise ValueError(f"Cannot convert type {type(a)} to Matrix.")
 
 
-def split_sparse_and_dense_parts(
-    arg1: sps.csc_matrix, threshold: float = 0.1
-) -> Tuple[DenseMatrix, SparseMatrix, np.ndarray, np.ndarray]:
-    """
-    Split matrix.
-
-    Return the dense and sparse parts of a matrix and the corresponding indices
-    for each at the provided threshhold.
-    """
-    if not isinstance(arg1, sps.csc_matrix):
-        raise TypeError(
-            f"X must be of type scipy.sparse.csc_matrix or matrix.SparseMatrix,"
-            f"not {type(arg1)}"
-        )
-    if not 0 <= threshold <= 1:
-        raise ValueError("Threshold must be between 0 and 1.")
-    densities = np.diff(arg1.indptr) / arg1.shape[0]
-    dense_indices = np.where(densities > threshold)[0]
-    sparse_indices = np.setdiff1d(np.arange(densities.shape[0]), dense_indices)
-
-    X_dense_F = DenseMatrix(np.asfortranarray(arg1[:, dense_indices].toarray()))
-    X_sparse = SparseMatrix(arg1[:, sparse_indices])
-    return X_dense_F, X_sparse, dense_indices, sparse_indices
-
-
-def csc_to_split(mat: sps.csc_matrix, threshold=0.1):
-    """Convert a csc matrix into a split matrix at the provided threshold."""
-    dense, sparse, dense_idx, sparse_idx = split_sparse_and_dense_parts(mat, threshold)
-    return SplitMatrix([dense, sparse], [dense_idx, sparse_idx])
-
-
 def _prepare_out_array(out: Optional[np.ndarray], out_shape, out_dtype):
     if out is None:
         out = np.zeros(out_shape, out_dtype)
@@ -91,7 +60,7 @@ def _combine_matrices(matrices, indices):
     """
     Combine multiple SparseMatrix and DenseMatrix objects into a single object of each type.
 
-    `matrices` is  and `indices` marks which columns they correspond to.
+    ``matrices`` is  and ``indices`` marks which columns they correspond to.
     Categorical matrices remain unmodified by this function since categorical
     matrices cannot be combined (each categorical matrix represents a single category).
 
@@ -133,11 +102,29 @@ def _combine_matrices(matrices, indices):
 
 class SplitMatrix(MatrixBase):
     """
-    A class for matrices with both sparse and dense parts.
+    A class for matrices with sparse, dense and categorical parts.
 
-    For real-world data that contains some dense columns and some sparse columns,
-    the split representation allows for a significant speedup in matrix multiplications
-    compared to representations that are entirely dense or entirely sparse.
+    For real-world tabular data, it's common for the same dataset to contain a mix
+    of columns that are naturally dense, naturally sparse and naturally categorical.
+    Representing each of these sets of columns in the format that is most natural
+    allows for a significant speedup in matrix multiplications compared to
+    representations that are entirely dense or entirely sparse.
+
+    Initialize a SplitMatrix directly with a list of ``matrices`` and a
+    list of column ``indices`` for each matrix.
+    Most of the time, it will
+    be best to use :func:`tabmat.from_pandas` or :func:`tabmat.from_csc`
+    to initialize a ``SplitMatrix``.
+
+    Parameters
+    ----------
+    matrices:
+        The sub-matrices composing the columns of this SplitMatrix.
+
+    indices:
+        If ``indices`` is not None, then for each matrix passed in
+        ``matrices``, ``indices`` must contain the set of columns which that matrix
+        covers.
     """
 
     def __init__(
@@ -308,7 +295,7 @@ class SplitMatrix(MatrixBase):
             for j in range(i + 1, len(self.indices)):
                 idx_j = subset_cols_indices[j]
                 mat_j = self.matrices[j]
-                res = mat_i.cross_sandwich(
+                res = mat_i._cross_sandwich(
                     mat_j, d, rows, subset_cols[i], subset_cols[j]
                 )
 
@@ -317,18 +304,18 @@ class SplitMatrix(MatrixBase):
 
         return out
 
-    def get_col_means(self, weights: np.ndarray) -> np.ndarray:
+    def _get_col_means(self, weights: np.ndarray) -> np.ndarray:
         """Get means of columns."""
         col_means = np.empty(self.shape[1], dtype=self.dtype)
         for idx, mat in zip(self.indices, self.matrices):
-            col_means[idx] = mat.get_col_means(weights)
+            col_means[idx] = mat._get_col_means(weights)
         return col_means
 
-    def get_col_stds(self, weights: np.ndarray, col_means: np.ndarray) -> np.ndarray:
+    def _get_col_stds(self, weights: np.ndarray, col_means: np.ndarray) -> np.ndarray:
         """Get standard deviations of columns."""
         col_stds = np.empty(self.shape[1], dtype=self.dtype)
         for idx, mat in zip(self.indices, self.matrices):
-            col_stds[idx] = mat.get_col_stds(weights, col_means[idx])
+            col_stds[idx] = mat._get_col_stds(weights, col_means[idx])
 
         return col_stds
 
@@ -385,11 +372,13 @@ class SplitMatrix(MatrixBase):
         """
         Perform: self[rows, cols].T @ vec.
 
-        self.transpose_matvec(v, rows, cols) = self[rows, cols].T @ v[rows]
-        self.transpose_matvec(v, rows, cols)[i]
-            = sum_{j in rows} self[j, cols[i]] v[j]
-            = sum_{j in rows} sum_{mat in self.matrices} 1(cols[i] in mat)
-                                                        self[j, cols[i]] v[j]
+        ::
+
+            self.transpose_matvec(v, rows, cols) = self[rows, cols].T @ v[rows]
+            self.transpose_matvec(v, rows, cols)[i]
+                = sum_{j in rows} self[j, cols[i]] v[j]
+                = sum_{j in rows} sum_{mat in self.matrices} 1(cols[i] in mat)
+                                                            self[j, cols[i]] v[j]
         """
         check_transpose_matvec_out_shape(self, out)
 

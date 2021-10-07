@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import quantcore.matrix as mx
+import tabmat as mx
 
 
 @pytest.fixture()

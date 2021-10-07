@@ -1,6 +1,6 @@
 # Efficient matrix representations for working with tabular data
 
-![CI](https://github.com/Quantco/quantcore.matrix/workflows/CI/badge.svg)
+![CI](https://github.com/Quantco/tabmat/workflows/CI/badge.svg)
 
 ## Installation
 For development, you should do an editable installation: 
@@ -11,240 +11,63 @@ conda config --add channels conda-forge
 # And install pre-commit
 conda install -y pre-commit
 
-git clone git@github.com:Quantco/quantcore.matrix.git
-cd quantcore.matrix
+git clone git@github.com:Quantco/tabmat.git
+cd tabmat
 
 # Set up our pre-commit hooks for black, mypy, isort and flake8.
 pre-commit install
 
-# Set up the ***REMOVED*** conda channel. For the password, substitute in the correct password. You should be able to get the password by searching around on slack
-conda config --system --prepend channels ***REMOVED***
-conda config --system --set custom_channels.***REMOVED*** https://***REMOVED***:password@conda.***REMOVED***
-  
-# Set up a conda environment with name "quantcore.matrix"
+# Set up a conda environment with name "tabmat"
 conda install mamba=0.2.12
 mamba env create
 
 # Install this package in editable mode. 
-conda activate quantcore.matrix
+conda activate tabmat
 pip install --no-use-pep517 --disable-pip-version-check -e .
 ```
 
+<img src="docs/_static/headline.png" width="600px">
+
 ## Use case
-Data used in economics, actuarial science, and many other fields is often tabular,
-containing rows and columns. Further properties are also common:
-- Tabular data often contains categorical data, 
-often represented after processing as many columns of indicator values
-created by "one-hot encoding."
-- It often contains a mix of dense columns and sparse columns, 
-perhaps due to one-hot encoding.
-- It often is very sparse.
 
-High-performance statistical applications often require fast computation of certain
-operations, such as
-- Operating on one column at a time
-- Computing "sandwich products" of the data, `transpose(X) @ diag(d) @ X`. A sandwich
-product shows up in the solution to Weighted Least Squares, as well as in the Hessian
-of the likelihood in Generalized Linear Models such as Poisson regression.
-- Matrix-vector products
+TL;DR: We provide matrix classes for efficiently building statistical algorithms with data that is partially dense, partially sparse and partially categorical. 
 
-Additionally, it is often desirable to normalize predictors for greater optimizer 
-efficiency and numerical stability in
-Coordinate Descent and in other machine learning algorithms.
+Data used in economics, actuarial science, and many other fields is often tabular, containing rows and columns. Further common properties are also common:
+- It often is **very sparse**.
+- It often contains **a mix of dense and sparse** columns.
+- It often contains **categorical data**, processed into many columns of indicator values created by "one-hot encoding."
+
+High-performance statistical applications often require fast computation of certain operations, such as
+- Computing **sandwich products** of the data, ``transpose(X) @ diag(d) @ X``. A sandwich product shows up in the solution to weighted least squares, as well as in the Hessian of the likelihood in generalized linear models such as Poisson regression.
+- **Matrix-vector products**, possibly on only a subset of the rows or columns. For example, when limiting computation to an "active set" in a L1-penalized coordinate descent implementation, we may only need to compute a matrix-vector product on a small subset of the columns.
+- Computing all operations on **standardized predictors** which have mean zero and standard deviation one. This helps with numerical stability and optimizer efficiency in a wide range of machine learning algorithms.
 
 ## This library and its design
 
-We designed this library with these use cases in mind. We built this library first for
-estimating Generalized Linear Models, but expect it will be useful in a variety of
-econometric and statistical use cases. This library was borne out of our need for 
-speed, and its unified API is motivated by the annoyance by having to write repeated
-checks for which type of matrix-like object you are operating on.
+We designed this library with the above use cases in mind. We built this library first for estimating generalized linear models, but expect it will be useful in a variety of econometric and statistical use cases. This library was borne out of our need for speed, and its unified API is motivated by the desire to work with a unified matrix API internal to our statistical algorithms.
 
 Design principles:
 - Speed and memory efficiency are paramount.
-- You don't need to sacrifice functionality by using this library: DenseMatrix 
-and SparseMatrix subclass Numpy arrays and Scipy csc sparse matrices, respectively, 
-and inherit their behavior wherever it is not improved on.
-- As much as possible, syntax follows Numpy syntax, and dimension-reducing
-  operations (like `sum`) return Numpy arrays, following Numpy dimensions
-  about the dimensions of results. The aim is to make these classes
-  as close as possible to being drop-in replacements for numpy ndarray.
-  This is not always possible, however, due to the differing APIs of numpy ndarray
-  and scipy sparse.
+- You don't need to sacrifice functionality by using this library: `DenseMatrix` and `SparseMatrix` subclass `np.ndarray` and `scipy.sparse.csc_matrix` respectively, and inherit behavior from those classes wherever it is not improved on.
+- As much as possible, syntax follows NumPy syntax, and dimension-reducing operations (like `sum`) return NumPy arrays, following NumPy dimensions about the dimensions of results. The aim is to make these classes as close as possible to being drop-in replacements for ``numpy.ndarray``.  This is not always possible, however, due to the differing APIs of ``numpy.ndarray`` and ``scipy.sparse``.
 - Other operations, such as `toarray`, mimic Scipy sparse syntax.
-- All matrix classes support matrix products, sandwich products, and `getcol`.
+- All matrix classes support matrix-vector products, sandwich products, and `getcol`.
+
 Individual subclasses may support significantly more operations.
 
 ## Matrix types
-- `DenseMatrix` represents dense matrices, subclassing numpy nparray. 
-    It additionally supports methods `getcol`, `toarray`, `sandwich`, `standardize`, 
-    and `unstandardize`.
-- `SparseMatrix` represents column-major sparse data, subclassing 
-    `scipy.sparse.csc_matrix`. It additionally supports methods `sandwich`
-    and `standardize`, and it's `dot` method (e.g. `@`) calls MKL's sparse dot product
-    in the case of matrix-vector products, which is faster.
-- `ColScaledSpMat` represents the sum of an n x k sparse matrix and a matrix
-    of the form `ones((n, 1)) x shift`, where `shift` is `1 x k`. In other words,
-    a matrix with a column-specific shifter applied. Such a matrix is dense, but
-    `ColScaledSpMat` represents the sparse matrix and `shift` separately, allowing for
-    efficient storage and computations.
-- `SplitMatrix` represents matrices with both sparse and dense parts, allowing for
-    a significant speedup in matrix multiplications.
-    
-## Benchmarks
-To generate the data to run all benchmarks, run 
-`python src/quantcore/matrix/benchmark/generate_matrices.py`.
+- `DenseMatrix` represents dense matrices, subclassing numpy nparray.  It additionally supports methods `getcol`, `toarray`, `sandwich`, `standardize`, and `unstandardize`.
+- `SparseMatrix` represents column-major sparse data, subclassing `scipy.sparse.csc_matrix`. It additionally supports methods `sandwich` and `standardize`.
+- `CategoricalMatrix` represents one-hot encoded categorical matrices. Because all the non-zeros in these matrices are ones and because each row has only one non-zero, the data can be represented and multiplied much more efficiently than a generic sparse matrix.
+- `SplitMatrix` represents matrices with both dense, sparse and categorical parts, allowing for a significant speedup in matrix multiplications.
+- `StandardizedMatrix` efficiently and sparsely represents a matrix that has had its column normalized to have mean zero and variance one. Even if the underlying matrix is sparse, such a normalized matrix will be dense. However, by storing the scaling and shifting factors separately, `StandardizedMatrix` retains the original matrix sparsity. 
 
-For more info on the benchmark CLI: 
-`python src/quantcore/matrix/benchmark/main.py --help`.
-
-## Categorical data
-One-hot encoding a feature creates a sparse matrix that has some special properties: 
-All of its nonzero elements are ones, and since each element starts a new row, it's `indptr`,
-which indicates where rows start and end, will increment by 1 every time.
-
-### Storage
-#### csr
-```
->>> import numpy as np
->>> from scipy import sparse
->>> import pandas as pd
-
->>> arr = [1, 0, 1]
->>> dummies = pd.get_dummies(arr)
->>> csr = sparse.csr_matrix(dummies.values)
->>> csr.data
-array([1, 1, 1], dtype=uint8)
->>> csr.indices
-array([1, 0, 1], dtype=int32)
->>> csr.indptr
-array([0, 1, 2, 3], dtype=int32)
-```
-
-The size of this matrix, if the original array is of length `n`, is `n` bytes for the 
-data (stored as quarter-precision integers), `4n` for `indices`, and `4(n+1)` for 
-`indptr`. However, if we know the matrix results from one-hot encoding, we only need to
-store the `indices`, so we can reduce memory usage to slightly less than 4/9 of the 
-original.
-
-#### csc storage
-The case is not quite so simple for csc (column-major) sparse matrices.
-However, we still do not need to store the data.
-
-```
->>> import numpy as np
->>> from scipy import sparse
->>> import pandas as pd
-
->>> arr = [1, 0, 1]
->>> dummies = pd.get_dummies(arr)
->>> csc = sparse.csc_matrix(dummies.values)
->>> csc.data
-array([1, 1, 1], dtype=uint8)
->>> csc.indices
-array([1, 0, 2], dtype=int32)
->>> csc.indptr
-array([0, 1, 3], dtype=int32)
-```
-
-### Computations
-
-#### Matrix multiplication
-
-A general sparse CSR matrix-vector products in psedocode,
-modeled on [scipy sparse](https://github.com/scipy/scipy/blob/1dc960a33b000b95b1e399582c154efc0360a576/scipy/sparse/sparsetools/csr.h#L1120):
-```
->>> def matvec(mat, vec):
->>>     n_row = mat.shape[0]
->>>     res = np.zeros(n_row)
->>>     for i in range(n_row):
->>>         for j in range(mat.indptr[i], mat.indptr[i+1]):
->>>             res[i] += mat.data[j] * vec[mat.indices[j]]
->>>     return res
-```
-With a CSR categorical matrix, `data` is all 1 and `j` always equals `i`, so we can
-simplify this function to be
-```
->>> def matvec(mat, vec):
->>>     n_row = mat.shape[0]
->>>     res = np.zeros(n_row)
->>>     for i in range(n_row):
->>>         res[i] = vec[mat.indices[j]]
->>>     return res
-```
-The original function involved `6N` lookups, `N` multiplications, and `N` additions, 
-while the new function involves only `3N` lookups. It thus has the potential to be
-significantly faster.
-#### sandwich: X.T @ diag(d) @ X
-
-![Narrow data set](images/narrow_data_sandwich.png)
-![Medium-width data set](images/intermediate_data_sandwich.png)
 ![Wide data set](images/wide_data_sandwich.png)
 
-Sandwich products can be computed very efficiently.
-```
-sandwich(X, d)[i, j] = sum_k X[k, i] d[k] X[k, j]
-```
-If `i != j`, `sum_k X[k, i] d[k] X[k, j]` = 0. In other words, since
- categorical matrices have only one nonzero per row, the sandwich product is diagonal.
- If `i = j`,
-```
-sandwich(X, d)[i, j] = sum_k X[k, i] d[k] X[k, i]
-= sum_k X[k, i] d[k]
-= d[X[:, i]].sum()
-= (X.T @ d)[i]
-```
+## Benchmarks
 
-So `sandwich(X, d) = diag(X.T @ d)`. This will be especially efficient if `X` is 
-available in CSC format. Pseudocode for this sandwich product is
-```
-res = np.zeros(n_cols)
-for i in range(n_cols):
-    for j in range(X.indptr[i], X.indptr[i + 1]):
-        val += d[indices[j]]
-return np.diag(res)
-```
+[See here for detailed benchmarking.](https://docs.dev.***REMOVED***/***REMOVED***/Quantco/tabmat/latest/benchmarks.html)
 
-This function is ext/categorical/sandwich_categorical
+## API documentation
 
-#### Cross-sandwich: X.T @ diag(d) @ Y, Y categorical
-If X and Y are different categorical matrices in csr format,
-X.T @ diag(d) @ Y is given by
-```
-res = np.zeros((X.shape[1], Y.shape[1]))
-for k in range(len(d)):
-    res[X.indices[k], Y.indices[k]] += d[k]
-```
-So the result will be sparse with at most N elements.
-This function is given by `ext/split/_sandwich_cat_cat`.
-
-#### Cross-sandwich: X.T @ diag(d) @ Y, Y dense
-```
-res = np.zeros((X.shape[1], Y.shape[1]))
-for k in range(n_rows):
-    for j in range(Y.shape[1]):
-        res[X.indices[k], j] += d[k] * Y[k, j]
-```
-This is `ext/split/sandwich_cat_dense`
-
-
-## Performance
-Dense matrix, 100k x 1k:
-
-![dense_bm](src/quantcore/matrix/benchmark/dense_times.png)
-
-One-hot encoded categorical variable, 1M x 100k:
-
-![cat_bm](src/quantcore/matrix/benchmark/one_cat_times.png)
-
-Sparse matrix, 1M x 1k:
-
-![sparse_bm](src/quantcore/matrix/benchmark/sparse_times.png)
-
-Two categorical matrices, 1M x 2k:
-
-![two_cat_bm](src/quantcore/matrix/benchmark/two_cat_times.png)
-
-Two categorical matrices plus a dense matrix, 1M x 2k+:
-
-![two_cat_plus_dense_bm](src/quantcore/matrix/benchmark/dense_cat_times.png)
+[See here for detailed API documentation.](https://docs.dev.***REMOVED***/***REMOVED***/Quantco/tabmat/latest/api/modules.html)

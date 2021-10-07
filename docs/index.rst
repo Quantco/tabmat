@@ -1,18 +1,14 @@
-Welcome to quantcore.matrix!
+Welcome to tabmat!
 ==========================================
 
+Please see the `project README <https://github.com/Quantco/tabmat>`_ for a broad overview of what ``tabmat`` is.
+
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
    :caption: Contents:
 
-   API Reference <api/modules>
+   Benchmarks <benchmarks>
+   API Reference <api>
    Changelog <changelog>
 
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+:ref:`genindex`
