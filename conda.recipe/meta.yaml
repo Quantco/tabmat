@@ -1,19 +1,18 @@
-{% set build_number = "0" %}
-{% set build_string = "py{}h{}_{}_{}".format(CONDA_PY, PKG_HASH, build_number, GLM_ARCHITECTURE) %}
+{% set name = "tabmat" %}
+{% set version = "3.0.0" %}
 
 package:
-  name: tabmat
-  version: {{ environ.get('GIT_DESCRIBE_TAG', '').lstrip('v') }}{% if environ.get('GIT_DESCRIBE_NUMBER', 0)|int != 0 %}.post{{ GIT_DESCRIBE_NUMBER }}+{{ GIT_DESCRIBE_HASH }}{% endif %}
+  name: {{ name|lower }} 
+  version: {{ version }}
 
 source:
-  git_url: ../
+  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
+  sha256: ad7cb409f38370b452f336672327813d2302f81e6acad807a99ad8e340beeb35
 
 
 build:
-  number: {{ build_number }}
-  string: "{{ build_string }}"
-  track_features:
-    {{ "- tabmat-{}".format(GLM_ARCHITECTURE) if GLM_ARCHITECTURE != "default" else "" }}
+  number: 0
+  script: {{ PYTHON }} -m pip install . -vv
 
 
 requirements:
@@ -25,6 +24,7 @@ requirements:
     - {{ compiler("c") }}
     - {{ compiler("cxx") }}
     - llvm-openmp  # [osx]
+    - libgomp  # [linux]
   host:
     - python
     - cython
@@ -55,4 +55,19 @@ test:
 
 about:
   home: https://github.com/Quantco/tabmat
-  license: Proprietary
+  license: BSD-3-Clause
+  license_family: BSD
+  license_file: LICENSE
+  summary: 'Efficient matrix representations for working with tabular data '
+  description: |
+    tabmat provides efficient tools for representing tabular data as a mix of
+    dense, sparse and categorical subcomponents, resulting in 100x faster 
+    performance on some machine learning problems!
+  doc_url: https://tabmat.readthedocs.io/
+  dev_url: https://github.com/Quantco/tabmat
+
+extra:
+  recipe-maintainers:
+    - MarcAntoineSchmidtQC
+    - xhochy
+    - tbenthompson
