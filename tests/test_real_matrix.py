@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-import tabmat as mx
+import tabmat as tm
 
 
 @pytest.fixture()

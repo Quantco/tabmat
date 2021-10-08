@@ -6,7 +6,7 @@ import pandas as pd
 import pytest
 from scipy import sparse as sps
 
-import tabmat as mx
+import tabmat as tm
 
 
 def base_array(order="F") -> np.ndarray:
