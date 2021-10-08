@@ -13,13 +13,13 @@ def make_dense_matrices(n_rows: int, n_cols: int) -> dict:
     dense_matrices = {"numpy_C": np.random.random((n_rows, n_cols))}
     dense_matrices["numpy_F"] = dense_matrices["numpy_C"].copy(order="F")
     assert dense_matrices["numpy_F"].flags["F_CONTIGUOUS"]
-    dense_matrices["tabmat"] = mx.DenseMatrix(dense_matrices["numpy_C"])
+    dense_matrices["tabmat"] = tm.DenseMatrix(dense_matrices["numpy_C"])
     return dense_matrices
 
 
-def make_cat_matrix(n_rows: int, n_cats: int) -> mx.CategoricalMatrix:
+def make_cat_matrix(n_rows: int, n_cats: int) -> tm.CategoricalMatrix:
     """Make categorical matrix for benchmarks."""
-    mat = mx.CategoricalMatrix(np.random.choice(np.arange(n_cats, dtype=int), n_rows))
+    mat = tm.CategoricalMatrix(np.random.choice(np.arange(n_cats, dtype=int), n_rows))
     return mat
 
 
@@ -37,7 +37,7 @@ def make_cat_matrix_all_formats(n_rows: int, n_cats: int) -> dict:
 def make_cat_matrices(n_rows: int, n_cat_cols_1: int, n_cat_cols_2: int) -> dict:
     """Make two categorical matrices for benchmarks."""
     two_cat_matrices = {
-        "tabmat": mx.SplitMatrix(
+        "tabmat": tm.SplitMatrix(
             [
                 make_cat_matrix(n_rows, n_cat_cols_1),
                 make_cat_matrix(n_rows, n_cat_cols_2),
@@ -63,7 +63,7 @@ def make_dense_cat_matrices(
         make_cat_matrix(n_rows, n_cats_2),
     ]
     dense_cat_matrices = {
-        "tabmat": mx.SplitMatrix(two_cat_matrices + [mx.DenseMatrix(dense_block)]),
+        "tabmat": tm.SplitMatrix(two_cat_matrices + [tm.DenseMatrix(dense_block)]),
         "scipy.sparse csr": sps.hstack(
             [elt.tocsr() for elt in two_cat_matrices] + [sps.csr_matrix(dense_block)]
         ),
@@ -80,7 +80,7 @@ def make_sparse_matrices(n_rows: int, n_cols: int) -> dict:
     matrices = {
         "scipy.sparse csc": mat,
         "scipy.sparse csr": mat.tocsr(),
-        "tabmat": mx.SparseMatrix(mat),
+        "tabmat": tm.SparseMatrix(mat),
     }
     return matrices
 
