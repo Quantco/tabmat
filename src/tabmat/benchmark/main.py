@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from scipy import sparse as sps
 
-import tabmat as mx
+import tabmat as tm
 from tabmat.benchmark.generate_matrices import (
     get_all_benchmark_matrices,
     get_comma_sep_names,

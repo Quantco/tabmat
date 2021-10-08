@@ -5,7 +5,7 @@ import click
 import numpy as np
 from scipy import sparse as sps
 
-import tabmat as mx
+import tabmat as tm
 
 
 def make_dense_matrices(n_rows: int, n_cols: int) -> dict:
