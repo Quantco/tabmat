@@ -1,13 +1,12 @@
 {% set name = "tabmat" %}
-{% set version = "3.0.0" %}
+{% set version = "3.0.1" %}
 
 package:
   name: {{ name|lower }} 
   version: {{ version }}
 
 source:
-  url: https://pypi.io/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
-  sha256: ad7cb409f38370b452f336672327813d2302f81e6acad807a99ad8e340beeb35
+  git_url: ../
 
 
 build:
