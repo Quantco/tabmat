@@ -49,8 +49,8 @@ Individual subclasses may support significantly more operations.
 
 ## Benchmarks
 
-[See here for detailed benchmarking.](https://docs.dev.***REMOVED***/***REMOVED***/Quantco/tabmat/latest/benchmarks.html)
+[See here for detailed benchmarking.](https://tabmat.readthedocs.io/en/latest/benchmarks.html)
 
 ## API documentation
 
-[See here for detailed API documentation.](https://docs.dev.***REMOVED***/***REMOVED***/Quantco/tabmat/latest/api/modules.html)
+[See here for detailed API documentation.](https://tabmat.readthedocs.io/en/latest/api.html)
