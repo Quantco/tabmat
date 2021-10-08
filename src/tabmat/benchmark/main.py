@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 from scipy import sparse as sps
 
-import tabmat as mx
+import tabmat as tm
 from tabmat.benchmark.generate_matrices import (
     get_all_benchmark_matrices,
     get_comma_sep_names,
@@ -21,8 +21,8 @@ from tabmat.benchmark.generate_matrices import (
 from tabmat.benchmark.memory_tools import track_peak_mem
 
 
-def _sandwich(mat: Union[mx.MatrixBase, np.ndarray, sps.csc_matrix], vec: np.ndarray):
-    if isinstance(mat, (mx.MatrixBase, mx.StandardizedMatrix)):
+def _sandwich(mat: Union[tm.MatrixBase, np.ndarray, sps.csc_matrix], vec: np.ndarray):
+    if isinstance(mat, (tm.MatrixBase, tm.StandardizedMatrix)):
         mat.sandwich(vec)
     elif isinstance(mat, np.ndarray):
         (mat * vec[:, None]).T @ mat
@@ -32,16 +32,16 @@ def _sandwich(mat: Union[mx.MatrixBase, np.ndarray, sps.csc_matrix], vec: np.nda
 
 
 def _transpose_matvec(
-    mat: Union[mx.MatrixBase, np.ndarray, sps.csc_matrix], vec: np.ndarray
+    mat: Union[tm.MatrixBase, np.ndarray, sps.csc_matrix], vec: np.ndarray
 ):
-    if isinstance(mat, (mx.MatrixBase, mx.StandardizedMatrix)):
+    if isinstance(mat, (tm.MatrixBase, tm.StandardizedMatrix)):
         return mat.transpose_matvec(vec)
     else:
         return mat.T.dot(vec)
 
 
 def _matvec(mat, vec: np.ndarray) -> np.ndarray:
-    if isinstance(mat, (mx.MatrixBase, mx.StandardizedMatrix)):
+    if isinstance(mat, (tm.MatrixBase, tm.StandardizedMatrix)):
         return mat.matvec(vec)
     else:
         return mat.dot(vec)
@@ -69,7 +69,7 @@ def get_op_names():
 
 def run_one_benchmark_set(
     matrices: Dict[
-        str, Union[mx.MatrixBase, mx.StandardizedMatrix, np.ndarray, sps.spmatrix]
+        str, Union[tm.MatrixBase, tm.StandardizedMatrix, np.ndarray, sps.spmatrix]
     ],
     include_baseline: bool,
     name: str,
@@ -87,8 +87,8 @@ def run_one_benchmark_set(
     if standardized:
 
         def _to_standardized_mat(mat):
-            if isinstance(mat, mx.MatrixBase):
-                return mx.StandardizedMatrix(mat, np.zeros(mat.shape[1]))
+            if isinstance(mat, tm.MatrixBase):
+                return tm.StandardizedMatrix(mat, np.zeros(mat.shape[1]))
             print(
                 f"""For benchmarking a {type(mat)}, the baseline matrix will not
                 be standardized."""
@@ -363,11 +363,13 @@ def run_all_benchmarks(
                 True,
             )
 
-        full_bench = pd.merge(
-            memory_bench[["operation", "storage", "memory"]],
-            time_bench[["operation", "storage", "time", "design"]],
-            on=["operation", "storage"],
-        )
+            full_bench = pd.merge(
+                memory_bench[["operation", "storage", "memory"]],
+                time_bench[["operation", "storage", "time", "design"]],
+                on=["operation", "storage"],
+            )
+        else:
+            full_bench = time_bench[["operation", "storage", "time", "design"]]
         print(full_bench)
 
         full_bench.to_csv(f"benchmark/data/{name}_bench.csv", index=False)

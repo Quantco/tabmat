@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import scipy.sparse as sps
 
-import tabmat as mx
+import tabmat as tm
 from tabmat.constructor import _split_sparse_and_dense_parts
 from tabmat.dense_matrix import DenseMatrix
 from tabmat.ext.sparse import csr_dense_sandwich
@@ -47,7 +47,7 @@ def test_csc_to_split(X: np.ndarray):
 def split_mat() -> SplitMatrix:
     X = make_X()
     threshold = 0.1
-    cat_mat = mx.CategoricalMatrix(np.random.choice(range(4), X.shape[0]))
+    cat_mat = tm.CategoricalMatrix(np.random.choice(range(4), X.shape[0]))
     dense, sparse, dense_ix, sparse_ix = _split_sparse_and_dense_parts(
         sps.csc_matrix(X), threshold
     )
@@ -60,31 +60,31 @@ def split_mat() -> SplitMatrix:
 
 
 def get_split_with_cat_components() -> List[
-    Union[mx.SparseMatrix, mx.DenseMatrix, mx.CategoricalMatrix]
+    Union[tm.SparseMatrix, tm.DenseMatrix, tm.CategoricalMatrix]
 ]:
     n_rows = 10
     np.random.seed(0)
-    dense_1 = mx.DenseMatrix(np.random.random((n_rows, 3)))
-    sparse_1 = mx.SparseMatrix(sps.random(n_rows, 3).tocsc())
-    cat = mx.CategoricalMatrix(np.random.choice(range(3), n_rows))
-    dense_2 = mx.DenseMatrix(np.random.random((n_rows, 3)))
-    sparse_2 = mx.SparseMatrix(sps.random(n_rows, 3, density=0.5).tocsc())
-    cat_2 = mx.CategoricalMatrix(np.random.choice(range(3), n_rows))
+    dense_1 = tm.DenseMatrix(np.random.random((n_rows, 3)))
+    sparse_1 = tm.SparseMatrix(sps.random(n_rows, 3).tocsc())
+    cat = tm.CategoricalMatrix(np.random.choice(range(3), n_rows))
+    dense_2 = tm.DenseMatrix(np.random.random((n_rows, 3)))
+    sparse_2 = tm.SparseMatrix(sps.random(n_rows, 3, density=0.5).tocsc())
+    cat_2 = tm.CategoricalMatrix(np.random.choice(range(3), n_rows))
     return [dense_1, sparse_1, cat, dense_2, sparse_2, cat_2]
 
 
 def split_with_cat() -> SplitMatrix:
     """Initialized with multiple sparse and dense parts and no indices."""
-    return mx.SplitMatrix(get_split_with_cat_components())
+    return tm.SplitMatrix(get_split_with_cat_components())
 
 
 def split_with_cat_64() -> SplitMatrix:
-    mat = mx.SplitMatrix(get_split_with_cat_components())
+    mat = tm.SplitMatrix(get_split_with_cat_components())
     matrices = mat.matrices
 
     for i, mat_ in enumerate(mat.matrices):
-        if isinstance(mat_, mx.SparseMatrix):
-            matrices[i] = mx.SparseMatrix(
+        if isinstance(mat_, tm.SparseMatrix):
+            matrices[i] = tm.SparseMatrix(
                 (
                     mat_.data,
                     mat_.indices.astype(np.int64),
@@ -92,9 +92,9 @@ def split_with_cat_64() -> SplitMatrix:
                 ),
                 shape=mat_.shape,
             )
-        elif isinstance(mat_, mx.DenseMatrix):
+        elif isinstance(mat_, tm.DenseMatrix):
             matrices[i] = mat_.astype(np.float64)
-    return mx.SplitMatrix(matrices, mat.indices)
+    return tm.SplitMatrix(matrices, mat.indices)
 
 
 @pytest.mark.parametrize("mat", [split_with_cat(), split_with_cat_64()])
@@ -108,9 +108,9 @@ def test_init(mat: SplitMatrix):
 
 
 def test_init_unsorted_indices():
-    dense = mx.DenseMatrix(np.random.random((10, 3)))
+    dense = tm.DenseMatrix(np.random.random((10, 3)))
     with pytest.raises(ValueError):
-        mx.SplitMatrix([dense], [[1, 0, 2]])
+        tm.SplitMatrix([dense], [[1, 0, 2]])
 
 
 @pytest.mark.parametrize(
@@ -141,7 +141,7 @@ def test_sandwich_sparse_dense(X: np.ndarray, Acols, Bcols):
     "cols",
     [None, [0], [1, 2, 3], [1, 5]],
 )
-def test_sandwich(mat: mx.SplitMatrix, cols):
+def test_sandwich(mat: tm.SplitMatrix, cols):
     for _ in range(10):
         v = np.random.rand(mat.shape[0])
         y1 = mat.sandwich(v, cols=cols)
@@ -152,7 +152,7 @@ def test_sandwich(mat: mx.SplitMatrix, cols):
 
 @pytest.mark.parametrize("mat", [split_mat(), split_with_cat(), split_with_cat_64()])
 @pytest.mark.parametrize("cols", [None, [0], [1, 2, 3], [1, 5]])
-def test_split_col_subsets(mat: mx.SplitMatrix, cols):
+def test_split_col_subsets(mat: tm.SplitMatrix, cols):
     subset_cols_indices, subset_cols, n_cols = mat._split_col_subsets(cols)
     n_cols_correct = mat.shape[1] if cols is None else len(cols)
 
@@ -182,12 +182,12 @@ def test_split_col_subsets(mat: mx.SplitMatrix, cols):
 def random_split_matrix(seed=0, n_rows=10, n_cols_per=3):
     if seed is not None:
         np.random.seed(seed)
-    dense_1 = mx.DenseMatrix(np.random.random((n_rows, n_cols_per)))
-    sparse = mx.SparseMatrix(sps.random(n_rows, n_cols_per).tocsc())
-    cat = mx.CategoricalMatrix(np.random.choice(range(n_cols_per), n_rows))
-    dense_2 = mx.DenseMatrix(np.random.random((n_rows, n_cols_per)))
-    cat_2 = mx.CategoricalMatrix(np.random.choice(range(n_cols_per), n_rows))
-    mat = mx.SplitMatrix([dense_1, sparse, cat, dense_2, cat_2])
+    dense_1 = tm.DenseMatrix(np.random.random((n_rows, n_cols_per)))
+    sparse = tm.SparseMatrix(sps.random(n_rows, n_cols_per).tocsc())
+    cat = tm.CategoricalMatrix(np.random.choice(range(n_cols_per), n_rows))
+    dense_2 = tm.DenseMatrix(np.random.random((n_rows, n_cols_per)))
+    cat_2 = tm.CategoricalMatrix(np.random.choice(range(n_cols_per), n_rows))
+    mat = tm.SplitMatrix([dense_1, sparse, cat, dense_2, cat_2])
     return mat
 
 
