@@ -1,3 +1,4 @@
+import os
 import pickle
 
 import click
@@ -91,7 +92,7 @@ def _get_matrix_path(name):
 def get_all_benchmark_matrices():
     """Get all matrices used in benchmarks."""
     return {
-        "dense": lambda: make_dense_matrices(int(4e4), 1000),
+        "dense": lambda: make_dense_matrices(int(4e6), 10),
         "sparse": lambda: make_sparse_matrices(int(4e5), int(1e2)),
         "sparse_narrow": lambda: make_sparse_matrices(int(3e6), 3),
         "sparse_wide": lambda: make_sparse_matrices(int(4e4), int(1e4)),
@@ -135,7 +136,9 @@ def generate_matrices(matrix_name: str) -> None:
     for name in benchmark_matrices:
         f = all_benchmark_matrices[name]
         mats = f()
-        with open(_get_matrix_path(name), "wb") as fname:
+        save_path = _get_matrix_path(name)
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        with open(save_path, "wb") as fname:
             pickle.dump(mats, fname)
 
 

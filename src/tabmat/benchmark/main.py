@@ -363,11 +363,13 @@ def run_all_benchmarks(
                 True,
             )
 
-        full_bench = pd.merge(
-            memory_bench[["operation", "storage", "memory"]],
-            time_bench[["operation", "storage", "time", "design"]],
-            on=["operation", "storage"],
-        )
+            full_bench = pd.merge(
+                memory_bench[["operation", "storage", "memory"]],
+                time_bench[["operation", "storage", "time", "design"]],
+                on=["operation", "storage"],
+            )
+        else:
+            full_bench = time_bench[["operation", "storage", "time", "design"]]
         print(full_bench)
 
         full_bench.to_csv(f"benchmark/data/{name}_bench.csv", index=False)
