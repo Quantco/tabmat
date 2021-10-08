@@ -22,8 +22,8 @@ sns.set(style="whitegrid", font_scale=1.5)
 # %config InlineBackend.figure_format='retina'
 
 # %%
-data_dir = "../../../../benchmark/data/"
-docs_dir = "../../../../docs/_static/"
+data_dir = "../../../benchmark/data/"
+docs_dir = "../../../docs/_static/"
 
 
 def data_path(name):  # noqa
@@ -207,5 +207,3 @@ plt.tight_layout()
 
 plt.savefig(docs_path("headline"), dpi=300)
 plt.show()
-
-# %%
