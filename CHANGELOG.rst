@@ -7,8 +7,21 @@
 Changelog
 =========
 
+3.0.1 - 2021-10-07
+------------------
+
+**Bug fix**
+
+- The license was mistakenly left as proprietary. Corrected to BSD-3-Clause.
+
+**Other changes**
+
+- ReadTheDocs integration.
+- CONTRIBUTING.md
+- Correct pyproject.toml to work with PEP-517
+
 3.0.0 - 2021-10-07
-----------
+------------------
 
 **Breaking changes**:
 
