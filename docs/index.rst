@@ -1,7 +1,6 @@
 Welcome to tabmat!
 ==========================================
 
-testtest
 Please see the `project README <https://github.com/Quantco/tabmat>`_ for a broad overview of what ``tabmat`` is.
 
 .. toctree::
