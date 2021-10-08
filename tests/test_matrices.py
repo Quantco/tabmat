@@ -13,27 +13,27 @@ def base_array(order="F") -> np.ndarray:
     return np.array([[0, 0], [0, -1.0], [0, 2.0]], order=order)
 
 
-def dense_matrix_F() -> mx.DenseMatrix:
-    return mx.DenseMatrix(base_array())
+def dense_matrix_F() -> tm.DenseMatrix:
+    return tm.DenseMatrix(base_array())
 
 
-def dense_matrix_C() -> mx.DenseMatrix:
-    return mx.DenseMatrix(base_array(order="C"))
+def dense_matrix_C() -> tm.DenseMatrix:
+    return tm.DenseMatrix(base_array(order="C"))
 
 
-def dense_matrix_not_writeable() -> mx.DenseMatrix:
+def dense_matrix_not_writeable() -> tm.DenseMatrix:
     mat = dense_matrix_F()
     mat.setflags(write=False)
     return mat
 
 
-def sparse_matrix() -> mx.SparseMatrix:
-    return mx.SparseMatrix(sps.csc_matrix(base_array()))
+def sparse_matrix() -> tm.SparseMatrix:
+    return tm.SparseMatrix(sps.csc_matrix(base_array()))
 
 
-def sparse_matrix_64() -> mx.SparseMatrix:
+def sparse_matrix_64() -> tm.SparseMatrix:
     csc = sps.csc_matrix(base_array())
-    mat = mx.SparseMatrix(
+    mat = tm.SparseMatrix(
         (csc.data, csc.indices.astype(np.int64), csc.indptr.astype(np.int64))
     )
     return mat
@@ -41,11 +41,11 @@ def sparse_matrix_64() -> mx.SparseMatrix:
 
 def categorical_matrix():
     vec = [1, 0, 1]
-    return mx.CategoricalMatrix(vec)
+    return tm.CategoricalMatrix(vec)
 
 
 def get_unscaled_matrices() -> List[
-    Union[mx.DenseMatrix, mx.SparseMatrix, mx.CategoricalMatrix]
+    Union[tm.DenseMatrix, tm.SparseMatrix, tm.CategoricalMatrix]
 ]:
     return [
         dense_matrix_F(),
@@ -58,19 +58,19 @@ def get_unscaled_matrices() -> List[
 
 
 def complex_split_matrix():
-    return mx.SplitMatrix(get_unscaled_matrices())
+    return tm.SplitMatrix(get_unscaled_matrices())
 
 
 def shift_complex_split_matrix():
     mat = complex_split_matrix()
     np.random.seed(0)
-    return mx.StandardizedMatrix(mat, np.random.random(mat.shape[1]))
+    return tm.StandardizedMatrix(mat, np.random.random(mat.shape[1]))
 
 
 def shift_scale_complex_split_matrix():
     mat = complex_split_matrix()
     np.random.seed(0)
-    return mx.StandardizedMatrix(
+    return tm.StandardizedMatrix(
         mat, np.random.random(mat.shape[1]), np.random.random(mat.shape[1])
     )
 
@@ -80,14 +80,14 @@ def get_all_matrix_base_subclass_mats():
 
 
 def get_standardized_shifted_matrices():
-    return [mx.StandardizedMatrix(elt, [0.3, 2]) for elt in get_unscaled_matrices()] + [
+    return [tm.StandardizedMatrix(elt, [0.3, 2]) for elt in get_unscaled_matrices()] + [
         shift_complex_split_matrix()
     ]
 
 
 def get_standardized_shifted_scaled_matrices():
     return [
-        mx.StandardizedMatrix(elt, [0.3, 0.2], [0.6, 1.67])
+        tm.StandardizedMatrix(elt, [0.3, 0.2], [0.6, 1.67])
         for elt in get_unscaled_matrices()
     ] + [shift_scale_complex_split_matrix()]
 
@@ -166,7 +166,7 @@ def test_transpose_matvec_out_parameter(mat, cols, rows):
 
 @pytest.mark.parametrize("mat", get_matrices())
 @pytest.mark.parametrize("i", [1, -2])
-def test_getcol(mat: Union[mx.MatrixBase, mx.StandardizedMatrix], i):
+def test_getcol(mat: Union[tm.MatrixBase, tm.StandardizedMatrix], i):
     col = mat.getcol(i)
 
     if not isinstance(col, np.ndarray):
@@ -175,11 +175,11 @@ def test_getcol(mat: Union[mx.MatrixBase, mx.StandardizedMatrix], i):
 
 
 @pytest.mark.parametrize("mat", get_all_matrix_base_subclass_mats())
-def test_to_array_matrix_base(mat: mx.MatrixBase):
+def test_to_array_matrix_base(mat: tm.MatrixBase):
     assert isinstance(mat.A, np.ndarray)
-    if isinstance(mat, mx.CategoricalMatrix):
+    if isinstance(mat, tm.CategoricalMatrix):
         expected = np.array([[0, 1], [1, 0], [0, 1]])
-    elif isinstance(mat, mx.SplitMatrix):
+    elif isinstance(mat, tm.SplitMatrix):
         expected = np.hstack([elt.A for elt in mat.matrices])
     else:
         expected = base_array()
@@ -190,7 +190,7 @@ def test_to_array_matrix_base(mat: mx.MatrixBase):
     "mat",
     get_standardized_shifted_matrices() + get_standardized_shifted_scaled_matrices(),
 )
-def test_to_array_standardized_mat(mat: mx.StandardizedMatrix):
+def test_to_array_standardized_mat(mat: tm.StandardizedMatrix):
     assert isinstance(mat.A, np.ndarray)
     true_mat_part = mat.mat.A
     if mat.mult is not None:
@@ -201,12 +201,12 @@ def test_to_array_standardized_mat(mat: mx.StandardizedMatrix):
 @pytest.mark.parametrize("mat", get_matrices())
 @pytest.mark.parametrize(
     "other_type",
-    [lambda x: x, np.asarray, mx.DenseMatrix],
+    [lambda x: x, np.asarray, tm.DenseMatrix],
 )
 @pytest.mark.parametrize("cols", [None, [], [1], np.array([1])])
 @pytest.mark.parametrize("other_shape", [[], [1], [2]])
 def test_matvec(
-    mat: Union[mx.MatrixBase, mx.StandardizedMatrix], other_type, cols, other_shape
+    mat: Union[tm.MatrixBase, tm.StandardizedMatrix], other_type, cols, other_shape
 ):
     """
     Mat.
@@ -223,17 +223,17 @@ def test_matvec(
     other = other_type(other_as_list)
 
     def is_split_with_cat_part(x):
-        return isinstance(x, mx.SplitMatrix) and any(
-            isinstance(elt, mx.CategoricalMatrix) for elt in x.matrices
+        return isinstance(x, tm.SplitMatrix) and any(
+            isinstance(elt, tm.CategoricalMatrix) for elt in x.matrices
         )
 
     has_categorical_component = (
-        isinstance(mat, mx.CategoricalMatrix)
+        isinstance(mat, tm.CategoricalMatrix)
         or is_split_with_cat_part(mat)
         or (
-            isinstance(mat, mx.StandardizedMatrix)
+            isinstance(mat, tm.StandardizedMatrix)
             and (
-                isinstance(mat.mat, mx.CategoricalMatrix)
+                isinstance(mat.mat, tm.CategoricalMatrix)
                 or is_split_with_cat_part(mat.mat)
             )
         )
@@ -271,12 +271,12 @@ def process_mat_vec_subsets(mat, vec, mat_rows, mat_cols, vec_idxs):
 @pytest.mark.parametrize("mat", get_matrices())
 @pytest.mark.parametrize(
     "other_type",
-    [lambda x: x, np.array, mx.DenseMatrix],
+    [lambda x: x, np.array, tm.DenseMatrix],
 )
 @pytest.mark.parametrize("rows", [None, [], [2], np.arange(2)])
 @pytest.mark.parametrize("cols", [None, [], [1], np.arange(1)])
 def test_transpose_matvec(
-    mat: Union[mx.MatrixBase, mx.StandardizedMatrix], other_type, rows, cols
+    mat: Union[tm.MatrixBase, tm.StandardizedMatrix], other_type, rows, cols
 ):
     other_as_list = [3.0, -0.1, 0]
     other = other_type(other_as_list)
@@ -323,8 +323,8 @@ def test_transpose_matvec(
 @pytest.mark.parametrize("L_cols", [None, [1], np.arange(1)])
 @pytest.mark.parametrize("R_cols", [None, [1], np.arange(1)])
 def test_cross_sandwich(
-    mat_i: Union[mx.DenseMatrix, mx.SparseMatrix, mx.CategoricalMatrix],
-    mat_j: Union[mx.DenseMatrix, mx.SparseMatrix, mx.CategoricalMatrix],
+    mat_i: Union[tm.DenseMatrix, tm.SparseMatrix, tm.CategoricalMatrix],
+    mat_j: Union[tm.DenseMatrix, tm.SparseMatrix, tm.CategoricalMatrix],
     rows: Optional[np.ndarray],
     L_cols: Optional[np.ndarray],
     R_cols: Optional[np.ndarray],
@@ -341,12 +341,12 @@ def test_cross_sandwich(
 @pytest.mark.parametrize("mat", get_matrices())
 @pytest.mark.parametrize(
     "vec_type",
-    [lambda x: x, np.array, mx.DenseMatrix],
+    [lambda x: x, np.array, tm.DenseMatrix],
 )
 @pytest.mark.parametrize("rows", [None, [], [1], np.arange(2)])
 @pytest.mark.parametrize("cols", [None, [], [0], np.arange(1)])
 def test_self_sandwich(
-    mat: Union[mx.MatrixBase, mx.StandardizedMatrix], vec_type, rows, cols
+    mat: Union[tm.MatrixBase, tm.StandardizedMatrix], vec_type, rows, cols
 ):
     vec_as_list = [3, 0.1, 1]
     vec = vec_type(vec_as_list)
@@ -398,9 +398,9 @@ def test_transpose(mat):
 @pytest.mark.parametrize("mat", get_matrices())
 @pytest.mark.parametrize(
     "vec_type",
-    [lambda x: x, np.array, mx.DenseMatrix],
+    [lambda x: x, np.array, tm.DenseMatrix],
 )
-def test_rmatmul(mat: Union[mx.MatrixBase, mx.StandardizedMatrix], vec_type):
+def test_rmatmul(mat: Union[tm.MatrixBase, tm.StandardizedMatrix], vec_type):
     vec_as_list = [3.0, -0.1, 0]
     vec = vec_type(vec_as_list)
     res = mat.__rmatmul__(vec)
@@ -412,14 +412,14 @@ def test_rmatmul(mat: Union[mx.MatrixBase, mx.StandardizedMatrix], vec_type):
 
 
 @pytest.mark.parametrize("mat", get_matrices())
-def test_matvec_raises(mat: Union[mx.MatrixBase, mx.StandardizedMatrix]):
+def test_matvec_raises(mat: Union[tm.MatrixBase, tm.StandardizedMatrix]):
     with pytest.raises(ValueError):
         mat.matvec(np.ones(11))
 
 
 @pytest.mark.parametrize("mat", get_matrices())
 @pytest.mark.parametrize("dtype", [np.float64, np.float32])
-def test_astype(mat: Union[mx.MatrixBase, mx.StandardizedMatrix], dtype):
+def test_astype(mat: Union[tm.MatrixBase, tm.StandardizedMatrix], dtype):
     new_mat = mat.astype(dtype)
     assert np.issubdtype(new_mat.dtype, dtype)
     vec = np.zeros(mat.shape[1], dtype=dtype)
@@ -428,7 +428,7 @@ def test_astype(mat: Union[mx.MatrixBase, mx.StandardizedMatrix], dtype):
 
 
 @pytest.mark.parametrize("mat", get_all_matrix_base_subclass_mats())
-def test_get_col_means(mat: mx.MatrixBase):
+def test_get_col_means(mat: tm.MatrixBase):
     weights = np.random.random(mat.shape[0])
     # TODO: make weights sum to 1 within functions
     weights /= weights.sum()
@@ -438,7 +438,7 @@ def test_get_col_means(mat: mx.MatrixBase):
 
 
 @pytest.mark.parametrize("mat", get_all_matrix_base_subclass_mats())
-def test_get_col_means_unweighted(mat: mx.MatrixBase):
+def test_get_col_means_unweighted(mat: tm.MatrixBase):
     weights = np.ones(mat.shape[0])
     # TODO: make weights sum to 1 within functions
     weights /= weights.sum()
@@ -448,7 +448,7 @@ def test_get_col_means_unweighted(mat: mx.MatrixBase):
 
 
 @pytest.mark.parametrize("mat", get_all_matrix_base_subclass_mats())
-def test_get_col_stds(mat: mx.MatrixBase):
+def test_get_col_stds(mat: tm.MatrixBase):
     weights = np.random.random(mat.shape[0])
     # TODO: make weights sum to 1
     weights /= weights.sum()
@@ -459,7 +459,7 @@ def test_get_col_stds(mat: mx.MatrixBase):
 
 
 @pytest.mark.parametrize("mat", get_unscaled_matrices())
-def test_get_col_stds_unweighted(mat: mx.MatrixBase):
+def test_get_col_stds_unweighted(mat: tm.MatrixBase):
     weights = np.ones(mat.shape[0])
     # TODO: make weights sum to 1
     weights /= weights.sum()
@@ -473,7 +473,7 @@ def test_get_col_stds_unweighted(mat: mx.MatrixBase):
 @pytest.mark.parametrize("center_predictors", [False, True])
 @pytest.mark.parametrize("scale_predictors", [False, True])
 def test_standardize(
-    mat: mx.MatrixBase, center_predictors: bool, scale_predictors: bool
+    mat: tm.MatrixBase, center_predictors: bool, scale_predictors: bool
 ):
     asarray = mat.A.copy()
     weights = np.random.rand(mat.shape[0])
@@ -485,7 +485,7 @@ def test_standardize(
     standardized, means, stds = mat.standardize(
         weights, center_predictors, scale_predictors
     )
-    assert isinstance(standardized, mx.StandardizedMatrix)
+    assert isinstance(standardized, tm.StandardizedMatrix)
     assert isinstance(standardized.mat, type(mat))
     if center_predictors:
         np.testing.assert_allclose(
@@ -516,7 +516,7 @@ def test_standardize(
 
 
 @pytest.mark.parametrize("mat", get_matrices())
-def test_indexing_int_row(mat: Union[mx.MatrixBase, mx.StandardizedMatrix]):
+def test_indexing_int_row(mat: Union[tm.MatrixBase, tm.StandardizedMatrix]):
     res = mat[0, :]
     if not isinstance(res, np.ndarray):
         res = res.A
@@ -525,7 +525,7 @@ def test_indexing_int_row(mat: Union[mx.MatrixBase, mx.StandardizedMatrix]):
 
 
 @pytest.mark.parametrize("mat", get_matrices())
-def test_indexing_range_row(mat: Union[mx.MatrixBase, mx.StandardizedMatrix]):
+def test_indexing_range_row(mat: Union[tm.MatrixBase, tm.StandardizedMatrix]):
     res = mat[0:2, :]
     if not isinstance(res, np.ndarray):
         res = res.A
@@ -559,18 +559,18 @@ def test_pandas_to_matrix():
         }
     )
 
-    mat = mx.from_pandas(
+    mat = tm.from_pandas(
         df, dtype=np.float64, sparse_threshold=0.3, cat_threshold=4, object_as_cat=True
     )
 
     assert mat.shape == (n_rows, n_rows + 5)
     assert len(mat.matrices) == 3
-    assert isinstance(mat, mx.SplitMatrix)
+    assert isinstance(mat, tm.SplitMatrix)
 
     nb_col_by_type = {
-        mx.DenseMatrix: 3,  # includes low-dimension categorical
-        mx.SparseMatrix: 2,  # sparse column
-        mx.CategoricalMatrix: n_rows,
+        tm.DenseMatrix: 3,  # includes low-dimension categorical
+        tm.SparseMatrix: 2,  # sparse column
+        tm.CategoricalMatrix: n_rows,
     }
     for submat in mat.matrices:
         assert submat.shape[1] == nb_col_by_type[type(submat)]
@@ -583,6 +583,6 @@ def test_pandas_to_matrix():
 
 @pytest.mark.parametrize("mat", get_all_matrix_base_subclass_mats())
 def test_split_matrix_creation(mat):
-    sm = mx.SplitMatrix(matrices=[mat, mat])
+    sm = tm.SplitMatrix(matrices=[mat, mat])
     assert sm.shape[0] == mat.shape[0]
     assert sm.shape[1] == 2 * mat.shape[1]

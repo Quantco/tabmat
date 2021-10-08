@@ -9,11 +9,11 @@ import tabmat as tm
 np.random.seed(0)
 n_rows = 8
 n_cols = 5
-sp_mat = mx.SparseMatrix(sps.random(n_rows, n_cols, density=0.8))
+sp_mat = tm.SparseMatrix(sps.random(n_rows, n_cols, density=0.8))
 col_shift = np.random.uniform(0, 1, n_cols)
 col_mult = np.random.uniform(0.5, 1.5, n_cols)
 expected_mat = col_mult[None, :] * sp_mat.A + col_shift[None, :]
-standardized_mat = mx.StandardizedMatrix(sp_mat, col_shift, col_mult)
+standardized_mat = tm.StandardizedMatrix(sp_mat, col_shift, col_mult)
 
 
 def test_setup_and_densify_col():
@@ -42,5 +42,5 @@ def test_standardized_sandwich():
 def test_zero_sd_cols():
     n_rows = 100
     weights = np.ones(n_rows) / n_rows
-    X = mx.DenseMatrix(np.ones([n_rows, 1])).standardize(weights, True, True)[0]
+    X = tm.DenseMatrix(np.ones([n_rows, 1])).standardize(weights, True, True)[0]
     assert X.mult == 1
