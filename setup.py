@@ -7,7 +7,7 @@ from os import path
 import mako.template
 import numpy as np
 from Cython.Build import cythonize
-from setuptools import Extension, find_namespace_packages, setup
+from setuptools import Extension, find_packages, setup
 
 here = path.abspath(path.dirname(__file__))
 
@@ -107,7 +107,7 @@ setup(
     name="tabmat",
     use_scm_version={"version_scheme": "post-release"},
     setup_requires=["setuptools_scm"],
-    description="Matrix types useful for working with GLMs and tabular data.",
+    description="Efficient matrix representations for working with tabular data.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/Quantco/tabmat",
@@ -118,9 +118,10 @@ setup(
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
     ],
     package_dir={"": "src"},
-    packages=find_namespace_packages(where="src"),
+    packages=find_packages(where="src"),
     install_requires=[],
     ext_modules=cythonize(ext_modules, annotate=False),
     zip_safe=False,
