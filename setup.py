@@ -122,7 +122,10 @@ setup(
     ],
     package_dir={"": "src"},
     packages=find_packages(where="src"),
-    install_requires=[],
+    install_requires=[
+        "numpy",
+        "cython",
+    ],
     ext_modules=cythonize(ext_modules, annotate=False),
     zip_safe=False,
 )
