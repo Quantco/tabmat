@@ -8,7 +8,7 @@ For more info on the benchmark CLI: ``python src/tabmat/benchmark/main.py --help
 Performance
 ^^^^^^^^^^^
 
-Dense matrix, 100k x 1k:
+Dense matrix, 4M x 10:
 
 .. image:: _static/dense_bench.png
    :width: 700
