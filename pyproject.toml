@@ -27,3 +27,26 @@ line_length = 88
 known_first_party = "tabmat"
 skip_glob = '\.eggs/*,\.git/*,\.venv/*,build/*,dist/*'
 default_section = 'THIRDPARTY'
+
+[tool.cibuildwheel]
+manylinux-x86_64-image = "quay.io/pypa/manylinux_2_24_x86_64:latest"
+test-requires = ["pytest", "pytest-xdist"]
+
+[tool.cibuildwheel.macos]
+before-all = "brew install llvm jemalloc xsimd"
+
+[tool.cibuildwheel.linux]
+before-all = [
+  "git clone --branch 5.2.1 https://github.com/jemalloc/jemalloc.git",
+  "cd jemalloc",
+  "./autogen.sh",
+  "make",
+  "make install",
+  "cd /",
+  "git clone --branch 7.6.0 https://github.com/xtensor-stack/xsimd.git",
+  "cd xsimd",
+  "mkdir build",
+  "cd build",
+  "cmake -DCMAKE_INSTALL_PREFIX=/usr/local ..",
+  "make install"
+]
