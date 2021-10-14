@@ -64,6 +64,10 @@ else:
     ]
     extra_link_args = ["-fopenmp"]
 
+if sys.platform == "darwin":
+    include_dirs.append("/usr/local/opt/xsimd/include")
+    include_dirs.append("/usr/local/opt/jemalloc/include")
+
 
 architecture = os.environ.get("GLM_ARCHITECTURE", "native")
 if architecture != "default":
@@ -122,10 +126,7 @@ setup(
     ],
     package_dir={"": "src"},
     packages=find_packages(where="src"),
-    install_requires=[
-        "numpy",
-        "cython",
-    ],
+    install_requires=[],
     ext_modules=cythonize(ext_modules, annotate=False),
     zip_safe=False,
 )
