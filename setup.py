@@ -54,6 +54,7 @@ if sys.platform == "win32":
     extra_link_args = ["/openmp"]
     # make sure we can find xsimd headers
     include_dirs.append(os.path.join(sys.prefix, "Library", "include"))
+    include_dirs.append(os.path.join("%LOCALAPPDATA%", "lib", "xsimd", "include"))
 else:
     allocator_libs = ["jemalloc"]
     extra_compile_args = [

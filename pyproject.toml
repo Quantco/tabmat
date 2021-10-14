@@ -37,6 +37,18 @@ test-requires = ["pytest", "pytest-xdist"]
 environment = { LDFLAGS="-L/usr/local/lib", CXX="/usr/local/opt/llvm/bin/clang++", CC="/usr/local/opt/llvm/bin/clang" }
 before-all = "brew install llvm jemalloc xsimd libomp"
 
+[tool.cibuildwheel.windows]
+before-all = [
+  "git clone --branch 7.6.0 https://github.com/xtensor-stack/xsimd.git",
+  "cd xsimd",
+  "mkdir build",
+  "cd build",
+  "mkdir %LOCALAPPDATA%\\lib",
+  "cmake -G 'NMake Makefiles' -DCMAKE_INSTALL_PREFIX=%LOCALAPPDATA%\\lib ..",
+  "nmake",
+  "nmake install"
+]
+
 [tool.cibuildwheel.linux]
 before-all = [
   "git clone --branch 5.2.1 https://github.com/jemalloc/jemalloc.git",
