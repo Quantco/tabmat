@@ -39,14 +39,7 @@ before-all = "brew install llvm jemalloc xsimd libomp"
 
 [tool.cibuildwheel.windows]
 before-all = [
-  "git clone --branch 7.6.0 https://github.com/xtensor-stack/xsimd.git",
-  "cd xsimd",
-  "mkdir build",
-  "cd build",
-  "mkdir %LOCALAPPDATA%\\lib",
-  "cmake -G \"NMake Makefiles\" -DCMAKE_INSTALL_PREFIX=%LOCALAPPDATA%\\lib ..",
-  "nmake",
-  "nmake install"
+  "C:\\Miniconda\\condabin\\conda install -c conda-forge xsimd",
 ]
 
 [tool.cibuildwheel.linux]
