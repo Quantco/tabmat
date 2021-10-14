@@ -44,7 +44,7 @@ before-all = [
   "mkdir build",
   "cd build",
   "mkdir %LOCALAPPDATA%\\lib",
-  "cmake -G 'NMake Makefiles' -DCMAKE_INSTALL_PREFIX=%LOCALAPPDATA%\\lib ..",
+  "cmake -G \"NMake Makefiles\" -DCMAKE_INSTALL_PREFIX=%LOCALAPPDATA%\\lib ..",
   "nmake",
   "nmake install"
 ]
