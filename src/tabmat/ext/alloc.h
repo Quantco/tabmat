@@ -3,7 +3,7 @@
 #ifndef _WIN32
   #define JEMALLOC_NO_DEMANGLE
   #if __APPLE__
-    #if !(!JEMALLOC_INSTALL_SUFFIX)
+    #if not defined(JEMALLOC_INSTALL_SUFFIX)
       #define JEMALLOC_NO_RENAME
     #endif
   #endif
