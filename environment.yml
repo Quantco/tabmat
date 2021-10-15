@@ -20,7 +20,7 @@ dependencies:
   - c-compiler
   - cxx-compiler
   - cython
-  - jemalloc
+  - jemalloc-local
   - make
   - mako
   - mkl-include

@@ -7,12 +7,20 @@
 Changelog
 =========
 
+3.0.3 - 2021-10-15
+------------------
+
+**Bug fix**
+
+- We now support ``xsimd>=8`` and support alternative jemalloc installations.
+
+
 3.0.2 - 2021-10-14
 ------------------
 
 **Bug fix**
 
-- Allow to link to alternatively suffixed jemalloc installation to workaround `#113 <https://github.com/Quantco/tabmat/issues/113>`_ .
+- Allow to link to alternatively suffixed jemalloc installation to work around `#113 <https://github.com/Quantco/tabmat/issues/113>`_ .
 
 3.0.1 - 2021-10-07
 ------------------
