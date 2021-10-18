@@ -1,8 +1,10 @@
 import io
 import os
 import platform
+import shutil
 import sys
 from os import path
+from pathlib import Path
 
 import mako.template
 import numpy as np
@@ -56,12 +58,25 @@ if sys.platform == "win32":
     include_dirs.append(os.path.join(sys.prefix, "Library", "include"))
     include_dirs.append(os.path.join("C:\\", "Miniconda", "Library", "include"))
 else:
-    allocator_libs = ["jemalloc"]
+    jemalloc_config = shutil.which("jemalloc-config")
+    if jemalloc_config is None:
+        je_install_suffix = ""
+    else:
+        pkg_info = (
+            Path(jemalloc_config).parent.parent / "lib" / "pkgconfig" / "jemalloc.pc"
+        ).read_text()
+        je_install_suffix = [
+            i.split("=")[1]
+            for i in pkg_info.split("\n")
+            if i.startswith("install_suffix=")
+        ].pop()
+    allocator_libs = [f"jemalloc{je_install_suffix}"]
     extra_compile_args = [
         "-fopenmp",
         "-O3",
         "-ffast-math",
         "--std=c++17",
+        f"-DJEMALLOC_INSTALL_SUFFIX={je_install_suffix}",
     ]
     extra_link_args = ["-fopenmp"]
 

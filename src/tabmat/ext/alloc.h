@@ -3,9 +3,17 @@
 #ifndef _WIN32
   #define JEMALLOC_NO_DEMANGLE
   #if __APPLE__
-    #define JEMALLOC_NO_RENAME
+    #if not defined(JEMALLOC_INSTALL_SUFFIX)
+      #define JEMALLOC_NO_RENAME
+    #endif
   #endif
-  #include <jemalloc/jemalloc.h>
+  // Compute jemalloc include path
+  #define STRINGIFY(X) STRINGIFY2(X)
+  #define STRINGIFY2(X) #X
+  #define CAT(X,Y) CAT2(X,Y)
+  #define CAT2(X,Y) X##Y
+  #define JE_INCLUDE STRINGIFY(CAT(jemalloc/jemalloc,JEMALLOC_INSTALL_SUFFIX).h)
+  #include JE_INCLUDE
 #endif
 
 #include <functional>

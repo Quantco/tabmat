@@ -6,6 +6,12 @@
 
 #include "alloc.h"
 
+#if XSIMD_VERSION_MAJOR >= 8
+    #define XSIMD_BROADCAST broadcast
+#else
+    #define XSIMD_BROADCAST set_simd
+#endif
+
 namespace xs = xsimd;
 
 <%def name="csr_dense_sandwich_tmpl(order)">
@@ -84,7 +90,7 @@ void _csr_dense${order}_sandwich(
                         }
 
                         F Q = Adata[A_idx];
-                        auto Qsimd = xs::set_simd(Q);
+                        auto Qsimd = xs::XSIMD_BROADCAST(Q);
 
                         Int Cj = Cjj;
                         Int Cjmax2 = Cjj + ((Cjmax - Cjj) / simd_size) * simd_size;

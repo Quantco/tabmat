@@ -24,6 +24,12 @@
 
 #include "alloc.h"
 
+#if XSIMD_VERSION_MAJOR >= 8
+    #define XSIMD_BROADCAST broadcast
+#else
+    #define XSIMD_BROADCAST set_simd
+#endif
+
 namespace xs = xsimd;
 
 <%def name="middle_j(kparallel, IBLOCK, JBLOCK)">
@@ -33,7 +39,7 @@ namespace xs = xsimd;
         // setup simd accumulators
         % for ir in range(IBLOCK):
             % for jr in range(JBLOCK):
-                auto accumsimd${ir}_${jr} = xs::set_simd(((F)0.0));
+                auto accumsimd${ir}_${jr} = xs::XSIMD_BROADCAST(((F)0.0));
             % endfor
         % endfor
 
