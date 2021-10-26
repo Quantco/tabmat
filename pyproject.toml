@@ -34,8 +34,16 @@ manylinux-x86_64-image = "quay.io/pypa/manylinux_2_24_x86_64:latest"
 test-requires = ["pytest", "pytest-xdist"]
 
 [tool.cibuildwheel.macos]
-environment = { LDFLAGS="-L/usr/local/lib", CXX="/usr/local/opt/llvm/bin/clang++", CC="/usr/local/opt/llvm/bin/clang" }
-before-all = "brew install llvm jemalloc xsimd libomp"
+before-all = [
+  "brew install llvm jemalloc xsimd libomp",
+  "ln -s /usr/local/opt/xsimd/include/xsimd /usr/local/include",
+  "ln -s /usr/local/opt/jemalloc/include/jemalloc /usr/local/include"
+]
+
+[tool.cibuildwheel.macos.environment]
+LDFLAGS="-L/usr/local/lib"
+CXX="/usr/local/opt/llvm/bin/clang++"
+CC="/usr/local/opt/llvm/bin/clang"
 
 [tool.cibuildwheel.windows]
 before-all = [
