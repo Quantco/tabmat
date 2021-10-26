@@ -81,6 +81,11 @@ else:
     ]
     extra_link_args = ["-fopenmp"]
 
+if sys.platform == "darwin":
+    # include paths to xsimd and jemalloc for cibuildwheel
+    include_dirs.append("/usr/local/opt/xsimd/include")
+    include_dirs.append("/usr/local/opt/jemalloc/include")
+
 architecture = os.environ.get("GLM_ARCHITECTURE", "native")
 if architecture != "default":
     # Don't set "-march=native" on macOS arm64 as this doesn't exist there.
