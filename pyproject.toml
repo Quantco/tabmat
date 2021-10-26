@@ -36,8 +36,6 @@ test-requires = ["pytest", "pytest-xdist"]
 [tool.cibuildwheel.macos]
 before-all = [
   "brew install llvm jemalloc xsimd libomp",
-  "ln -s /usr/local/opt/xsimd/include/xsimd /usr/local/include",
-  "ln -s /usr/local/opt/jemalloc/include/jemalloc /usr/local/include"
 ]
 
 [tool.cibuildwheel.macos.environment]
