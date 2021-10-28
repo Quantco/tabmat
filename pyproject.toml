@@ -63,6 +63,7 @@ before-all = [
 
 [tool.cibuildwheel.windows.environment]
 CFLAGS="-IC:\\Miniconda\\Library\\include"
+CXXFLAGS="-IC:\\Miniconda\\Library\\include"
 
 [tool.cibuildwheel.linux]
 before-all = [
