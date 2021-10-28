@@ -62,14 +62,13 @@ before-all = [
 ]
 
 [tool.cibuildwheel.windows.environment]
-CFLAGS="-IC:\\Miniconda\\Library\\include"
-CXXFLAGS="-IC:\\Miniconda\\Library\\include"
+CL="/IC:\\Miniconda\\Library\\include"
 
 [tool.cibuildwheel.linux]
 before-all = [
   "git clone --branch 5.2.1 https://github.com/jemalloc/jemalloc.git",
   "cd jemalloc",
-  "./autogen.sh",
+  "./autogen.sh --disable-cxx --with-jemalloc-prefix=local --with-install-suffix=local",
   "make",
   "make install",
   "cd /",
