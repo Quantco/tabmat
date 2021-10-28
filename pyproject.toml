@@ -62,7 +62,6 @@ before-all = [
 ]
 
 [tool.cibuildwheel.windows.environment]
-CL="/IC:\\Miniconda\\Library\\include"
 INCLUDE="C:\\\\Miniconda\\\\Library\\\\include"
 
 [tool.cibuildwheel.linux]
