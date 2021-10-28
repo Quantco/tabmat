@@ -35,11 +35,24 @@ test-requires = ["pytest", "pytest-xdist"]
 
 [tool.cibuildwheel.macos]
 before-all = [
-  "brew install llvm jemalloc xsimd libomp",
+  "brew install llvm libomp",
+  "git clone --branch 5.2.1 https://github.com/jemalloc/jemalloc.git",
+  "cd jemalloc",
+  "./autogen.sh --disable-cxx --with-jemalloc-prefix=local --with-install-suffix=local",
+  "make",
+  "make install",
+  "cd /",
+  "git clone --branch 7.6.0 https://github.com/xtensor-stack/xsimd.git",
+  "cd xsimd",
+  "mkdir build",
+  "cd build",
+  "cmake -DCMAKE_INSTALL_PREFIX=/usr/local ..",
+  "make install"
 ]
 
 [tool.cibuildwheel.macos.environment]
 LDFLAGS="-L/usr/local/lib"
+CFLAGS="-I/usr/local/opt/xsimd/include -I/usr/local/opt/jemalloc/include"
 CXX="/usr/local/opt/llvm/bin/clang++"
 CC="/usr/local/opt/llvm/bin/clang"
 
@@ -47,6 +60,9 @@ CC="/usr/local/opt/llvm/bin/clang"
 before-all = [
   "C:\\Miniconda\\condabin\\conda install -c conda-forge xsimd",
 ]
+
+[tool.cibuildwheel.windows.environment]
+CFLAGS="/I C:\\Miniconda\\Library\\include"
 
 [tool.cibuildwheel.linux]
 before-all = [

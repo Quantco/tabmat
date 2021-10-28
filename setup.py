@@ -56,8 +56,6 @@ if sys.platform == "win32":
     extra_link_args = ["/openmp"]
     # make sure we can find xsimd headers
     include_dirs.append(os.path.join(sys.prefix, "Library", "include"))
-    # xsimd headers are located elsewhere for the cibuildwheel step
-    include_dirs.append(os.path.join("C:\\", "Miniconda", "Library", "include"))
 else:
     jemalloc_config = shutil.which("jemalloc-config")
     if jemalloc_config is None:
@@ -80,11 +78,6 @@ else:
         f"-DJEMALLOC_INSTALL_SUFFIX={je_install_suffix}",
     ]
     extra_link_args = ["-fopenmp"]
-
-if sys.platform == "darwin":
-    # include paths to xsimd and jemalloc for cibuildwheel
-    include_dirs.append("/usr/local/opt/xsimd/include")
-    include_dirs.append("/usr/local/opt/jemalloc/include")
 
 architecture = os.environ.get("GLM_ARCHITECTURE", "native")
 if architecture != "default":
