@@ -36,7 +36,7 @@ test-requires = ["pytest", "pytest-xdist"]
 [tool.cibuildwheel.macos]
 before-all = [
   "brew install llvm libomp",
-  "cd ~/"
+  "cd ~/",
   "git clone --branch 5.2.1 https://github.com/jemalloc/jemalloc.git",
   "cd jemalloc",
   "./autogen.sh --disable-cxx --with-jemalloc-prefix=local --with-install-suffix=local",
@@ -67,7 +67,7 @@ INCLUDE="C:\\\\Miniconda\\\\Library\\\\include"
 
 [tool.cibuildwheel.linux]
 before-all = [
-  "cd ~/"
+  "cd ~/",
   "git clone --branch 5.2.1 https://github.com/jemalloc/jemalloc.git",
   "cd jemalloc",
   "./autogen.sh --disable-cxx --with-jemalloc-prefix=local --with-install-suffix=local",
