@@ -7,6 +7,13 @@
 Changelog
 =========
 
+3.0.4 - 2021-11-03
+------------------
+
+**Other changes**
+
+- tabmat is now available on PyPI and will be automatically updated when a new release is published.
+
 3.0.3 - 2021-10-15
 ------------------
 
