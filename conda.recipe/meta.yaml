@@ -1,9 +1,8 @@
 {% set name = "tabmat" %}
-{% set version = "3.0.1" %}
 
 package:
   name: {{ name|lower }} 
-  version: {{ version }}
+  version: {{ environ.get('GIT_DESCRIBE_TAG', '').lstrip('v') }}{% if environ.get('GIT_DESCRIBE_NUMBER', 0)|int != 0 %}.post{{ GIT_DESCRIBE_NUMBER }}+{{ GIT_DESCRIBE_HASH }}{% endif %}
 
 source:
   git_url: ../
@@ -32,16 +31,12 @@ requirements:
     - mako
     - numpy
     - pip
-    - scikit-learn >=0.23
     - setuptools_scm
     - xsimd
   run:
     - python
-    - joblib
-    - numexpr
     - {{ pin_compatible('numpy') }}
     - pandas
-    - scikit-learn >=0.23
     - scipy
 
 test:
