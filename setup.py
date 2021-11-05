@@ -136,7 +136,7 @@ setup(
     ],
     package_dir={"": "src"},
     packages=find_packages(where="src"),
-    install_requires=[],
+    install_requires=["numpy", "pandas", "scipy"],
     ext_modules=cythonize(ext_modules, annotate=False),
     zip_safe=False,
 )

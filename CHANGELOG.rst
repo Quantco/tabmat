@@ -7,6 +7,13 @@
 Changelog
 =========
 
+3.0.5 - 2021-11-05
+------------------
+
+**Other changes**
+
+- We are now specifying the run time dependencies in ``setup.py``, so that missing dependencies are automatically installed from PyPI when installing ``tabmat`` via pip.
+
 3.0.4 - 2021-11-03
 ------------------
 
