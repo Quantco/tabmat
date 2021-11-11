@@ -343,14 +343,15 @@ class SplitMatrix(MatrixBase):
         # as the target for storing the final output. This reduces the number
         # of output arrays allocated from 2 to 1.
         is_matrix_dense = [isinstance(m, DenseMatrix) for m in self.matrices]
-        dense_matrix_idx = np.argmax(is_matrix_dense)
         if np.any(is_matrix_dense):
+            dense_matrix_idx = np.argmax(is_matrix_dense)
             sub_cols = subset_cols[dense_matrix_idx]
             idx = self.indices[dense_matrix_idx]
             mat = self.matrices[dense_matrix_idx]
             in_vec = v[idx, ...]
             out = np.asarray(mat.matvec(in_vec, sub_cols, out), dtype=out_dtype)
         else:
+            dense_matrix_idx = -1
             out = _prepare_out_array(out, out_shape, out_dtype)
 
         for i, (sub_cols, idx, mat) in enumerate(
