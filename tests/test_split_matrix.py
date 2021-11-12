@@ -1,10 +1,12 @@
 from typing import List, Optional, Union
 
 import numpy as np
+import pandas as pd
 import pytest
 import scipy.sparse as sps
 
 import tabmat as tm
+from tabmat import from_pandas
 from tabmat.constructor import _split_sparse_and_dense_parts
 from tabmat.dense_matrix import DenseMatrix
 from tabmat.ext.sparse import csr_dense_sandwich
@@ -237,3 +239,15 @@ def test_init_from_1d():
 
     res = SplitMatrix([m1, m2])
     assert res.shape == (10, 3)
+
+
+@pytest.mark.parametrize("n_rows", [5, 10, 25])
+def test_matvec(n_rows):
+    np.random.seed(1234)
+    n_cols = 2
+    categories = [f"cat_{val}" for val in range(5)]
+    X = pd.DataFrame(np.random.choice(categories, size=(n_rows, n_cols))).astype(
+        "category"
+    )
+    mat = from_pandas(X, cat_threshold=0)
+    np.testing.assert_allclose(mat.matvec(np.array(mat.shape[1] * [1])), n_cols)

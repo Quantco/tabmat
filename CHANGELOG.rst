@@ -7,6 +7,14 @@
 Changelog
 =========
 
+3.0.6 - 2021-11-11
+------------------
+
+**Bug fix**
+
+- We fixed a bug in :meth:`tabmat.SplitMatrix.matvec`, where incorrect matrix vector products were computed when a ``SplitMatrix`` did not contain any dense components.
+
+
 3.0.5 - 2021-11-05
 ------------------
 
@@ -184,7 +192,7 @@ We are trying to make releases for Windows.
 - Fix a bug in `matvec` for categorical components when the number of categories exceeds the number of rows.
 
 
-0.0.6 - 2020-08-03 
+0.0.6 - 2020-08-03
 ------------------
 
 See git history.
