@@ -249,5 +249,5 @@ def test_matvec(n_rows):
     X = pd.DataFrame(np.random.choice(categories, size=(n_rows, n_cols))).astype(
         "category"
     )
-    mat = from_pandas(X)
+    mat = from_pandas(X, cat_threshold=0)
     np.testing.assert_allclose(mat.matvec(np.array(mat.shape[1] * [1])), n_cols)
