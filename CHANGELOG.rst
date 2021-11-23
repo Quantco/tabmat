@@ -7,6 +7,13 @@
 Changelog
 =========
 
+3.0.7 - 2021-11-23
+------------------
+
+**Bug fix**
+
+- Disable the use of static TLS in the Linux wheels to avoid issues with too small TLS on some distributions.
+
 3.0.6 - 2021-11-11
 ------------------
 
