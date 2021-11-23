@@ -38,7 +38,7 @@ before-all = [
   "cd ~/",
   "git clone --branch 5.2.1 https://github.com/jemalloc/jemalloc.git",
   "cd jemalloc",
-  "./autogen.sh --disable-cxx --with-jemalloc-prefix=local --with-install-suffix=local",
+  "./autogen.sh --disable-cxx --with-jemalloc-prefix=local --with-install-suffix=local --disable-tls --disable-initial-exec-tls",
   "make",
   "make install_bin install_include install_lib",
   "cd ~/",
