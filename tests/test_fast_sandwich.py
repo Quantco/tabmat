@@ -28,6 +28,7 @@ def test_fast_sandwich_sparse(dtype):
         np.testing.assert_allclose(true, out, atol=np.sqrt(np.finfo(dtype).eps))
 
 
+@pytest.mark.skip("Skipping because this test allocates a matrix of 50_000 x 50_000.")
 def test_fast_sandwich_sparse_large():
 
     # note that 50000 * 50000 > 2^31 - 1, so this will segfault when we index
