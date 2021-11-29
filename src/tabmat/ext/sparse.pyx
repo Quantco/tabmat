@@ -35,7 +35,7 @@ def sparse_sandwich(A, AT, floating[:] d, win_integral[:] rows, win_integral[:] 
 
     cdef floating* dp = &d[0]
 
-    cdef win_integral m = cols.shape[0]
+    cdef long long m = cols.shape[0]
     out = np.zeros((m, m), dtype=A.dtype)
     cdef floating[:, :] out_view = out
     cdef floating* outp = &out_view[0,0]
@@ -48,7 +48,7 @@ def sparse_sandwich(A, AT, floating[:] d, win_integral[:] rows, win_integral[:] 
         row_included[rows[Ci]] = True
 
     cdef int[:] col_map = np.full(A.shape[1], -1, dtype=np.int32)
-    for Cj in range(cols.shape[0]):
+    for Cj in range(m):
         col_map[cols[Cj]] = Cj
 
     #TODO: see what happens when we swap to having k as the outer loop here?
@@ -259,12 +259,12 @@ def csr_dense_sandwich(
 
     if B.flags['C_CONTIGUOUS']:
         _csr_denseC_sandwich(
-            &Adata[0], &Aindices[0], &Aindptr[0], Bp, &d[0], outp, m, n, r, 
+            &Adata[0], &Aindices[0], &Aindptr[0], Bp, &d[0], outp, m, n, r,
             rowsp, A_colsp, B_colsp, nr, nAc, nBc
         )
     elif B.flags['F_CONTIGUOUS']:
         _csr_denseF_sandwich(
-            &Adata[0], &Aindices[0], &Aindptr[0], Bp, &d[0], outp, m, n, r, 
+            &Adata[0], &Aindices[0], &Aindptr[0], Bp, &d[0], outp, m, n, r,
             rowsp, A_colsp, B_colsp, nr, nAc, nBc
         )
     else:
