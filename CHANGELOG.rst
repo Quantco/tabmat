@@ -7,6 +7,14 @@
 Changelog
 =========
 
+3.0.8 - 2021-12-01
+------------------
+
+**Bug fix**
+
+- Always use ``long long`` for indexing in :meth:`tabmat.ext.sparse.sparse_sandwich` to avoid segmentation faults on very wide problems.
+
+
 3.0.7 - 2021-11-23
 ------------------
 
