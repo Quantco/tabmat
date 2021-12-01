@@ -5,6 +5,7 @@ cimport numpy as np
 import cython
 from cython cimport floating, integral
 from cython.parallel import prange
+from libc.stdint cimport int64_t
 
 ctypedef np.uint8_t uint8
 
@@ -35,7 +36,7 @@ def sparse_sandwich(A, AT, floating[:] d, win_integral[:] rows, win_integral[:] 
 
     cdef floating* dp = &d[0]
 
-    cdef long long m = cols.shape[0]
+    cdef int64_t m = cols.shape[0]
     out = np.zeros((m, m), dtype=A.dtype)
     cdef floating[:, :] out_view = out
     cdef floating* outp = &out_view[0,0]
