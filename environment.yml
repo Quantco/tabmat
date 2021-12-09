@@ -31,6 +31,6 @@ dependencies:
   - jupytext
   - matplotlib-base
   - seaborn-base
-  - sphinx=3.5.3
+  - sphinx
   - sphinx_rtd_theme
   - sphinxcontrib-apidoc
