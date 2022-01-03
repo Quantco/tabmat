@@ -4,6 +4,15 @@ inputs:
   python_version:
     description: 'Python version'
     required: true
+  pandas_version:
+    description: 'Pandas version'
+    required: false
+  numpy_version:
+    description: 'Numpy version'
+    required: false
+  scipy_version:
+    description: 'Scipy version'
+    required: false
 runs:
   using: 'docker'
   image: condaforge/mambaforge:latest
@@ -11,4 +20,4 @@ runs:
    - /bin/bash
    - "-l"
    - "-c"
-   - "./.github/workflows/test.sh ${{ inputs.python_version }}"
+   - "PYTHON_VERSION=${{ inputs.python_version }} PANDAS_VERSION=${{ inputs.pandas_version }} NUMPY_VERSION=${{ inputs.numpy_version }} SCIPY_VERSION=${{ inputs.scipy_version }} ./.github/workflows/test.sh"
