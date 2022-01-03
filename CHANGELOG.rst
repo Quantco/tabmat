@@ -7,6 +7,14 @@
 Changelog
 =========
 
+3.0.8 - 2022-01-03
+------------------
+
+**Bug fix**
+
+- Always use 64bit integers for indexing in :meth:`tabmat.ext.sparse.sparse_sandwich` to avoid segmentation faults on very wide problems.
+
+
 3.0.7 - 2021-11-23
 ------------------
 

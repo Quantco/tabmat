@@ -28,6 +28,25 @@ def test_fast_sandwich_sparse(dtype):
         np.testing.assert_allclose(true, out, atol=np.sqrt(np.finfo(dtype).eps))
 
 
+@pytest.mark.skip("Skipping because this test allocates a matrix of 50_000 x 50_000.")
+def test_fast_sandwich_sparse_large():
+
+    # note that 50000 * 50000 > 2^31 - 1, so this will segfault when we index
+    # with 32 bit integers (see GH #160)
+    A = simulate_matrix(
+        nonzero_frac=1e-8, shape=(50000, 50000), seed=None, dtype=np.float32
+    ).tocsc()
+    d = np.random.rand(A.shape[0]).astype(np.float32)
+
+    sparse_sandwich(
+        A,
+        A.tocsr(),
+        d,
+        np.arange(A.shape[0], dtype=np.int32),
+        np.arange(A.shape[1], dtype=np.int32),
+    )
+
+
 def test_fast_sandwich_dense():
     for _ in range(5):
         A = simulate_matrix(shape=np.random.randint(1000, size=2))
