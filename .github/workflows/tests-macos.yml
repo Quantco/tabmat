@@ -25,7 +25,7 @@ jobs:
       - uses: conda-incubator/setup-miniconda@35d1405e78aa3f784fe3ce9a2eb378d5eeb62169
         with:
           miniforge-variant: Mambaforge
-          miniforge-version: 4.10.0-0
+          miniforge-version: 4.10.3-6
           use-mamba: true
       - name: Run Unit Tests
         shell: bash -l {0}
