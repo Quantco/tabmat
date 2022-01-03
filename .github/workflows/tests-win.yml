@@ -28,7 +28,7 @@ jobs:
         with:
           python-version: ${{ matrix.PYTHON_VERSION }}
           miniforge-variant: Mambaforge
-          miniforge-version: 4.10.0-0
+          miniforge-version: 4.10.3-6
           use-mamba: true
           environment-file: environment-win.yml
           activate-environment: tabmat
