@@ -71,7 +71,7 @@ def get_split_with_cat_components() -> List[
     cat = tm.CategoricalMatrix(np.random.choice(range(3), n_rows))
     dense_2 = tm.DenseMatrix(np.random.random((n_rows, 3)))
     sparse_2 = tm.SparseMatrix(sps.random(n_rows, 3, density=0.5).tocsc())
-    cat_2 = tm.CategoricalMatrix(np.random.choice(range(3), n_rows))
+    cat_2 = tm.CategoricalMatrix(np.random.choice(range(3), n_rows), drop_first=True)
     return [dense_1, sparse_1, cat, dense_2, sparse_2, cat_2]
 
 

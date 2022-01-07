@@ -9,46 +9,51 @@ from tabmat.categorical_matrix import CategoricalMatrix
 def cat_vec():
     m = 10
     seed = 0
-    np.random.seed(seed)
-    return np.random.choice([0, 1, 2, np.inf, -np.inf], m)
+    rng = np.random.default_rng(seed)
+    return rng.choice([0, 1, 2, np.inf, -np.inf], size=m)
 
 
 @pytest.mark.parametrize("vec_dtype", [np.float64, np.float32, np.int64, np.int32])
-def test_recover_orig(cat_vec, vec_dtype):
-    orig_recovered = CategoricalMatrix(cat_vec).recover_orig()
+@pytest.mark.parametrize("drop_first", [True, False])
+def test_recover_orig(cat_vec, vec_dtype, drop_first):
+    orig_recovered = CategoricalMatrix(cat_vec, drop_first=drop_first).recover_orig()
     np.testing.assert_equal(orig_recovered, cat_vec)
 
 
 @pytest.mark.parametrize("vec_dtype", [np.float64, np.float32, np.int64, np.int32])
-def test_csr_matvec_categorical(cat_vec, vec_dtype):
-    mat = pd.get_dummies(cat_vec)
-    cat_mat = CategoricalMatrix(cat_vec)
+@pytest.mark.parametrize("drop_first", [True, False])
+def test_csr_matvec_categorical(cat_vec, vec_dtype, drop_first):
+    mat = pd.get_dummies(cat_vec, drop_first=drop_first)
+    cat_mat = CategoricalMatrix(cat_vec, drop_first=drop_first)
     vec = np.random.choice(np.arange(4, dtype=vec_dtype), mat.shape[1])
     res = cat_mat.matvec(vec)
     np.testing.assert_allclose(res, cat_mat.A.dot(vec))
 
 
-def test_tocsr(cat_vec):
-    cat_mat = CategoricalMatrix(cat_vec)
+@pytest.mark.parametrize("drop_first", [True, False])
+def test_tocsr(cat_vec, drop_first):
+    cat_mat = CategoricalMatrix(cat_vec, drop_first=drop_first)
     res = cat_mat.tocsr().A
-    expected = pd.get_dummies(cat_vec)
+    expected = pd.get_dummies(cat_vec, drop_first=drop_first)
     np.testing.assert_allclose(res, expected)
 
 
-def test_transpose_matvec(cat_vec):
-    cat_mat = CategoricalMatrix(cat_vec)
+@pytest.mark.parametrize("drop_first", [True, False])
+def test_transpose_matvec(cat_vec, drop_first):
+    cat_mat = CategoricalMatrix(cat_vec, drop_first=drop_first)
     other = np.random.random(cat_mat.shape[0])
     res = cat_mat.transpose_matvec(other)
-    expected = cat_mat.A.T.dot(other)
+    expected = pd.get_dummies(cat_vec, drop_first=drop_first).T.dot(other)
     np.testing.assert_allclose(res, expected)
 
 
-def test_multiply(cat_vec):
-    cat_mat = CategoricalMatrix(cat_vec)
+@pytest.mark.parametrize("drop_first", [True, False])
+def test_multiply(cat_vec, drop_first):
+    cat_mat = CategoricalMatrix(cat_vec, drop_first=drop_first)
     other = np.arange(len(cat_vec))[:, None]
     res = cat_mat * other
     res2 = cat_mat.multiply(other)
-    expected = cat_mat.A * other
+    expected = pd.get_dummies(cat_vec, drop_first=drop_first) * other
     np.testing.assert_allclose(res.A, expected)
     np.testing.assert_allclose(res2.A, expected)
 
@@ -60,7 +65,9 @@ def test_nulls(mi_element):
         CategoricalMatrix(vec)
 
 
-def test_categorical_indexing():
-    catvec = [0, 1, 2, 0, 1, 2]
-    mat = CategoricalMatrix(catvec)
-    mat[:, [0, 1]]
+@pytest.mark.parametrize("drop_first", [True, False])
+def test_categorical_indexing(drop_first):
+    catvec = [0, 1, 2, 0, 1, 2, 0, 1, 2, 3, 3]
+    mat = CategoricalMatrix(catvec, drop_first=drop_first)
+    expected = pd.get_dummies(catvec, drop_first=drop_first).to_numpy()[:, [0, 1]]
+    np.testing.assert_allclose(mat[:, [0, 1]].A, expected)
