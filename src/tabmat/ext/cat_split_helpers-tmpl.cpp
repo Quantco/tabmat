@@ -1,8 +1,9 @@
 #include <vector>
 
 
+<%def name="transpose_matvec(dropfirst)">
 template <typename F>
-void _transpose_matvec_all_rows(
+void _transpose_matvec_${dropfirst}(
     int n_rows,
     int* indices,
     F* other,
@@ -14,7 +15,14 @@ void _transpose_matvec_all_rows(
         std::vector<F> restemp(res_size, 0.0);
         #pragma omp for
         for (int i = 0; i < n_rows; i++) {
-            restemp[indices[i]] += other[i];
+            % if dropfirst == 'all_rows_drop_first':
+                int col_idx = indices[i] - 1;
+                if (col_idx != -1) {
+                    restemp[col_idx] += other[i];
+                }
+            % else:
+                restemp[indices[i]] += other[i];
+            % endif
         }
         for (int i = 0; i < res_size; i++) {
             # pragma omp atomic
@@ -22,6 +30,7 @@ void _transpose_matvec_all_rows(
         }
     }
 }
+</%def>
 
 
 template <typename F>
@@ -33,7 +42,9 @@ void _sandwich_cat_cat(
     int len_rows,
     F* res,
     int res_n_col,
-    int res_size
+    int res_size,
+    bool i_drop_first,
+    bool j_drop_first
 )
 {
     #pragma omp parallel
@@ -42,11 +53,17 @@ void _sandwich_cat_cat(
         # pragma omp for
         for (int k_idx = 0; k_idx < len_rows; k_idx++) {
             int k = rows[k_idx];
-            int i = i_indices[k];
-            int j = j_indices[k];
+            int i = i_indices[k] - i_drop_first;
+            if (i == -1) {
+                continue;
+            }
+            int j = j_indices[k] - j_drop_first;
+            if (j == -1) {
+                continue;
+            }
             restemp[i * res_n_col + j] += d[k];
         }
-        for (int i = 0; i < res_size; i ++) {
+        for (int i = 0; i < res_size; i++) {
             # pragma omp atomic
             res[i] += restemp[i];
         }
@@ -101,3 +118,5 @@ void _sandwich_cat_dense${order}(
 
 ${sandwich_cat_dense_tmpl('C')}
 ${sandwich_cat_dense_tmpl('F')}
+${transpose_matvec('all_rows')}
+${transpose_matvec('all_rows_drop_first')}

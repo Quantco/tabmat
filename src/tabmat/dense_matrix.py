@@ -92,7 +92,7 @@ class DenseMatrix(np.ndarray, MatrixBase):
         vec: Union[List, np.ndarray],
         rows: Optional[np.ndarray],
         cols: Optional[np.ndarray],
-        out: Optional[Union[np.ndarray]],
+        out: Optional[np.ndarray],
         transpose: bool,
     ):
         # Because the dense_rmatvec takes a row array and col array, it has
