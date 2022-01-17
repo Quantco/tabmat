@@ -20,6 +20,7 @@ def from_pandas(
     cat_threshold: int = 4,
     object_as_cat: bool = False,
     cat_position: str = "expand",
+    drop_first: bool = False,
 ) -> MatrixBase:
     """
     Transform a pandas.DataFrame into an efficient SplitMatrix. For most users, this
@@ -45,6 +46,10 @@ def from_pandas(
         categoricals (including the ones that did not satisfy cat_threshold)
         will be placed at the end of the index list. If "expand", all the variables
         will remain in the same order.
+    drop_first : bool, default False
+        If true, categoricals variables will have their first category dropped.
+        This allows multiple categorical variables to be included in an
+        unregularized model. If False, all categories are included.
 
     Returns
     -------
@@ -75,7 +80,11 @@ def from_pandas(
                     sparse_indices,
                 ) = _split_sparse_and_dense_parts(
                     pd.get_dummies(
-                        coldata, prefix=colname, sparse=True, dtype=np.float64
+                        coldata,
+                        prefix=colname,
+                        sparse=True,
+                        drop_first=drop_first,
+                        dtype=np.float64,
                     )
                     .sparse.to_coo()
                     .tocsc(),
@@ -94,7 +103,7 @@ def from_pandas(
                     indices.append(sparse_indices)
 
             else:
-                cat = CategoricalMatrix(coldata, dtype=dtype)
+                cat = CategoricalMatrix(coldata, drop_first=drop_first, dtype=dtype)
                 matrices.append(cat)
                 is_cat.append(True)
                 if cat_position == "expand":
