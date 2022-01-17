@@ -24,7 +24,7 @@ ctypedef fused win_integral:
 cdef extern from "cat_split_helpers.cpp":
     void _sandwich_cat_denseC[F](F*, int*, int*, int, int*, int, F*, int, F*, int, int) nogil
     void _sandwich_cat_denseF[F](F*, int*, int*, int, int*, int, F*, int, F*, int, int) nogil
-    void _sandwich_cat_cat[F](F*, const int*, const int*, int*, int, F*, int, int)
+    void _sandwich_cat_cat[F](F*, const int*, const int*, int*, int, F*, int, int, bool, bool)
 
 
 def sandwich_cat_dense(
@@ -69,7 +69,9 @@ def sandwich_cat_cat(
     int j_ncol,
     floating[:] d,
     int[:] rows,
-    dtype
+    dtype,
+    bint i_drop_first,
+    bint j_drop_first
 ):
     """
     (X1.T @ diag(d) @ X2)[i, j] = sum_k X1[k, i] d[k] X2[k, j]
@@ -77,7 +79,7 @@ def sandwich_cat_cat(
     cdef floating[:, :] res = np.zeros((i_ncol, j_ncol), dtype=dtype)
 
     _sandwich_cat_cat(&d[0], &i_indices[0], &j_indices[0], &rows[0], len(rows),
-                        &res[0, 0], j_ncol, res.size)
+                        &res[0, 0], j_ncol, res.size, i_drop_first, j_drop_first)
 
     return np.asarray(res)
 

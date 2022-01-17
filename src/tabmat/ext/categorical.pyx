@@ -4,7 +4,7 @@ import numpy as np
 
 cimport cython
 cimport numpy as np
-from cython cimport floating
+from cython cimport floating, numeric
 
 from cython.parallel import prange
 
@@ -211,3 +211,101 @@ def sandwich_categorical_drop_first(
         if col_idx != -1:
             res[col_idx] += d[k]
     return np.asarray(res)
+
+
+def multiply_drop_first(
+    int[:] indices,
+    numeric[:] d,
+    int ncols,
+    dtype,
+):
+    """Multiply a CategoricalMatrix by a vector d.
+
+    The output cannot be a CategoricalMatrix anymore. Here
+    we return the inputs to transform to a csr_matrix.
+
+    Note that *_drop_first function assume the CategoricalMatrix
+    has its first category dropped.
+
+    Parameters
+    ----------
+    indices:
+        The vector of categories
+    d:
+        The vector to multiply with
+    ncols:
+        The number of columns
+    dtype:
+        Data type of d
+
+    Returns
+    -------
+    Tuple with:
+        - new data
+        - indices of nonzero elements
+        - indptr
+    """
+    cdef:
+        int nrows = len(indices)
+        int nonref_cnt = 0
+        Py_ssize_t i
+        np.ndarray new_data = np.empty(nrows, dtype=dtype)
+        np.ndarray new_indices = np.empty(nrows, dtype=np.int32)
+        np.ndarray new_indptr = np.empty(nrows + 1, dtype=np.int32)
+        numeric[:] vnew_data = new_data
+        int[:] vnew_indices = new_indices
+        int[:] vnew_indptr = new_indptr
+
+    for i in range(nrows):
+        vnew_indptr[i] = nonref_cnt
+        if indices[i] != 0:
+            vnew_data[nonref_cnt] = d[i]
+            vnew_indices[nonref_cnt] = indices[i] - 1
+            nonref_cnt += 1
+
+    vnew_indptr[i+1] = nonref_cnt
+
+    return new_data[:nonref_cnt], new_indices[:nonref_cnt], new_indptr
+
+
+def subset_categorical_drop_first(
+    int[:] indices,
+    int ncols,
+):
+    """Construct the inputs to transform a CategoricalMatrix into a csr_matrix.
+
+    Note that it is assumed here that we drop the first category of the
+    CategoricalMatrix.
+
+    Parameters
+    ----------
+    indices:
+        The vector of categories
+    ncols:
+        Total number of columns (# of categories - 1)
+
+    Returns
+    -------
+    Tuple with:
+        - number of nonzero elements
+        - indices of nonzero elements
+        - indptr
+    """
+    cdef:
+        int nrows = len(indices)
+        int nonzero_cnt = 0
+        Py_ssize_t i
+        np.ndarray new_indices = np.empty(nrows, dtype=np.int32)
+        np.ndarray new_indptr = np.empty(nrows + 1, dtype=np.int32)
+        int[:] vnew_indices = new_indices
+        int[:] vnew_indptr = new_indptr
+
+    for i in range(nrows):
+        vnew_indptr[i] = nonzero_cnt
+        if indices[i] != 0:
+            vnew_indices[nonzero_cnt] = indices[i] - 1
+            nonzero_cnt += 1
+
+    vnew_indptr[i+1] = nonzero_cnt
+
+    return nonzero_cnt, new_indices[:nonzero_cnt], new_indptr

@@ -170,8 +170,10 @@ from scipy import sparse as sps
 from .ext.categorical import (
     matvec,
     matvec_drop_first,
+    multiply_drop_first,
     sandwich_categorical,
     sandwich_categorical_drop_first,
+    subset_categorical_drop_first,
     transpose_matvec,
     transpose_matvec_drop_first,
 )
@@ -203,10 +205,25 @@ def _is_indexer_full_length(full_length: int, indexer: Any):
         raise ValueError(f"Indexing with {type(indexer)} is not allowed.")
 
 
-def _none_to_slice(arr: Optional[np.ndarray], n: int) -> Union[slice, np.ndarray]:
-    if arr is None or len(arr) == n:
-        return slice(None, None, None)
-    return arr
+def _row_col_indexing(
+    arr: np.ndarray, rows: Optional[np.ndarray], cols: Optional[np.ndarray]
+) -> np.ndarray:
+    if isinstance(rows, slice) and rows == slice(None, None, None):
+        rows = None
+    if isinstance(cols, slice) and cols == slice(None, None, None):
+        cols = None
+
+    is_row_indexed = not (rows is None or len(rows) == arr.shape[0])
+    is_col_indexed = not (cols is None or len(cols) == arr.shape[1])
+
+    if is_row_indexed and is_col_indexed:
+        return arr[np.ix_(rows, cols)]
+    elif is_row_indexed:
+        return arr[rows]
+    elif is_col_indexed:
+        return arr[:, cols]
+    else:
+        return arr
 
 
 class CategoricalMatrix(MatrixBase):
@@ -455,14 +472,16 @@ class CategoricalMatrix(MatrixBase):
 
     def tocsr(self) -> sps.csr_matrix:
         """Return scipy csr representation of matrix."""
+        if self.drop_first:
+            nnz, indices, indptr = subset_categorical_drop_first(
+                self.indices, self.shape[1]
+            )
+            return sps.csr_matrix(
+                (np.ones(nnz, dtype=int), indices, indptr), shape=self.shape
+            )
+
         # TODO: data should be uint8
         data = np.ones(self.shape[0], dtype=int)
-
-        if self.drop_first:
-            return sps.csr_matrix(
-                (data, self.indices, np.arange(self.shape[0] + 1, dtype=int)),
-                shape=(self.shape[0], self.shape[1] + 1),
-            )[:, 1:]
         return sps.csr_matrix(
             (data, self.indices, np.arange(self.shape[0] + 1, dtype=int)),
             shape=self.shape,
@@ -537,7 +556,7 @@ class CategoricalMatrix(MatrixBase):
             is_c_contiguous,
         )
 
-        res = res[self.drop_first :][_none_to_slice(L_cols, self.shape[1]), :]
+        res = _row_col_indexing(res[self.drop_first :], L_cols, None)
         return res
 
     def _cross_categorical(
@@ -558,17 +577,16 @@ class CategoricalMatrix(MatrixBase):
         res = sandwich_cat_cat(
             i_indices,
             j_indices,
-            self.shape[1] + self.drop_first,
-            other.shape[1] + other.drop_first,
+            self.shape[1],
+            other.shape[1],
             d,
             rows,
             d.dtype,
+            self.drop_first,
+            other.drop_first,
         )
 
-        L_cols = _none_to_slice(L_cols, self.shape[1])
-        R_cols = _none_to_slice(R_cols, other.shape[1])
-
-        res = res[self.drop_first :, other.drop_first :][L_cols, :][:, R_cols]
+        res = _row_col_indexing(res, L_cols, R_cols)
         return res
 
     def _cross_sparse(
@@ -579,17 +597,11 @@ class CategoricalMatrix(MatrixBase):
         L_cols: Optional[np.ndarray],
         R_cols: Optional[np.ndarray],
     ) -> np.ndarray:
-        term_1 = sps.csr_matrix(
-            (d, self.indices, np.arange(self.shape[0] + 1, dtype=int)),
-            shape=(self.shape[0], self.shape[1] + self.drop_first),
-        )
+        term_1 = self * d  # multiply will deal with drop_first
 
-        rows = _none_to_slice(rows, self.shape[0])
-        L_cols = _none_to_slice(L_cols, self.shape[1])
-        term_1 = term_1[:, self.drop_first :][rows, :][:, L_cols]
+        term_1 = _row_col_indexing(term_1, rows, L_cols)
 
-        res = term_1.T.dot(other[rows, :][:, _none_to_slice(R_cols, other.shape[1])]).A
-
+        res = term_1.T.dot(_row_col_indexing(other, rows, R_cols)).A
         return res
 
     def multiply(self, other) -> sps.csr_matrix:
@@ -601,13 +613,14 @@ class CategoricalMatrix(MatrixBase):
 
         if self.drop_first:
             return sps.csr_matrix(
-                (
-                    np.squeeze(other),
-                    self.indices,
-                    np.arange(self.shape[0] + 1, dtype=int),
+                multiply_drop_first(
+                    indices=self.indices,
+                    d=np.squeeze(other),
+                    ncols=self.shape[1],
+                    dtype=other.dtype,
                 ),
-                shape=(self.shape[0], self.shape[1] + 1),
-            )[:, 1:]
+                shape=self.shape,
+            )
 
         return sps.csr_matrix(
             (np.squeeze(other), self.indices, np.arange(self.shape[0] + 1, dtype=int)),
