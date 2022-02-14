@@ -41,7 +41,7 @@ jobs:
           numpy_version: ${{ matrix.NUMPY_VERSION }}
           scipy_version: ${{ matrix.SCIPY_VERSION }}
       - name: Issue on failure
-        uses: actions/github-script@v5
+        uses: actions/github-script@v6
         if: ${{ failure() }}
         with:
           script: |
