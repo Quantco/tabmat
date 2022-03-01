@@ -196,3 +196,17 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
         """Return SparseMatrix cast to new type."""
         return super(SparseMatrix, self).astype(dtype, casting, copy)
+
+    def multiply(self, other):
+        """Element-wise multiplication.
+
+        See ``scipy.sparse.csc_matrix.multiply``. The method is taken almost directly
+        from the parent class except that ``other`` is assumed to be a vector of size
+        self.shape[1].
+        """
+        if other.ndim == 1:
+            return SparseMatrix(super().multiply(other[:, np.newaxis]))
+        return SparseMatrix(super().multiply(other))
+
+    __mul__ = multiply
+    __rmul__ = multiply

@@ -418,6 +418,15 @@ class SplitMatrix(MatrixBase):
                 f"Only row indexing is supported. Index passed was {key}."
             )
 
+    def multiply(self, other):
+        """Element-wise multiplication.
+
+        This assumes that ``other`` is a vector of size self.shape[1].
+        """
+        return SplitMatrix(
+            [mat.multiply(other) for mat in self.matrices], indices=self.indices
+        )
+
     def __repr__(self):
         out = "SplitMatrix:"
         for i, mat in enumerate(self.matrices):
@@ -426,5 +435,8 @@ class SplitMatrix(MatrixBase):
                 + mat.__repr__()
             )
         return out
+
+    __mul__ = multiply
+    __rmul__ = multiply
 
     __array_priority__ = 13

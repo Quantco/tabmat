@@ -604,27 +604,38 @@ class CategoricalMatrix(MatrixBase):
         res = term_1.T.dot(_row_col_indexing(other, rows, R_cols)).A
         return res
 
-    def multiply(self, other) -> sps.csr_matrix:
-        """Element-wise multiplication of each column with other."""
+    def multiply(self, other) -> SparseMatrix:
+        """Element-wise multiplication.
+
+        This assumes that ``other`` is a vector of size self.shape[1].
+        """
         if self.shape[0] != other.shape[0]:
             raise ValueError(
                 f"Shapes do not match. Expected length of {self.shape[0]}. Got {len(other)}."
             )
 
         if self.drop_first:
-            return sps.csr_matrix(
-                multiply_drop_first(
-                    indices=self.indices,
-                    d=np.squeeze(other),
-                    ncols=self.shape[1],
-                    dtype=other.dtype,
+            return SparseMatrix(
+                sps.csr_matrix(
+                    multiply_drop_first(
+                        indices=self.indices,
+                        d=np.squeeze(other),
+                        ncols=self.shape[1],
+                        dtype=other.dtype,
+                    ),
+                    shape=self.shape,
+                )
+            )
+
+        return SparseMatrix(
+            sps.csr_matrix(
+                (
+                    np.squeeze(other),
+                    self.indices,
+                    np.arange(self.shape[0] + 1, dtype=int),
                 ),
                 shape=self.shape,
             )
-
-        return sps.csr_matrix(
-            (np.squeeze(other), self.indices, np.arange(self.shape[0] + 1, dtype=int)),
-            shape=self.shape,
         )
 
     __mul__ = multiply

@@ -155,3 +155,15 @@ class DenseMatrix(np.ndarray, MatrixBase):
         """Perform self[:, cols] @ other."""
         check_matvec_out_shape(self, out)
         return self._matvec_helper(vec, None, cols, out, False)
+
+    def multiply(self, other):
+        """Element-wise multiplication.
+
+        This assumes that ``other`` is a vector of size self.shape[1].
+        """
+        if other.ndim == 1:
+            return super().__mul__(other[:, np.newaxis])
+        return super().__mul__(other)
+
+    __mul__ = multiply
+    __rmul__ = multiply

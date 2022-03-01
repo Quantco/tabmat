@@ -7,6 +7,7 @@ import pytest
 from scipy import sparse as sps
 
 import tabmat as tm
+from tabmat.matrix_base import MatrixBase
 
 
 def base_array(order="F") -> np.ndarray:
@@ -586,3 +587,18 @@ def test_split_matrix_creation(mat):
     sm = tm.SplitMatrix(matrices=[mat, mat])
     assert sm.shape[0] == mat.shape[0]
     assert sm.shape[1] == 2 * mat.shape[1]
+
+
+@pytest.mark.parametrize("mat", get_matrices())
+def test_multiply(mat):
+    other = np.arange(mat.shape[0])
+    expected = mat.A * other[:, np.newaxis]
+    actual = []
+    actual.append(mat.multiply(other))
+    actual.append(mat * other)
+    actual.append(mat.multiply(other[:, np.newaxis]))
+    actual.append(mat * other[:, np.newaxis])
+
+    for act in actual:
+        assert isinstance(act, MatrixBase)
+        np.testing.assert_allclose(act.A, expected)
