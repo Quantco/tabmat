@@ -202,7 +202,7 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
 
         See ``scipy.sparse.csc_matrix.multiply``. The method is taken almost directly
         from the parent class except that ``other`` is assumed to be a vector of size
-        self.shape[1].
+        self.shape[0].
         """
         if other.ndim == 1:
             return SparseMatrix(super().multiply(other[:, np.newaxis]))

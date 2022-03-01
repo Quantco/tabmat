@@ -607,7 +607,7 @@ class CategoricalMatrix(MatrixBase):
     def multiply(self, other) -> SparseMatrix:
         """Element-wise multiplication.
 
-        This assumes that ``other`` is a vector of size self.shape[1].
+        This assumes that ``other`` is a vector of size self.shape[0].
         """
         if self.shape[0] != other.shape[0]:
             raise ValueError(
