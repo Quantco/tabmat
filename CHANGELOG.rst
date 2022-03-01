@@ -13,6 +13,8 @@ Unreleased
 **New feature**
 
 - :class:`tabmat.CategoricalMatrix` now accepts a `drop_first` argurment. This allows the user to drop the first column of a CategoricalMatrix to avoid multicollinearity problems in unregularized models.
+- :class:`tabmat.StandardizedMatrix` and :class:`tabmat.MatrixBase` now support the `multiply` method.
+
 
 3.0.8 - 2022-01-03
 ------------------
