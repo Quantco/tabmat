@@ -436,7 +436,4 @@ class SplitMatrix(MatrixBase):
             )
         return out
 
-    __mul__ = multiply
-    __rmul__ = multiply
-
     __array_priority__ = 13

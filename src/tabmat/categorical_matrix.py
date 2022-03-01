@@ -597,7 +597,7 @@ class CategoricalMatrix(MatrixBase):
         L_cols: Optional[np.ndarray],
         R_cols: Optional[np.ndarray],
     ) -> np.ndarray:
-        term_1 = self * d  # multiply will deal with drop_first
+        term_1 = self.multiply(d)  # multiply will deal with drop_first
 
         term_1 = _row_col_indexing(term_1, rows, L_cols)
 
@@ -637,9 +637,6 @@ class CategoricalMatrix(MatrixBase):
                 shape=self.shape,
             )
         )
-
-    __mul__ = multiply
-    __rmul__ = multiply
 
     def __repr__(self):
         return str(self.cat)

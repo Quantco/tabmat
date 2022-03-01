@@ -207,6 +207,3 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         if other.ndim == 1:
             return SparseMatrix(super().multiply(other[:, np.newaxis]))
         return SparseMatrix(super().multiply(other))
-
-    __mul__ = multiply
-    __rmul__ = multiply

@@ -595,9 +595,7 @@ def test_multiply(mat):
     expected = mat.A * other[:, np.newaxis]
     actual = []
     actual.append(mat.multiply(other))
-    actual.append(mat * other)
     actual.append(mat.multiply(other[:, np.newaxis]))
-    actual.append(mat * other[:, np.newaxis])
 
     for act in actual:
         assert isinstance(act, MatrixBase)

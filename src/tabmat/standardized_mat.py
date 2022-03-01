@@ -248,9 +248,6 @@ class StandardizedMatrix:
         """
         return DenseMatrix(self.toarray()).multiply(other)
 
-    __mul__ = multiply
-    __rmul__ = multiply
-
     def toarray(self) -> np.ndarray:
         """Return array representation of matrix."""
         mat_part = self.mat.A
