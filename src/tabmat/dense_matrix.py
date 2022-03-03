@@ -159,7 +159,7 @@ class DenseMatrix(np.ndarray, MatrixBase):
     def multiply(self, other):
         """Element-wise multiplication.
 
-        This assumes that ``other`` is a vector of size self.shape[0].
+        This assumes that ``other`` is a vector of size ``self.shape[0]``.
         """
         if np.asanyarray(other).ndim == 1:
             return super().__mul__(other[:, np.newaxis])

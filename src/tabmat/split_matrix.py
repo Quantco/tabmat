@@ -421,7 +421,7 @@ class SplitMatrix(MatrixBase):
     def multiply(self, other):
         """Element-wise multiplication.
 
-        This assumes that ``other`` is a vector of size self.shape[0].
+        This assumes that ``other`` is a vector of size ``self.shape[0]``.
         """
         return SplitMatrix(
             [mat.multiply(other) for mat in self.matrices], indices=self.indices

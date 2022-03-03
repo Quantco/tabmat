@@ -245,7 +245,7 @@ class StandardizedMatrix:
 
         Note that the output of this function is always a DenseMatrix and might
         require a lot more memory. This assumes that ``other`` is a vector of
-        size self.shape[0].
+        size ``self.shape[0]``.
         """
         return DenseMatrix(self.toarray()).multiply(other)
 
