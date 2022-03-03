@@ -3,6 +3,7 @@ from typing import List, Union
 import numpy as np
 from scipy import sparse as sps
 
+from .dense_matrix import DenseMatrix
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .util import (
@@ -22,7 +23,7 @@ class StandardizedMatrix:
 
     ::
 
-        self[i, j] = self.mult[j] * (self.mat[i, j] + self.shift[j])
+        self[i, j] = (self.mult[j] * self.mat[i, j]) + self.shift[j]
 
     This class is returned from
     :meth:`MatrixBase.standardize <tabmat.MatrixBase.standardize>`.
@@ -238,6 +239,15 @@ class StandardizedMatrix:
     def __matmul__(self, other):
         """Define the behavior of 'self @ other'."""
         return self.matvec(other)
+
+    def multiply(self, other) -> DenseMatrix:
+        """Element-wise multiplication.
+
+        Note that the output of this function is always a DenseMatrix and might
+        require a lot more memory. This assumes that ``other`` is a vector of
+        size ``self.shape[0]``.
+        """
+        return DenseMatrix(self.toarray()).multiply(other)
 
     def toarray(self) -> np.ndarray:
         """Return array representation of matrix."""

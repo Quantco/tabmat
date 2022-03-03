@@ -51,11 +51,9 @@ def test_transpose_matvec(cat_vec, drop_first):
 def test_multiply(cat_vec, drop_first):
     cat_mat = CategoricalMatrix(cat_vec, drop_first=drop_first)
     other = np.arange(len(cat_vec))[:, None]
-    res = cat_mat * other
-    res2 = cat_mat.multiply(other)
+    actual = cat_mat.multiply(other)
     expected = pd.get_dummies(cat_vec, drop_first=drop_first) * other
-    np.testing.assert_allclose(res.A, expected)
-    np.testing.assert_allclose(res2.A, expected)
+    np.testing.assert_allclose(actual.A, expected)
 
 
 @pytest.mark.parametrize("mi_element", [np.nan, None])
