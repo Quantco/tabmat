@@ -3,6 +3,7 @@ channels:
   - conda-forge
   - nodefaults
 dependencies:
+  - python<3.10
   - libblas>=0=*mkl
   - pandas
 
