@@ -10,6 +10,10 @@ Changelog
 Unreleased
 ----------
 
+
+3.1.0 - 2022-03-07
+------------------
+
 **New feature**
 
 - :class:`tabmat.CategoricalMatrix` now accepts a `drop_first` argurment. This allows the user to drop the first column of a CategoricalMatrix to avoid multicollinearity problems in unregularized models.
