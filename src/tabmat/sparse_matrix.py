@@ -185,7 +185,7 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
             transpose_square_dot_weights(
                 self.data, self.indices, self.indptr, weights, weights.dtype
             )
-            - col_means ** 2
+            - col_means**2
         )
         # Minor floating point errors above can result in a very slightly
         # negative sqrt_arg (e.g. -5e-16). We just set those values equal to

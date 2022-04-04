@@ -454,7 +454,7 @@ def test_get_col_stds(mat: tm.MatrixBase):
     # TODO: make weights sum to 1
     weights /= weights.sum()
     means = mat._get_col_means(weights)
-    expected = np.sqrt((mat.A ** 2).T.dot(weights) - means ** 2)
+    expected = np.sqrt((mat.A**2).T.dot(weights) - means**2)
     stds = mat._get_col_stds(weights, means)
     np.testing.assert_allclose(stds, expected)
 
@@ -481,7 +481,7 @@ def test_standardize(
     weights /= weights.sum()
 
     true_means = asarray.T.dot(weights)
-    true_sds = np.sqrt((asarray ** 2).T.dot(weights) - true_means ** 2)
+    true_sds = np.sqrt((asarray**2).T.dot(weights) - true_means**2)
 
     standardized, means, stds = mat.standardize(
         weights, center_predictors, scale_predictors

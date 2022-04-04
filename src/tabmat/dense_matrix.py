@@ -80,7 +80,7 @@ class DenseMatrix(np.ndarray, MatrixBase):
 
     def _get_col_stds(self, weights: np.ndarray, col_means: np.ndarray) -> np.ndarray:
         """Get standard deviations of columns."""
-        sqrt_arg = transpose_square_dot_weights(self, weights) - col_means ** 2
+        sqrt_arg = transpose_square_dot_weights(self, weights) - col_means**2
         # Minor floating point errors above can result in a very slightly
         # negative sqrt_arg (e.g. -5e-16). We just set those values equal to
         # zero.
