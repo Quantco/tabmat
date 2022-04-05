@@ -151,7 +151,7 @@ class StandardizedMatrix:
             idx = np.arange(res.shape[0])
             to_add = term1.data[0, :]
             if self.mult is not None:
-                to_add *= limited_mult ** 2
+                to_add *= limited_mult**2
             res[idx, idx] += to_add
         else:
             to_add = term1

@@ -503,7 +503,7 @@ class CategoricalMatrix(MatrixBase):
         # but because X_ij is either {0, 1}
         # we don't actually need to square.
         mean = self.transpose_matvec(weights)
-        return np.sqrt(mean - col_means ** 2)
+        return np.sqrt(mean - col_means**2)
 
     def __getitem__(self, item):
         if isinstance(item, tuple):
