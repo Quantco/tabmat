@@ -41,5 +41,7 @@ if [[ "$SCIPY_VERSION" == "nightly" ]]; then
     pip install --pre --no-deps --upgrade --timeout=60 -i $PRE_WHEELS scipy
 fi
 
+git fsck
+
 pip install --no-use-pep517 --no-deps --disable-pip-version-check -e .
 pytest -nauto tests --doctest-modules src/
