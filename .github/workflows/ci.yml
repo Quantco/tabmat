@@ -12,12 +12,11 @@ jobs:
     steps:
      - name: Pull image
        run: docker pull condaforge/mambaforge:latest
-     - name: Trust My Directory
-       run: export GIT_CEILING_DIRECTORIES=/github
      - name: Checkout branch
        uses: actions/checkout@v3.0.2
        with:
-         fetch-depth: 0
+         ref: ${{ github.head_ref }}
+         set-safe-directory: "/github/workspace"
      - name: Run linter inside of container
        uses: ./.github/actions/linter
   linux:
