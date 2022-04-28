@@ -9,7 +9,7 @@ pwd
 
 ls -a
 
-git status
+git version
 
 mamba install -y pre-commit
 pre-commit install

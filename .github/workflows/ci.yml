@@ -12,6 +12,8 @@ jobs:
     steps:
      - name: Pull image
        run: docker pull condaforge/mambaforge:latest
+     - name: Trust My Directory
+       run: export GIT_CEILING_DIRECTORIES=/github
      - name: Checkout branch
        uses: actions/checkout@v3.0.2
        with:
