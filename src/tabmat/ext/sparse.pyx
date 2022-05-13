@@ -58,7 +58,7 @@ def sparse_sandwich(A, AT, floating[:] d, win_integral[:] rows, win_integral[:] 
     #TODO: see what happens when we swap to having k as the outer loop here?
     for Cj in prange(m, nogil=True):
         j = cols[Cj]
-        Ck = 0
+        Ck = 0 # A2: this value is never used; consider removing
         for A_idx in range(Aindptr[j], Aindptr[j+1]):
             k = Aindicesp[A_idx]
             if not row_included[k]:
@@ -78,16 +78,14 @@ def sparse_sandwich(A, AT, floating[:] d, win_integral[:] rows, win_integral[:] 
                 AT_val = ATdatap[AT_idx]
                 outp[Cj * m + Ci] = outp[Cj * m + Ci] + AT_val * A_val
 
-    #out_old = out.copy()
     out += np.tril(out, -1).T
     return out
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def sparse_sandwich_coo(A, AT, floating[:] d, win_integral[:] rows, win_integral[:] cols):
-    # AT is CSC
-    # A is CSC
-    # Computes AT @ diag(d) @ A and returns it in COO form (three arrays)
+def sparse_sandwich_coo_serial(A, AT, floating[:] d, win_integral[:] rows, win_integral[:] cols):
+    # Does same calculation as sparse_sandwich(), but returns the result in COO form
+    # (i.e. three arrays: data, rows, columns)
 
     # indices is array of row indices
     # data is array of corresponding nonzero values
@@ -100,7 +98,6 @@ def sparse_sandwich_coo(A, AT, floating[:] d, win_integral[:] rows, win_integral
     cdef win_integral[:] ATindices = AT.indices
     cdef win_integral[:] ATindptr = AT.indptr
 
-    # more funky pointer/reference stuff happening here
     cdef floating* Adatap = &Adata[0]
     cdef win_integral* Aindicesp = &Aindices[0]
     cdef floating* ATdatap = &ATdata[0]
@@ -111,10 +108,8 @@ def sparse_sandwich_coo(A, AT, floating[:] d, win_integral[:] rows, win_integral
 
     cdef int64_t m = cols.shape[0]
 
-    # how long have to be? not sure how long, because depends on number of nonzero
-    # entries. i guess it's fine to have zero entries padding the end bc no effect.
-    # then to be safe we'd need m^3, no? maybe we sum for easiness' sake
-    # m^3 won't do it, because m could be as small as 10 (but then we'd do dense mult)
+    # Is there a way to adaptively determine how long the COO arrays should be?
+    # For wide or dense enough problems, the COO arrays will not fit in memory
     cdef int64_t out_len = 100000000
 
     out_data = np.zeros(out_len, dtype=A.dtype)  
@@ -126,9 +121,6 @@ def sparse_sandwich_coo(A, AT, floating[:] d, win_integral[:] rows, win_integral
     out_cols = np.zeros(out_len, dtype=np.int32)
     cdef win_integral[:] out_cols_view = out_cols
     cdef win_integral* out_cols_p = &out_cols_view[0]
-
-    # Some unusual pointer stuff going on here, such that a change to `outp` also
-    # changes `out`
 
     cdef int64_t AT_idx, A_idx, AT_row, A_col, Ci, i, Cj, j, Ck, k
     cdef floating A_val, AT_val
@@ -142,16 +134,9 @@ def sparse_sandwich_coo(A, AT, floating[:] d, win_integral[:] rows, win_integral
         col_map[cols[Cj]] = Cj
 
     cdef int64_t out_idx = 0
-    # cdef int64_t another_idx = 0
-    # cdef int64_t m_idx = 0
 
-    #TODO: see what happens when we swap to having k as the outer loop here?
-    #for Cj in prange(m, nogil=True):
-    for Cj in range(m):
+    for Cj in range(m):  # had to switch to serial due to out_idx incrementing
         j = cols[Cj]
-        # Ck = 0  # does not appear again
-
-        #another_idx = 0
         for A_idx in range(Aindptr[j], Aindptr[j+1]):
             k = Aindicesp[A_idx]
             if not row_included[k]:
@@ -159,10 +144,6 @@ def sparse_sandwich_coo(A, AT, floating[:] d, win_integral[:] rows, win_integral
 
             A_val = Adatap[A_idx] * dp[k]
             Ci = 0
-
-            #another_idx = another_idx + 1
-            #out_idx = 0
-
             for AT_idx in range(ATindptrp[k], ATindptrp[k+1]):
                 i = ATindicesp[AT_idx]
                 if i > j:
@@ -174,29 +155,20 @@ def sparse_sandwich_coo(A, AT, floating[:] d, win_integral[:] rows, win_integral
 
                 AT_val = ATdatap[AT_idx]
 
-                # if out_idx >= out_len:
-                #     return out_data, out_rows, out_cols, out_idx
-
                 out_data_p[out_idx] = AT_val * A_val
                 out_rows_p[out_idx] = Cj
-                out_cols_p[out_idx] = Ci  # these two might be flipped
+                out_cols_p[out_idx] = Ci
 
-                out_idx = out_idx + 1  # this line is fine
+                out_idx = out_idx + 1
 
-    #return temp_coo_matrix
-    #return m_idx, another_idx, out_idx, out_len
-    return out_data, out_rows, out_cols, out_idx
+    return out_data, out_rows, out_cols
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def sparse_sandwich_coo_ll(A, AT, floating[:] d, win_integral[:] rows, win_integral[:] cols):
-    # AT is CSC
-    # A is CSC
-    # Computes AT @ diag(d) @ A and returns it in COO form (three arrays)
+def sparse_sandwich_coo_parallel(A, AT, floating[:] d, win_integral[:] rows, win_integral[:] cols):
+    # Does same calculation as sparse_sandwich_coo_serial(), but in parallel
+    # For some reason, it runs slower than the serial version
 
-    # indices is array of row indices
-    # data is array of corresponding nonzero values
-    # indptr points to column starts in indices and data
     cdef floating[:] Adata = A.data
     cdef win_integral[:] Aindices = A.indices
     cdef win_integral[:] Aindptr = A.indptr
@@ -215,7 +187,7 @@ def sparse_sandwich_coo_ll(A, AT, floating[:] d, win_integral[:] rows, win_integ
 
     cdef int64_t m = cols.shape[0]
 
-    cdef int64_t out_len = 10 #0000000
+    cdef int64_t out_len = 100000000
 
     out_data = np.zeros(out_len, dtype=A.dtype)  
     cdef floating[:] out_data_view = out_data
@@ -238,26 +210,16 @@ def sparse_sandwich_coo_ll(A, AT, floating[:] d, win_integral[:] rows, win_integ
     for Cj in range(m):
         col_map[cols[Cj]] = Cj
 
-    #cdef int64_t out_idx
+    # each thread will have its own index counter, so no conflicts
     cdef int64_t idx_start
-    #cdef int64_t max_num_threads = openmp.omp_get_max_threads()
     out_idxs = np.zeros(openmp.omp_get_max_threads(), dtype=np.int32)  
     cdef win_integral[:] out_idxs_view = out_idxs
     cdef win_integral* out_idxs_p = &out_idxs_view[0]
 
     cdef int64_t cur_thread_num
 
-    # reps_per = np.zeros(8, dtype=np.int32)
-    # cdef win_integral[:] reps_per_view = reps_per
-    # cdef win_integral* reps_per_p = &reps_per_view[0]    
-
     for Cj in prange(m, nogil=True):
-    #for Cj in range(m):
-        # total_num_threads = omp_get_num_threads()
-        # cur_thread_num = omp_get_thread_num()
-        # out_idx = 0
         cur_thread_num = openmp.omp_get_thread_num()
-        # idx_start = openmp.omp_get_thread_num() * out_len // openmp.omp_get_num_threads()
         idx_start = cur_thread_num * out_len // openmp.omp_get_num_threads()
 
         j = cols[Cj]
@@ -281,259 +243,13 @@ def sparse_sandwich_coo_ll(A, AT, floating[:] d, win_integral[:] rows, win_integ
 
                 AT_val = ATdatap[AT_idx]
 
-                # out_data_p[out_idx] = AT_val * A_val
-                # out_rows_p[out_idx] = Cj
-                # out_cols_p[out_idx] = Ci
-                # out_data_p[idx_start + out_idx] = AT_val * A_val
-                # out_rows_p[idx_start + out_idx] = Cj
-                # out_cols_p[idx_start + out_idx] = Ci
-
-                # out_data_p[idx_start + out_idxs_p[cur_thread_num]] = AT_val * A_val
-                # out_rows_p[idx_start + out_idxs_p[cur_thread_num]] = Cj
-                # out_cols_p[idx_start + out_idxs_p[cur_thread_num]] = Ci
+                out_data_p[idx_start + out_idxs_p[cur_thread_num]] = AT_val * A_val
+                out_rows_p[idx_start + out_idxs_p[cur_thread_num]] = Cj
+                out_cols_p[idx_start + out_idxs_p[cur_thread_num]] = Ci
 
                 out_idxs_p[cur_thread_num] = out_idxs_p[cur_thread_num] + 1
-                # reps_per_p[openmp.omp_get_thread_num()] = reps_per_p[openmp.omp_get_thread_num()] + 1
 
-    return out_data, out_rows, out_cols, out_idxs
-
-@cython.boundscheck(False)
-@cython.wraparound(False)
-def sparse_sandwich_coo_lab(A, AT, floating[:] d, win_integral[:] rows, win_integral[:] cols):
-    # AT is CSC
-    # A is CSC
-    # Computes AT @ diag(d) @ A and returns it in COO form (three arrays)
-
-    # indices is array of row indices
-    # data is array of corresponding nonzero values
-    # indptr points to column starts in indices and data
-    cdef floating[:] Adata = A.data
-    cdef win_integral[:] Aindices = A.indices
-    cdef win_integral[:] Aindptr = A.indptr
-
-    cdef floating[:] ATdata = AT.data
-    cdef win_integral[:] ATindices = AT.indices
-    cdef win_integral[:] ATindptr = AT.indptr
-
-    # more funky pointer/reference stuff happening here
-    cdef floating* Adatap = &Adata[0]
-    cdef win_integral* Aindicesp = &Aindices[0]
-    cdef floating* ATdatap = &ATdata[0]
-    cdef win_integral* ATindicesp = &ATindices[0]
-    cdef win_integral* ATindptrp = &ATindptr[0]
-
-    cdef floating* dp = &d[0]
-
-    cdef int64_t m = cols.shape[0]
-
-    # how long have to be? not sure how long, because depends on number of nonzero
-    # entries. i guess it's fine to have zero entries padding the end bc no effect.
-    # then to be safe we'd need m^3, no? maybe we sum for easiness' sake
-    # m^3 won't do it, because m could be as small as 10 (but then we'd do dense mult)
-    cdef int64_t out_len = A.shape[0] ** 2  # 1e7
-
-    out_data = np.zeros(out_len, dtype=A.dtype)  
-    cdef floating[:] out_data_view = out_data
-    cdef floating* out_data_p = &out_data_view[0]
-    out_rows = np.zeros(out_len, dtype=np.int32)
-    cdef win_integral[:] out_rows_view = out_rows
-    cdef win_integral* out_rows_p = &out_rows_view[0]
-    out_cols = np.zeros(out_len, dtype=np.int32)
-    cdef win_integral[:] out_cols_view = out_cols
-    cdef win_integral* out_cols_p = &out_cols_view[0]
-
-    # Some unusual pointer stuff going on here, such that a change to `outp` also
-    # changes `out`
-
-    cdef int64_t AT_idx, A_idx, AT_row, A_col, Ci, i, Cj, j, Ck, k
-    cdef floating A_val, AT_val
-
-    cdef uint8[:] row_included = np.zeros(d.shape[0], dtype=np.uint8)
-    for Ci in range(rows.shape[0]):
-        row_included[rows[Ci]] = True
-
-    cdef int[:] col_map = np.full(A.shape[1], -1, dtype=np.int32)
-    for Cj in range(m):
-        col_map[cols[Cj]] = Cj
-
-    # cdef int64_t out_idx = 0
-    # cdef int64_t another_idx = 0
-    # cdef int64_t m_idx = 0
-
-    #TODO: see what happens when we swap to having k as the outer loop here?
-    #for Cj in prange(m, nogil=True):
-    for Cj in range(m):
-        j = cols[Cj]
-        # Ck = 0  # does not appear again
-        out_idx = 0
-
-        #another_idx = 0
-        for A_idx in range(Aindptr[j], Aindptr[j+1]):
-            k = Aindicesp[A_idx]
-            if not row_included[k]:
-                continue
-
-            A_val = Adatap[A_idx] * dp[k]
-            Ci = 0
-
-            #another_idx = another_idx + 1
-            #out_idx = 0
-
-            for AT_idx in range(ATindptrp[k], ATindptrp[k+1]):
-                i = ATindicesp[AT_idx]
-                if i > j:
-                    break
-
-                Ci = col_map[i]
-                if Ci == -1:
-                    continue
-
-                AT_val = ATdatap[AT_idx]
-                # outp[Cj * m + Ci] = outp[Cj * m + Ci] + AT_val * A_val
-
-    # out += np.tril(out, -1).T
-    # return out
-
-                # AT_val = ATdatap[AT_idx]
-                out_data_p[out_idx] = AT_val * A_val
-                out_rows_p[out_idx] = Cj
-                out_cols_p[out_idx] = Ci  # these two might be flipped
-
-                out_idx = out_idx + 1  # this line is fine
-
-        if Cj == 0:
-            temp_coo_matrix = sparse.coo_matrix((out_data, (out_rows, out_cols)), shape=(m, m))
-        else:
-            temp_coo_matrix = sparse.coo_matrix((np.hstack((temp_coo_matrix.data, out_data)), np.hstack((temp_coo_matrix.row, out_rows)), np.hstack((temp_coo_matrix.col, out_cols))), shape=(m, m))
-
-        temp_coo_matrix.sum_duplicates()
-
-        out_data.fill(0)
-        # next two are unnecessary because 0 value already makes them irrelevant
-        # out_rows.fill(0)
-        # out_cols.fill(0)
-
-    return temp_coo_matrix
-    #return m_idx, another_idx, out_idx, out_len
-    #return out_data, out_rows, out_cols
-
-@cython.boundscheck(False)
-@cython.wraparound(False)
-def sparse_sandwich_coo_old(A, AT, floating[:] d, win_integral[:] rows, win_integral[:] cols):
-    # AT is CSC
-    # A is CSC
-    # Computes AT @ diag(d) @ A and returns it in COO form (three arrays)
-
-    # indices is array of row indices
-    # data is array of corresponding nonzero values
-    # indptr points to column starts in indices and data
-    cdef floating[:] Adata = A.data
-    cdef win_integral[:] Aindices = A.indices
-    cdef win_integral[:] Aindptr = A.indptr
-
-    cdef floating[:] ATdata = AT.data
-    cdef win_integral[:] ATindices = AT.indices
-    cdef win_integral[:] ATindptr = AT.indptr
-
-    # more funky pointer/reference stuff happening here
-    cdef floating* Adatap = &Adata[0]
-    cdef win_integral* Aindicesp = &Aindices[0]
-    cdef floating* ATdatap = &ATdata[0]
-    cdef win_integral* ATindicesp = &ATindices[0]
-    cdef win_integral* ATindptrp = &ATindptr[0]
-
-    cdef floating* dp = &d[0]
-
-    cdef int64_t m = cols.shape[0]
-
-    # how long have to be? not sure how long, because depends on number of nonzero
-    # entries. i guess it's fine to have zero entries padding the end bc no effect.
-    # then to be safe we'd need m^3, no? maybe we sum for easiness' sake
-    # m^3 won't do it, because m could be as small as 10 (but then we'd do dense mult)
-    cdef int64_t out_len = m * A.shape[0] * A.shape[1]
-
-    # cdef np.ndarray out_data = np.zeros(m, dtype=A.dtype)  
-    # cdef np.ndarray out_rows = np.zeros(m, dtype=A.dtype)
-    # cdef np.ndarray out_cols = np.zeros(m, dtype=A.dtype)
-
-    # out_data = np.zeros(out_len, dtype=A.dtype)  
-    # cdef floating[:] out_data_view = out_data
-    # cdef floating* out_data_p = &out_data_view[0]
-    # out_rows = np.zeros(out_len, dtype=np.int32)
-    # cdef win_integral[:] out_rows_view = out_rows
-    # cdef win_integral* out_rows_p = &out_rows_view[0]
-    # out_cols = np.zeros(out_len, dtype=np.int32)
-    # cdef win_integral[:] out_cols_view = out_cols
-    # cdef win_integral* out_cols_p = &out_cols_view[0]
-
-    # Some unusual pointer stuff going on here, such that a change to `outp` also
-    # changes `out`
-    out = np.zeros((m, m), dtype=A.dtype)
-    cdef floating[:, :] out_view = out
-    cdef floating* outp = &out_view[0,0]
-
-    cdef int64_t AT_idx, A_idx, AT_row, A_col, Ci, i, Cj, j, Ck, k
-    cdef floating A_val, AT_val
-
-    cdef uint8[:] row_included = np.zeros(d.shape[0], dtype=np.uint8)
-    for Ci in range(rows.shape[0]):
-        row_included[rows[Ci]] = True
-
-    cdef int[:] col_map = np.full(A.shape[1], -1, dtype=np.int32)
-    for Cj in range(m):
-        col_map[cols[Cj]] = Cj
-
-    cdef int64_t out_idx = 0
-    cdef int64_t out_idx_nonzero = 0
-    cdef int64_t another_idx = 0
-
-    cdef int64_t m_idx = 0
-
-    #TODO: see what happens when we swap to having k as the outer loop here?
-    for Cj in prange(m, nogil=True):
-        #m_idx = 0
-        j = cols[Cj]
-
-        #m_idx = m_idx + 1
-        #another_idx = 0
-        for A_idx in range(Aindptr[j], Aindptr[j+1]):
-            k = Aindicesp[A_idx]
-            if not row_included[k]:
-                continue
-
-            A_val = Adatap[A_idx] * dp[k]
-            Ci = 0
-
-            another_idx += 1
-            #out_idx = 0
-
-            for AT_idx in range(ATindptrp[k], ATindptrp[k+1]):
-                i = ATindicesp[AT_idx]
-                if i > j:
-                    break
-
-                Ci = col_map[i]
-                if Ci == -1:
-                    continue
-
-                AT_val = ATdatap[AT_idx]
-                #outp[Cj * m + Ci] = outp[Cj * m + Ci] + AT_val * A_val
-
-    # out += np.tril(out, -1).T
-    # return out
-
-                # out_data_p[out_idx] = AT_val * A_val
-                # out_rows_view[out_idx] = Cj
-                # out_cols_view[out_idx] = Ci  # these two might be flipped
-                if AT_val * A_val != 0:
-                    out_idx_nonzero += 1
-                out_idx += 1  # this line is fine
-
-        m_idx += 1
-
-
-    return m_idx, another_idx, out_idx, out_idx_nonzero, out_len
-    #return out_data, out_rows, out_cols
+    return out_data, out_rows, out_cols
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
