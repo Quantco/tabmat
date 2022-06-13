@@ -24,6 +24,11 @@ cat /tmp/environment.yml
 mamba env create -f /tmp/environment.yml
 conda activate $(yq -r .name environment.yml)
 
+if [[ "$NUMPY_VERSION" == "nightly" ]]; then
+    echo "Pin setuptools for compatibility with NumPy nightlies"
+    mamba install -y 'setuptools=59.2.0'
+fi
+
 PRE_WHEELS="https://pypi.anaconda.org/scipy-wheels-nightly/simple"
 if [[ "$NUMPY_VERSION" == "nightly" ]]; then
     echo "Installing Numpy nightly"
