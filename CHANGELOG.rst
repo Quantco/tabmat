@@ -7,12 +7,13 @@
 Changelog
 =========
 
-Unreleased
-----------
+3.1.1 - 2022-07-01
+------------------
 
 **Other changes:**
 
-- Add Python 3.10 support.
+- Add Python 3.10 support to CI (remove Python 3.6).
+- Build wheel for PyPI without ``march=native``.
 
 
 3.1.0 - 2022-03-07
