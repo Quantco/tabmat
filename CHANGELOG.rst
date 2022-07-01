@@ -7,6 +7,15 @@
 Changelog
 =========
 
+
+3.1.2 - 2022-07-01
+------------------
+
+**Other changes:**
+
+- Next attempt to build wheel for PyPI without ``march=native``.
+
+
 3.1.1 - 2022-07-01
 ------------------
 
