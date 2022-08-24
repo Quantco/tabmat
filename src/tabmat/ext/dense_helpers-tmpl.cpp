@@ -30,6 +30,12 @@
     #define XSIMD_BROADCAST set_simd
 #endif
 
+#if XSIMD_VERSION_MAJOR >= 9
+    #define XSIMD_REDUCE_ADD reduce_add
+#else
+    #define XSIMD_REDUCE_ADD hadd
+#endif
+
 namespace xs = xsimd;
 
 <%def name="middle_j(kparallel, IBLOCK, JBLOCK)">
@@ -85,7 +91,7 @@ namespace xs = xsimd;
         // horizontal sum of the simd blocks
         % for ir in range(IBLOCK):
             % for jr in range(JBLOCK):
-                F accum${ir}_${jr} = xs::hadd(accumsimd${ir}_${jr});
+                F accum${ir}_${jr} = xs::XSIMD_REDUCE_ADD(accumsimd${ir}_${jr});
             % endfor
         % endfor
 
