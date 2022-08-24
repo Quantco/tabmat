@@ -7,7 +7,7 @@ on:
     - '.github/workflows/daily.yml'
     - '.github/workflows/test.sh'
 
-# adding comment to trigger this run (revert back)
+# adding comment to trigger this run (revert back!)
 
 jobs:
   linux-daily-unittests:
