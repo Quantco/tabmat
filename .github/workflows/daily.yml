@@ -7,6 +7,8 @@ on:
     - '.github/workflows/daily.yml'
     - '.github/workflows/test.sh'
 
+# adding comment to trigger this run (revert back!)
+
 jobs:
   linux-daily-unittests:
     name: "Linux - daily unit tests - Python ${{ matrix.PYTHON_VERSION}} - ${{ matrix.NOTE }}"
