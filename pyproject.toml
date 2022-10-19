@@ -32,6 +32,7 @@ default_section = 'THIRDPARTY'
 skip = ["pp*", "*-musllinux_*"]
 test-requires = ["pytest", "pytest-xdist"]
 environment = "GLM_ARCHITECTURE='default'"
+# note: ARCHS_LINUX defined in build_wheels.yml file.
 
 [tool.cibuildwheel.macos]
 before-all = [
