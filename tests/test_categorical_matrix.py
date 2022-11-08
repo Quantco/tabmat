@@ -23,7 +23,7 @@ def test_recover_orig(cat_vec, vec_dtype, drop_first):
 @pytest.mark.parametrize("vec_dtype", [np.float64, np.float32, np.int64, np.int32])
 @pytest.mark.parametrize("drop_first", [True, False])
 def test_csr_matvec_categorical(cat_vec, vec_dtype, drop_first):
-    mat = pd.get_dummies(cat_vec, drop_first=drop_first, dtype="int64")
+    mat = pd.get_dummies(cat_vec, drop_first=drop_first, dtype="uint8")
     cat_mat = CategoricalMatrix(cat_vec, drop_first=drop_first)
     vec = np.random.choice(np.arange(4, dtype=vec_dtype), mat.shape[1])
     res = cat_mat.matvec(vec)
@@ -34,7 +34,7 @@ def test_csr_matvec_categorical(cat_vec, vec_dtype, drop_first):
 def test_tocsr(cat_vec, drop_first):
     cat_mat = CategoricalMatrix(cat_vec, drop_first=drop_first)
     res = cat_mat.tocsr().A
-    expected = pd.get_dummies(cat_vec, drop_first=drop_first, dtype="int64")
+    expected = pd.get_dummies(cat_vec, drop_first=drop_first, dtype="uint8")
     np.testing.assert_allclose(res, expected)
 
 
@@ -43,7 +43,7 @@ def test_transpose_matvec(cat_vec, drop_first):
     cat_mat = CategoricalMatrix(cat_vec, drop_first=drop_first)
     other = np.random.random(cat_mat.shape[0])
     res = cat_mat.transpose_matvec(other)
-    expected = pd.get_dummies(cat_vec, drop_first=drop_first, dtype="int64").T.dot(
+    expected = pd.get_dummies(cat_vec, drop_first=drop_first, dtype="uint8").T.dot(
         other
     )
     np.testing.assert_allclose(res, expected)
@@ -54,7 +54,7 @@ def test_multiply(cat_vec, drop_first):
     cat_mat = CategoricalMatrix(cat_vec, drop_first=drop_first)
     other = np.arange(len(cat_vec))[:, None]
     actual = cat_mat.multiply(other)
-    expected = pd.get_dummies(cat_vec, drop_first=drop_first, dtype="int64") * other
+    expected = pd.get_dummies(cat_vec, drop_first=drop_first, dtype="uint8") * other
     np.testing.assert_allclose(actual.A, expected)
 
 

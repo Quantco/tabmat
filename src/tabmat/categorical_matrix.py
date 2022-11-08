@@ -18,7 +18,7 @@ csr storage
     >>> import pandas as pd
 
     >>> arr = [1, 0, 1]
-    >>> dummies = pd.get_dummies(arr, dtype="int64")
+    >>> dummies = pd.get_dummies(arr, dtype="uint8")
     >>> csr = sparse.csr_matrix(dummies.values)
     >>> csr.data
     array([1, 1, 1], dtype=uint8)
@@ -46,7 +46,7 @@ However, we still do not need to store the data.
     >>> import pandas as pd
 
     >>> arr = [1, 0, 1]
-    >>> dummies = pd.get_dummies(arr, dtype="int64")
+    >>> dummies = pd.get_dummies(arr, dtype="uint8")
     >>> csc = sparse.csc_matrix(dummies.values)
     >>> csc.data
     array([1, 1, 1], dtype=uint8)
