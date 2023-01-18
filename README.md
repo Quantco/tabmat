@@ -9,7 +9,7 @@ Simply install via conda-forge!
 conda install -c conda-forge tabmat
 ```
 
-<img src="docs/_static/headline.png" width="600px">
+<img src="https://raw.githubusercontent.com/Quantco/tabmat/main/docs/_static/headline.png" width="600px">
 
 ## Use case
 
@@ -45,7 +45,7 @@ Individual subclasses may support significantly more operations.
 - `SplitMatrix` represents matrices with both dense, sparse and categorical parts, allowing for a significant speedup in matrix multiplications.
 - `StandardizedMatrix` efficiently and sparsely represents a matrix that has had its column normalized to have mean zero and variance one. Even if the underlying matrix is sparse, such a normalized matrix will be dense. However, by storing the scaling and shifting factors separately, `StandardizedMatrix` retains the original matrix sparsity. 
 
-![Wide data set](images/wide_data_sandwich.png)
+![Wide data set](https://raw.githubusercontent.com/Quantco/tabmat/main/images/wide_data_sandwich.png)
 
 ## Benchmarks
 
