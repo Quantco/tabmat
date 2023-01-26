@@ -2,6 +2,9 @@ name: Build and upload to PyPI
 
 on:
   pull_request:
+    paths:
+      - .github/**
+      - pyproject.toml
   release:
     types:
       - published
