@@ -46,7 +46,7 @@ CXX="/usr/local/opt/llvm/bin/clang++"
 CC="/usr/local/opt/llvm/bin/clang"
 
 [tool.cibuildwheel.windows]
-before-all = [
+before-build = [
   "C:\\Miniconda\\condabin\\conda install -c conda-forge xsimd",
 ]
 
