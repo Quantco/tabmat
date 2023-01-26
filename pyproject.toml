@@ -36,7 +36,7 @@ environment = "GLM_ARCHITECTURE='default'"
 
 [tool.cibuildwheel.macos]
 before-build = [
-  "brew install llvm libomp jemalloc xsimd",
+  "arch -arm64 brew install llvm libomp jemalloc xsimd",
 ]
 
 [tool.cibuildwheel.macos.environment]
