@@ -35,7 +35,7 @@ environment = "GLM_ARCHITECTURE='default'"
 # note: ARCHS_LINUX defined in build_wheels.yml file.
 
 [tool.cibuildwheel.macos]
-before-all = [
+before-build = [
   "brew install llvm libomp jemalloc xsimd",
 ]
 
@@ -46,7 +46,7 @@ CXX="/usr/local/opt/llvm/bin/clang++"
 CC="/usr/local/opt/llvm/bin/clang"
 
 [tool.cibuildwheel.windows]
-before-build = [
+before-all = [
   "C:\\Miniconda\\condabin\\conda install -c conda-forge xsimd",
 ]
 
