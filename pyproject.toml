@@ -36,20 +36,7 @@ environment = "GLM_ARCHITECTURE='default'"
 
 [tool.cibuildwheel.macos]
 before-all = [
-  "brew install llvm libomp",
-  "cd ~/",
-  "git clone --branch 5.2.1 https://github.com/jemalloc/jemalloc.git",
-  "cd jemalloc",
-  "./autogen.sh --disable-cxx --with-jemalloc-prefix=local --with-install-suffix=local",
-  "make",
-  "make install_bin install_include install_lib",
-  "cd ~/",
-  "git clone --branch 7.6.0 https://github.com/xtensor-stack/xsimd.git",
-  "cd xsimd",
-  "mkdir build",
-  "cd build",
-  "cmake -DCMAKE_INSTALL_PREFIX=/usr/local ..",
-  "make install"
+  "brew install llvm libomp jemalloc xsimd",
 ]
 
 [tool.cibuildwheel.macos.environment]
