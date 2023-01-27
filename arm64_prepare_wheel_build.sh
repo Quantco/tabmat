@@ -9,7 +9,7 @@ ln -s ~/arm-target/arm-homebrew/bin/brew ~/arm-target/bin/arm-brew
 
 export HOMEBREW_CACHE=~/arm-target/brew-cache
 export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
-arm-brew fetch --deps --bottle-tag=arm64_big_sur llvm libomp jemalloc xsimd |\
+arm-brew fetch --deps --bottle-tag=arm64_big_sur libomp jemalloc xsimd |\
   grep -E "(Downloaded to:|Already downloaded:)" |\
   grep -v pkg-config |\
   awk '{ print $3 }' |\

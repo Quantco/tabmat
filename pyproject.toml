@@ -36,14 +36,15 @@ environment = "GLM_ARCHITECTURE='default'"
 
 [tool.cibuildwheel.macos]
 before-build = [
+  "brew install llvm
   "bash arm64_prepare_wheel_build.sh",
 ]
 
 [tool.cibuildwheel.macos.environment]
 LDFLAGS="-L/Users/runner/arm-target/lib"
 CFLAGS="-I/Users/runner/arm-target/include"
-CXX="/Users/runner/arm-target/opt/llvm/bin/clang++"
-CC="/Users/runner/arm-target/opt/llvm/bin/clang"
+CXX="/usr/local/opt/llvm/bin/clang++"
+CC="/usr/local/opt/llvm/bin/clang"
 
 [tool.cibuildwheel.windows]
 before-all = [
