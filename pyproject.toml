@@ -40,10 +40,10 @@ before-build = [
 ]
 
 [tool.cibuildwheel.macos.environment]
-LDFLAGS="-L/opt/homebrew/lib"
-CFLAGS="-I/opt/homebrew/include"
-CXX="/opt/homebrew/opt/llvm/bin/clang++"
-CC="/opt/homebrew/opt/llvm/bin/clang"
+LDFLAGS="-L/Users/runner/arm-target/lib"
+CFLAGS="-I/Users/runner/arm-target/include"
+CXX="/Users/runner/arm-target/opt/llvm/bin/clang++"
+CC="/Users/runner/arm-target/opt/llvm/bin/clang"
 
 [tool.cibuildwheel.windows]
 before-all = [
