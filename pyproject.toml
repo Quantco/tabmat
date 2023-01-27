@@ -36,7 +36,7 @@ environment = "GLM_ARCHITECTURE='default'"
 
 [tool.cibuildwheel.macos]
 before-build = [
-  "brew install llvm"
+  "brew install llvm",
   "conda create -n build -c conda-forge/osx-arm64 jemalloc-local xsimd llvm-openmp",
 ]
 
