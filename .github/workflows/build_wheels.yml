@@ -26,7 +26,7 @@ jobs:
         uses: pypa/cibuildwheel@v2.12.0
         env:
           CIBW_ARCHS_LINUX: auto aarch64
-          CIBW_ARCHS_MACOS: arm64
+          CIBW_ARCHS_MACOS: x86_64 arm64
           GLM_ARCHITECTURE: default
 
       - uses: actions/upload-artifact@v3
