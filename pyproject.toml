@@ -36,14 +36,15 @@ environment = "GLM_ARCHITECTURE='default'"
 
 [tool.cibuildwheel.macos]
 before-build = [
+  "brew install llvm"
   "conda create -n build -c conda-forge/osx-arm64 jemalloc-local xsimd llvm-openmp",
 ]
 
 [tool.cibuildwheel.macos.environment]
 LDFLAGS="-L$CONDA/envs/build/lib"
 CFLAGS="-I$CONDA/envs/build/include"
-CXX="/usr/bin/clang++"
-CC="/usr/bin/clang"
+CXX="/usr/local/opt/llvm/bin/clang++"
+CC="/usr/local/opt/llvm/bin/clang"
 
 [tool.cibuildwheel.windows]
 before-all = [
