@@ -41,10 +41,10 @@ before-build = [
 ]
 
 [tool.cibuildwheel.macos.environment]
-LDFLAGS="-L$CONDA/envs/build/lib"
+LDFLAGS="-L$CONDA/envs/build/lib -lomp"
 CFLAGS="-I$CONDA/envs/build/include"
-CXX="/usr/local/opt/llvm/bin/clang++"
-CC="/usr/local/opt/llvm/bin/clang"
+CXX="/usr/bin/clang++"
+CC="/usr/bin/clang"
 
 [tool.cibuildwheel.windows]
 before-all = [
