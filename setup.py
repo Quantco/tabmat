@@ -76,6 +76,7 @@ elif sys.platform == "darwin":
         "--std=c++17",
         f"-DJEMALLOC_INSTALL_SUFFIX={je_install_suffix}",
     ]
+    extra_link_args = [""]
 else:
     jemalloc_config = shutil.which("jemalloc-config")
     if jemalloc_config is None:
