@@ -7,6 +7,12 @@
 Changelog
 =========
 
+3.1.3 - 2022-01-26
+------------------
+
+**Other changes:**
+
+- Build and upload wheels for Apple Silicon.
 
 3.1.2 - 2022-07-01
 ------------------
