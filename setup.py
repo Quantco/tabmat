@@ -58,7 +58,9 @@ if sys.platform == "win32":
     include_dirs.append(os.path.join(sys.prefix, "Library", "include"))
 elif sys.platform == "darwin":
     jemalloc_config = shutil.which("jemalloc-config")
-    if jemalloc_config is None:
+    if "JE_INSTALL_SUFFIX" in os.environ:
+        je_install_suffix = os.environ["JE_INSTALL_SUFFIX"]
+    elif jemalloc_config is None:
         je_install_suffix = ""
     else:
         pkg_info = (

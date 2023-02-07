@@ -44,6 +44,7 @@ LDFLAGS="-Wl,-rpath,$CONDA/envs/build/lib -L$CONDA/envs/build/lib -lomp"
 CFLAGS="-I$CONDA/envs/build/include"
 CXX="/usr/bin/clang++"
 CC="/usr/bin/clang"
+JE_INSTALL_SUFFIX="local"
 
 [tool.cibuildwheel.windows]
 before-all = [
