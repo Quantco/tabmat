@@ -57,12 +57,13 @@ if sys.platform == "win32":
     # make sure we can find xsimd headers
     include_dirs.append(os.path.join(sys.prefix, "Library", "include"))
 elif sys.platform == "darwin":
-    jemalloc_config = shutil.which("jemalloc-config")
-    if jemalloc_config is None:
+    if "JE_INSTALL_SUFFIX" in os.environ:
+        je_install_suffix = os.environ["JE_INSTALL_SUFFIX"]
+    elif shutil.which("jemalloc-config") is None:
         je_install_suffix = ""
     else:
         pkg_info = (
-            Path(jemalloc_config).parent.parent / "lib" / "pkgconfig" / "jemalloc.pc"
+            Path(shutil.which("jemalloc-config")).parent.parent / "lib" / "pkgconfig" / "jemalloc.pc"
         ).read_text()
         je_install_suffix = [
             i.split("=")[1]
