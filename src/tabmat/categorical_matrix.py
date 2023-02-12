@@ -61,7 +61,7 @@ Computations
 Matrix vector products
 ----------------------
 
-A general sparse CSR matrix-vector products in psuedocode,
+A general sparse CSR matrix-vector products in pseudocode,
 modeled on [scipy sparse](https://github.com/scipy/scipy/blob/1dc960a33b000b95b1e399582c154efc0360a576/scipy/sparse/sparsetools/csr.h#L1120):  # noqa:
 
 ::

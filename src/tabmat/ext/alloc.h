@@ -29,7 +29,7 @@ std::size_t round_to_align(std::size_t size, std::size_t alignment) {
 }
 
 // This function returns a safe smart pointer that will properly delete a
-// segment of alligned memory.
+// segment of aligned memory.
 // Internally, it handles distinguishing between Windows and non-Windows
 // allocation.
 template <typename F>
