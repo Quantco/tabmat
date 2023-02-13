@@ -123,7 +123,7 @@ Changelog
 
 **Other changes**
 
-- Optimized the :meth:`tabmat.SparseMatrix.matvec` and :meth:`tabmat.SparseMatrix.tranpose_matvec` for when ``rows`` and ``cols`` are None.
+- Optimized the :meth:`tabmat.SparseMatrix.matvec` and :meth:`tabmat.SparseMatrix.transpose_matvec` for when ``rows`` and ``cols`` are None.
 - Implemented :func:`CategoricalMatrix.__rmul__`
 - Reorganizing the documentation and updating the text to match the current API.
 - Enable indexing the rows of a ``CategoricalMatrix``. Previously :func:`CategoricalMatrix.__getitem__` only supported column indexing.

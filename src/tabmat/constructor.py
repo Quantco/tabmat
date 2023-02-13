@@ -171,7 +171,7 @@ def _split_sparse_and_dense_parts(
     Split matrix.
 
     Return the dense and sparse parts of a matrix and the corresponding indices
-    for each at the provided threshhold.
+    for each at the provided threshold.
     """
     if not isinstance(arg1, sps.csc_matrix):
         raise TypeError(
