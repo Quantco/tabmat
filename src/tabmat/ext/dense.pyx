@@ -103,7 +103,7 @@ def transpose_square_dot_weights(np.ndarray X, floating[:] weights):
     cdef floating* Xp = <floating*>X.data
     cdef int nrows = weights.shape[0]
     cdef int ncols = X.shape[1]
-    cdef int i, j
+    cdef size_t i, j
 
     cdef np.ndarray out = np.zeros(ncols, dtype=X.dtype)
     cdef floating* outp = <floating*>out.data

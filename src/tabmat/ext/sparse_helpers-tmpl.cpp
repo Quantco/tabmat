@@ -36,8 +36,8 @@ void _csr_dense${order}_sandwich(
 
     std::vector<Int> Acol_map(m, -1);
     // Don't parallelize because the number of columns is small
-    for (Int Ci = 0; Ci < nA_cols; Ci++) {
-        Int i = A_cols[Ci];
+    for (size_t Ci = 0; Ci < nA_cols; Ci++) {
+        size_t i = A_cols[Ci];
         Acol_map[i] = Ci;
     }
 
@@ -48,29 +48,29 @@ void _csr_dense${order}_sandwich(
             nA_cols * nB_cols_rounded,
             alignment
         );
-        for (Int Ci = 0; Ci < nA_cols; Ci++) {
-            for (Int Cj = 0; Cj < nB_cols; Cj++) {
+        for (size_t Ci = 0; Ci < nA_cols; Ci++) {
+            for (size_t Cj = 0; Cj < nB_cols; Cj++) {
                 outtemp.get()[Ci*nB_cols_rounded+Cj] = 0.0;
             }
         }
 
         #pragma omp for
-        for (Int Ckk = 0; Ckk < nrows; Ckk+=kblock) {
-            Int Ckmax = Ckk + kblock;
+        for (size_t Ckk = 0; Ckk < nrows; Ckk+=kblock) {
+            size_t Ckmax = Ckk + kblock;
             if (Ckmax > nrows) {
                 Ckmax = nrows;
             }
-            for (Int Cjj = 0; Cjj < nB_cols; Cjj+=jblock) {
-                Int Cjmax = Cjj + jblock;
+            for (size_t Cjj = 0; Cjj < nB_cols; Cjj+=jblock) {
+                size_t Cjmax = Cjj + jblock;
                 if (Cjmax > nB_cols) {
                     Cjmax = nB_cols;
                 }
 
                 F* R = &Rglobal.get()[omp_get_thread_num()*kblock*jblock];
-                for (Int Ck = Ckk; Ck < Ckmax; Ck++) {
-                    Int k = rows[Ck];
-                    for (Int Cj = Cjj; Cj < Cjmax; Cj++) {
-                        Int j = B_cols[Cj];
+                for (size_t Ck = Ckk; Ck < Ckmax; Ck++) {
+                    size_t k = rows[Ck];
+                    for (size_t Cj = Cjj; Cj < Cjmax; Cj++) {
+                        size_t j = B_cols[Cj];
                         %if order == 'C':
                             F Bv = B[k * r + j];
                         % else:
@@ -80,11 +80,11 @@ void _csr_dense${order}_sandwich(
                     }
                 }
 
-                for (Int Ck = Ckk; Ck < Ckmax; Ck++) {
+                for (size_t Ck = Ckk; Ck < Ckmax; Ck++) {
                     Int k = rows[Ck];
-                    for (Int A_idx = Aindptr[k]; A_idx < Aindptr[k+1]; A_idx++) {
+                    for (size_t A_idx = Aindptr[k]; A_idx < Aindptr[k+1]; A_idx++) {
                         Int i = Aindices[A_idx];
-                        Int Ci = Acol_map[i];
+                        size_t Ci = Acol_map[i];
                         if (Ci == -1) {
                             continue;
                         }
@@ -92,8 +92,8 @@ void _csr_dense${order}_sandwich(
                         F Q = Adata[A_idx];
                         auto Qsimd = xs::XSIMD_BROADCAST(Q);
 
-                        Int Cj = Cjj;
-                        Int Cjmax2 = Cjj + ((Cjmax - Cjj) / simd_size) * simd_size;
+                        size_t Cj = Cjj;
+                        size_t Cjmax2 = Cjj + ((Cjmax - Cjj) / simd_size) * simd_size;
                         for (; Cj < Cjmax2; Cj+=simd_size) {
                             auto Bsimd = xs::load_aligned(&R[(Ck-Ckk)*jblock+(Cj-Cjj)]);
                             auto outsimd = xs::load_aligned(&outtemp.get()[Ci*nB_cols_rounded+Cj]);
@@ -109,8 +109,8 @@ void _csr_dense${order}_sandwich(
             }
         }
 
-        for (Int Ci = 0; Ci < nA_cols; Ci++) {
-            for (Int Cj = 0; Cj < nB_cols; Cj++) {
+        for (size_t Ci = 0; Ci < nA_cols; Ci++) {
+            for (size_t Cj = 0; Cj < nB_cols; Cj++) {
                 #pragma omp atomic
                 out[Ci*nB_cols+Cj] += outtemp.get()[Ci*nB_cols_rounded+Cj];
             }

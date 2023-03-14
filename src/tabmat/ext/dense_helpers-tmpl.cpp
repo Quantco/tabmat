@@ -262,7 +262,7 @@ void _dense${order}_sandwich(int* rows, int* cols, F* X, F* d, F* out,
         omp_get_max_threads() * thresh1d * thresh1d * kratio, 
         alignment
     );
-    for (int Cj = 0; Cj < out_m; Cj+=kratio*thresh1d) {
+    for (size_t Cj = 0; Cj < out_m; Cj+=kratio*thresh1d) {
         int Cjmax2 = Cj + kratio*thresh1d; 
         if (Cjmax2 > out_m) {
             Cjmax2 = out_m; 
@@ -275,8 +275,8 @@ void _dense${order}_sandwich(int* rows, int* cols, F* X, F* d, F* out,
     }
 
     #pragma omp parallel for if(out_m > 100)
-    for (int Ci = 0; Ci < out_m; Ci++) {
-        for (int Cj = 0; Cj <= Ci; Cj++) {
+    for (size_t Ci = 0; Ci < out_m; Ci++) {
+        for (size_t Cj = 0; Cj <= Ci; Cj++) {
             out[Cj * out_m + Ci] = out[Ci * out_m + Cj];
         }
     }
@@ -301,26 +301,26 @@ void _dense${order}_rmatvec(int* rows, int* cols, F* X, F* v, F* out,
     constexpr int colblocksize = 4;
 
     #pragma omp parallel for
-    for (int Ci = 0; Ci < n_rows; Ci += rowblocksize) {
-        int Cimax = Ci + rowblocksize;
+    for (size_t Ci = 0; Ci < n_rows; Ci += rowblocksize) {
+        size_t Cimax = Ci + rowblocksize;
         if (Cimax > n_rows) {
             Cimax = n_rows;
         }
 
         F* outlocal = &outglobal.get()[omp_get_thread_num()*n_cols];
 
-        for (int Cj = 0; Cj < n_cols; Cj += colblocksize) {
-            int Cjmax = Cj + colblocksize;
+        for (size_t Cj = 0; Cj < n_cols; Cj += colblocksize) {
+            size_t Cjmax = Cj + colblocksize;
             if (Cjmax > n_cols) {
                 Cjmax = n_cols;
             }
 
             % if order == 'F':
-                for (int Cjj = Cj; Cjj < Cjmax; Cjj++) {
-                    int j = cols[Cjj];
+                for (size_t Cjj = Cj; Cjj < Cjmax; Cjj++) {
+                    size_t j = cols[Cjj];
                     F out_entry = 0.0;
-                    for (int Cii = Ci; Cii < Cimax; Cii++) {
-                        int i = rows[Cii];
+                    for (size_t Cii = Ci; Cii < Cimax; Cii++) {
+                        size_t i = rows[Cii];
                         F Xv = X[j * n + i];
                         F vv = v[i];
                         out_entry += Xv * vv;
@@ -329,14 +329,14 @@ void _dense${order}_rmatvec(int* rows, int* cols, F* X, F* v, F* out,
                     outlocal[Cjj] = out_entry;
                 }
             % else:
-                for (int Cjj = Cj; Cjj < Cjmax; Cjj++) {
+                for (size_t Cjj = Cj; Cjj < Cjmax; Cjj++) {
                     outlocal[Cjj] = 0.0;
                 }
-                for (int Cii = Ci; Cii < Cimax; Cii++) {
-                    int i = rows[Cii];
+                for (size_t Cii = Ci; Cii < Cimax; Cii++) {
+                    size_t i = rows[Cii];
                     F vv = v[i];
-                    for (int Cjj = Cj; Cjj < Cjmax; Cjj++) {
-                        int j = cols[Cjj];
+                    for (size_t Cjj = Cj; Cjj < Cjmax; Cjj++) {
+                        size_t j = cols[Cjj];
                         F Xv = X[i * m + j];
                         outlocal[Cjj] += Xv * vv;
                     }
@@ -344,7 +344,7 @@ void _dense${order}_rmatvec(int* rows, int* cols, F* X, F* v, F* out,
             % endif
         }
 
-        for (int Cj = 0; Cj < n_cols; Cj++) {
+        for (size_t Cj = 0; Cj < n_cols; Cj++) {
             #pragma omp atomic
             out[Cj] += outlocal[Cj];
         }
@@ -362,16 +362,16 @@ void _dense${order}_matvec(int* rows, int* cols, F* X, F* v, F* out,
     constexpr int rowblocksize = 256;
 
     #pragma omp parallel for
-    for (int Ci = 0; Ci < n_rows; Ci += rowblocksize) {
-        int Cimax = Ci + rowblocksize;
+    for (size_t Ci = 0; Ci < n_rows; Ci += rowblocksize) {
+        size_t Cimax = Ci + rowblocksize;
         if (Cimax > n_rows) {
             Cimax = n_rows;
         }
-        for (int Cii = Ci; Cii < Cimax; Cii++) {
+        for (size_t Cii = Ci; Cii < Cimax; Cii++) {
             F out_entry = 0.0;
-            int i = rows[Cii];
-            for (int Cjj = 0; Cjj < n_cols; Cjj++) {
-                int j = cols[Cjj];
+            size_t i = rows[Cii];
+            for (size_t Cjj = 0; Cjj < n_cols; Cjj++) {
+                size_t j = cols[Cjj];
                 F vv = v[j];
                 % if order == 'F':
                     F Xv = X[j * n + i];

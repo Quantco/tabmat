@@ -5,13 +5,13 @@ cimport numpy as np
 import cython
 from cython cimport floating, integral
 from cython.parallel import prange
-from libc.stdint cimport int64_t
+from libc.stdint cimport int32_t, int64_t
 
 ctypedef np.uint8_t uint8
 
 ctypedef fused win_integral:
-    integral
-    long long
+    int32_t
+    int64_t
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -36,12 +36,12 @@ def sparse_sandwich(A, AT, floating[:] d, win_integral[:] rows, win_integral[:] 
 
     cdef floating* dp = &d[0]
 
-    cdef int64_t m = cols.shape[0]
+    cdef size_t m = cols.shape[0]
     out = np.zeros((m, m), dtype=A.dtype)
     cdef floating[:, :] out_view = out
     cdef floating* outp = &out_view[0,0]
 
-    cdef int64_t AT_idx, A_idx, AT_row, A_col, Ci, i, Cj, j, Ck, k
+    cdef size_t AT_idx, A_idx, AT_row, A_col, Ci, i, Cj, j, Ck, k
     cdef floating A_val, AT_val
 
     cdef uint8[:] row_included = np.zeros(d.shape[0], dtype=np.uint8)
@@ -94,8 +94,8 @@ def csr_matvec_unrestricted(X, floating[:] v, out, win_integral[:] X_indices):
     cdef win_integral* Xindptrp = &Xindptr[0];
     cdef floating* outp = &out_view[0];
 
-    cdef int64_t i, X_idx, j
-    cdef int64_t n = out.shape[0]
+    cdef size_t i, X_idx, j
+    cdef size_t n = out.shape[0]
     cdef floating Xval, vval
 
     for i in prange(n, nogil=True):
@@ -118,8 +118,8 @@ def csr_matvec(
     cdef win_integral[:] Xindices = X.indices
     cdef win_integral[:] Xindptr = X.indptr
 
-    cdef int64_t n = rows.shape[0]
-    cdef int64_t m = cols.shape[0]
+    cdef size_t n = rows.shape[0]
+    cdef size_t m = cols.shape[0]
     out = np.zeros(n, dtype=X.dtype)
     cdef floating[:] out_view = out;
 
@@ -128,7 +128,7 @@ def csr_matvec(
     cdef win_integral* Xindptrp = &Xindptr[0];
     cdef floating* outp = &out_view[0];
 
-    cdef int64_t Ci, i, Cj, X_idx, j
+    cdef size_t Ci, i, Cj, X_idx, j
     cdef floating Xval, vval
 
     cdef uint8[:] col_included = np.zeros(X.shape[1], dtype=np.uint8)
@@ -163,7 +163,7 @@ def csc_rmatvec_unrestricted(XT, floating[:] v, out, win_integral[:] XT_indices)
     cdef win_integral* XTindptrp = &XTindptr[0];
     cdef floating* outp = &out_view[0];
 
-    cdef int64_t i, XT_idx, j
+    cdef size_t i, XT_idx, j
     cdef floating XTval, vval
 
     for j in prange(m, nogil=True):
@@ -181,8 +181,8 @@ def csc_rmatvec(XT, floating[:] v, win_integral[:] rows, win_integral[:] cols):
     cdef win_integral[:] XTindices = XT.indices
     cdef win_integral[:] XTindptr = XT.indptr
 
-    cdef int64_t n = rows.shape[0]
-    cdef int64_t m = cols.shape[0]
+    cdef size_t n = rows.shape[0]
+    cdef size_t m = cols.shape[0]
     out = np.zeros(m, dtype=XT.dtype)
     cdef floating[:] out_view = out;
 
@@ -193,7 +193,7 @@ def csc_rmatvec(XT, floating[:] v, win_integral[:] rows, win_integral[:] cols):
     cdef win_integral* rowsp
     cdef win_integral* colsp
 
-    cdef int64_t Ci, i, Cj, XT_idx, j
+    cdef size_t Ci, i, Cj, XT_idx, j
     cdef floating XTval, vval
 
     cdef uint8[:] row_included = np.zeros(XT.shape[0], dtype=np.uint8)
@@ -279,10 +279,10 @@ def transpose_square_dot_weights(
         floating[:] weights,
         dtype):
 
-    cdef int nrows = weights.shape[0]
-    cdef int ncols = indptr.shape[0] - 1
+    cdef size_t nrows = weights.shape[0]
+    cdef size_t ncols = indptr.shape[0] - 1
 
-    cdef int i, j, k
+    cdef size_t i, j, k
 
     cdef np.ndarray out = np.zeros(ncols, dtype=dtype)
     cdef floating* outp = <floating*>out.data
