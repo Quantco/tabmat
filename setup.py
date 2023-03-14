@@ -73,12 +73,14 @@ elif sys.platform == "darwin":
         ].pop()
     allocator_libs = [f"jemalloc{je_install_suffix}"]
     extra_compile_args = [
+        "-Xpreprocessor",
+        "-fopenmp",
         "-O3",
         "-ffast-math",
         "--std=c++17",
         f"-DJEMALLOC_INSTALL_SUFFIX={je_install_suffix}",
     ]
-    extra_link_args = [""]
+    extra_link_args = ["-lomp"]
 else:
     jemalloc_config = shutil.which("jemalloc-config")
     if jemalloc_config is None:
