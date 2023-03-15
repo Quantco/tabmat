@@ -5,6 +5,9 @@ on:
       - '.github/**'
       - '**/*.pyx'
       - '**/*.cpp'
+      - 'setup.py'
+      - 'environment-win.yml'
+
 jobs:
   windows-ci:
     name: "Win - tests - Python ${{ matrix.PYTHON_VERSION }}"

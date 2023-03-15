@@ -5,6 +5,8 @@ on:
       - '.github/**'
       - '**/*.pyx'
       - '**/*.cpp'
+      - 'setup.py'
+      - 'environment.yml'
 
 jobs:
   macos:
