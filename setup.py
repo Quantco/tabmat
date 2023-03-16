@@ -1,6 +1,5 @@
 import io
 import os
-import platform
 import shutil
 import sys
 from os import path
@@ -103,13 +102,6 @@ else:
         f"-DJEMALLOC_INSTALL_SUFFIX={je_install_suffix}",
     ]
     extra_link_args = ["-fopenmp"]
-
-architecture = os.environ.get("GLM_ARCHITECTURE", "default")
-if architecture != "default":
-    # Don't set "-march=native" on macOS arm64 as this doesn't exist there.
-    # Note that "arm64" already implies macOS. On Linux this is called "aarch64".
-    if not (platform.machine() == "arm64" and architecture == "native"):
-        extra_compile_args.append("-march=" + architecture)
 
 extension_args = dict(
     include_dirs=include_dirs,

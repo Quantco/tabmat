@@ -1,5 +1,3 @@
-GLM_ARCHITECTURE:
-- 'default'
 c_compiler:
 - gcc
 c_compiler_version:
