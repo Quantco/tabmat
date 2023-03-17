@@ -269,7 +269,7 @@ void _dense${order}_sandwich(int* rows, int* cols, F* X, F* d, F* out,
         alignment
     );
     for (SIZE_T Cj = 0; Cj < out_m; Cj+=kratio*thresh1d) {
-        int Cjmax2 = Cj + kratio*thresh1d; 
+        SIZE_T Cjmax2 = Cj + kratio*thresh1d; 
         if (Cjmax2 > out_m) {
             Cjmax2 = out_m; 
         }
