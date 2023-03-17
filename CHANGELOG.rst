@@ -7,6 +7,14 @@
 Changelog
 =========
 
+3.1.4 - 2022-03-17
+------------------
+
+**Bug fix**
+
+- We fixed a bug in the dense matrix-vector product, which would previously segfault for very large matrices.
+
+
 3.1.3 - 2022-01-26
 ------------------
 
