@@ -26,7 +26,6 @@ jobs:
         env:
           CIBW_ARCHS_LINUX: auto aarch64
           CIBW_ARCHS_MACOS: x86_64 arm64
-          GLM_ARCHITECTURE: default
 
       - uses: actions/upload-artifact@v3
         with:
@@ -35,8 +34,6 @@ jobs:
   build_sdist:
     name: Build source distribution
     runs-on: ubuntu-latest
-    env:
-      GLM_ARCHITECTURE: default
     steps:
       - uses: actions/checkout@v3
 

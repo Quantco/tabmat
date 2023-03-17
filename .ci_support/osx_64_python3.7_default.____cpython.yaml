@@ -1,5 +1,3 @@
-GLM_ARCHITECTURE:
-- 'default'
 MACOSX_DEPLOYMENT_TARGET:
 - '10.9'
 c_compiler:
