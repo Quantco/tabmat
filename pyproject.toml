@@ -29,7 +29,12 @@ skip_glob = '\.eggs/*,\.git/*,\.venv/*,build/*,dist/*'
 default_section = 'THIRDPARTY'
 
 [tool.cibuildwheel]
-skip = ["pp*", "*-musllinux_*"]
+skip = [
+  "*-win32",
+  "*-manylinux_i686",
+  "pp*", 
+  "*-musllinux_*"
+]
 test-requires = ["pytest", "pytest-xdist"]
 # note: ARCHS_LINUX defined in build_wheels.yml file.
 
