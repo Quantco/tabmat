@@ -7,12 +7,20 @@
 Changelog
 =========
 
-3.1.4 - 2022-03-20
+3.1.5 - 2022-03-20
 ------------------
 
-**Bug fix**
+**Bug fix:**
 
 - We fixed a bug in the dense matrix-vector and sandwich products, which would previously segfault for very large matrices.
+
+
+3.1.4 - 2022-02-07
+------------------
+
+**Bug fix:**
+
+- Fixed the loading of jemalloc in Apple Silicon wheels.
 
 
 3.1.3 - 2022-01-26
@@ -21,6 +29,7 @@ Changelog
 **Other changes:**
 
 - Build and upload wheels for Apple Silicon.
+
 
 3.1.2 - 2022-07-01
 ------------------
