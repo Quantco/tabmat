@@ -24,6 +24,12 @@
 
 #include "alloc.h"
 
+#ifdef _WIN32
+    #define SIZE_T long long
+#else
+    #define SIZE_T size_t
+#endif
+
 #if XSIMD_VERSION_MAJOR >= 8
     #define XSIMD_BROADCAST broadcast
 #else
@@ -178,9 +184,9 @@ ${dense_base_tmpl(False)}
 <%def name="k_loop(kparallel, order)">
 % if kparallel:
     #pragma omp parallel for
-    for (int Rk = 0; Rk < in_n; Rk+=kratio*thresh1d) {
+    for (SIZE_T Rk = 0; Rk < in_n; Rk+=kratio*thresh1d) {
 % else:
-    for (int Rk = 0; Rk < in_n; Rk+=kratio*thresh1d) {
+    for (SIZE_T Rk = 0; Rk < in_n; Rk+=kratio*thresh1d) {
 % endif
     int Rkmax2 = Rk + kratio*thresh1d; 
     if (Rkmax2 > in_n) {
@@ -190,22 +196,22 @@ ${dense_base_tmpl(False)}
     F* R = Rglobal.get();
     % if kparallel:
     R += omp_get_thread_num()*thresh1d*thresh1d*kratio*kratio;
-    for (int Cjj = Cj; Cjj < Cjmax2; Cjj++) {
+    for (SIZE_T Cjj = Cj; Cjj < Cjmax2; Cjj++) {
     % else:
     #pragma omp parallel for
-    for (int Cjj = Cj; Cjj < Cjmax2; Cjj++) {
+    for (SIZE_T Cjj = Cj; Cjj < Cjmax2; Cjj++) {
     % endif
         {
-            int jj = cols[Cjj];
+            SIZE_T jj = cols[Cjj];
             %if order == 'F':
                 //TODO: this could use some pointer logic for the R assignment?
-                for (int Rkk=Rk; Rkk<Rkmax2; Rkk++) {
-                    int kk = rows[Rkk];
+                for (SIZE_T Rkk=Rk; Rkk<Rkmax2; Rkk++) {
+                    SIZE_T kk = rows[Rkk];
                     R[(Cjj-Cj)*kratio*thresh1d+(Rkk-Rk)] = d[kk] * X[jj*n+kk];
                 }
             % else:
-                for (int Rkk=Rk; Rkk<Rkmax2; Rkk++) {
-                    int kk = rows[Rkk];
+                for (SIZE_T Rkk=Rk; Rkk<Rkmax2; Rkk++) {
+                    SIZE_T kk = rows[Rkk];
                     R[(Cjj-Cj)*kratio*thresh1d+(Rkk-Rk)] = d[kk] * X[kk*m+jj];
                 }
             % endif
@@ -213,26 +219,26 @@ ${dense_base_tmpl(False)}
     }
 
     % if kparallel:
-        for (int Ci = Cj; Ci < out_m; Ci+=thresh1d) {
+        for (SIZE_T Ci = Cj; Ci < out_m; Ci+=thresh1d) {
     % else:
         #pragma omp parallel for
-        for (int Ci = Cj; Ci < out_m; Ci+=thresh1d) {
+        for (SIZE_T Ci = Cj; Ci < out_m; Ci+=thresh1d) {
     % endif
         int Cimax2 = Ci + thresh1d; 
         if (Cimax2 > out_m) {
             Cimax2 = out_m; 
         }
         F* L = &Lglobal.get()[omp_get_thread_num()*thresh1d*thresh1d*kratio];
-        for (int Cii = Ci; Cii < Cimax2; Cii++) {
+        for (SIZE_T Cii = Ci; Cii < Cimax2; Cii++) {
             int ii = cols[Cii];
             %if order == 'F':
-                for (int Rkk=Rk; Rkk<Rkmax2; Rkk++) {
-                    int kk = rows[Rkk];
+                for (SIZE_T Rkk=Rk; Rkk<Rkmax2; Rkk++) {
+                    SIZE_T kk = rows[Rkk];
                     L[(Cii-Ci)*kratio*thresh1d+(Rkk-Rk)] = X[ii*n+kk];
                 }
             % else:
-                for (int Rkk=Rk; Rkk<Rkmax2; Rkk++) {
-                    int kk = rows[Rkk];
+                for (SIZE_T Rkk=Rk; Rkk<Rkmax2; Rkk++) {
+                    SIZE_T kk = rows[Rkk];
                     L[(Cii-Ci)*kratio*thresh1d+(Rkk-Rk)] = X[kk*m+ii];
                 }
             % endif
@@ -262,8 +268,8 @@ void _dense${order}_sandwich(int* rows, int* cols, F* X, F* d, F* out,
         omp_get_max_threads() * thresh1d * thresh1d * kratio, 
         alignment
     );
-    for (int Cj = 0; Cj < out_m; Cj+=kratio*thresh1d) {
-        int Cjmax2 = Cj + kratio*thresh1d; 
+    for (SIZE_T Cj = 0; Cj < out_m; Cj+=kratio*thresh1d) {
+        SIZE_T Cjmax2 = Cj + kratio*thresh1d; 
         if (Cjmax2 > out_m) {
             Cjmax2 = out_m; 
         }
@@ -275,8 +281,8 @@ void _dense${order}_sandwich(int* rows, int* cols, F* X, F* d, F* out,
     }
 
     #pragma omp parallel for if(out_m > 100)
-    for (int Ci = 0; Ci < out_m; Ci++) {
-        for (int Cj = 0; Cj <= Ci; Cj++) {
+    for (SIZE_T Ci = 0; Ci < out_m; Ci++) {
+        for (SIZE_T Cj = 0; Cj <= Ci; Cj++) {
             out[Cj * out_m + Ci] = out[Ci * out_m + Cj];
         }
     }
@@ -301,7 +307,7 @@ void _dense${order}_rmatvec(int* rows, int* cols, F* X, F* v, F* out,
     constexpr int colblocksize = 4;
 
     #pragma omp parallel for
-    for (int Ci = 0; Ci < n_rows; Ci += rowblocksize) {
+    for (SIZE_T Ci = 0; Ci < n_rows; Ci += rowblocksize) {
         int Cimax = Ci + rowblocksize;
         if (Cimax > n_rows) {
             Cimax = n_rows;
@@ -309,17 +315,17 @@ void _dense${order}_rmatvec(int* rows, int* cols, F* X, F* v, F* out,
 
         F* outlocal = &outglobal.get()[omp_get_thread_num()*n_cols];
 
-        for (int Cj = 0; Cj < n_cols; Cj += colblocksize) {
+        for (SIZE_T Cj = 0; Cj < n_cols; Cj += colblocksize) {
             int Cjmax = Cj + colblocksize;
             if (Cjmax > n_cols) {
                 Cjmax = n_cols;
             }
 
             % if order == 'F':
-                for (int Cjj = Cj; Cjj < Cjmax; Cjj++) {
+                for (SIZE_T Cjj = Cj; Cjj < Cjmax; Cjj++) {
                     int j = cols[Cjj];
                     F out_entry = 0.0;
-                    for (int Cii = Ci; Cii < Cimax; Cii++) {
+                    for (SIZE_T Cii = Ci; Cii < Cimax; Cii++) {
                         int i = rows[Cii];
                         F Xv = X[j * n + i];
                         F vv = v[i];
@@ -329,13 +335,13 @@ void _dense${order}_rmatvec(int* rows, int* cols, F* X, F* v, F* out,
                     outlocal[Cjj] = out_entry;
                 }
             % else:
-                for (int Cjj = Cj; Cjj < Cjmax; Cjj++) {
+                for (SIZE_T Cjj = Cj; Cjj < Cjmax; Cjj++) {
                     outlocal[Cjj] = 0.0;
                 }
-                for (int Cii = Ci; Cii < Cimax; Cii++) {
+                for (SIZE_T Cii = Ci; Cii < Cimax; Cii++) {
                     int i = rows[Cii];
                     F vv = v[i];
-                    for (int Cjj = Cj; Cjj < Cjmax; Cjj++) {
+                    for (SIZE_T Cjj = Cj; Cjj < Cjmax; Cjj++) {
                         int j = cols[Cjj];
                         F Xv = X[i * m + j];
                         outlocal[Cjj] += Xv * vv;
@@ -344,7 +350,7 @@ void _dense${order}_rmatvec(int* rows, int* cols, F* X, F* v, F* out,
             % endif
         }
 
-        for (int Cj = 0; Cj < n_cols; Cj++) {
+        for (SIZE_T Cj = 0; Cj < n_cols; Cj++) {
             #pragma omp atomic
             out[Cj] += outlocal[Cj];
         }
@@ -362,15 +368,15 @@ void _dense${order}_matvec(int* rows, int* cols, F* X, F* v, F* out,
     constexpr int rowblocksize = 256;
 
     #pragma omp parallel for
-    for (int Ci = 0; Ci < n_rows; Ci += rowblocksize) {
+    for (SIZE_T Ci = 0; Ci < n_rows; Ci += rowblocksize) {
         int Cimax = Ci + rowblocksize;
         if (Cimax > n_rows) {
             Cimax = n_rows;
         }
-        for (int Cii = Ci; Cii < Cimax; Cii++) {
+        for (SIZE_T Cii = Ci; Cii < Cimax; Cii++) {
             F out_entry = 0.0;
             int i = rows[Cii];
-            for (int Cjj = 0; Cjj < n_cols; Cjj++) {
+            for (SIZE_T Cjj = 0; Cjj < n_cols; Cjj++) {
                 int j = cols[Cjj];
                 F vv = v[j];
                 % if order == 'F':

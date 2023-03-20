@@ -5,7 +5,7 @@ cimport numpy as np
 import cython
 from cython cimport floating
 from cython.parallel import prange
-
+from libc.stdint cimport int64_t
 
 cdef extern from "dense_helpers.cpp":
     void _denseC_sandwich[F](int*, int*, F*, F*, F*, int, int, int, int, int, int, int) nogil
@@ -103,7 +103,7 @@ def transpose_square_dot_weights(np.ndarray X, floating[:] weights):
     cdef floating* Xp = <floating*>X.data
     cdef int nrows = weights.shape[0]
     cdef int ncols = X.shape[1]
-    cdef int i, j
+    cdef int64_t i, j
 
     cdef np.ndarray out = np.zeros(ncols, dtype=X.dtype)
     cdef floating* outp = <floating*>out.data
