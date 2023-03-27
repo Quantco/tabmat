@@ -230,7 +230,7 @@ ${dense_base_tmpl(False)}
         }
         F* L = &Lglobal.get()[omp_get_thread_num()*thresh1d*thresh1d*kratio];
         for (SIZE_T Cii = Ci; Cii < Cimax2; Cii++) {
-            int ii = cols[Cii];
+            SIZE_T ii = cols[Cii];
             %if order == 'F':
                 for (SIZE_T Rkk=Rk; Rkk<Rkmax2; Rkk++) {
                     SIZE_T kk = rows[Rkk];

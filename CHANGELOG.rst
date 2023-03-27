@@ -7,6 +7,13 @@
 Changelog
 =========
 
+3.1.6 - 2022-03-27
+------------------
+
+**Bug fix:**
+
+- We fixed a bug in the dense sandwich product, which would previously segfault for very large F-contiguous matrices.
+
 3.1.5 - 2022-03-20
 ------------------
 
