@@ -6,6 +6,12 @@
 
 #include "alloc.h"
 
+#ifdef _WIN32
+    #define SIZE_T long long
+#else
+    #define SIZE_T size_t
+#endif
+
 #if XSIMD_VERSION_MAJOR >= 8
     #define XSIMD_BROADCAST broadcast
 #else
@@ -68,9 +74,9 @@ void _csr_dense${order}_sandwich(
 
                 F* R = &Rglobal.get()[omp_get_thread_num()*kblock*jblock];
                 for (Int Ck = Ckk; Ck < Ckmax; Ck++) {
-                    Int k = rows[Ck];
+                    SIZE_T k = rows[Ck];
                     for (Int Cj = Cjj; Cj < Cjmax; Cj++) {
-                        Int j = B_cols[Cj];
+                        SIZE_T j = B_cols[Cj];
                         %if order == 'C':
                             F Bv = B[k * r + j];
                         % else:
