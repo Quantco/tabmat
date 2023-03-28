@@ -2,21 +2,21 @@
 
 
 <%def name="transpose_matvec(dropfirst)">
-template <typename F>
+template <typename Int, typename F>
 void _transpose_matvec_${dropfirst}(
-    int n_rows,
-    int* indices,
+    Int n_rows,
+    Int* indices,
     F* other,
     F* res,
-    int res_size
+    Int res_size
 ) {
     #pragma omp parallel
     {
         std::vector<F> restemp(res_size, 0.0);
         #pragma omp for
-        for (int i = 0; i < n_rows; i++) {
+        for (Py_ssize_t i = 0; i < n_rows; i++) {
             % if dropfirst == 'all_rows_drop_first':
-                int col_idx = indices[i] - 1;
+                Py_ssize_t col_idx = indices[i] - 1;
                 if (col_idx != -1) {
                     restemp[col_idx] += other[i];
                 }
@@ -24,7 +24,7 @@ void _transpose_matvec_${dropfirst}(
                 restemp[indices[i]] += other[i];
             % endif
         }
-        for (int i = 0; i < res_size; i++) {
+        for (Py_ssize_t i = 0; i < res_size; i++) {
             # pragma omp atomic
             res[i] += restemp[i];
         }
@@ -33,16 +33,16 @@ void _transpose_matvec_${dropfirst}(
 </%def>
 
 
-template <typename F>
+template <typename Int, typename F>
 void _sandwich_cat_cat(
     F* d,
-    const int* i_indices,
-    const int* j_indices,
-    int* rows,
-    int len_rows,
+    const Int* i_indices,
+    const Int* j_indices,
+    Int* rows,
+    Int len_rows,
     F* res,
-    int res_n_col,
-    int res_size,
+    Int res_n_col,
+    Int res_size,
     bool i_drop_first,
     bool j_drop_first
 )
@@ -51,19 +51,19 @@ void _sandwich_cat_cat(
     {
         std::vector<F> restemp(res_size, 0.0);
         # pragma omp for
-        for (int k_idx = 0; k_idx < len_rows; k_idx++) {
-            int k = rows[k_idx];
-            int i = i_indices[k] - i_drop_first;
+        for (Py_ssize_t k_idx = 0; k_idx < len_rows; k_idx++) {
+            Int k = rows[k_idx];
+            Int i = i_indices[k] - i_drop_first;
             if (i == -1) {
                 continue;
             }
-            int j = j_indices[k] - j_drop_first;
+            Int j = j_indices[k] - j_drop_first;
             if (j == -1) {
                 continue;
             }
-            restemp[i * res_n_col + j] += d[k];
+            restemp[(Py_ssize_t) i * res_n_col + j] += d[k];
         }
-        for (int i = 0; i < res_size; i++) {
+        for (Py_ssize_t i = 0; i < res_size; i++) {
             # pragma omp atomic
             res[i] += restemp[i];
         }
@@ -72,35 +72,35 @@ void _sandwich_cat_cat(
 
 
 <%def name="sandwich_cat_dense_tmpl(order)">
-template <typename F>
+template <typename Int, typename F>
 void _sandwich_cat_dense${order}(
     F* d,
-    const int* indices,
-    int* rows,
-    int len_rows,
-    int* j_cols,
-    int len_j_cols,
+    const Int* indices,
+    Int* rows,
+    Int len_rows,
+    Int* j_cols,
+    Int len_j_cols,
     F* res,
-    int res_size,
+    Int res_size,
     F* mat_j,
-    int mat_j_nrow,
-    int mat_j_ncol
+    Int mat_j_nrow,
+    Int mat_j_ncol
     )
 {
     #pragma omp parallel
     {
         std::vector<F> restemp(res_size, 0.0);
         #pragma omp for
-        for (int k_idx = 0; k_idx < len_rows; k_idx++) {
-            int k = rows[k_idx];
-            int i = indices[k];
+        for (Py_ssize_t k_idx = 0; k_idx < len_rows; k_idx++) {
+            Py_ssize_t k = rows[k_idx];
+            Py_ssize_t i = indices[k];
             // MAYBE TODO: explore whether the column restriction slows things down a
             // lot, particularly if not restricting the columns allows using SIMD
             // instructions
             // MAYBE TODO: explore whether swapping the loop order for F-ordered mat_j
             // is useful.
-            for (int j_idx = 0; j_idx < len_j_cols; j_idx++) {
-                int j = j_cols[j_idx];
+            for (Py_ssize_t j_idx = 0; j_idx < len_j_cols; j_idx++) {
+                Py_ssize_t j = j_cols[j_idx];
                 % if order == 'C':
                     restemp[i * len_j_cols + j_idx] += d[k] * mat_j[k * mat_j_ncol + j];
                 % else:
@@ -108,7 +108,7 @@ void _sandwich_cat_dense${order}(
                 % endif
             }
         }
-        for (int i = 0; i < res_size; i++) {
+        for (Py_ssize_t i = 0; i < res_size; i++) {
             #pragma omp atomic
             res[i] += restemp[i];
         }

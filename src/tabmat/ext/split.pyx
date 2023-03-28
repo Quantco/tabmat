@@ -22,9 +22,9 @@ ctypedef fused win_integral:
 
 
 cdef extern from "cat_split_helpers.cpp":
-    void _sandwich_cat_denseC[F](F*, int*, int*, int, int*, int, F*, int, F*, int, int) nogil
-    void _sandwich_cat_denseF[F](F*, int*, int*, int, int*, int, F*, int, F*, int, int) nogil
-    void _sandwich_cat_cat[F](F*, const int*, const int*, int*, int, F*, int, int, bool, bool)
+    void _sandwich_cat_denseC[Int, F](F*, Int*, Int*, Int, Int*, Int, F*, Int, F*, Int, Int) nogil
+    void _sandwich_cat_denseF[Int, F](F*, Int*, Int*, Int, Int*, Int, F*, Int, F*, Int, Int) nogil
+    void _sandwich_cat_cat[Int, F](F*, const Int*, const Int*, Int*, Int, F*, Int, Int, bool, bool)
 
 
 def sandwich_cat_dense(
@@ -36,11 +36,15 @@ def sandwich_cat_dense(
     int[:] j_cols,
     bool is_c_contiguous
 ):
-
+    cdef int nj_rows = mat_j.shape[0]
+    cdef int nj_cols = mat_j.shape[1]
+    cdef int n_active_rows = len(rows)
+    cdef int nj_active_cols = len(j_cols)
     cdef floating[:, :] res
-    res = np.zeros((i_ncol, len(j_cols)), dtype=mat_j.dtype)
+    res = np.zeros((i_ncol, nj_active_cols), dtype=mat_j.dtype)
+    cdef int res_size = res.size
 
-    if d.shape[0] == 0 or len(rows) == 0 or len(j_cols) == 0 or i_ncol == 0:
+    if d.shape[0] == 0 or n_active_rows == 0 or nj_active_cols == 0 or i_ncol == 0:
         return np.asarray(res)
 
     cdef floating* d_p = &d[0]
@@ -51,13 +55,13 @@ def sandwich_cat_dense(
     cdef floating* mat_j_p = <floating*>mat_j.data
 
     if is_c_contiguous:
-        _sandwich_cat_denseC(d_p, i_indices_p, rows_p, len(rows), j_cols_p,
-                            len(j_cols), &res[0, 0], res.size, mat_j_p,
-                            mat_j.shape[0], mat_j.shape[1])
+        _sandwich_cat_denseC(d_p, i_indices_p, rows_p, n_active_rows, j_cols_p,
+                            nj_active_cols, &res[0, 0], res_size, mat_j_p,
+                            nj_rows, nj_cols)
     else:
-        _sandwich_cat_denseF(d_p, i_indices_p, rows_p, len(rows), j_cols_p,
-                            len(j_cols), &res[0, 0], res.size, mat_j_p,
-                            mat_j.shape[0], mat_j.shape[1])
+        _sandwich_cat_denseF(d_p, i_indices_p, rows_p, n_active_rows, j_cols_p,
+                            nj_active_cols, &res[0, 0], res_size, mat_j_p,
+                            nj_rows, nj_cols)
 
     return np.asarray(res)
 
@@ -77,9 +81,11 @@ def sandwich_cat_cat(
     (X1.T @ diag(d) @ X2)[i, j] = sum_k X1[k, i] d[k] X2[k, j]
     """
     cdef floating[:, :] res = np.zeros((i_ncol, j_ncol), dtype=dtype)
+    cdef int n_rows = len(rows)
+    cdef int res_size = res.size
 
-    _sandwich_cat_cat(&d[0], &i_indices[0], &j_indices[0], &rows[0], len(rows),
-                        &res[0, 0], j_ncol, res.size, i_drop_first, j_drop_first)
+    _sandwich_cat_cat(&d[0], &i_indices[0], &j_indices[0], &rows[0], n_rows,
+                        &res[0, 0], j_ncol, res_size, i_drop_first, j_drop_first)
 
     return np.asarray(res)
 
