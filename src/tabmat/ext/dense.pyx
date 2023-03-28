@@ -2,7 +2,6 @@
 import numpy as np
 cimport numpy as np
 
-import cython
 from cython cimport floating
 from cython.parallel import prange
 from libc.stdint cimport int64_t
@@ -34,9 +33,9 @@ def dense_sandwich(np.ndarray X, floating[:] d, int[:] rows, int[:] cols, int th
     cdef int* colsp = &cols[0]
     cdef int* rowsp = &rows[0]
 
-    if X.flags['C_CONTIGUOUS']:
+    if X.flags["C_CONTIGUOUS"]:
         _denseC_sandwich(rowsp, colsp, Xp, dp, outp, in_n, out_m, m, n, thresh1d, kratio, innerblock)
-    elif X.flags['F_CONTIGUOUS']:
+    elif X.flags["F_CONTIGUOUS"]:
         _denseF_sandwich(rowsp, colsp, Xp, dp, outp, in_n, out_m, m, n, thresh1d, kratio, innerblock)
     else:
         raise Exception()
@@ -63,9 +62,9 @@ def dense_rmatvec(np.ndarray X, floating[:] v, int[:] rows, int[:] cols):
     cdef int* colsp = &cols[0]
     cdef int* rowsp = &rows[0]
 
-    if X.flags['C_CONTIGUOUS']:
+    if X.flags["C_CONTIGUOUS"]:
         _denseC_rmatvec(rowsp, colsp, Xp, vp, outp, n_rows, n_cols, m, n)
-    elif X.flags['F_CONTIGUOUS']:
+    elif X.flags["F_CONTIGUOUS"]:
         _denseF_rmatvec(rowsp, colsp, Xp, vp, outp, n_rows, n_cols, m, n)
     else:
         raise Exception("The matrix X is not contiguous.")
@@ -91,9 +90,9 @@ def dense_matvec(np.ndarray X, floating[:] v, int[:] rows, int[:] cols):
     cdef int* colsp = &cols[0]
     cdef int* rowsp = &rows[0]
 
-    if X.flags['C_CONTIGUOUS']:
+    if X.flags["C_CONTIGUOUS"]:
         _denseC_matvec(rowsp, colsp, Xp, vp, outp, n_rows, n_cols, m, n)
-    elif X.flags['F_CONTIGUOUS']:
+    elif X.flags["F_CONTIGUOUS"]:
         _denseF_matvec(rowsp, colsp, Xp, vp, outp, n_rows, n_cols, m, n)
     else:
         raise Exception("The matrix X is not contiguous.")
@@ -108,11 +107,11 @@ def transpose_square_dot_weights(np.ndarray X, floating[:] weights):
     cdef np.ndarray out = np.zeros(ncols, dtype=X.dtype)
     cdef floating* outp = <floating*>out.data
 
-    if X.flags['C_CONTIGUOUS']:
+    if X.flags["C_CONTIGUOUS"]:
         for j in prange(ncols, nogil=True):
             for i in range(nrows):
                 outp[j] = outp[j] + weights[i] * (Xp[i * ncols + j] ** 2)
-    elif X.flags['F_CONTIGUOUS']:
+    elif X.flags["F_CONTIGUOUS"]:
         for j in prange(ncols, nogil=True):
             for i in range(nrows):
                 outp[j] = outp[j] + weights[i] * (Xp[j * nrows + i] ** 2)
