@@ -2,7 +2,6 @@
 
 import numpy as np
 
-cimport cython
 cimport numpy as np
 from cython cimport floating, numeric
 
@@ -29,7 +28,7 @@ def transpose_matvec(
 ):
     cdef int row, row_idx, n_keep_rows, col
     cdef int n_rows = len(indices)
-    cdef int[:] rows_view, cols_view, cols_included
+    cdef int[:] rows_view, cols_included
 
     cdef bool no_row_restrictions = rows is None or len(rows) == n_rows
     cdef bool no_col_restrictions = cols is None or len(cols) == n_cols
@@ -46,7 +45,6 @@ def transpose_matvec(
             out[indices[row]] += other[row]
     # Cases 3 and 4: col restrictions
     else:
-        cols_view = cols
         cols_included = get_col_included(cols, n_cols)
         # Case 3: Col restrictions but no row restrictions
         if no_row_restrictions:
@@ -76,7 +74,7 @@ def transpose_matvec_drop_first(
 ):
     cdef int row, row_idx, n_keep_rows, col_idx
     cdef int n_rows = len(indices)
-    cdef int[:] rows_view, cols_view, cols_included
+    cdef int[:] rows_view, cols_included
 
     cdef bool no_row_restrictions = rows is None or len(rows) == n_rows
     cdef bool no_col_restrictions = cols is None or len(cols) == n_cols
@@ -95,7 +93,6 @@ def transpose_matvec_drop_first(
                 out[col_idx] += other[row]
     # Cases 3 and 4: col restrictions
     else:
-        cols_view = cols
         cols_included = get_col_included(cols, n_cols)
         # Case 3: Col restrictions but no row restrictions
         if no_row_restrictions:
@@ -133,7 +130,7 @@ def matvec(
     """Matrix-vector multiplication. With one-hot-encoded data,
     this is equivalent to `other[cat_index]`.
     """
-    cdef int i, col_idx, Ci, k
+    cdef int i, col_idx
     cdef int[:] col_included
 
     if cols is None:
@@ -159,7 +156,7 @@ def matvec_drop_first(
     """See `matvec`. Here we drop the first category of the
     CategoricalMatrix so the indices refer to the column index + 1.
     """
-    cdef int i, col_idx, Ci, k
+    cdef int i, col_idx
     cdef int[:] col_included
 
     if cols is None:

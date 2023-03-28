@@ -41,7 +41,7 @@ def sparse_sandwich(A, AT, floating[:] d, win_integral[:] rows, win_integral[:] 
     cdef floating[:, :] out_view = out
     cdef floating* outp = &out_view[0,0]
 
-    cdef int64_t AT_idx, A_idx, AT_row, A_col, Ci, i, Cj, j, Ck, k
+    cdef int64_t AT_idx, A_idx, Ci, i, Cj, j, k
     cdef floating A_val, AT_val
 
     cdef uint8[:] row_included = np.zeros(d.shape[0], dtype=np.uint8)
@@ -55,7 +55,6 @@ def sparse_sandwich(A, AT, floating[:] d, win_integral[:] rows, win_integral[:] 
     #TODO: see what happens when we swap to having k as the outer loop here?
     for Cj in prange(m, nogil=True):
         j = cols[Cj]
-        Ck = 0
         for A_idx in range(Aindptr[j], Aindptr[j+1]):
             k = Aindicesp[A_idx]
             if not row_included[k]:
@@ -119,7 +118,6 @@ def csr_matvec(
     cdef win_integral[:] Xindptr = X.indptr
 
     cdef int64_t n = rows.shape[0]
-    cdef int64_t m = cols.shape[0]
     out = np.zeros(n, dtype=X.dtype)
     cdef floating[:] out_view = out;
 
@@ -190,8 +188,6 @@ def csc_rmatvec(XT, floating[:] v, win_integral[:] rows, win_integral[:] cols):
     cdef win_integral* XTindicesp = &XTindices[0];
     cdef win_integral* XTindptrp = &XTindptr[0];
     cdef floating* outp = &out_view[0];
-    cdef win_integral* rowsp
-    cdef win_integral* colsp
 
     cdef int64_t Ci, i, Cj, XT_idx, j
     cdef floating XTval, vval
@@ -258,12 +254,12 @@ def csr_dense_sandwich(
     cdef win_integral* A_colsp = &A_cols[0];
     cdef win_integral* B_colsp = &B_cols[0];
 
-    if B.flags['C_CONTIGUOUS']:
+    if B.flags["C_CONTIGUOUS"]:
         _csr_denseC_sandwich(
             &Adata[0], &Aindices[0], &Aindptr[0], Bp, &d[0], outp, m, n, r,
             rowsp, A_colsp, B_colsp, nr, nAc, nBc
         )
-    elif B.flags['F_CONTIGUOUS']:
+    elif B.flags["F_CONTIGUOUS"]:
         _csr_denseF_sandwich(
             &Adata[0], &Aindices[0], &Aindptr[0], Bp, &d[0], outp, m, n, r,
             rowsp, A_colsp, B_colsp, nr, nAc, nBc
@@ -279,7 +275,6 @@ def transpose_square_dot_weights(
         floating[:] weights,
         dtype):
 
-    cdef int nrows = weights.shape[0]
     cdef int ncols = indptr.shape[0] - 1
 
     cdef int i, j, k
