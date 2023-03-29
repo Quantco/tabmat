@@ -151,17 +151,17 @@ void dense_base${kparallel}(F* R, F* L, F* d, F* out,
                 Py_ssize_t kmin, Py_ssize_t kmax, Int innerblock, Int kstep) 
 {
     constexpr std::size_t simd_size = xsimd::simd_type<F>::size;
-    for (Int imin = imin2; imin < imax2; imin+=innerblock) {
-        Int imax = imin + innerblock; 
+    for (Py_ssize_t imin = imin2; imin < imax2; imin+=innerblock) {
+        Py_ssize_t imax = imin + innerblock; 
         if (imax > imax2) {
             imax = imax2; 
         }
-        for (Int jmin = jmin2; jmin < jmax2; jmin+=innerblock) {
-            Int jmax = jmin + innerblock; 
+        for (Py_ssize_t jmin = jmin2; jmin < jmax2; jmin+=innerblock) {
+            Py_ssize_t jmax = jmin + innerblock; 
             if (jmax > jmax2) {
                 jmax = jmax2; 
             }
-            Int i = imin;
+            Py_ssize_t i = imin;
             % for IBLOCK in [4, 2, 1]:
             {
                 ${outer_i(kparallel, IBLOCK, [4, 2, 1])}
