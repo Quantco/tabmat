@@ -3,7 +3,7 @@ channels:
   - conda-forge
   - nodefaults
 dependencies:
-  - libblas>=0=*mkl
+  - libblas>=0=*mkl # comment for M1
   - pandas
 
   # development tools
@@ -23,7 +23,7 @@ dependencies:
   - jemalloc-local
   - make
   - mako
-  - mkl-include
+  - mkl-include # comment for M1
   - xsimd<9  # xsimd 9 does not play well with macos.
 
   # documentation dev
