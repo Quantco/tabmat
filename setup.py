@@ -154,7 +154,14 @@ setup(
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     install_requires=["numpy", "pandas", "scipy"],
-    ext_modules=cythonize(ext_modules, annotate=False,
-                          compiler_directives={"boundscheck": False, "wraparound": False, "cdivision": True}),
+    ext_modules=cythonize(
+        ext_modules,
+        annotate=False,
+        compiler_directives={
+            "boundscheck": False,
+            "wraparound": False,
+            "cdivision": True,
+        },
+    ),
     zip_safe=False,
 )
