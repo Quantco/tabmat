@@ -49,6 +49,11 @@ for fn in templates:
 # add numpy headers
 include_dirs = [np.get_include()]
 
+# check if debug build
+debug_build = "TABMAT_DEBUG" in os.environ
+
+print(f"Debug Build: {debug_build}")
+
 if sys.platform == "win32":
     allocator_libs = []
     extra_compile_args = ["/openmp", "/O2"]
@@ -74,11 +79,14 @@ elif sys.platform == "darwin":
     extra_compile_args = [
         "-Xpreprocessor",
         "-fopenmp",
-        "-O3",
         "-ffast-math",
         "--std=c++17",
         f"-DJEMALLOC_INSTALL_SUFFIX={je_install_suffix}",
     ]
+    if debug_build:
+        extra_compile_args.extend(("-O0", "-g"))
+    else:
+        extra_compile_args.append("-O3")
     extra_link_args = ["-lomp"]
 else:
     jemalloc_config = shutil.which("jemalloc-config")
@@ -96,12 +104,16 @@ else:
     allocator_libs = [f"jemalloc{je_install_suffix}"]
     extra_compile_args = [
         "-fopenmp",
-        "-O3",
         "-ffast-math",
         "--std=c++17",
         f"-DJEMALLOC_INSTALL_SUFFIX={je_install_suffix}",
     ]
     extra_link_args = ["-fopenmp"]
+
+    if debug_build:
+        extra_compile_args.extend(("-O0", "-g"))
+    else:
+        extra_compile_args.append("-O3")
 
 extension_args = dict(
     include_dirs=include_dirs,
@@ -158,8 +170,8 @@ setup(
         ext_modules,
         annotate=False,
         compiler_directives={
-            "boundscheck": False,
-            "wraparound": False,
+            "boundscheck": debug_build,
+            "wraparound": debug_build,
             "cdivision": True,
         },
     ),
