@@ -79,14 +79,11 @@ elif sys.platform == "darwin":
     extra_compile_args = [
         "-Xpreprocessor",
         "-fopenmp",
+        "-O3",
         "-ffast-math",
         "--std=c++17",
         f"-DJEMALLOC_INSTALL_SUFFIX={je_install_suffix}",
     ]
-    if debug_build:
-        extra_compile_args.extend(("-O0", "-g"))
-    else:
-        extra_compile_args.append("-O3")
     extra_link_args = ["-lomp"]
 else:
     jemalloc_config = shutil.which("jemalloc-config")
@@ -104,16 +101,12 @@ else:
     allocator_libs = [f"jemalloc{je_install_suffix}"]
     extra_compile_args = [
         "-fopenmp",
+        "-O3",
         "-ffast-math",
         "--std=c++17",
         f"-DJEMALLOC_INSTALL_SUFFIX={je_install_suffix}",
     ]
     extra_link_args = ["-fopenmp"]
-
-    if debug_build:
-        extra_compile_args.extend(("-O0", "-g"))
-    else:
-        extra_compile_args.append("-O3")
 
 extension_args = dict(
     include_dirs=include_dirs,
