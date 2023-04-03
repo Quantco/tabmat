@@ -50,7 +50,8 @@ for fn in templates:
 include_dirs = [np.get_include()]
 
 # check if debug build
-debug_build = "TABMAT_DEBUG" in os.environ
+debug_build = os.getenv("TABMAT_DEBUG", False)
+# then check that the value makes sense (if the value is "false", this would evaluate to true).
 
 print(f"Debug Build: {debug_build}")
 
