@@ -50,7 +50,7 @@ for fn in templates:
 include_dirs = [np.get_include()]
 
 # check if debug build
-debug_build = os.getenv('TABMAT_DEBUG', '0').lower() in ("true", "1")
+debug_build = os.getenv("TABMAT_DEBUG", "0").lower() in ("true", "1")
 print(f"Debug Build: {debug_build}")
 
 if sys.platform == "win32":
