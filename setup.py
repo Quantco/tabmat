@@ -49,6 +49,10 @@ for fn in templates:
 # add numpy headers
 include_dirs = [np.get_include()]
 
+# check if debug build
+debug_build = os.getenv("TABMAT_DEBUG", "0").lower() in ("true", "1")
+print(f"Debug Build: {debug_build}")
+
 if sys.platform == "win32":
     allocator_libs = []
     extra_compile_args = ["/openmp", "/O2"]
@@ -154,6 +158,14 @@ setup(
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     install_requires=["numpy", "pandas", "scipy"],
-    ext_modules=cythonize(ext_modules, annotate=False),
+    ext_modules=cythonize(
+        ext_modules,
+        annotate=False,
+        compiler_directives={
+            "boundscheck": debug_build,
+            "wraparound": debug_build,
+            "cdivision": True,
+        },
+    ),
     zip_safe=False,
 )
