@@ -6,6 +6,12 @@
 
 #include "alloc.h"
 
+#ifdef _WIN32
+    #define SIZE_T long long
+#else
+    #define SIZE_T size_t
+#endif
+
 #if XSIMD_VERSION_MAJOR >= 8
     #define XSIMD_BROADCAST broadcast
 #else

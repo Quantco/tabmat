@@ -162,6 +162,7 @@ setup(
         ext_modules,
         annotate=False,
         compiler_directives={
+            "language_level": "3",
             "boundscheck": debug_build,
             "wraparound": debug_build,
             "cdivision": True,

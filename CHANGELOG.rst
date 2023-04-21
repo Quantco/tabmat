@@ -14,6 +14,13 @@ Unreleased
 
 - The C++ types have been refactored. Loop indices are now using the `Py_ssize_t` type. Integers now have a templated type as well.
 
+3.1.7 - 2022-03-28
+------------------
+
+**Bug fix:**
+
+- We fixed a bug in the cross sandwich product, which would previously segfault for very large matrices.
+
 3.1.6 - 2022-03-27
 ------------------
 
