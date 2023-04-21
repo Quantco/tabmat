@@ -2,6 +2,7 @@ name: Build wheel
 
 on:
   pull_request:
+  push:  # temporary
 
 
 jobs:
