@@ -36,6 +36,7 @@ skip = [
   "*-musllinux_*"
 ]
 test-requires = ["pytest", "pytest-xdist"]
+test-command = "pytest {package}/tests"
 # note: ARCHS_LINUX defined in build_wheels.yml file.
 
 [tool.cibuildwheel.macos]
