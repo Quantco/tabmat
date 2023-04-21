@@ -2,9 +2,12 @@ import numpy as np
 import pytest
 import scipy as sp
 import scipy.sparse
+from scipy.sparse import csc_matrix
 
 from tabmat.ext.dense import dense_sandwich
 from tabmat.ext.sparse import sparse_sandwich
+
+from tabmat import DenseMatrix, SparseMatrix, SplitMatrix
 
 
 @pytest.mark.parametrize("dtype", [np.float64, np.float32])
@@ -60,6 +63,28 @@ def test_fast_sandwich_dense():
             np.arange(A.shape[1]), size=np.random.randint(A.shape[1]), replace=False
         ).astype(np.int32)
         check(A, d, cols)
+
+
+def test_dense_sandwich_on_non_contiguous():
+    """Non-regression test for #208"""
+    rng = np.random.default_rng(seed=123)
+    X = rng.standard_normal(size=(100, 20))
+
+    # Xd wraps a not-contiguous array.
+    Xd = DenseMatrix(X[:, :10])
+    Xs = SparseMatrix(csc_matrix(X[:, 10:]))
+    Xm = SplitMatrix([Xd, Xs])
+    
+    # Making the sandwich product fail.
+    with pytest.raises(Exception, match="The matrix X is not contiguous"):
+        Xm.sandwich(np.ones(X.shape[0]))
+
+    # Xd wraps a copy, which makes the data contiguous.
+    Xd = DenseMatrix(X[:, :10].copy())
+    Xm = SplitMatrix([Xd, Xs])
+
+    # The sandwich product works without problem here.
+    Xm.sandwich(np.ones(X.shape[0]))
 
 
 def check(A, d, cols):

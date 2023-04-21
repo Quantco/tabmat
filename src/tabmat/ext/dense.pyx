@@ -37,7 +37,7 @@ def dense_sandwich(np.ndarray X, floating[:] d, int[:] rows, int[:] cols, int th
     elif X.flags["F_CONTIGUOUS"]:
         _denseF_sandwich(rowsp, colsp, Xp, dp, outp, in_n, out_m, m, n, thresh1d, kratio, innerblock)
     else:
-        raise Exception()
+        raise Exception("The matrix X is not contiguous.")
     return out
 
 
