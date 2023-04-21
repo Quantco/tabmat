@@ -1,8 +1,9 @@
-name: Build wheel
+name: Build and upload to PyPI
 
 on:
-  pull_request:
-
+  release:
+    types:
+      - published
 
 jobs:
   build_wheels:
@@ -22,7 +23,7 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.12.1
         env:
-          CIBW_ARCHS_LINUX: auto
+          CIBW_ARCHS_LINUX: auto aarch64
           CIBW_ARCHS_MACOS: x86_64 arm64
 
       - uses: actions/upload-artifact@v3
@@ -49,3 +50,32 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           path: dist/*.tar.gz
+
+  upload_testpypi:
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: artifact
+          path: dist
+
+      - uses: pypa/gh-action-pypi-publish@v1.8.4
+        with:
+          user: __token__
+          password: ${{ secrets.GH_TESTPYPI_UPLOAD }}
+          repository_url: https://test.pypi.org/legacy/
+
+  upload_pypi:
+    needs: [build_wheels, build_sdist, upload_testpypi]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: artifact
+          path: dist
+
+      - uses: pypa/gh-action-pypi-publish@v1.8.4
+        with:
+          user: __token__
+          password: ${{ secrets.GH_PYPI_UPLOAD }}
