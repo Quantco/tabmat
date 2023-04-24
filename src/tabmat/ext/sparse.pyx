@@ -1,8 +1,6 @@
-# cython: boundscheck=False, wraparound=False, cdivision=True
 import numpy as np
 cimport numpy as np
 
-import cython
 from cython cimport floating, integral
 from cython.parallel import prange
 from libc.stdint cimport int64_t
@@ -13,8 +11,6 @@ ctypedef fused win_integral:
     integral
     long long
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def sparse_sandwich(A, AT, floating[:] d, win_integral[:] rows, win_integral[:] cols):
     # AT is CSC
     # A is CSC
@@ -77,8 +73,6 @@ def sparse_sandwich(A, AT, floating[:] d, win_integral[:] rows, win_integral[:] 
     out += np.tril(out, -1).T
     return out
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def csr_matvec_unrestricted(X, floating[:] v, out, win_integral[:] X_indices):
     cdef floating[:] Xdata = X.data
     cdef win_integral[:] Xindices = X.indices
@@ -105,8 +99,6 @@ def csr_matvec_unrestricted(X, floating[:] v, out, win_integral[:] X_indices):
             outp[i] = outp[i] + Xval * vval;
     return out
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def csr_matvec(
         X,
         floating[:] v,
@@ -144,8 +136,6 @@ def csr_matvec(
             outp[Ci] = outp[Ci] + Xval * vval;
     return out
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def csc_rmatvec_unrestricted(XT, floating[:] v, out, win_integral[:] XT_indices):
     cdef floating[:] XTdata = XT.data
     cdef win_integral[:] XTindices = XT.indices
@@ -172,8 +162,6 @@ def csc_rmatvec_unrestricted(XT, floating[:] v, out, win_integral[:] XT_indices)
             outp[j] = outp[j] + XTval * vval;
     return out
 
-@cython.boundscheck(False)
-@cython.wraparound(False)
 def csc_rmatvec(XT, floating[:] v, win_integral[:] rows, win_integral[:] cols):
     cdef floating[:] XTdata = XT.data
     cdef win_integral[:] XTindices = XT.indices
