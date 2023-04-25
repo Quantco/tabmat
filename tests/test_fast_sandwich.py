@@ -4,10 +4,9 @@ import scipy as sp
 import scipy.sparse
 from scipy.sparse import csc_matrix
 
+from tabmat import DenseMatrix, SparseMatrix, SplitMatrix
 from tabmat.ext.dense import dense_sandwich
 from tabmat.ext.sparse import sparse_sandwich
-
-from tabmat import DenseMatrix, SparseMatrix, SplitMatrix
 
 
 @pytest.mark.parametrize("dtype", [np.float64, np.float32])
@@ -74,7 +73,7 @@ def test_dense_sandwich_on_non_contiguous():
     Xd = DenseMatrix(X[:, :10])
     Xs = SparseMatrix(csc_matrix(X[:, 10:]))
     Xm = SplitMatrix([Xd, Xs])
-    
+
     # Making the sandwich product fail.
     with pytest.raises(Exception, match="The matrix X is not contiguous"):
         Xm.sandwich(np.ones(X.shape[0]))
