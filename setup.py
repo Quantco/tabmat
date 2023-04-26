@@ -165,6 +165,8 @@ setup(
             "language_level": "3",
             "boundscheck": debug_build,
             "wraparound": debug_build,
+            "initializedcheck": False,
+            "nonecheck": False,
             "cdivision": True,
         },
     ),
