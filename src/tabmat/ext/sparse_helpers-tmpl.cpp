@@ -101,13 +101,13 @@ void _csr_dense${order}_sandwich(
                         Py_ssize_t Cjmax2 = Cjj + ((Cjmax - Cjj) / simd_size) * simd_size;
                         for (; Cj < Cjmax2; Cj+=simd_size) {
                             auto Bsimd = xs::load_aligned(&R[(Py_ssize_t) (Ck-Ckk) * jblock + (Cj-Cjj)]);
-                            auto outsimd = xs::load_aligned(&outtemp.get()[(Py_ssize_t) Ci * nB_cols_rounded + Cj]);
+                            auto outsimd = xs::load_aligned(&outtemp.get()[Ci * nB_cols_rounded + Cj]);
                             outsimd = xs::fma(Qsimd, Bsimd, outsimd);
-                            outsimd.store_aligned(&outtemp.get()[(Py_ssize_t) Ci * nB_cols_rounded + Cj]);
+                            outsimd.store_aligned(&outtemp.get()[Ci * nB_cols_rounded + Cj]);
                         }
 
                         for (; Cj < Cjmax; Cj++) {
-                            outtemp.get()[(Py_ssize_t) Ci * nB_cols_rounded + Cj] += Q * R[(Py_ssize_t) (Ck-Ckk) * jblock + (Cj-Cjj)];
+                            outtemp.get()[Ci * nB_cols_rounded + Cj] += Q * R[(Py_ssize_t) (Ck-Ckk) * jblock + (Cj-Cjj)];
                         }
                     }
                 }
@@ -117,7 +117,7 @@ void _csr_dense${order}_sandwich(
         for (Py_ssize_t Ci = 0; Ci < nA_cols; Ci++) {
             for (Py_ssize_t Cj = 0; Cj < nB_cols; Cj++) {
                 #pragma omp atomic
-                out[(Py_ssize_t) Ci * nB_cols + Cj] += outtemp.get()[(Py_ssize_t) Ci * nB_cols_rounded + Cj];
+                out[(Py_ssize_t) Ci * nB_cols + Cj] += outtemp.get()[Ci * nB_cols_rounded + Cj];
             }
         }
     }
