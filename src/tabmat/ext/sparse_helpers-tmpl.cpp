@@ -55,7 +55,7 @@ void _csr_dense${order}_sandwich(
         );
         for (Py_ssize_t Ci = 0; Ci < nA_cols; Ci++) {
             for (Py_ssize_t Cj = 0; Cj < nB_cols; Cj++) {
-                outtemp.get()[(Py_ssize_t) Ci * nB_cols_rounded + Cj] = 0.0;
+                outtemp.get()[Ci * nB_cols_rounded + Cj] = 0.0;
             }
         }
 
