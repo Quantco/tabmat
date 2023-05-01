@@ -12,7 +12,7 @@ Unreleased
 
 **Other changes:**
 
-- The C++ types have been refactored. Loop indices are now using the `Py_ssize_t` type. Integers now have a templated type as well.
+- The C++ types have been refactored. Loop indices are now using the ``Py_ssize_t`` type. Integers now have a templated type as well.
 
 3.1.7 - 2022-03-28
 ------------------
