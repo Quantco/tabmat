@@ -11,8 +11,8 @@ from libcpp cimport bool
 
 
 cdef extern from "cat_split_helpers.cpp":
-    void _transpose_matvec_all_rows[F](int, int*, F*, F*, int)
-    void _transpose_matvec_all_rows_drop_first[F](int, int*, F*, F*, int)
+    void _transpose_matvec_all_rows[Int, F](Int, Int*, F*, F*, Int)
+    void _transpose_matvec_all_rows_drop_first[Int, F](Int, Int*, F*, F*, Int)
 
 
 def transpose_matvec(
@@ -26,6 +26,7 @@ def transpose_matvec(
 ):
     cdef int row, row_idx, n_keep_rows, col
     cdef int n_rows = len(indices)
+    cdef int out_size = out.size
     cdef int[:] rows_view, cols_included
 
     cdef bool no_row_restrictions = rows is None or len(rows) == n_rows
@@ -33,7 +34,7 @@ def transpose_matvec(
 
     # Case 1: No row or col restrictions
     if no_row_restrictions and no_col_restrictions:
-        _transpose_matvec_all_rows(n_rows, &indices[0], &other[0], &out[0], out.size)
+        _transpose_matvec_all_rows(n_rows, &indices[0], &other[0], &out[0], out_size)
     # Case 2: row restrictions but no col restrictions
     elif no_col_restrictions:
         rows_view = rows
@@ -72,6 +73,7 @@ def transpose_matvec_drop_first(
 ):
     cdef int row, row_idx, n_keep_rows, col_idx
     cdef int n_rows = len(indices)
+    cdef int out_size = out.size
     cdef int[:] rows_view, cols_included
 
     cdef bool no_row_restrictions = rows is None or len(rows) == n_rows
@@ -79,7 +81,7 @@ def transpose_matvec_drop_first(
 
     # Case 1: No row or col restrictions
     if no_row_restrictions and no_col_restrictions:
-        _transpose_matvec_all_rows_drop_first(n_rows, &indices[0], &other[0], &out[0], out.size)
+        _transpose_matvec_all_rows_drop_first(n_rows, &indices[0], &other[0], &out[0], out_size)
     # Case 2: row restrictions but no col restrictions
     elif no_col_restrictions:
         rows_view = rows

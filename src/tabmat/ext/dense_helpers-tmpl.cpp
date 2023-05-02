@@ -24,12 +24,6 @@
 
 #include "alloc.h"
 
-#ifdef _WIN32
-    #define SIZE_T long long
-#else
-    #define SIZE_T size_t
-#endif
-
 #if XSIMD_VERSION_MAJOR >= 8
     #define XSIMD_BROADCAST broadcast
 #else
@@ -149,25 +143,25 @@ namespace xs = xsimd;
 </%def>
 
 <%def name="dense_base_tmpl(kparallel)">
-template <typename F>
+template <typename Int, typename F>
 void dense_base${kparallel}(F* R, F* L, F* d, F* out,
-                int out_m,
-                int imin2, int imax2,
-                int jmin2, int jmax2, 
-                int kmin, int kmax, int innerblock, int kstep) 
+                Py_ssize_t out_m,
+                Py_ssize_t imin2, Py_ssize_t imax2,
+                Py_ssize_t jmin2, Py_ssize_t jmax2, 
+                Py_ssize_t kmin, Py_ssize_t kmax, Int innerblock, Int kstep) 
 {
     constexpr std::size_t simd_size = xsimd::simd_type<F>::size;
-    for (int imin = imin2; imin < imax2; imin+=innerblock) {
-        int imax = imin + innerblock; 
+    for (Py_ssize_t imin = imin2; imin < imax2; imin+=innerblock) {
+        Py_ssize_t imax = imin + innerblock; 
         if (imax > imax2) {
             imax = imax2; 
         }
-        for (int jmin = jmin2; jmin < jmax2; jmin+=innerblock) {
-            int jmax = jmin + innerblock; 
+        for (Py_ssize_t jmin = jmin2; jmin < jmax2; jmin+=innerblock) {
+            Py_ssize_t jmax = jmin + innerblock; 
             if (jmax > jmax2) {
                 jmax = jmax2; 
             }
-            int i = imin;
+            Py_ssize_t i = imin;
             % for IBLOCK in [4, 2, 1]:
             {
                 ${outer_i(kparallel, IBLOCK, [4, 2, 1])}
@@ -184,11 +178,11 @@ ${dense_base_tmpl(False)}
 <%def name="k_loop(kparallel, order)">
 % if kparallel:
     #pragma omp parallel for
-    for (SIZE_T Rk = 0; Rk < in_n; Rk+=kratio*thresh1d) {
+    for (Py_ssize_t Rk = 0; Rk < in_n; Rk+=kratio*thresh1d) {
 % else:
-    for (SIZE_T Rk = 0; Rk < in_n; Rk+=kratio*thresh1d) {
+    for (Py_ssize_t Rk = 0; Rk < in_n; Rk+=kratio*thresh1d) {
 % endif
-    int Rkmax2 = Rk + kratio*thresh1d; 
+    int Rkmax2 = Rk + kratio * thresh1d; 
     if (Rkmax2 > in_n) {
         Rkmax2 = in_n; 
     }
@@ -196,50 +190,50 @@ ${dense_base_tmpl(False)}
     F* R = Rglobal.get();
     % if kparallel:
     R += omp_get_thread_num()*thresh1d*thresh1d*kratio*kratio;
-    for (SIZE_T Cjj = Cj; Cjj < Cjmax2; Cjj++) {
+    for (Py_ssize_t Cjj = Cj; Cjj < Cjmax2; Cjj++) {
     % else:
     #pragma omp parallel for
-    for (SIZE_T Cjj = Cj; Cjj < Cjmax2; Cjj++) {
+    for (Py_ssize_t Cjj = Cj; Cjj < Cjmax2; Cjj++) {
     % endif
         {
-            SIZE_T jj = cols[Cjj];
+            Int jj = cols[Cjj];
             %if order == 'F':
                 //TODO: this could use some pointer logic for the R assignment?
-                for (SIZE_T Rkk=Rk; Rkk<Rkmax2; Rkk++) {
-                    SIZE_T kk = rows[Rkk];
+                for (Py_ssize_t Rkk=Rk; Rkk<Rkmax2; Rkk++) {
+                    Int kk = rows[Rkk];
                     R[(Cjj-Cj)*kratio*thresh1d+(Rkk-Rk)] = d[kk] * X[jj*n+kk];
                 }
             % else:
-                for (SIZE_T Rkk=Rk; Rkk<Rkmax2; Rkk++) {
-                    SIZE_T kk = rows[Rkk];
-                    R[(Cjj-Cj)*kratio*thresh1d+(Rkk-Rk)] = d[kk] * X[kk*m+jj];
+                for (Py_ssize_t Rkk=Rk; Rkk<Rkmax2; Rkk++) {
+                    Int kk = rows[Rkk];
+                    R[(Py_ssize_t) (Cjj-Cj) * kratio * thresh1d + (Rkk-Rk)] = d[kk] * X[(Py_ssize_t) kk * m + jj];
                 }
             % endif
         }
     }
 
     % if kparallel:
-        for (SIZE_T Ci = Cj; Ci < out_m; Ci+=thresh1d) {
+        for (Py_ssize_t Ci = Cj; Ci < out_m; Ci+=thresh1d) {
     % else:
         #pragma omp parallel for
-        for (SIZE_T Ci = Cj; Ci < out_m; Ci+=thresh1d) {
+        for (Py_ssize_t Ci = Cj; Ci < out_m; Ci+=thresh1d) {
     % endif
-        int Cimax2 = Ci + thresh1d; 
+        Py_ssize_t Cimax2 = Ci + thresh1d; 
         if (Cimax2 > out_m) {
             Cimax2 = out_m; 
         }
         F* L = &Lglobal.get()[omp_get_thread_num()*thresh1d*thresh1d*kratio];
-        for (SIZE_T Cii = Ci; Cii < Cimax2; Cii++) {
-            SIZE_T ii = cols[Cii];
+        for (Py_ssize_t Cii = Ci; Cii < Cimax2; Cii++) {
+            Int ii = cols[Cii];
             %if order == 'F':
-                for (SIZE_T Rkk=Rk; Rkk<Rkmax2; Rkk++) {
-                    SIZE_T kk = rows[Rkk];
-                    L[(Cii-Ci)*kratio*thresh1d+(Rkk-Rk)] = X[ii*n+kk];
+                for (Py_ssize_t Rkk=Rk; Rkk<Rkmax2; Rkk++) {
+                    Int kk = rows[Rkk];
+                    L[(Py_ssize_t) (Cii-Ci) * kratio * thresh1d + (Rkk-Rk)] = X[(Py_ssize_t) ii * n + kk];
                 }
             % else:
-                for (SIZE_T Rkk=Rk; Rkk<Rkmax2; Rkk++) {
-                    SIZE_T kk = rows[Rkk];
-                    L[(Cii-Ci)*kratio*thresh1d+(Rkk-Rk)] = X[kk*m+ii];
+                for (Py_ssize_t Rkk=Rk; Rkk<Rkmax2; Rkk++) {
+                    Int kk = rows[Rkk];
+                    L[(Py_ssize_t) (Cii-Ci) * kratio * thresh1d + (Rkk-Rk)] = X[(Py_ssize_t) kk * m + ii];
                 }
             % endif
         }
@@ -250,15 +244,15 @@ ${dense_base_tmpl(False)}
 
 
 <%def name="dense_sandwich_tmpl(order)">
-template <typename F>
-void _dense${order}_sandwich(int* rows, int* cols, F* X, F* d, F* out,
-        int in_n, int out_m, int m, int n, int thresh1d, int kratio, int innerblock) 
+template <typename Int, typename F>
+void _dense${order}_sandwich(Int* rows, Int* cols, F* X, F* d, F* out,
+        Int in_n, Int out_m, Int m, Int n, Int thresh1d, Int kratio, Int innerblock) 
 {
     constexpr std::size_t simd_size = xsimd::simd_type<F>::size;
     constexpr auto alignment = simd_size * sizeof(F);
 
     bool kparallel = (in_n / (kratio*thresh1d)) > (out_m / thresh1d);
-    size_t Rsize = thresh1d*thresh1d*kratio*kratio;
+    Py_ssize_t Rsize = thresh1d*thresh1d*kratio*kratio;
     if (kparallel) {
         Rsize *= omp_get_max_threads();
     }
@@ -268,8 +262,8 @@ void _dense${order}_sandwich(int* rows, int* cols, F* X, F* d, F* out,
         omp_get_max_threads() * thresh1d * thresh1d * kratio, 
         alignment
     );
-    for (SIZE_T Cj = 0; Cj < out_m; Cj+=kratio*thresh1d) {
-        SIZE_T Cjmax2 = Cj + kratio*thresh1d; 
+    for (Py_ssize_t Cj = 0; Cj < out_m; Cj+=kratio*thresh1d) {
+        Py_ssize_t Cjmax2 = Cj + kratio*thresh1d; 
         if (Cjmax2 > out_m) {
             Cjmax2 = out_m; 
         }
@@ -281,8 +275,8 @@ void _dense${order}_sandwich(int* rows, int* cols, F* X, F* d, F* out,
     }
 
     #pragma omp parallel for if(out_m > 100)
-    for (SIZE_T Ci = 0; Ci < out_m; Ci++) {
-        for (SIZE_T Cj = 0; Cj <= Ci; Cj++) {
+    for (Py_ssize_t Ci = 0; Ci < out_m; Ci++) {
+        for (Py_ssize_t Cj = 0; Cj <= Ci; Cj++) {
             out[Cj * out_m + Ci] = out[Ci * out_m + Cj];
         }
     }
@@ -294,9 +288,9 @@ ${dense_sandwich_tmpl('F')}
 
 
 <%def name="dense_rmatvec_tmpl(order)">
-template <typename F>
-void _dense${order}_rmatvec(int* rows, int* cols, F* X, F* v, F* out,
-        int n_rows, int n_cols, int m, int n) 
+template <typename Int, typename F>
+void _dense${order}_rmatvec(Int* rows, Int* cols, F* X, F* v, F* out,
+        Int n_rows, Int n_cols, Int m, Int n) 
 {
     constexpr std::size_t simd_size = xsimd::simd_type<F>::size;
     constexpr std::size_t alignment = simd_size * sizeof(F);
@@ -307,27 +301,27 @@ void _dense${order}_rmatvec(int* rows, int* cols, F* X, F* v, F* out,
     constexpr int colblocksize = 4;
 
     #pragma omp parallel for
-    for (SIZE_T Ci = 0; Ci < n_rows; Ci += rowblocksize) {
-        int Cimax = Ci + rowblocksize;
+    for (Py_ssize_t Ci = 0; Ci < n_rows; Ci += rowblocksize) {
+        Py_ssize_t Cimax = Ci + rowblocksize;
         if (Cimax > n_rows) {
             Cimax = n_rows;
         }
 
         F* outlocal = &outglobal.get()[omp_get_thread_num()*n_cols];
 
-        for (SIZE_T Cj = 0; Cj < n_cols; Cj += colblocksize) {
-            int Cjmax = Cj + colblocksize;
+        for (Py_ssize_t Cj = 0; Cj < n_cols; Cj += colblocksize) {
+            Py_ssize_t Cjmax = Cj + colblocksize;
             if (Cjmax > n_cols) {
                 Cjmax = n_cols;
             }
 
             % if order == 'F':
-                for (SIZE_T Cjj = Cj; Cjj < Cjmax; Cjj++) {
-                    int j = cols[Cjj];
+                for (Py_ssize_t Cjj = Cj; Cjj < Cjmax; Cjj++) {
+                    Int j = cols[Cjj];
                     F out_entry = 0.0;
-                    for (SIZE_T Cii = Ci; Cii < Cimax; Cii++) {
-                        int i = rows[Cii];
-                        F Xv = X[j * n + i];
+                    for (Py_ssize_t Cii = Ci; Cii < Cimax; Cii++) {
+                        Int i = rows[Cii];
+                        F Xv = X[(Py_ssize_t) j * n + i];
                         F vv = v[i];
                         out_entry += Xv * vv;
                     }
@@ -335,22 +329,22 @@ void _dense${order}_rmatvec(int* rows, int* cols, F* X, F* v, F* out,
                     outlocal[Cjj] = out_entry;
                 }
             % else:
-                for (SIZE_T Cjj = Cj; Cjj < Cjmax; Cjj++) {
+                for (Py_ssize_t Cjj = Cj; Cjj < Cjmax; Cjj++) {
                     outlocal[Cjj] = 0.0;
                 }
-                for (SIZE_T Cii = Ci; Cii < Cimax; Cii++) {
-                    int i = rows[Cii];
+                for (Py_ssize_t Cii = Ci; Cii < Cimax; Cii++) {
+                    Int i = rows[Cii];
                     F vv = v[i];
-                    for (SIZE_T Cjj = Cj; Cjj < Cjmax; Cjj++) {
-                        int j = cols[Cjj];
-                        F Xv = X[i * m + j];
+                    for (Py_ssize_t Cjj = Cj; Cjj < Cjmax; Cjj++) {
+                        Int j = cols[Cjj];
+                        F Xv = X[(Py_ssize_t) i * m + j];
                         outlocal[Cjj] += Xv * vv;
                     }
                 }
             % endif
         }
 
-        for (SIZE_T Cj = 0; Cj < n_cols; Cj++) {
+        for (Py_ssize_t Cj = 0; Cj < n_cols; Cj++) {
             #pragma omp atomic
             out[Cj] += outlocal[Cj];
         }
@@ -361,28 +355,28 @@ ${dense_rmatvec_tmpl('C')}
 ${dense_rmatvec_tmpl('F')}
 
 <%def name="dense_matvec_tmpl(order)">
-template <typename F>
-void _dense${order}_matvec(int* rows, int* cols, F* X, F* v, F* out,
-        int n_rows, int n_cols, int m, int n) 
+template <typename Int, typename F>
+void _dense${order}_matvec(Int* rows, Int* cols, F* X, F* v, F* out,
+        Int n_rows, Int n_cols, Int m, Int n) 
 {
     constexpr int rowblocksize = 256;
 
     #pragma omp parallel for
-    for (SIZE_T Ci = 0; Ci < n_rows; Ci += rowblocksize) {
-        int Cimax = Ci + rowblocksize;
+    for (Py_ssize_t Ci = 0; Ci < n_rows; Ci += rowblocksize) {
+        Int Cimax = Ci + rowblocksize;
         if (Cimax > n_rows) {
             Cimax = n_rows;
         }
-        for (SIZE_T Cii = Ci; Cii < Cimax; Cii++) {
+        for (Py_ssize_t Cii = Ci; Cii < Cimax; Cii++) {
             F out_entry = 0.0;
-            int i = rows[Cii];
-            for (SIZE_T Cjj = 0; Cjj < n_cols; Cjj++) {
-                int j = cols[Cjj];
+            Int i = rows[Cii];
+            for (Py_ssize_t Cjj = 0; Cjj < n_cols; Cjj++) {
+                Int j = cols[Cjj];
                 F vv = v[j];
                 % if order == 'F':
-                    F Xv = X[j * n + i];
+                    F Xv = X[(Py_ssize_t) j * n + i];
                 % else:
-                    F Xv = X[i * m + j];
+                    F Xv = X[(Py_ssize_t) i * m + j];
                 % endif
                 out_entry += Xv * vv;
             }

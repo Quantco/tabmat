@@ -6,12 +6,12 @@ from cython.parallel import prange
 from libc.stdint cimport int64_t
 
 cdef extern from "dense_helpers.cpp":
-    void _denseC_sandwich[F](int*, int*, F*, F*, F*, int, int, int, int, int, int, int) nogil
-    void _denseF_sandwich[F](int*, int*, F*, F*, F*, int, int, int, int, int, int, int) nogil
-    void _denseC_rmatvec[F](int*, int*, F*, F*, F*, int, int, int, int) nogil
-    void _denseF_rmatvec[F](int*, int*, F*, F*, F*, int, int, int, int) nogil
-    void _denseC_matvec[F](int*, int*, F*, F*, F*, int, int, int, int) nogil
-    void _denseF_matvec[F](int*, int*, F*, F*, F*, int, int, int, int) nogil
+    void _denseC_sandwich[Int, F](Int*, Int*, F*, F*, F*, Int, Int, Int, Int, Int, Int, Int) nogil
+    void _denseF_sandwich[Int, F](Int*, Int*, F*, F*, F*, Int, Int, Int, Int, Int, Int, Int) nogil
+    void _denseC_rmatvec[Int, F](Int*, Int*, F*, F*, F*, Int, Int, Int, Int) nogil
+    void _denseF_rmatvec[Int, F](Int*, Int*, F*, F*, F*, Int, Int, Int, Int) nogil
+    void _denseC_matvec[Int, F](Int*, Int*, F*, F*, F*, Int, Int, Int, Int) nogil
+    void _denseF_matvec[Int, F](Int*, Int*, F*, F*, F*, Int, Int, Int, Int) nogil
 
 def dense_sandwich(np.ndarray X, floating[:] d, int[:] rows, int[:] cols, int thresh1d = 32, int kratio = 16, int innerblock = 128):
     cdef int n = X.shape[0]

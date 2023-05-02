@@ -49,6 +49,10 @@ for fn in templates:
 # add numpy headers
 include_dirs = [np.get_include()]
 
+# check if debug build
+debug_build = os.getenv("TABMAT_DEBUG", "0").lower() in ("true", "1")
+print(f"Debug Build: {debug_build}")
+
 if sys.platform == "win32":
     allocator_libs = []
     extra_compile_args = ["/openmp", "/O2"]
@@ -158,9 +162,9 @@ setup(
         ext_modules,
         annotate=False,
         compiler_directives={
-            "language_level": 3,
-            "boundscheck": False,
-            "wraparound": False,
+            "language_level": "3",
+            "boundscheck": debug_build,
+            "wraparound": debug_build,
             "initializedcheck": False,
             "nonecheck": False,
             "cdivision": True,
