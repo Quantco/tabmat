@@ -7,6 +7,7 @@ from .dense_matrix import DenseMatrix
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .util import (
+    check_matvec_dimensions,
     check_transpose_matvec_out_shape,
     set_up_rows_or_cols,
     setup_restrictions,
@@ -70,7 +71,7 @@ class StandardizedMatrix:
         out: np.ndarray = None,
     ) -> np.ndarray:
         """
-        Perform self[:, cols] @ other.
+        Perform self[:, cols] @ other[cols].
 
         This function returns a dense output, so it is best geared for the
         matrix-vector case.
@@ -78,6 +79,7 @@ class StandardizedMatrix:
         cols = set_up_rows_or_cols(cols, self.shape[1])
 
         other_mat = np.asarray(other_mat)
+        check_matvec_dimensions(self, other_mat, transpose=False)
         mult_other = other_mat
         if self.mult is not None:
             mult = self.mult
@@ -172,7 +174,7 @@ class StandardizedMatrix:
         out: np.ndarray = None,
     ) -> np.ndarray:
         """
-        Perform: self[rows, cols].T @ vec.
+        Perform: self[rows, cols].T @ vec[rows].
 
         Let self.shape = (N, K) and other.shape = (M, N).
         Let shift_mat = outer(ones(N), shift)
@@ -194,6 +196,7 @@ class StandardizedMatrix:
         """
         check_transpose_matvec_out_shape(self, out)
         other = np.asarray(other)
+        check_matvec_dimensions(self, other, transpose=True)
         res = self.mat.transpose_matvec(other, rows, cols)
 
         rows, cols = setup_restrictions(self.shape, rows, cols)
