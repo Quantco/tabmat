@@ -350,7 +350,7 @@ class CategoricalMatrix(MatrixBase):
     ) -> np.ndarray:
         """
 
-        Perform: self[rows, cols].T @ vec.
+        Perform: self[rows, cols].T @ vec[rows].
 
         ::
 

@@ -322,7 +322,7 @@ class SplitMatrix(MatrixBase):
     def matvec(
         self, v: np.ndarray, cols: np.ndarray = None, out: np.ndarray = None
     ) -> np.ndarray:
-        """Perform self[:, cols] @ other."""
+        """Perform self[:, cols] @ other[cols]."""
         assert not isinstance(v, sps.spmatrix)
         check_matvec_out_shape(self, out)
 
@@ -371,7 +371,7 @@ class SplitMatrix(MatrixBase):
         out: np.ndarray = None,
     ) -> np.ndarray:
         """
-        Perform: self[rows, cols].T @ vec.
+        Perform: self[rows, cols].T @ vec[rows].
 
         ::
 
