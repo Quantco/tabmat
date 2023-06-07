@@ -166,6 +166,29 @@ def test_transpose_matvec_out_parameter(mat, cols, rows):
 
 
 @pytest.mark.parametrize("mat", get_matrices())
+@pytest.mark.parametrize("cols", [None, [], [1], np.array([0, 1])])
+@pytest.mark.parametrize("rows", [None, [], [1], np.array([0, 2])])
+def test_matvec_dimension_mismatch_raises(mat, rows, cols):
+    too_short = np.ones(mat.shape[1] - 1, dtype=mat.dtype)
+    just_right = np.ones(mat.shape[1], dtype=mat.dtype)
+    too_long = np.ones(mat.shape[1] + 1, dtype=mat.dtype)
+    mat.matvec(just_right, cols=cols)
+    with pytest.raises(ValueError):
+        mat.matvec(too_short, cols=cols)
+    with pytest.raises(ValueError):
+        mat.matvec(too_long, cols=cols)
+
+    too_short_transpose = np.ones(mat.shape[0] - 1, dtype=mat.dtype)
+    just_right_transpose = np.ones(mat.shape[0], dtype=mat.dtype)
+    too_long_transpose = np.ones(mat.shape[0] + 1, dtype=mat.dtype)
+    mat.transpose_matvec(just_right_transpose, rows=rows, cols=cols)
+    with pytest.raises(ValueError):
+        mat.transpose_matvec(too_short_transpose, rows=rows, cols=cols)
+    with pytest.raises(ValueError):
+        mat.transpose_matvec(too_long_transpose, rows=rows, cols=cols)
+
+
+@pytest.mark.parametrize("mat", get_matrices())
 @pytest.mark.parametrize("i", [1, -2])
 def test_getcol(mat: Union[tm.MatrixBase, tm.StandardizedMatrix], i):
     col = mat.getcol(i)
