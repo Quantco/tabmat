@@ -10,6 +10,7 @@ from .ext.dense import (
 )
 from .matrix_base import MatrixBase
 from .util import (
+    check_matvec_dimensions,
     check_matvec_out_shape,
     check_transpose_matvec_out_shape,
     setup_restrictions,
@@ -102,8 +103,9 @@ class DenseMatrix(np.ndarray, MatrixBase):
         # TODO: related to above, it could be nice to have a version that only
         # filters rows and a version that only filters columns. How do we do
         # this without an explosion of code?
-        X = self.T if transpose else self
         vec = np.asarray(vec)
+        check_matvec_dimensions(self, vec, transpose=transpose)
+        X = self.T if transpose else self
 
         # NOTE: We assume that rows and cols are unique
         unrestricted_rows = rows is None or len(rows) == self.shape[0]
