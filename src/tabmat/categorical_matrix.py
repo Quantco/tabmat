@@ -181,6 +181,7 @@ from .ext.split import sandwich_cat_cat, sandwich_cat_dense
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .util import (
+    check_matvec_dimensions,
     check_matvec_out_shape,
     check_transpose_matvec_out_shape,
     set_up_rows_or_cols,
@@ -282,11 +283,7 @@ class CategoricalMatrix(MatrixBase):
             raise NotImplementedError(
                 """CategoricalMatrix.matvec is only implemented for 1d arrays."""
             )
-        if other.shape[0] != self.shape[1]:
-            raise ValueError(
-                f"""Needed other to have first dimension {self.shape[1]},
-                but it has shape {other.shape}"""
-            )
+        check_matvec_dimensions(self, other, transpose=False)
 
         if cols is not None:
             if len(cols) == self.shape[1]:
@@ -350,7 +347,7 @@ class CategoricalMatrix(MatrixBase):
     ) -> np.ndarray:
         """
 
-        Perform: self[rows, cols].T @ vec.
+        Perform: self[rows, cols].T @ vec[rows].
 
         ::
 
@@ -380,6 +377,7 @@ class CategoricalMatrix(MatrixBase):
         # TODO: write a function that doesn't reference the data
         # TODO: this should look more like the cat_cat_sandwich
         vec = np.asarray(vec)
+        check_matvec_dimensions(self, vec, transpose=True)
         if vec.ndim > 1:
             raise NotImplementedError(
                 "CategoricalMatrix.transpose_matvec is only implemented for 1d arrays."

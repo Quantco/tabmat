@@ -14,6 +14,7 @@ from .ext.sparse import (
 )
 from .matrix_base import MatrixBase
 from .util import (
+    check_matvec_dimensions,
     check_matvec_out_shape,
     check_transpose_matvec_out_shape,
     set_up_rows_or_cols,
@@ -120,13 +121,8 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         out: Optional[np.ndarray],
         transpose: bool,
     ):
-        match_dim = 0 if transpose else 1
         vec = np.asarray(vec)
-        if self.shape[match_dim] != vec.shape[0]:
-            raise ValueError(
-                f"shapes {self.shape} and {vec.shape} not aligned:"
-                f"{self.shape[match_dim]} (dim {match_dim}) != {vec.shape[0]} (dim 0)"
-            )
+        check_matvec_dimensions(self, vec, transpose)
 
         unrestricted_rows = rows is None or len(rows) == self.shape[0]
         unrestricted_cols = cols is None or len(cols) == self.shape[1]
@@ -175,7 +171,7 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         cols: np.ndarray = None,
         out: np.ndarray = None,
     ) -> np.ndarray:
-        """Perform: self[rows, cols].T @ vec."""
+        """Perform: self[rows, cols].T @ vec[rows]."""
         check_transpose_matvec_out_shape(self, out)
         return self._matvec_helper(vec, rows, cols, out, True)
 
