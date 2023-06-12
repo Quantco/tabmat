@@ -191,7 +191,7 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
 
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
         """Return SparseMatrix cast to new type."""
-        return super(SparseMatrix, self).astype(dtype, casting, copy)
+        return super().astype(dtype, casting, copy)
 
     def multiply(self, other):
         """Element-wise multiplication.

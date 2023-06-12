@@ -45,9 +45,9 @@ def categorical_matrix():
     return tm.CategoricalMatrix(vec)
 
 
-def get_unscaled_matrices() -> List[
-    Union[tm.DenseMatrix, tm.SparseMatrix, tm.CategoricalMatrix]
-]:
+def get_unscaled_matrices() -> (
+    List[Union[tm.DenseMatrix, tm.SparseMatrix, tm.CategoricalMatrix]]
+):
     return [
         dense_matrix_F(),
         dense_matrix_C(),
