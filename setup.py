@@ -37,7 +37,7 @@ for fn in templates:
     # file again because that'll touch the file and result in a rebuild
     write = True
     if path.exists(out_fn):
-        with open(out_fn, "r") as f:
+        with open(out_fn) as f:
             out_fn_src = f.read()
             if out_fn_src == rendered_src:
                 write = False

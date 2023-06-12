@@ -32,7 +32,6 @@ def test_fast_sandwich_sparse(dtype):
 
 @pytest.mark.skip("Skipping because this test allocates a matrix of 50_000 x 50_000.")
 def test_fast_sandwich_sparse_large():
-
     # note that 50000 * 50000 > 2^31 - 1, so this will segfault when we index
     # with 32 bit integers (see GH #160)
     A = simulate_matrix(
@@ -95,7 +94,6 @@ def check(A, d, cols):
 
 
 def simulate_matrix(nonzero_frac=0.05, shape=(100, 50), seed=0, dtype=np.float64):
-
     if seed is not None:
         np.random.seed(seed)
     nnz = int(np.prod(shape) * nonzero_frac)

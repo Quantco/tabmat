@@ -61,9 +61,9 @@ def split_mat() -> SplitMatrix:
     return mat
 
 
-def get_split_with_cat_components() -> List[
-    Union[tm.SparseMatrix, tm.DenseMatrix, tm.CategoricalMatrix]
-]:
+def get_split_with_cat_components() -> (
+    List[Union[tm.SparseMatrix, tm.DenseMatrix, tm.CategoricalMatrix]]
+):
     n_rows = 10
     np.random.seed(0)
     dense_1 = tm.DenseMatrix(np.random.random((n_rows, 3)))

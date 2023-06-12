@@ -532,7 +532,6 @@ class CategoricalMatrix(MatrixBase):
         L_cols: Optional[np.ndarray],
         R_cols: Optional[np.ndarray],
     ) -> np.ndarray:
-
         if other.flags["C_CONTIGUOUS"]:
             is_c_contiguous = True
         elif other.flags["F_CONTIGUOUS"]:
