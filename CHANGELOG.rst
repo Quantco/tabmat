@@ -15,6 +15,7 @@ Unreleased
 - The C++ types have been refactored. Loop indices are now using the ``Py_ssize_t`` type. Integers now have a templated type as well.
 - The documentation for `matvec` and `matvec_transpose` has been updated to reflect actual behavior
 - Checks for dimension mismatch in `matvec` and `matvec_transpose` arguments have been added
+- Remove upper pin on xsimd
 
 3.1.7 - 2022-03-28
 ------------------
