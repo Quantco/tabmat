@@ -274,6 +274,7 @@ class SplitMatrix(MatrixBase):
         d: Union[np.ndarray, List],
         rows: np.ndarray = None,
         cols: np.ndarray = None,
+        cast_to_dense: bool = False,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
         if np.shape(d) != (self.shape[0],):

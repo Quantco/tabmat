@@ -412,7 +412,8 @@ class CategoricalMatrix(MatrixBase):
         d: Union[np.ndarray, List],
         rows: np.ndarray = None,
         cols: np.ndarray = None,
-    ) -> sps.dia_matrix:
+        cast_to_dense: bool = False,
+    ) -> Union[np.ndarray, sps.dia_matrix]:
         """
         Perform a sandwich product: X.T @ diag(d) @ X.
 
@@ -441,7 +442,10 @@ class CategoricalMatrix(MatrixBase):
 
         if cols is not None and len(cols) < self.shape[1]:
             res_diag = res_diag[cols]
-        return sps.diags(res_diag)
+        if cast_to_dense:
+            return np.diagonal(res_diag)
+        else:
+            return sps.diags(res_diag)
 
     def _cross_sandwich(
         self,

@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
+import scipy.sparse as sps
 
 
 class MatrixBase(ABC):
@@ -61,13 +62,21 @@ class MatrixBase(ABC):
 
     @abstractmethod
     def sandwich(
-        self, d: np.ndarray, rows: np.ndarray = None, cols: np.ndarray = None
-    ) -> np.ndarray:
+        self,
+        d: np.ndarray,
+        rows: np.ndarray = None,
+        cols: np.ndarray = None,
+        cast_to_dense=False,
+    ) -> Union[np.ndarray, sps.dia_matrix]:
         """
         Perform a sandwich product: (self[rows, cols].T * d[rows]) @ self[rows, cols].
 
         The rows and cols parameters allow restricting to a subset of the
         matrix without making a copy.
+
+        If ``cast_to_dense`` is False, then the result is either a ``np.ndarray`` or a
+        ``sps.dia_matrix`` depending on the type of ``self``. If ``cast_to_dense`` is
+        True, then the result is always a ``np.ndarray``.
         """
         pass
 

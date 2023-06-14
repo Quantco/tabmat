@@ -57,7 +57,11 @@ class DenseMatrix(np.ndarray, MatrixBase):
         return np.asarray(self)
 
     def sandwich(
-        self, d: np.ndarray, rows: np.ndarray = None, cols: np.ndarray = None
+        self,
+        d: np.ndarray,
+        rows: np.ndarray = None,
+        cols: np.ndarray = None,
+        cast_to_dense: bool = False,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
         d = np.asarray(d)

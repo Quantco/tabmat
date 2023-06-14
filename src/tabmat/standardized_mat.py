@@ -119,7 +119,11 @@ class StandardizedMatrix:
         return StandardizedMatrix(col, [self.shift[i]], mult)
 
     def sandwich(
-        self, d: np.ndarray, rows: np.ndarray = None, cols: np.ndarray = None
+        self,
+        d: np.ndarray,
+        rows: np.ndarray = None,
+        cols: np.ndarray = None,
+        cast_to_dense: bool = False,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
         if not hasattr(d, "dtype"):
