@@ -7,6 +7,13 @@
 Changelog
 =========
 
+unreleased
+----------
+
+**Other changes:**
+
+- Support building on architectures that are unsupported by xsimd.
+
 3.1.8 - 2023-06-13
 ------------------
 

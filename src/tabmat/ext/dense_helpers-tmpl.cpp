@@ -45,7 +45,11 @@ namespace xs = xsimd;
         // setup simd accumulators
         % for ir in range(IBLOCK):
             % for jr in range(JBLOCK):
+#ifdef XSIMD_NO_SUPPORTED_ARCHITECTURE
+		auto accumsimd${ir}_${jr} = (F)0.0;
+#else
                 auto accumsimd${ir}_${jr} = xs::XSIMD_BROADCAST(((F)0.0));
+#endif
             % endfor
         % endfor
 
@@ -78,10 +82,18 @@ namespace xs = xsimd;
             % endfor
             ) {
             % for ir in range(IBLOCK):
+#ifdef XSIMD_NO_SUPPORTED_ARCHITECTURE
+		auto Xtd${ir} = *Lptr${ir};
+#else
                 auto Xtd${ir} = xs::load_aligned(Lptr${ir});
+#endif
                 % for jr in range(JBLOCK):
                 {
+#ifdef XSIMD_NO_SUPPORTED_ARCHITECTURE
+		    auto Xsimd = *Rptr${jr};
+#else
                     auto Xsimd = xs::load_aligned(Rptr${jr});
+#endif
                     accumsimd${ir}_${jr} = xs::fma(Xtd${ir}, Xsimd, accumsimd${ir}_${jr});
                 }
                 % endfor
@@ -91,7 +103,11 @@ namespace xs = xsimd;
         // horizontal sum of the simd blocks
         % for ir in range(IBLOCK):
             % for jr in range(JBLOCK):
+#ifdef XSIMD_NO_SUPPORTED_ARCHITECTURE
+		F accum${ir}_${jr} = accumsimd${ir}_${jr};
+#else
                 F accum${ir}_${jr} = xs::XSIMD_REDUCE_ADD(accumsimd${ir}_${jr});
+#endif
             % endfor
         % endfor
 
@@ -150,7 +166,11 @@ void dense_base${kparallel}(F* R, F* L, F* d, F* out,
                 Py_ssize_t jmin2, Py_ssize_t jmax2, 
                 Py_ssize_t kmin, Py_ssize_t kmax, Int innerblock, Int kstep) 
 {
+#ifdef XSIMD_NO_SUPPORTED_ARCHITECTURE
+    constexpr std::size_t simd_size = 1;
+#else
     constexpr std::size_t simd_size = xsimd::simd_type<F>::size;
+#endif
     for (Py_ssize_t imin = imin2; imin < imax2; imin+=innerblock) {
         Py_ssize_t imax = imin + innerblock; 
         if (imax > imax2) {
@@ -248,7 +268,11 @@ template <typename Int, typename F>
 void _dense${order}_sandwich(Int* rows, Int* cols, F* X, F* d, F* out,
         Int in_n, Int out_m, Int m, Int n, Int thresh1d, Int kratio, Int innerblock) 
 {
+#ifdef XSIMD_NO_SUPPORTED_ARCHITECTURE
+    constexpr std::size_t simd_size = 1;
+#else
     constexpr std::size_t simd_size = xsimd::simd_type<F>::size;
+#endif
     constexpr auto alignment = simd_size * sizeof(F);
 
     bool kparallel = (in_n / (kratio*thresh1d)) > (out_m / thresh1d);
@@ -292,7 +316,11 @@ template <typename Int, typename F>
 void _dense${order}_rmatvec(Int* rows, Int* cols, F* X, F* v, F* out,
         Int n_rows, Int n_cols, Int m, Int n) 
 {
+#ifdef XSIMD_NO_SUPPORTED_ARCHITECTURE
+    constexpr std::size_t simd_size = 1;
+#else
     constexpr std::size_t simd_size = xsimd::simd_type<F>::size;
+#endif
     constexpr std::size_t alignment = simd_size * sizeof(F);
 
     auto outglobal = make_aligned_unique<F>(omp_get_max_threads()*n_cols, alignment);

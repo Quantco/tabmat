@@ -1,0 +1,14 @@
+c_compiler:
+- gcc
+c_compiler_version:
+- '12'
+cxx_compiler:
+- gxx
+cxx_compiler_version:
+- '12'
+numpy:
+- '1.21'
+python:
+- 3.10.* *_cpython
+target_platform:
+- linux-ppc64le
