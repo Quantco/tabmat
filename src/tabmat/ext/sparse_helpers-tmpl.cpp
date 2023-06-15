@@ -30,7 +30,12 @@ void _csr_dense${order}_sandwich(
     Int nrows, Int nA_cols, Int nB_cols
     ) 
 {
+#ifdef XSIMD_NO_SUPPORTED_ARCHITECTURE
+    constexpr Int simd_size = 1;
+#else
     constexpr Int simd_size = xsimd::simd_type<F>::size;
+#endif
+
     constexpr auto alignment = simd_size*sizeof(F);
 
     int kblock = 128;
@@ -95,15 +100,28 @@ void _csr_dense${order}_sandwich(
                         }
 
                         F Q = Adata[A_idx];
+#ifdef XSIMD_NO_SUPPORTED_ARCHITECTURE
+			auto Qsimd = Q;
+#else
                         auto Qsimd = xs::XSIMD_BROADCAST(Q);
+#endif
 
                         Py_ssize_t Cj = Cjj;
                         Py_ssize_t Cjmax2 = Cjj + ((Cjmax - Cjj) / simd_size) * simd_size;
                         for (; Cj < Cjmax2; Cj+=simd_size) {
+#ifdef XSIMD_NO_SUPPORTED_ARCHITECTURE
+                            auto Bsimd = R[(Py_ssize_t) (Ck-Ckk) * jblock + (Cj-Cjj)];
+                            auto outsimd = outtemp.get()[Ci * nB_cols_rounded + Cj];
+#else
                             auto Bsimd = xs::load_aligned(&R[(Py_ssize_t) (Ck-Ckk) * jblock + (Cj-Cjj)]);
                             auto outsimd = xs::load_aligned(&outtemp.get()[Ci * nB_cols_rounded + Cj]);
+#endif
                             outsimd = xs::fma(Qsimd, Bsimd, outsimd);
+#ifdef XSIMD_NO_SUPPORTED_ARCHITECTURE
+                            outtemp.get()[Ci * nB_cols_rounded + Cj] = outsimd;
+#else
                             outsimd.store_aligned(&outtemp.get()[Ci * nB_cols_rounded + Cj]);
+#endif
                         }
 
                         for (; Cj < Cjmax; Cj++) {
