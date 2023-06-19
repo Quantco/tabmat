@@ -4,6 +4,7 @@ channels:
   - nodefaults
 dependencies:
   - pandas
+  - formulaic
 
   # development tools
   - black
