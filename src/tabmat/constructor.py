@@ -1,13 +1,17 @@
+import sys
 import warnings
 from typing import List, Tuple, Union
 
 import numpy as np
 import pandas as pd
+from formulaic import Formula, ModelSpec
+from formulaic.utils.layered_mapping import LayeredMapping
 from pandas.api.types import is_numeric_dtype
 from scipy import sparse as sps
 
 from .categorical_matrix import CategoricalMatrix
 from .dense_matrix import DenseMatrix
+from .formula import TabmatMaterializer
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .split_matrix import SplitMatrix
@@ -198,3 +202,35 @@ def from_csc(mat: sps.csc_matrix, threshold=0.1):
     """
     dense, sparse, dense_idx, sparse_idx = _split_sparse_and_dense_parts(mat, threshold)
     return SplitMatrix([dense, sparse], [dense_idx, sparse_idx])
+
+
+def from_formula(
+    formula: Union[str, Formula],
+    df: pd.DataFrame,
+    ensure_full_rank: bool = False,
+    context=0,
+):
+    """
+    Transform a pandas DataFrame to a SplitMatrix using a Wilkinson formula.
+
+    Parameters
+    ----------
+    formula: str
+        A formula accepted by formulaic.
+    df: pd.DataFrame
+        pandas DataFrame to be converted.
+    ensure_full_rank: bool, default False
+        If True, ensure that the matrix has full structural rank by categories.
+    """
+    if isinstance(context, int):
+        if hasattr(sys, "_getframe"):
+            frame = sys._getframe(context + 1)
+            context = LayeredMapping(frame.f_locals, frame.f_globals)
+        else:
+            context = None  # pragma: no cover
+    spec = ModelSpec(
+        formula=Formula(formula),
+        ensure_full_rank=ensure_full_rank,
+    )
+    materializer = TabmatMaterializer(df, context=context)
+    return materializer.get_model_matrix(spec)
