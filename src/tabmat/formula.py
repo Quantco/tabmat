@@ -271,23 +271,21 @@ class InteractableCategoricalMatrix(CategoricalMatrix):
         if self.drop_first:
             new_codes[new_codes % cardinality_self == 0] = 0
             new_codes -= new_codes // cardinality_self
-            left_shift = cardinality_self - 1
-            right_slice = slice(1, None)
+            self_slice = slice(1, None)
         else:
-            left_shift = cardinality_self
-            right_slice = slice(None)
+            self_slice = slice(None)
 
         if other.drop_first:
-            new_codes -= left_shift
+            new_codes -= (cardinality_self - 1)
             new_codes[new_codes < 0] = 0
-            left_slice = slice(1, None)
+            other_slice = slice(1, None)
         else:
-            left_slice = slice(None)
+            other_slice = slice(None)
 
         new_categories = [
             f"{self_cat}:{other_cat}"
             for other_cat, self_cat in itertools.product(
-                other.cat.categories[left_slice], self.cat.categories[right_slice]
+                other.cat.categories[other_slice], self.cat.categories[self_slice]
             )
         ]
 
