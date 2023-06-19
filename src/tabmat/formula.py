@@ -264,20 +264,20 @@ class InteractableCategoricalMatrix(CategoricalMatrix):
             )
 
     def _interact_categorical(self, other):
-        cardinality_right = len(other.cat.categories)
+        cardinality_self = len(self.cat.categories)
 
-        new_codes = self.cat.codes * cardinality_right + other.cat.codes
-
-        if other.drop_first:
-            new_codes[new_codes % cardinality_right == 0] = 0
-            new_codes -= new_codes // cardinality_right
-            left_shift = cardinality_right - 1
-            right_slice = slice(1, None)
-        else:
-            left_shift = cardinality_right
-            right_slice = slice(None)
+        new_codes = other.cat.codes * cardinality_self + self.cat.codes
 
         if self.drop_first:
+            new_codes[new_codes % cardinality_self == 0] = 0
+            new_codes -= new_codes // cardinality_self
+            left_shift = cardinality_self - 1
+            right_slice = slice(1, None)
+        else:
+            left_shift = cardinality_self
+            right_slice = slice(None)
+
+        if other.drop_first:
             new_codes -= left_shift
             new_codes[new_codes < 0] = 0
             left_slice = slice(1, None)
@@ -285,9 +285,9 @@ class InteractableCategoricalMatrix(CategoricalMatrix):
             left_slice = slice(None)
 
         new_categories = [
-            f"{left_cat}:{right_cat}"
-            for left_cat, right_cat in itertools.product(
-                self.cat.categories[left_slice], other.cat.categories[right_slice]
+            f"{self_cat}:{other_cat}"
+            for other_cat, self_cat in itertools.product(
+                other.cat.categories[left_slice], self.cat.categories[right_slice]
             )
         ]
 
