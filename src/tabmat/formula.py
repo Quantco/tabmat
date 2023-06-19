@@ -1,4 +1,4 @@
-import functools
+import copy
 import itertools
 from collections import OrderedDict
 
@@ -12,7 +12,6 @@ from interface_meta import override
 
 from .categorical_matrix import CategoricalMatrix
 from .dense_matrix import DenseMatrix
-from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .split_matrix import SplitMatrix
 
@@ -59,7 +58,7 @@ class TabmatMaterializer(FormulaMaterializer):
     @override
     def _encode_constant(self, value, metadata, encoder_state, spec, drop_rows):
         series = value * numpy.ones(self.nrows - len(drop_rows))
-        return DenseMatrix(series)
+        return InteractableDenseMatrix(series)
 
     @override
     def _encode_numerical(self, values, metadata, encoder_state, spec, drop_rows):
@@ -67,7 +66,7 @@ class TabmatMaterializer(FormulaMaterializer):
             values = values.drop(index=values.index[drop_rows])
         if isinstance(values, pandas.Series):
             values = values.to_numpy()
-        return DenseMatrix(values)
+        return InteractableDenseMatrix(values)
 
     @override
     def _encode_categorical(
@@ -76,29 +75,7 @@ class TabmatMaterializer(FormulaMaterializer):
         # We do not do any encoding here as it is handled by tabmat
         if drop_rows:
             values = values.drop(index=values.index[drop_rows])
-        return CategoricalMatrix(values._values, drop_first=reduced_rank)
-
-    @override
-    def _get_columns_for_term(self, factors, spec, scale=1):
-        out = OrderedDict()
-
-        names = [
-            ":".join(reversed(product))
-            for product in itertools.product(*reversed(factors))
-        ]
-
-        for i, reversed_product in enumerate(
-            itertools.product(*(factor.items() for factor in reversed(factors)))
-        ):
-            # TODO: implement this
-            out[names[i]] = functools.reduce(
-                _interact_columns,
-                (p[1] for p in reversed(reversed_product)),
-            )
-            if scale != 1:
-                # TODO: do we need this? Maybe raise?
-                out[names[i]] = scale * out[names[i]]
-        return out
+        return InteractableCategoricalMatrix(values._values, drop_first=reduced_rank)
 
     @override
     def _combine_columns(self, cols, spec, drop_rows):
@@ -108,7 +85,7 @@ class TabmatMaterializer(FormulaMaterializer):
             return SplitMatrix([DenseMatrix(values)])
 
         # Otherwise, concatenate columns into SplitMatrix
-        return SplitMatrix([col[1] for col in cols])
+        return SplitMatrix([col[1].to_non_interactable() for col in cols])
 
     # Have to override _build_model_matrix, too, because of tabmat/glum's way
     # of handling intercepts and categorical variables.
@@ -164,7 +141,7 @@ class TabmatMaterializer(FormulaMaterializer):
                     EncodedTermStructure(
                         term,
                         [st.copy(without_values=True) for st in scoped_terms],
-                        list(scoped_cols),
+                        _colnames_from_scoped_cols(scoped_cols),
                     )
                     for term, scoped_terms, scoped_cols in cols
                 ],
@@ -185,77 +162,140 @@ class TabmatMaterializer(FormulaMaterializer):
         )
 
 
-# There should be a better palce for this:
-def _interact_columns(
-    left: MatrixBase, right: MatrixBase, dense_threshold: float = 0.1
-) -> MatrixBase:
-    if isinstance(left, DenseMatrix) and isinstance(right, DenseMatrix):
-        return left.multiply(right)
-
-    if isinstance(left, SparseMatrix) and not isinstance(right, CategoricalMatrix):
-        return left.multiply(right)
-
-    if isinstance(right, SparseMatrix) and not isinstance(left, CategoricalMatrix):
-        return right.multiply(left)
-
-    if isinstance(left, CategoricalMatrix) and not isinstance(right, CategoricalMatrix):
-        if len(right.shape):
-            right = right.reshape(-1, 1)  # type: ignore
-        return SparseMatrix(left.tocsr().multiply(right))
-        # TODO: we could do better by making it dense above a threshold
-
-    if isinstance(right, CategoricalMatrix) and not isinstance(left, CategoricalMatrix):
-        if len(left.shape):
-            left = left.reshape(-1, 1)  # type: ignore
-        return SparseMatrix(right.tocsr().multiply(left))
-
-    if isinstance(left, CategoricalMatrix) and isinstance(right, CategoricalMatrix):
-        return _interact_categorical_categorical(left, right)
-
-    # Should be unreachable
-    raise RuntimeError(
-        f"_interact_columns not implemented for {type(left)} and {type(right)}"
-    )
+def _colnames_from_scoped_cols(scoped_cols):
+    colnames = []
+    for name, col in scoped_cols.items():
+        if isinstance(col, CategoricalMatrix):
+            if col.drop_first:
+                colnames.extend([f"{name}__{cat}" for cat in col.cat.categories[1:]])
+            else:
+                colnames.extend([f"{name}__{cat}" for cat in col.cat.categories])
+        else:
+            colnames.append(name)
+        return colnames
 
 
-def _interact_categorical_categorical(
-    left: CategoricalMatrix, right: CategoricalMatrix
-) -> CategoricalMatrix:
-    card_right = len(right.cat.categories)
+class InteractableDenseMatrix(DenseMatrix):
+    def __mul__(self, other):
+        if isinstance(other, (InteractableDenseMatrix, int, float)):
+            return self.multiply(other)
+        elif isinstance(
+            other, (InteractableSparseMatrix, InteractableCategoricalMatrix)
+        ):
+            return other.__mul__(self)
+        else:
+            raise TypeError(f"Cannot multiply {type(self)} and {type(other)}")
+        # Multiplication with sparse and categorical is handled by the other classes
 
-    new_codes = left.cat.codes * card_right + right.cat.codes
+    def __rmul__(self, other):
+        return self.__mul__(other)
 
-    if right.drop_first:
-        new_codes[new_codes % card_right == 0] = 0
-        new_codes -= new_codes // card_right
-        left_shift = card_right - 1
-        right_slice = slice(1, None)
-    else:
-        left_shift = card_right
-        right_slice = slice(None)
+    def to_non_interactable(self):
+        return DenseMatrix(self)
 
-    if left.drop_first:
-        new_codes -= left_shift
-        new_codes[new_codes < 0] = 0
-        left_slice = slice(1, None)
-    else:
-        left_slice = slice(None)
 
-    new_categories = [
-        f"{left_cat}__{right_cat}"
-        for left_cat, right_cat in itertools.product(
-            left.cat.categories[left_slice], right.cat.categories[right_slice]
+class InteractableSparseMatrix(SparseMatrix):
+    def __mul__(self, other):
+        if isinstance(other, (InteractableDenseMatrix, InteractableSparseMatrix)):
+            return self.multiply(other)
+        elif isinstance(other, InteractableCategoricalMatrix):
+            return other.__mul__(self)
+        elif isinstance(other, (int, float)):
+            return self.multiply(numpy.array(other))
+        else:
+            raise TypeError(f"Cannot multiply {type(self)} and {type(other)}")
+        # Multiplication with categorical is handled by the categorical
+
+    def __rmul__(self, other):
+        return self.__mul__(other)
+
+    def to_non_interactable(self):
+        return SparseMatrix(self)
+
+
+class InteractableCategoricalMatrix(CategoricalMatrix):
+    def __init__(self, *args, **kwargs):
+        multipliers = kwargs.pop("multipliers", None)
+        super().__init__(*args, **kwargs)
+        if multipliers is None:
+            self.multipliers = numpy.ones_like(self.cat, dtype=numpy.float_)
+        else:
+            self.multipliers = multipliers
+
+    def __mul__(self, other):
+        if isinstance(other, (InteractableDenseMatrix, float, int)):
+            result = copy.copy(self)
+            result.multipliers = result.multipliers * numpy.array(other)
+            return result
+        elif isinstance(other, InteractableSparseMatrix):
+            result = copy.copy(self)
+            result.multipliers = result.multipliers * other.todense()
+            return result
+        elif isinstance(other, InteractableCategoricalMatrix):
+            return self._interact_categorical(other)
+        else:
+            raise TypeError(
+                f"Can't multiply InteractableCategoricalMatrix with {type(other)}"
+            )
+
+    def __rmul__(self, other):
+        if isinstance(other, InteractableCategoricalMatrix):
+            other._interact_categorical(self)  # order matters
+        else:
+            return self.__mul__(other)
+
+    def to_non_interactable(self):
+        if numpy.all(self.multipliers == 1):
+            return CategoricalMatrix(
+                self.cat,
+                drop_first=self.drop_first,
+                dtype=self.dtype,
+            )
+        else:
+            return SparseMatrix(
+                self.tocsr().multiply(self.multipliers[:, numpy.newaxis])
+            )
+
+    def _interact_categorical(self, other):
+        cardinality_right = len(other.cat.categories)
+
+        new_codes = self.cat.codes * cardinality_right + other.cat.codes
+
+        if other.drop_first:
+            new_codes[new_codes % cardinality_right == 0] = 0
+            new_codes -= new_codes // cardinality_right
+            left_shift = cardinality_right - 1
+            right_slice = slice(1, None)
+        else:
+            left_shift = cardinality_right
+            right_slice = slice(None)
+
+        if self.drop_first:
+            new_codes -= left_shift
+            new_codes[new_codes < 0] = 0
+            left_slice = slice(1, None)
+        else:
+            left_slice = slice(None)
+
+        new_categories = [
+            f"{left_cat}__{right_cat}"
+            for left_cat, right_cat in itertools.product(
+                self.cat.categories[left_slice], other.cat.categories[right_slice]
+            )
+        ]
+
+        new_drop_first = self.drop_first or other.drop_first
+        if new_drop_first:
+            new_categories = ["__drop__"] + new_categories
+
+        cat = pandas.Categorical.from_codes(
+            categories=new_categories,
+            codes=new_codes,
+            ordered=self.cat.ordered and other.cat.ordered,
         )
-    ]
 
-    new_drop_first = left.drop_first or right.drop_first
-    if new_drop_first:
-        new_categories = ["__drop__"] + new_categories
-
-    new_col = pandas.Categorical.from_codes(
-        new_codes,
-        new_categories,
-        ordered=left.cat.ordered and right.cat.ordered,
-    )
-
-    return CategoricalMatrix(new_col, drop_first=new_drop_first)
+        return InteractableCategoricalMatrix(
+            cat,
+            multipliers=self.multipliers * other.multipliers,
+            drop_first=new_drop_first,
+        )
