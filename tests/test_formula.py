@@ -2,6 +2,7 @@ import formulaic
 import numpy as np
 import pandas as pd
 import pytest
+from scipy import sparse as sps
 
 import tabmat as tm
 
@@ -20,7 +21,91 @@ def df():
     return df
 
 
-@pytest.mark.parametrize("ensure_full_rank", [True, False])
+@pytest.mark.parametrize(
+    "formula, expected",
+    [
+        pytest.param(
+            "num_1",
+            tm.SplitMatrix(
+                [
+                    tm.DenseMatrix(
+                        np.array(
+                            [[1.0, 1.0, 1.0, 1.0, 1.0], [1.0, 2.0, 3.0, 4.0, 5.0]]
+                        ).T
+                    )
+                ]
+            ),
+            id="numeric",
+        ),
+        pytest.param(
+            "cat_1",
+            tm.SplitMatrix(
+                [
+                    tm.DenseMatrix(np.array([[1.0, 1.0, 1.0, 1.0, 1.0]]).T),
+                    tm.CategoricalMatrix(
+                        pd.Categorical(
+                            ["a", "b", "c", "b", "a"], categories=["a", "b", "c"]
+                        ),
+                        drop_first=True,
+                    ),
+                ]
+            ),
+            id="categorical",
+        ),
+        pytest.param(
+            "num_1 : cat_1",
+            tm.SplitMatrix(
+                [
+                    tm.DenseMatrix(np.array([[1.0, 1.0, 1.0, 1.0, 1.0]]).T),
+                    tm.SparseMatrix(
+                        sps.csc_matrix(
+                            np.array(
+                                [
+                                    [1.0, 0.0, 0.0, 0.0, 5.0],
+                                    [0.0, 2.0, 0.0, 4.0, 0.0],
+                                    [0.0, 0.0, 3.0, 0.0, 0.0],
+                                ]
+                            ).T
+                        )
+                    ),
+                ]
+            ),
+            id="interaction_cat_num",
+        ),
+        pytest.param(
+            "cat_1 : cat_3 - 1",
+            tm.SplitMatrix(
+                [
+                    tm.CategoricalMatrix(
+                        pd.Categorical(
+                            ["a:1", "b:2", "c:1", "b:2", "a:1"],
+                            categories=["a:1", "b:1", "c:1", "a:2", "c:2", "b:2"],
+                        ),
+                        drop_first=False,
+                    ),
+                ]
+            ),
+            id="interaction_cat_cat",
+        ),
+    ],
+)
+def test_matrix_against_expectation(df, formula, expected):
+    model_df = tm.from_formula(formula, df, ensure_full_rank=True)
+    assert len(model_df.matrices) == len(expected.matrices)
+    for res, exp in zip(model_df.matrices, expected.matrices):
+        assert type(res) == type(exp)
+        if isinstance(res, tm.DenseMatrix):
+            np.testing.assert_array_equal(res, exp)
+        elif isinstance(res, tm.SparseMatrix):
+            np.testing.assert_array_equal(res.A, res.A)
+        elif isinstance(res, tm.CategoricalMatrix):
+            assert (exp.cat == res.cat).all()
+            assert exp.drop_first == res.drop_first
+
+
+@pytest.mark.parametrize(
+    "ensure_full_rank", [True, False], ids=["full_rank", "all_levels"]
+)
 @pytest.mark.parametrize(
     "formula",
     [
@@ -41,8 +126,68 @@ def df():
         ),
     ],
 )
-def test_against_pandas(df, formula, ensure_full_rank):
+def test_matrix_against_pandas(df, formula, ensure_full_rank):
     num_in_scope = 2  # noqa
     model_df = formulaic.model_matrix(formula, df, ensure_full_rank=ensure_full_rank)
     model_tabmat = tm.from_formula(formula, df, ensure_full_rank=ensure_full_rank)
     np.testing.assert_array_equal(model_df.to_numpy(), model_tabmat.A)
+
+
+@pytest.mark.parametrize(
+    "formula, expected_names",
+    [
+        pytest.param("num_1 + num_2", ("Intercept", "num_1", "num_2"), id="numeric"),
+        pytest.param("num_1 + num_2 - 1", ("num_1", "num_2"), id="no_intercept"),
+        pytest.param("cat_1", ("Intercept", "cat_1[b]", "cat_1[c]"), id="categorical"),
+        pytest.param(
+            "cat_2 * cat_3",
+            (
+                "Intercept",
+                "cat_2[y]",
+                "cat_2[z]",
+                "cat_3[2]",
+                "cat_2:cat_3[y:2]",
+                "cat_2:cat_3[z:2]",
+            ),
+            id="interaction",
+        ),
+        pytest.param(
+            "poly(num_1, 3) - 1",
+            ("poly(num_1, 3)[1]", "poly(num_1, 3)[2]", "poly(num_1, 3)[3]"),
+            id="polynomial",
+        ),
+        pytest.param(
+            "{np.log(num_1 ** 2)}", ("Intercept", "np.log(num_1 ** 2)"), id="functions"
+        ),
+    ],
+)
+def test_names_against_expectation(df, formula, expected_names):
+    model_tabmat = tm.from_formula(formula, df, ensure_full_rank=True)
+    assert model_tabmat.model_spec.column_names == expected_names
+
+
+@pytest.mark.parametrize(
+    "ensure_full_rank", [True, False], ids=["full_rank", "all_levels"]
+)
+@pytest.mark.parametrize(
+    "formula",
+    [
+        pytest.param("num_1 + num_2", id="numeric"),
+        pytest.param("cat_1 + cat_2", id="categorical", marks=pytest.mark.xfail),
+        pytest.param(
+            "cat_1 * cat_2 * cat_3", id="interaction", marks=pytest.mark.xfail
+        ),
+        pytest.param("{np.log(num_1)} + {num_in_scope * num_2}", id="functions"),
+        pytest.param("{num_1 * num_in_scope}", id="variable_in_scope"),
+        pytest.param("bs(num_1, 3)", id="spline"),
+        pytest.param(
+            "poly(num_1, 3, raw=True) + poly(num_2, 3, raw=False)", id="polynomial"
+        ),
+    ],
+)
+def test_names_against_pandas(df, formula, ensure_full_rank):
+    num_in_scope = 2  # noqa
+    model_df = formulaic.model_matrix(formula, df, ensure_full_rank=ensure_full_rank)
+    model_tabmat = tm.from_formula(formula, df, ensure_full_rank=ensure_full_rank)
+    assert model_tabmat.model_spec.column_names == model_df.model_spec.column_names
+    assert model_tabmat.model_spec.column_names == tuple(model_df.columns)
