@@ -87,8 +87,8 @@ class TabmatMaterializer(FormulaMaterializer):
         # Otherwise, concatenate columns into SplitMatrix
         return SplitMatrix([col[1].to_non_interactable() for col in cols])
 
-    # Have to override _build_model_matrix, too, because of tabmat/glum's way
-    # of handling intercepts and categorical variables.
+    # Have to override this because of culumn names
+    # (and possibly intercept later on)
     @override
     def _build_model_matrix(self, spec: ModelSpec, drop_rows):
         # Step 0: Apply any requested column/term clustering
@@ -136,12 +136,26 @@ class TabmatMaterializer(FormulaMaterializer):
         if spec.structure:
             cols = self._enforce_structure(cols, spec, drop_rows)
         else:
+            # for term, scoped_terms, columns in spec.structure:
+            # expanded_columns = list(itertools.chain(colname_dict[col] for col in columns))
+            # expanded_structure.append(
+            #     EncodedTermStructure(term, scoped_terms, expanded_columns)
+            # )
+
             spec = spec.update(
                 structure=[
                     EncodedTermStructure(
                         term,
                         [st.copy(without_values=True) for st in scoped_terms],
-                        _colnames_from_scoped_cols(scoped_cols),
+                        # This is the only line that is different from the original:
+                        list(
+                            itertools.chain(
+                                *(
+                                    mat.get_names(col)
+                                    for col, mat in scoped_cols.items()
+                                )
+                            )
+                        ),
                     )
                     for term, scoped_terms, scoped_cols in cols
                 ],
@@ -162,19 +176,6 @@ class TabmatMaterializer(FormulaMaterializer):
         )
 
 
-def _colnames_from_scoped_cols(scoped_cols):
-    colnames = []
-    for name, col in scoped_cols.items():
-        if isinstance(col, CategoricalMatrix):
-            if col.drop_first:
-                colnames.extend([f"{name}__{cat}" for cat in col.cat.categories[1:]])
-            else:
-                colnames.extend([f"{name}__{cat}" for cat in col.cat.categories])
-        else:
-            colnames.append(name)
-        return colnames
-
-
 class InteractableDenseMatrix(DenseMatrix):
     def __mul__(self, other):
         if isinstance(other, (InteractableDenseMatrix, int, float)):
@@ -192,6 +193,9 @@ class InteractableDenseMatrix(DenseMatrix):
 
     def to_non_interactable(self):
         return DenseMatrix(self)
+
+    def get_names(self, col):
+        return [col]
 
 
 class InteractableSparseMatrix(SparseMatrix):
@@ -211,6 +215,9 @@ class InteractableSparseMatrix(SparseMatrix):
 
     def to_non_interactable(self):
         return SparseMatrix(self)
+
+    def get_names(self, col):
+        return [col]
 
 
 class InteractableCategoricalMatrix(CategoricalMatrix):
@@ -278,7 +285,7 @@ class InteractableCategoricalMatrix(CategoricalMatrix):
             left_slice = slice(None)
 
         new_categories = [
-            f"{left_cat}__{right_cat}"
+            f"{left_cat}:{right_cat}"
             for left_cat, right_cat in itertools.product(
                 self.cat.categories[left_slice], other.cat.categories[right_slice]
             )
@@ -299,3 +306,10 @@ class InteractableCategoricalMatrix(CategoricalMatrix):
             multipliers=self.multipliers * other.multipliers,
             drop_first=new_drop_first,
         )
+
+    def get_names(self, col):
+        if self.drop_first:
+            categories = self.cat.categories[1:]
+        else:
+            categories = self.cat.categories
+        return [f"{col}[{cat}]" for cat in categories]
