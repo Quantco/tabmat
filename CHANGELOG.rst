@@ -10,6 +10,10 @@ Changelog
 3.1.9 - 2023-06-16
 -------------------
 
+**Bug fix:**
+
+- Fix `getcol` not respecting the `drop_first` attribute of `CategoricalMatrix`.
+
 **Other changes:**
 
 - Support building on architectures that are unsupported by xsimd.
