@@ -7,12 +7,15 @@
 Changelog
 =========
 
-3.1.9 - 2023-06-16
+3.1.10 - 2023-XX-XX
 -------------------
 
 **Bug fix:**
 
 - Fix `getcol` not respecting the `drop_first` attribute of `CategoricalMatrix`.
+
+3.1.9 - 2023-06-16
+------------------
 
 **Other changes:**
 
