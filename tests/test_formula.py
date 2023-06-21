@@ -44,7 +44,14 @@ def df():
                     tm.DenseMatrix(np.array([[1.0, 1.0, 1.0, 1.0, 1.0]]).T),
                     tm.CategoricalMatrix(
                         pd.Categorical(
-                            ["a", "b", "c", "b", "a"], categories=["a", "b", "c"]
+                            [
+                                "__drop__",
+                                "cat_1[T.b]",
+                                "cat_1[T.c]",
+                                "cat_1[T.b]",
+                                "__drop__",
+                            ],
+                            categories=["__drop__", "cat_1[T.b]", "cat_1[T.c]"],
                         ),
                         drop_first=True,
                     ),
@@ -78,8 +85,21 @@ def df():
                 [
                     tm.CategoricalMatrix(
                         pd.Categorical(
-                            ["a:1", "b:2", "c:1", "b:2", "a:1"],
-                            categories=["a:1", "b:1", "c:1", "a:2", "c:2", "b:2"],
+                            [
+                                "cat_1[T.a]:cat_3[T.1]",
+                                "cat_1[T.b]:cat_3[T.2]",
+                                "cat_1[T.c]:cat_3[T.1]",
+                                "cat_1[T.b]:cat_3[T.2]",
+                                "cat_1[T.a]:cat_3[T.1]",
+                            ],
+                            categories=[
+                                "cat_1[T.a]:cat_3[T.1]",
+                                "cat_1[T.b]:cat_3[T.1]",
+                                "cat_1[T.c]:cat_3[T.1]",
+                                "cat_1[T.a]:cat_3[T.2]",
+                                "cat_1[T.c]:cat_3[T.2]",
+                                "cat_1[T.b]:cat_3[T.2]",
+                            ],
                         ),
                         drop_first=False,
                     ),
@@ -138,16 +158,18 @@ def test_matrix_against_pandas(df, formula, ensure_full_rank):
     [
         pytest.param("num_1 + num_2", ("Intercept", "num_1", "num_2"), id="numeric"),
         pytest.param("num_1 + num_2 - 1", ("num_1", "num_2"), id="no_intercept"),
-        pytest.param("cat_1", ("Intercept", "cat_1[b]", "cat_1[c]"), id="categorical"),
+        pytest.param(
+            "cat_1", ("Intercept", "cat_1[T.b]", "cat_1[T.c]"), id="categorical"
+        ),
         pytest.param(
             "cat_2 * cat_3",
             (
                 "Intercept",
-                "cat_2[y]",
-                "cat_2[z]",
-                "cat_3[2]",
-                "cat_2:cat_3[y:2]",
-                "cat_2:cat_3[z:2]",
+                "cat_2[T.y]",
+                "cat_2[T.z]",
+                "cat_3[T.2]",
+                "cat_2[T.y]:cat_3[T.2]",
+                "cat_2[T.z]:cat_3[T.2]",
             ),
             id="interaction",
         ),
@@ -173,10 +195,9 @@ def test_names_against_expectation(df, formula, expected_names):
     "formula",
     [
         pytest.param("num_1 + num_2", id="numeric"),
-        pytest.param("cat_1 + cat_2", id="categorical", marks=pytest.mark.xfail),
-        pytest.param(
-            "cat_1 * cat_2 * cat_3", id="interaction", marks=pytest.mark.xfail
-        ),
+        pytest.param("cat_1 + cat_2", id="categorical"),
+        pytest.param("cat_1 * cat_2 * cat_3", id="interaction"),
+        pytest.param("num_1 + cat_1 * num_2 * cat_2", id="mixed"),
         pytest.param("{np.log(num_1)} + {num_in_scope * num_2}", id="functions"),
         pytest.param("{num_1 * num_in_scope}", id="variable_in_scope"),
         pytest.param("bs(num_1, 3)", id="spline"),
