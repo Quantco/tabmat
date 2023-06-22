@@ -9,7 +9,7 @@ import pandas
 from formulaic import ModelMatrix, ModelSpec
 from formulaic.materializers import FormulaMaterializer
 from formulaic.materializers.base import EncodedTermStructure
-from formulaic.materializers.types import NAAction
+from formulaic.materializers.types import FactorValues, NAAction
 from interface_meta import override
 from scipy import sparse
 
@@ -87,16 +87,8 @@ class TabmatMaterializer(FormulaMaterializer):
         if drop_rows:
             values = values.drop(index=values.index[drop_rows])
         cat = values._values
-        categories = list(cat.categories)
-        codes = cat.codes.copy().astype(numpy.int64)
-        if reduced_rank:
-            codes[codes == 0] = -2
-            codes[codes > 0] -= 1
-            categories = categories[1:]
-        return _InteractableCategoricalColumn(
-            codes=codes,
-            categories=categories,
-            multipliers=numpy.ones(len(cat.codes)),
+        return _InteractableCategoricalColumn.from_categorical(
+            cat, reduced_rank=reduced_rank
         )
 
     @override
@@ -290,6 +282,20 @@ class _InteractableCategoricalColumn(_InteractableColumn):
         self.multipliers = multipliers
         self.name = None
 
+    @classmethod
+    def from_categorical(cls, cat: pandas.Categorical, reduced_rank: bool):
+        categories = list(cat.categories)
+        codes = cat.codes.copy().astype(numpy.int64)
+        if reduced_rank:
+            codes[codes == 0] = -2
+            codes[codes > 0] -= 1
+            categories = categories[1:]
+        return cls(
+            codes=codes,
+            categories=categories,
+            multipliers=numpy.ones(len(cat.codes)),
+        )
+
     def __rmul__(self, other):
         if isinstance(other, (int, float)):
             return _InteractableCategoricalColumn(
@@ -420,4 +426,40 @@ def _interact_categoricals(
         codes=new_codes,
         categories=new_categories,
         multipliers=left.multipliers * right.multipliers,
+    )
+
+
+def _C(
+    data,
+    *,
+    spans_intercept: bool = True,
+):
+    """
+    Mark data as being categorical.
+
+    A reduced-functionality version of the ``formulaic`` ``C()`` function. It does not
+    support custom contrasts or the level argument, but it allows setting
+    ``spans_intercept=False`` to avoid dropping categories.
+    """
+
+    def encoder(
+        values,
+        reduced_rank,
+        drop_rows,
+        encoder_state,
+        model_spec,
+    ):
+        values = pandas.Series(values).astype("category")
+        if drop_rows:
+            values = values.drop(index=values.index[drop_rows])
+        cat = values._values
+        return _InteractableCategoricalColumn.from_categorical(
+            cat, reduced_rank=reduced_rank
+        )
+
+    return FactorValues(
+        data,
+        kind="categorical",
+        spans_intercept=spans_intercept,
+        encoder=encoder,
     )

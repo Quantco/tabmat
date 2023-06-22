@@ -249,9 +249,12 @@ def test_matrix_against_expectation_qcl(df, formula, expected):
             "poly(num_1, 3, raw=True) + poly(num_2, 3, raw=False)", id="polynomial"
         ),
         pytest.param(
+            "C(num_1)",
+            id="convert_to_categorical",
+        ),
+        pytest.param(
             "C(cat_1, spans_intercept=False) * cat_2 * cat_3",
             id="custom_contrasts",
-            marks=pytest.mark.xfail,
         ),
     ],
 )
@@ -350,6 +353,14 @@ def test_names_against_expectation_qcl(df, formula, expected_names):
         pytest.param("bs(num_1, 3)", id="spline"),
         pytest.param(
             "poly(num_1, 3, raw=True) + poly(num_2, 3, raw=False)", id="polynomial"
+        ),
+        pytest.param(
+            "C(num_1)",
+            id="convert_to_categorical",
+        ),
+        pytest.param(
+            "C(cat_1, spans_intercept=False) * cat_2 * cat_3",
+            id="custom_contrasts",
         ),
     ],
 )
