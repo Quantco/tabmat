@@ -5,7 +5,7 @@ channels:
 dependencies:
   - libblas>=0=*mkl
   - pandas
-  - formulaic
+  - formulaic>=0.4
 
   # development tools
   - black
