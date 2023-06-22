@@ -212,7 +212,7 @@ def from_formula(
     categorical_format: str = "{name}[T.{category}]",
     intercept_name: str = "Intercept",
     context=0,
-):
+) -> SplitMatrix:
     """
     Transform a pandas data frame to a SplitMatrix using a Wilkinson formula.
 
@@ -224,6 +224,13 @@ def from_formula(
         pandas data frame to be converted.
     ensure_full_rank: bool, default False
         If True, ensure that the matrix has full structural rank by categories.
+    interaction_separator: str, default ":"
+        The separator between the names of interacted variables.
+    categorical_format: str, default "{name}[T.{category}]"
+        The format string used to generate the names of categorical variables.
+        Has to include the placeholders ``{name}`` and ``{category}``.
+    intercept_name: str, default "Intercept"
+        The name of the intercept column.
     context:
         The context to use for evaluating the formula. If an integer, the
         context is taken from the stack frame of the caller at the given

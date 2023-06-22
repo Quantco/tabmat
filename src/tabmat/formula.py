@@ -2,7 +2,7 @@ import functools
 import itertools
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import numpy
 import pandas
@@ -15,6 +15,7 @@ from scipy import sparse
 
 from .categorical_matrix import CategoricalMatrix
 from .dense_matrix import DenseMatrix
+from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .split_matrix import SplitMatrix
 
@@ -66,7 +67,7 @@ class TabmatMaterializer(FormulaMaterializer):
     @override
     def _encode_constant(self, value, metadata, encoder_state, spec, drop_rows):
         series = value * numpy.ones(self.nrows - len(drop_rows))
-        return _InteractableDenseColumn(series, name=self.intercept_name)
+        return _InteractableDenseVector(series, name=self.intercept_name)
 
     @override
     def _encode_numerical(self, values, metadata, encoder_state, spec, drop_rows):
@@ -74,7 +75,7 @@ class TabmatMaterializer(FormulaMaterializer):
             values = values.drop(index=values.index[drop_rows])
         if isinstance(values, pandas.Series):
             values = values.to_numpy()
-        return _InteractableDenseColumn(values.astype(numpy.float_))
+        return _InteractableDenseVector(values.astype(numpy.float_))
 
     @override
     def _encode_categorical(
@@ -84,7 +85,7 @@ class TabmatMaterializer(FormulaMaterializer):
         if drop_rows:
             values = values.drop(index=values.index[drop_rows])
         cat = pandas.Categorical(values._values)
-        return _InteractableCategoricalColumn.from_categorical(
+        return _InteractableCategoricalVector.from_categorical(
             cat, reduced_rank=reduced_rank
         )
 
@@ -96,7 +97,7 @@ class TabmatMaterializer(FormulaMaterializer):
             return SplitMatrix([DenseMatrix(values)])
 
         # Otherwise, concatenate columns into SplitMatrix
-        return SplitMatrix([col[1].to_non_interactable() for col in cols])
+        return SplitMatrix([col[1].to_tabmat() for col in cols])
 
     # Have to override this because of column names
     # (and possibly intercept later on)
@@ -201,69 +202,101 @@ class TabmatMaterializer(FormulaMaterializer):
         return out
 
 
-class _InteractableColumn(ABC):
+class _InteractableVector(ABC):
+    """Abstract base class for interactable vectors, which are mostly thin
+    wrappers over numpy arrays, scipy sparse matrices and pandas categoricals.
+    """
+
     name: Optional[str]
 
     @abstractmethod
-    def to_non_interactable(self):
+    def to_tabmat(self) -> MatrixBase:
+        """Convert to an actual tabmat matrix."""
         pass
 
     @abstractmethod
-    def get_names(self, col):
+    def get_names(self) -> List[str]:
+        """Return the names of the columns represented by this vector.
+
+        Returns
+        -------
+        List[str]
+            The names of the columns represented by this vector.
+        """
         pass
 
     @abstractmethod
-    def set_name(self, name):
+    def set_name(self, name, name_format):
+        """Set the name of the vector.
+
+        Parameters
+        ----------
+        name : str
+            The name to set.
+        name_format : str
+            The format string to use to format the name. Only used for
+            categoricals. Has to include the placeholders ``{name}``
+            and ``{category}``
+
+        Returns
+        -------
+        self
+            A reference to the vector itself.
+        """
         pass
 
 
-class _InteractableDenseColumn(_InteractableColumn):
+class _InteractableDenseVector(_InteractableVector):
     def __init__(self, values: numpy.ndarray, name: Optional[str] = None):
         self.values = values
         self.name = name
 
     def __rmul__(self, other):
         if isinstance(other, (int, float)):
-            return _InteractableDenseColumn(
+            return _InteractableDenseVector(
                 values=self.values * other,
                 name=self.name,
             )
 
-    def to_non_interactable(self):
+    def to_tabmat(self) -> DenseMatrix:
         return DenseMatrix(self.values)
 
-    def get_names(self):
+    def get_names(self) -> List[str]:
+        if self.name is None:
+            raise RuntimeError("Name not set")
         return [self.name]
 
-    def set_name(self, name, name_format=None):
+    def set_name(self, name, name_format=None) -> "_InteractableDenseVector":
         self.name = name
         return self
 
 
-class _InteractableSparseColumn(_InteractableColumn):
+class _InteractableSparseVector(_InteractableVector):
     def __init__(self, values: sparse.csc_matrix, name: Optional[str] = None):
         self.values = values
         self.name = name
 
     def __rmul__(self, other):
         if isinstance(other, (int, float)):
-            return _InteractableSparseColumn(
+            return _InteractableSparseVector(
                 values=self.values * other,
                 name=self.name,
             )
 
-    def to_non_interactable(self):
+    def to_tabmat(self) -> SparseMatrix:
         return SparseMatrix(self.values)
 
-    def get_names(self):
+    def get_names(self) -> List[str]:
+        if self.name is None:
+            raise RuntimeError("Name not set")
         return [self.name]
 
-    def set_name(self, name, name_format=None):
+    def set_name(self, name, name_format=None) -> "_InteractableSparseVector":
         self.name = name
         return self
 
 
-class _InteractableCategoricalColumn(_InteractableColumn):
+class _InteractableCategoricalVector(_InteractableVector):
     def __init__(
         self,
         codes: numpy.ndarray,
@@ -277,10 +310,13 @@ class _InteractableCategoricalColumn(_InteractableColumn):
         self.codes = codes
         self.categories = categories
         self.multipliers = multipliers
-        self.name = None
+        self.name = name
 
     @classmethod
-    def from_categorical(cls, cat: pandas.Categorical, reduced_rank: bool):
+    def from_categorical(
+        cls, cat: pandas.Categorical, reduced_rank: bool
+    ) -> "_InteractableCategoricalVector":
+        """Create an interactable categorical vector from a pandas categorical."""
         categories = list(cat.categories)
         codes = cat.codes.copy().astype(numpy.int64)
         if reduced_rank:
@@ -295,13 +331,14 @@ class _InteractableCategoricalColumn(_InteractableColumn):
 
     def __rmul__(self, other):
         if isinstance(other, (int, float)):
-            return _InteractableCategoricalColumn(
+            return _InteractableCategoricalVector(
                 categories=self.categories,
                 codes=self.codes,
                 multipliers=self.multipliers * other,
+                name=self.name,
             )
 
-    def to_non_interactable(self):
+    def to_tabmat(self) -> Union[CategoricalMatrix, SparseMatrix]:
         codes = self.codes.copy()
         categories = self.categories.copy()
         if -2 in self.codes:
@@ -331,10 +368,14 @@ class _InteractableCategoricalColumn(_InteractableColumn):
                 )
             )
 
-    def get_names(self):
+    def get_names(self) -> List[str]:
+        if self.name is None:
+            raise RuntimeError("Name not set")
         return self.categories
 
-    def set_name(self, name, name_format="{name}[T.{category}]"):
+    def set_name(
+        self, name, name_format="{name}[T.{category}]"
+    ) -> "_InteractableCategoricalVector":
         if self.name is None:
             # Make sure to only format the name once
             self.name = name
@@ -345,26 +386,44 @@ class _InteractableCategoricalColumn(_InteractableColumn):
 
 
 def _interact(
-    left: _InteractableColumn, right: _InteractableColumn, reverse=False, separator=":"
-):
-    if isinstance(left, _InteractableDenseColumn):
-        if isinstance(right, _InteractableDenseColumn):
+    left: _InteractableVector, right: _InteractableVector, reverse=False, separator=":"
+) -> _InteractableVector:
+    """Interact two interactable vectors.
+
+    Parameters
+    ----------
+    left : _InteractableVector
+        The left vector.
+    right : _InteractableVector
+        The right vector.
+    reverse : bool, optional
+        Whether to reverse the order of the interaction, by default False
+    separator : str, optional
+        The separator to use between the names of the interacted vectors, by default ":"
+
+    Returns
+    -------
+    _InteractableVector
+        The interacted vector.
+    """
+    if isinstance(left, _InteractableDenseVector):
+        if isinstance(right, _InteractableDenseVector):
             if not reverse:
                 new_name = f"{left.name}{separator}{right.name}"
             else:
                 new_name = f"{right.name}{separator}{left.name}"
-            return _InteractableDenseColumn(left.values * right.values, name=new_name)
+            return _InteractableDenseVector(left.values * right.values, name=new_name)
 
         else:
             return _interact(right, left, reverse=True, separator=separator)
 
-    if isinstance(left, _InteractableSparseColumn):
-        if isinstance(right, (_InteractableDenseColumn, _InteractableSparseColumn)):
+    if isinstance(left, _InteractableSparseVector):
+        if isinstance(right, (_InteractableDenseVector, _InteractableSparseVector)):
             if not reverse:
                 new_name = f"{left.name}{separator}{right.name}"
             else:
                 new_name = f"{right.name}{separator}{left.name}"
-            return _InteractableSparseColumn(
+            return _InteractableSparseVector(
                 left.values.multiply(right.values),
                 name=new_name,
             )
@@ -372,9 +431,9 @@ def _interact(
         else:
             return _interact(right, left, reverse=True, separator=separator)
 
-    if isinstance(left, _InteractableCategoricalColumn):
-        if isinstance(right, (_InteractableDenseColumn, _InteractableSparseColumn)):
-            if isinstance(right, _InteractableDenseColumn):
+    if isinstance(left, _InteractableCategoricalVector):
+        if isinstance(right, (_InteractableDenseVector, _InteractableSparseVector)):
+            if isinstance(right, _InteractableDenseVector):
                 right_values = right.values
             else:
                 right_values = right.values.todense()
@@ -382,29 +441,48 @@ def _interact(
                 new_categories = [
                     f"{cat}{separator}{right.name}" for cat in left.categories
                 ]
+                new_name = f"{left.name}{separator}{right.name}"
             else:
                 new_categories = [
                     f"{right.name}{separator}{cat}" for cat in left.categories
                 ]
-            return _InteractableCategoricalColumn(
-                left.codes,
-                new_categories,
-                left.multipliers * right_values,
+                new_name = f"{right.name}{separator}{left.name}"
+            return _InteractableCategoricalVector(
+                codes=left.codes,
+                categories=new_categories,
+                multipliers=left.multipliers * right_values,
+                name=new_name,
             )
 
-        elif isinstance(right, _InteractableCategoricalColumn):
+        elif isinstance(right, _InteractableCategoricalVector):
             return _interact_categoricals(left, right, separator=separator)
 
-        raise TypeError(
-            f"Cannot interact {type(left).__name__} with {type(right).__name__}"
-        )
+    raise TypeError(
+        f"Cannot interact {type(left).__name__} with {type(right).__name__}"
+    )
 
 
 def _interact_categoricals(
-    left: _InteractableCategoricalColumn,
-    right: _InteractableCategoricalColumn,
+    left: _InteractableCategoricalVector,
+    right: _InteractableCategoricalVector,
     separator=":",
-):
+) -> _InteractableCategoricalVector:
+    """Interact two categorical vectors.
+
+    Parameters
+    ----------
+    left : _InteractableCategoricalVector
+        The left categorical vector.
+    right : _InteractableCategoricalVector
+        The right categorical vector.
+    separator : str, optional
+        The separator to use between the names of the interacted vectors, by default ":"
+
+    Returns
+    -------
+    _InteractableCategoricalVector
+        The interacted categorical vector.
+    """
     cardinality_left = len(left.categories)
     new_codes = right.codes * cardinality_left + left.codes
 
@@ -419,10 +497,11 @@ def _interact_categoricals(
         for right_cat, left_cat in itertools.product(right.categories, left.categories)
     ]
 
-    return _InteractableCategoricalColumn(
+    return _InteractableCategoricalVector(
         codes=new_codes,
         categories=new_categories,
         multipliers=left.multipliers * right.multipliers,
+        name=f"{left.name}{separator}{right.name}",
     )
 
 
@@ -432,7 +511,7 @@ def _C(
     spans_intercept: bool = True,
 ):
     """
-    Mark data as being categorical.
+    Mark data as categorical.
 
     A reduced-functionality version of the ``formulaic`` ``C()`` function. It does not
     support custom contrasts or the level argument, but it allows setting
@@ -446,11 +525,10 @@ def _C(
         encoder_state,
         model_spec,
     ):
-        values = pandas.Series(values).astype("category")
         if drop_rows:
             values = values.drop(index=values.index[drop_rows])
-        cat = values._values
-        return _InteractableCategoricalColumn.from_categorical(
+        cat = pandas.Categorical(values._values)
+        return _InteractableCategoricalVector.from_categorical(
             cat, reduced_rank=reduced_rank
         )
 

@@ -653,7 +653,7 @@ class TestFormulaicTests:
             spec=formulaic.model_spec.ModelSpec(formula=[]),
             drop_rows=[],
         )
-        encoded_matrix = encoded_factor["B[a]"].set_name("B[a]").to_non_interactable()
+        encoded_matrix = encoded_factor["B[a]"].set_name("B[a]").to_tabmat()
         assert list(encoded_matrix.cat) == ["B[a][T.a]", "B[a][T.b]", "B[a][T.c]"]
 
     @pytest.mark.xfail(reason="Cannot create an empty SplitMatrix in tabmat")
