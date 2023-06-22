@@ -1,10 +1,17 @@
+import pickle
+import re
+from io import BytesIO
+
 import formulaic
 import numpy as np
 import pandas as pd
 import pytest
+from formulaic.materializers.types import EvaluatedFactor, FactorValues
+from formulaic.parser.types import Factor
 from scipy import sparse as sps
 
 import tabmat as tm
+from tabmat.formula import TabmatMaterializer
 
 
 @pytest.fixture
@@ -372,3 +379,326 @@ def test_names_against_pandas(df, formula, ensure_full_rank):
     model_tabmat = tm.from_formula(formula, df, ensure_full_rank=ensure_full_rank)
     assert model_tabmat.model_spec.column_names == model_df.model_spec.column_names
     assert model_tabmat.model_spec.column_names == tuple(model_df.columns)
+
+
+FORMULAIC_TESTS = {
+    # '<formula>': (<full_rank_names>, <names>, <full_rank_null_names>, <null_rows>)
+    "a": (["Intercept", "a"], ["Intercept", "a"], ["Intercept", "a"], 2),
+    "A": (
+        ["Intercept", "A[T.b]", "A[T.c]"],
+        ["Intercept", "A[T.a]", "A[T.b]", "A[T.c]"],
+        ["Intercept", "A[T.c]"],
+        2,
+    ),
+    "C(A)": (
+        ["Intercept", "C(A)[T.b]", "C(A)[T.c]"],
+        ["Intercept", "C(A)[T.a]", "C(A)[T.b]", "C(A)[T.c]"],
+        ["Intercept", "C(A)[T.c]"],
+        2,
+    ),
+    "A:a": (
+        ["Intercept", "A[T.a]:a", "A[T.b]:a", "A[T.c]:a"],
+        ["Intercept", "A[T.a]:a", "A[T.b]:a", "A[T.c]:a"],
+        ["Intercept", "A[T.a]:a"],
+        1,
+    ),
+    "A:B": (
+        [
+            "Intercept",
+            "B[T.b]",
+            "B[T.c]",
+            "A[T.b]:B[T.a]",
+            "A[T.c]:B[T.a]",
+            "A[T.b]:B[T.b]",
+            "A[T.c]:B[T.b]",
+            "A[T.b]:B[T.c]",
+            "A[T.c]:B[T.c]",
+        ],
+        [
+            "Intercept",
+            "A[T.a]:B[T.a]",
+            "A[T.b]:B[T.a]",
+            "A[T.c]:B[T.a]",
+            "A[T.a]:B[T.b]",
+            "A[T.b]:B[T.b]",
+            "A[T.c]:B[T.b]",
+            "A[T.a]:B[T.c]",
+            "A[T.b]:B[T.c]",
+            "A[T.c]:B[T.c]",
+        ],
+        ["Intercept"],
+        1,
+    ),
+}
+
+
+class TestFormulaicTests:
+    @pytest.fixture
+    def data(self):
+        return pd.DataFrame(
+            {"a": [1, 2, 3], "b": [1, 2, 3], "A": ["a", "b", "c"], "B": ["a", "b", "c"]}
+        )
+
+    @pytest.fixture
+    def data_with_nulls(self):
+        return pd.DataFrame(
+            {"a": [1, 2, None], "A": ["a", None, "c"], "B": ["a", "b", None]}
+        )
+
+    @pytest.fixture
+    def materializer(self, data):
+        return TabmatMaterializer(data)
+
+    @pytest.mark.parametrize("formula,tests", FORMULAIC_TESTS.items())
+    def test_get_model_matrix(self, materializer, formula, tests):
+        mm = materializer.get_model_matrix(formula, ensure_full_rank=True)
+        assert isinstance(mm, tm.MatrixBase)
+        assert mm.shape == (3, len(tests[0]))
+        assert list(mm.model_spec.column_names) == tests[0]
+
+        mm = materializer.get_model_matrix(formula, ensure_full_rank=False)
+        assert isinstance(mm, tm.MatrixBase)
+        assert mm.shape == (3, len(tests[1]))
+        assert list(mm.model_spec.column_names) == tests[1]
+
+    def test_get_model_matrix_edge_cases(self, materializer):
+        mm = materializer.get_model_matrix(("a",), ensure_full_rank=True)
+        assert isinstance(mm, formulaic.ModelMatrices)
+        assert isinstance(mm[0], tm.MatrixBase)
+
+        mm = materializer.get_model_matrix("a ~ A", ensure_full_rank=True)
+        assert isinstance(mm, formulaic.ModelMatrices)
+        assert "lhs" in mm.model_spec
+        assert "rhs" in mm.model_spec
+
+        mm = materializer.get_model_matrix(("a ~ A",), ensure_full_rank=True)
+        assert isinstance(mm, formulaic.ModelMatrices)
+        assert isinstance(mm[0], formulaic.ModelMatrices)
+
+    def test_get_model_matrix_invalid_output(self, materializer):
+        with pytest.raises(
+            formulaic.errors.FormulaMaterializationError,
+            match=r"Nominated output .* is invalid\. Available output types are: ",
+        ):
+            materializer.get_model_matrix(
+                "a", ensure_full_rank=True, output="invalid_output"
+            )
+
+    @pytest.mark.parametrize("formula,tests", FORMULAIC_TESTS.items())
+    def test_na_handling(self, data_with_nulls, formula, tests):
+        mm = TabmatMaterializer(data_with_nulls).get_model_matrix(formula)
+        assert isinstance(mm, tm.MatrixBase)
+        assert mm.shape == (tests[3], len(tests[2]))
+        assert list(mm.model_spec.column_names) == tests[2]
+
+        # Tabmat does not allo NAs in categoricals
+        if formula == "a":
+            mm = TabmatMaterializer(data_with_nulls).get_model_matrix(
+                formula, na_action="ignore"
+            )
+            assert isinstance(mm, tm.MatrixBase)
+            assert mm.shape == (3, len(tests[0]) + (-1 if "A" in formula else 0))
+
+            if formula != "C(A)":  # C(A) pre-encodes the data, stripping out nulls.
+                with pytest.raises(ValueError):
+                    TabmatMaterializer(data_with_nulls).get_model_matrix(
+                        formula, na_action="raise"
+                    )
+
+    def test_state(self, materializer):
+        mm = materializer.get_model_matrix("center(a) - 1")
+        assert isinstance(mm, tm.MatrixBase)
+        assert list(mm.model_spec.column_names) == ["center(a)"]
+        assert np.allclose(mm.getcol(0).squeeze(), [-1, 0, 1])
+
+        mm2 = TabmatMaterializer(pd.DataFrame({"a": [4, 5, 6]})).get_model_matrix(
+            mm.model_spec
+        )
+        assert isinstance(mm2, tm.MatrixBase)
+        assert list(mm2.model_spec.column_names) == ["center(a)"]
+        assert np.allclose(mm2.getcol(0).squeeze(), [2, 3, 4])
+
+        mm3 = mm.model_spec.get_model_matrix(pd.DataFrame({"a": [4, 5, 6]}))
+        assert isinstance(mm3, tm.MatrixBase)
+        assert list(mm3.model_spec.column_names) == ["center(a)"]
+        assert np.allclose(mm3.getcol(0).squeeze(), [2, 3, 4])
+
+    def test_factor_evaluation_edge_cases(self, materializer):
+        # Test that categorical kinds are set if type would otherwise be numerical
+        ev_factor = materializer._evaluate_factor(
+            Factor("a", eval_method="lookup", kind="categorical"),
+            formulaic.model_spec.ModelSpec(formula=[]),
+            drop_rows=set(),
+        )
+        assert ev_factor.metadata.kind.value == "categorical"
+
+        # Test that other kind mismatches result in an exception
+        materializer.factor_cache = {}
+        with pytest.raises(
+            formulaic.errors.FactorEncodingError,
+            match=re.escape(
+                "Factor `A` is expecting values of kind 'numerical', "
+                "but they are actually of kind 'categorical'."
+            ),
+        ):
+            materializer._evaluate_factor(
+                Factor("A", eval_method="lookup", kind="numerical"),
+                formulaic.model_spec.ModelSpec(formula=[]),
+                drop_rows=set(),
+            )
+
+        # Test that if an encoding has already been determined, that an exception is raised
+        # if the new encoding does not match
+        materializer.factor_cache = {}
+        with pytest.raises(
+            formulaic.errors.FactorEncodingError,
+            match=re.escape(
+                "The model specification expects factor `a` to have values of kind "
+                "`categorical`, but they are actually of kind `numerical`."
+            ),
+        ):
+            materializer._evaluate_factor(
+                Factor("a", eval_method="lookup", kind="numerical"),
+                formulaic.model_spec.ModelSpec(
+                    formula=[], encoder_state={"a": ("categorical", {})}
+                ),
+                drop_rows=set(),
+            )
+
+    def test__is_categorical(self, materializer):
+        assert materializer._is_categorical([1, 2, 3]) is False
+        assert materializer._is_categorical(pd.Series(["a", "b", "c"])) is True
+        assert materializer._is_categorical(pd.Categorical(["a", "b", "c"])) is True
+        assert materializer._is_categorical(FactorValues({}, kind="categorical"))
+
+    def test_encoding_edge_cases(self, materializer):
+        # Verify that constant encoding works well
+        encoded_factor = materializer._encode_evaled_factor(
+            factor=EvaluatedFactor(
+                factor=Factor("10", eval_method="literal", kind="constant"),
+                values=FactorValues(10, kind="constant"),
+            ),
+            spec=formulaic.model_spec.ModelSpec(formula=[]),
+            drop_rows=[],
+        )
+        np.testing.assert_array_equal(encoded_factor["10"].values, [10, 10, 10])
+
+        # Verify that unencoded dictionaries with drop-fields work
+        encoded_factor = materializer._encode_evaled_factor(
+            factor=EvaluatedFactor(
+                factor=Factor("a", eval_method="lookup", kind="numerical"),
+                values=FactorValues(
+                    {"a": pd.Series([1, 2, 3]), "b": pd.Series([4, 5, 6])},
+                    kind="numerical",
+                    spans_intercept=True,
+                    drop_field="a",
+                ),
+            ),
+            spec=formulaic.model_spec.ModelSpec(formula=[]),
+            drop_rows=set(),
+        )
+        np.testing.assert_array_equal(encoded_factor["a[a]"].values, [1, 2, 3])
+        np.testing.assert_array_equal(encoded_factor["a[b]"].values, [4, 5, 6])
+
+        encoded_factor = materializer._encode_evaled_factor(
+            factor=EvaluatedFactor(
+                factor=Factor("a", eval_method="lookup", kind="numerical"),
+                values=FactorValues(
+                    {"a": pd.Series([1, 2, 3]), "b": pd.Series([4, 5, 6])},
+                    kind="numerical",
+                    spans_intercept=True,
+                    drop_field="a",
+                ),
+            ),
+            spec=formulaic.model_spec.ModelSpec(formula=[]),
+            drop_rows=set(),
+            reduced_rank=True,
+        )
+        np.testing.assert_array_equal(encoded_factor["a[b]"].values, [4, 5, 6])
+
+        # Verify that encoding of nested dictionaries works well
+        encoded_factor = materializer._encode_evaled_factor(
+            factor=EvaluatedFactor(
+                factor=Factor("A", eval_method="python", kind="numerical"),
+                values=FactorValues(
+                    {
+                        "a": pd.Series([1, 2, 3]),
+                        "b": pd.Series([4, 5, 6]),
+                        "__metadata__": None,
+                    },
+                    kind="numerical",
+                ),
+            ),
+            spec=formulaic.model_spec.ModelSpec(formula=[]),
+            drop_rows=[],
+        )
+        np.testing.assert_array_equal(encoded_factor["A[a]"].values, [1, 2, 3])
+
+        encoded_factor = materializer._encode_evaled_factor(
+            factor=EvaluatedFactor(
+                factor=Factor("B", eval_method="python", kind="categorical"),
+                values=FactorValues(
+                    {"a": pd.Series(["a", "b", "c"])}, kind="categorical"
+                ),
+            ),
+            spec=formulaic.model_spec.ModelSpec(formula=[]),
+            drop_rows=[],
+        )
+        encoded_matrix = encoded_factor["B[a]"].set_name("B[a]").to_non_interactable()
+        assert list(encoded_matrix.cat) == ["B[a][T.a]", "B[a][T.b]", "B[a][T.c]"]
+
+    @pytest.mark.xfail(reason="Cannot create an empty SplitMatrix in tabmat")
+    def test_empty(self, materializer):
+        mm = materializer.get_model_matrix("0", ensure_full_rank=True)
+        assert mm.shape[1] == 0
+        mm = materializer.get_model_matrix("0", ensure_full_rank=False)
+        assert mm.shape[1] == 0
+
+    def test_category_reordering(self):
+        data = pd.DataFrame({"A": ["a", "b", "c"]})
+        data2 = pd.DataFrame({"A": ["c", "b", "a"]})
+        data3 = pd.DataFrame(
+            {"A": pd.Categorical(["c", "b", "a"], categories=["c", "b", "a"])}
+        )
+
+        m = TabmatMaterializer(data).get_model_matrix("A + 0", ensure_full_rank=False)
+        assert list(m.model_spec.column_names) == ["A[T.a]", "A[T.b]", "A[T.c]"]
+
+        m2 = TabmatMaterializer(data2).get_model_matrix("A + 0", ensure_full_rank=False)
+        assert list(m2.model_spec.column_names) == ["A[T.a]", "A[T.b]", "A[T.c]"]
+
+        m3 = TabmatMaterializer(data3).get_model_matrix("A + 0", ensure_full_rank=False)
+        assert list(m3.model_spec.column_names) == ["A[T.c]", "A[T.b]", "A[T.a]"]
+
+    def test_term_clustering(self, materializer):
+        assert materializer.get_model_matrix(
+            "a + b + a:A + b:A"
+        ).model_spec.column_names == (
+            "Intercept",
+            "a",
+            "b",
+            "a:A[T.b]",
+            "a:A[T.c]",
+            "b:A[T.b]",
+            "b:A[T.c]",
+        )
+        assert materializer.get_model_matrix(
+            "a + b + a:A + b:A", cluster_by="numerical_factors"
+        ).model_spec.column_names == (
+            "Intercept",
+            "a",
+            "a:A[T.b]",
+            "a:A[T.c]",
+            "b",
+            "b:A[T.b]",
+            "b:A[T.c]",
+        )
+
+    def test_model_spec_pickleable(self, materializer):
+        o = BytesIO()
+        ms = materializer.get_model_matrix("a ~ a:A")
+        pickle.dump(ms.model_spec, o)
+        o.seek(0)
+        ms2 = pickle.load(o)
+        assert isinstance(ms, formulaic.parser.types.Structured)
+        assert ms2.lhs.formula.root == ["a"]
