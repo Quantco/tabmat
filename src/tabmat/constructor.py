@@ -214,16 +214,21 @@ def from_formula(
     context=0,
 ):
     """
-    Transform a pandas DataFrame to a SplitMatrix using a Wilkinson formula.
+    Transform a pandas data frame to a SplitMatrix using a Wilkinson formula.
 
     Parameters
     ----------
     formula: str
         A formula accepted by formulaic.
     df: pd.DataFrame
-        pandas DataFrame to be converted.
+        pandas data frame to be converted.
     ensure_full_rank: bool, default False
         If True, ensure that the matrix has full structural rank by categories.
+    context:
+        The context to use for evaluating the formula. If an integer, the
+        context is taken from the stack frame of the caller at the given
+        depth. If None, the context is taken from the stack frame of the
+        caller at depth 1. If a dict, it is used as the context directly.
     """
     if isinstance(context, int):
         if hasattr(sys, "_getframe"):

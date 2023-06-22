@@ -50,13 +50,7 @@ class TabmatMaterializer(FormulaMaterializer):
         if na_action is NAAction.IGNORE:
             return
 
-        if isinstance(
-            values, dict
-        ):  # pragma: no cover; no formulaic transforms return dictionaries any more
-            for key, vs in values.items():
-                self._check_for_nulls(f"{name}[{key}]", vs, na_action, drop_rows)
-
-        elif na_action is NAAction.RAISE:
+        if na_action is NAAction.RAISE:
             if isinstance(values, pandas.Series) and values.isnull().values.any():
                 raise ValueError(f"`{name}` contains null values after evaluation.")
 
@@ -67,7 +61,7 @@ class TabmatMaterializer(FormulaMaterializer):
         else:
             raise ValueError(
                 f"Do not know how to interpret `na_action` = {repr(na_action)}."
-            )  # pragma: no cover; this is currently impossible to reach
+            )
 
     @override
     def _encode_constant(self, value, metadata, encoder_state, spec, drop_rows):
@@ -104,7 +98,7 @@ class TabmatMaterializer(FormulaMaterializer):
         # Otherwise, concatenate columns into SplitMatrix
         return SplitMatrix([col[1].to_non_interactable() for col in cols])
 
-    # Have to override this because of culumn names
+    # Have to override this because of column names
     # (and possibly intercept later on)
     @override
     def _build_model_matrix(self, spec: ModelSpec, drop_rows):

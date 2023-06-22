@@ -6,6 +6,7 @@ import formulaic
 import numpy as np
 import pandas as pd
 import pytest
+from formulaic.materializers import FormulaMaterializer
 from formulaic.materializers.types import EvaluatedFactor, FactorValues
 from formulaic.parser.types import Factor
 from scipy import sparse as sps
@@ -27,6 +28,14 @@ def df():
         }
     )
     return df
+
+
+def test_retrieval():
+    assert FormulaMaterializer.for_materializer("tabmat") is TabmatMaterializer
+    assert (
+        FormulaMaterializer.for_data(pd.DataFrame(), output="tabmat")
+        is TabmatMaterializer
+    )
 
 
 @pytest.mark.parametrize(
