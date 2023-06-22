@@ -16,6 +16,7 @@ def df():
             "cat_1": pd.Categorical(["a", "b", "c", "b", "a"]),
             "cat_2": pd.Categorical(["x", "y", "z", "x", "y"]),
             "cat_3": pd.Categorical(["1", "2", "1", "2", "1"]),
+            "str_1": ["a", "b", "c", "b", "a"],
         }
     )
     return df
@@ -256,6 +257,7 @@ def test_matrix_against_expectation_qcl(df, formula, expected):
             "C(cat_1, spans_intercept=False) * cat_2 * cat_3",
             id="custom_contrasts",
         ),
+        pytest.param("str_1", id="string_as_categorical"),
     ],
 )
 def test_matrix_against_pandas(df, formula, ensure_full_rank):

@@ -86,7 +86,7 @@ class TabmatMaterializer(FormulaMaterializer):
         # We do not do any encoding here as it is handled by tabmat
         if drop_rows:
             values = values.drop(index=values.index[drop_rows])
-        cat = values._values
+        cat = pandas.Categorical(values._values)
         return _InteractableCategoricalColumn.from_categorical(
             cat, reduced_rank=reduced_rank
         )
