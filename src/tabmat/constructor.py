@@ -208,6 +208,9 @@ def from_formula(
     formula: Union[str, Formula],
     df: pd.DataFrame,
     ensure_full_rank: bool = False,
+    interaction_separator: str = ":",
+    categorical_format: str = "{name}[T.{category}]",
+    intercept_name: str = "Intercept",
     context=0,
 ):
     """
@@ -232,5 +235,11 @@ def from_formula(
         formula=Formula(formula),
         ensure_full_rank=ensure_full_rank,
     )
-    materializer = TabmatMaterializer(df, context=context)
+    materializer = TabmatMaterializer(
+        df,
+        context=context,
+        interaction_separator=interaction_separator,
+        categorical_format=categorical_format,
+        intercept_name=intercept_name,
+    )
     return materializer.get_model_matrix(spec)

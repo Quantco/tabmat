@@ -27,6 +27,14 @@ class TabmatMaterializer(FormulaMaterializer):
     REGISTER_OUTPUTS = "tabmat"
 
     @override
+    def _init(self):
+        self.interaction_separator = self.params.get("interaction_separator", ":")
+        self.categorical_format = self.params.get(
+            "categorical_format", "{name}:[{category}]"
+        )
+        self.intercept_name = self.params.get("intercept_name", "Intercept")
+
+    @override
     def _is_categorical(self, values):
         if isinstance(values, (pandas.Series, pandas.Categorical)):
             return values.dtype == object or isinstance(
@@ -61,7 +69,7 @@ class TabmatMaterializer(FormulaMaterializer):
     @override
     def _encode_constant(self, value, metadata, encoder_state, spec, drop_rows):
         series = value * numpy.ones(self.nrows - len(drop_rows))
-        return _InteractableDenseColumn(series)
+        return _InteractableDenseColumn(series, name=self.intercept_name)
 
     @override
     def _encode_numerical(self, values, metadata, encoder_state, spec, drop_rows):
@@ -164,10 +172,7 @@ class TabmatMaterializer(FormulaMaterializer):
                         # This is the only line that is different from the original:
                         list(
                             itertools.chain(
-                                *(
-                                    mat.get_names(col)
-                                    for col, mat in scoped_cols.items()
-                                )
+                                *(mat.get_names() for mat in scoped_cols.values())
                             )
                         ),
                     )
@@ -198,7 +203,11 @@ class TabmatMaterializer(FormulaMaterializer):
         ):
             product = reverse_product[::-1]
             out[":".join(p[0] for p in product)] = scale * functools.reduce(
-                _interact, (p[1].set_name(p[0]) for p in product)
+                functools.partial(_interact, separator=self.interaction_separator),
+                (
+                    p[1].set_name(p[0], name_format=self.categorical_format)
+                    for p in product
+                ),
             )
         return out
 
@@ -234,10 +243,10 @@ class _InteractableDenseColumn(_InteractableColumn):
     def to_non_interactable(self):
         return DenseMatrix(self.values)
 
-    def get_names(self, col):
-        return [col]
+    def get_names(self):
+        return [self.name]
 
-    def set_name(self, name):
+    def set_name(self, name, name_format=None):
         self.name = name
         return self
 
@@ -257,10 +266,10 @@ class _InteractableSparseColumn(_InteractableColumn):
     def to_non_interactable(self):
         return SparseMatrix(self.values)
 
-    def get_names(self, col):
-        return [col]
+    def get_names(self):
+        return [self.name]
 
-    def set_name(self, name):
+    def set_name(self, name, name_format=None):
         self.name = name
         return self
 
@@ -319,7 +328,7 @@ class _InteractableCategoricalColumn(_InteractableColumn):
                 )
             )
 
-    def get_names(self, col):
+    def get_names(self):
         return self.categories
 
     def set_name(self, name, name_format="{name}[T.{cat}]"):
@@ -327,7 +336,7 @@ class _InteractableCategoricalColumn(_InteractableColumn):
             # Make sure to only format the name once
             self.name = name
             self.categories = [
-                name_format.format(name=name, cat=cat) for cat in self.categories
+                name_format.format(name=name, category=cat) for cat in self.categories
             ]
         return self
 
@@ -381,7 +390,7 @@ def _interact(
             )
 
         elif isinstance(right, _InteractableCategoricalColumn):
-            return _interact_categoricals(left, right)
+            return _interact_categoricals(left, right, separator=separator)
 
         raise TypeError(
             f"Cannot interact {type(left).__name__} with {type(right).__name__}"
