@@ -30,9 +30,12 @@ class TabmatMaterializer(FormulaMaterializer):
     def _init(self):
         self.interaction_separator = self.params.get("interaction_separator", ":")
         self.categorical_format = self.params.get(
-            "categorical_format", "{name}:[{category}]"
+            "categorical_format", "{name}[T.{category}]"
         )
         self.intercept_name = self.params.get("intercept_name", "Intercept")
+
+        # We can override formulaic's C() function here
+        self.context["C"] = _C
 
     @override
     def _is_categorical(self, values):
@@ -77,7 +80,7 @@ class TabmatMaterializer(FormulaMaterializer):
             values = values.drop(index=values.index[drop_rows])
         if isinstance(values, pandas.Series):
             values = values.to_numpy()
-        return _InteractableDenseColumn(values)
+        return _InteractableDenseColumn(values.astype(numpy.float_))
 
     @override
     def _encode_categorical(
@@ -337,7 +340,7 @@ class _InteractableCategoricalColumn(_InteractableColumn):
     def get_names(self):
         return self.categories
 
-    def set_name(self, name, name_format="{name}[T.{cat}]"):
+    def set_name(self, name, name_format="{name}[T.{category}]"):
         if self.name is None:
             # Make sure to only format the name once
             self.name = name

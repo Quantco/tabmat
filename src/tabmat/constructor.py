@@ -11,7 +11,7 @@ from scipy import sparse as sps
 
 from .categorical_matrix import CategoricalMatrix
 from .dense_matrix import DenseMatrix
-from .formula import _C, TabmatMaterializer
+from .formula import TabmatMaterializer
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .split_matrix import SplitMatrix
@@ -229,10 +229,8 @@ def from_formula(
         if hasattr(sys, "_getframe"):
             frame = sys._getframe(context + 1)
             context = LayeredMapping(frame.f_locals, frame.f_globals)
-            # We can override the built-in C function here
-            context["C"] = _C
         else:
-            context = {"C": _C}  # pragma: no cover
+            context = None
     spec = ModelSpec(
         formula=Formula(formula),
         ensure_full_rank=ensure_full_rank,
