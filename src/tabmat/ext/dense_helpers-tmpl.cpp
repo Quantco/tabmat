@@ -221,12 +221,12 @@ ${dense_base_tmpl(False)}
                 //TODO: this could use some pointer logic for the R assignment?
                 for (Py_ssize_t Rkk=Rk; Rkk<Rkmax2; Rkk++) {
                     Int kk = rows[Rkk];
-                    R[(Cjj-Cj)*kratio*thresh1d+(Rkk-Rk)] = d[kk] * X[jj*n+kk];
+                    R[(Cjj-Cj) * kratio * thresh1d + (Rkk-Rk)] = d[kk] * X[(Py_ssize_t) jj * n + kk];
                 }
             % else:
                 for (Py_ssize_t Rkk=Rk; Rkk<Rkmax2; Rkk++) {
                     Int kk = rows[Rkk];
-                    R[(Py_ssize_t) (Cjj-Cj) * kratio * thresh1d + (Rkk-Rk)] = d[kk] * X[(Py_ssize_t) kk * m + jj];
+                    R[(Cjj-Cj) * kratio * thresh1d + (Rkk-Rk)] = d[kk] * X[(Py_ssize_t) kk * m + jj];
                 }
             % endif
         }
