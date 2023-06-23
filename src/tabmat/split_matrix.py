@@ -151,7 +151,10 @@ class SplitMatrix(MatrixBase):
                     current_idx += len(iind)
             else:
                 flatten_matrices.append(mat)
-                index_corrections.append(np.zeros(mat.shape[1], dtype=np.int64))
+                if len(mat.shape) == 1:
+                    index_corrections.append(np.zeros(1, dtype=np.int64))
+                else:
+                    index_corrections.append(np.zeros(mat.shape[1], dtype=np.int64))
 
         # Now that we know these are all MatrixBase, we can check consistent
         # shapes and dtypes.
