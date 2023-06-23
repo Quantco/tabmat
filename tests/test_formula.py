@@ -127,7 +127,9 @@ def test_retrieval():
     ],
 )
 def test_matrix_against_expectation(df, formula, expected):
-    model_df = tm.from_formula(formula, df, ensure_full_rank=True)
+    model_df = tm.from_formula(
+        formula, df, ensure_full_rank=True, cat_threshold=1, sparse_threshold=0.5
+    )
     assert len(model_df.matrices) == len(expected.matrices)
     for res, exp in zip(model_df.matrices, expected.matrices):
         assert type(res) == type(exp)
@@ -232,6 +234,8 @@ def test_matrix_against_expectation_qcl(df, formula, expected):
     model_df = tm.from_formula(
         formula,
         df,
+        cat_threshold=1,
+        sparse_threshold=0.5,
         ensure_full_rank=True,
         interaction_separator="__x__",
         categorical_format="{name}__{category}",
@@ -653,10 +657,11 @@ class TestFormulaicTests:
             spec=formulaic.model_spec.ModelSpec(formula=[]),
             drop_rows=[],
         )
-        encoded_matrix = encoded_factor["B[a]"].set_name("B[a]").to_tabmat()
+        encoded_matrix = (
+            encoded_factor["B[a]"].set_name("B[a]").to_tabmat(cat_threshold=1)
+        )
         assert list(encoded_matrix.cat) == ["B[a][T.a]", "B[a][T.b]", "B[a][T.c]"]
 
-    @pytest.mark.xfail(reason="Cannot create an empty SplitMatrix in tabmat")
     def test_empty(self, materializer):
         mm = materializer.get_model_matrix("0", ensure_full_rank=True)
         assert mm.shape[1] == 0

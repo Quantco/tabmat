@@ -207,6 +207,9 @@ def from_csc(mat: sps.csc_matrix, threshold=0.1):
 def from_formula(
     formula: Union[str, Formula],
     df: pd.DataFrame,
+    dtype: np.dtype = np.float64,
+    sparse_threshold: float = 0.1,
+    cat_threshold: int = 4,
     ensure_full_rank: bool = False,
     interaction_separator: str = ":",
     categorical_format: str = "{name}[T.{category}]",
@@ -253,5 +256,8 @@ def from_formula(
         interaction_separator=interaction_separator,
         categorical_format=categorical_format,
         intercept_name=intercept_name,
+        dtype=dtype,
+        sparse_threshold=sparse_threshold,
+        cat_threshold=cat_threshold,
     )
     return materializer.get_model_matrix(spec)

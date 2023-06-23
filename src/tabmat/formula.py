@@ -13,6 +13,8 @@ from formulaic.materializers.types import FactorValues, NAAction
 from interface_meta import override
 from scipy import sparse
 
+import tabmat as tm
+
 from .categorical_matrix import CategoricalMatrix
 from .dense_matrix import DenseMatrix
 from .matrix_base import MatrixBase
@@ -34,6 +36,9 @@ class TabmatMaterializer(FormulaMaterializer):
             "categorical_format", "{name}[T.{category}]"
         )
         self.intercept_name = self.params.get("intercept_name", "Intercept")
+        self.dtype = self.params.get("dtype", numpy.float64)
+        self.sparse_threshold = self.params.get("sparse_threshold", 0.1)
+        self.cat_threshold = self.params.get("cat_threshold", 4)
 
         # We can override formulaic's C() function here
         self.context["C"] = _C
@@ -74,8 +79,13 @@ class TabmatMaterializer(FormulaMaterializer):
         if drop_rows:
             values = values.drop(index=values.index[drop_rows])
         if isinstance(values, pandas.Series):
-            values = values.to_numpy()
-        return _InteractableDenseVector(values.astype(numpy.float_))
+            values = values.to_numpy().astype(self.dtype)
+        if (values != 0).mean() <= self.sparse_threshold:
+            return _InteractableSparseVector(
+                sparse.csc_matrix(values[:, numpy.newaxis])
+            )
+        else:
+            return _InteractableDenseVector(values)
 
     @override
     def _encode_categorical(
@@ -93,11 +103,16 @@ class TabmatMaterializer(FormulaMaterializer):
     def _combine_columns(self, cols, spec, drop_rows):
         # Special case no columns
         if not cols:
-            values = numpy.empty((self.data.shape[0], 0))
-            return SplitMatrix([DenseMatrix(values)])
+            values = numpy.empty((self.data.shape[0], 0), dtype=self.dtype)
+            return DenseMatrix(values)
 
         # Otherwise, concatenate columns into SplitMatrix
-        return SplitMatrix([col[1].to_tabmat() for col in cols])
+        return SplitMatrix(
+            [
+                col[1].to_tabmat(self.dtype, self.sparse_threshold, self.cat_threshold)
+                for col in cols
+            ]
+        )
 
     # Have to override this because of column names
     # (and possibly intercept later on)
@@ -210,7 +225,12 @@ class _InteractableVector(ABC):
     name: Optional[str]
 
     @abstractmethod
-    def to_tabmat(self) -> MatrixBase:
+    def to_tabmat(
+        self,
+        dtype: numpy.dtype,
+        sparse_threshold: float,
+        cat_threshold: int,
+    ) -> MatrixBase:
         """Convert to an actual tabmat matrix."""
         pass
 
@@ -258,8 +278,17 @@ class _InteractableDenseVector(_InteractableVector):
                 name=self.name,
             )
 
-    def to_tabmat(self) -> DenseMatrix:
-        return DenseMatrix(self.values)
+    def to_tabmat(
+        self,
+        dtype: numpy.dtype = numpy.float64,
+        sparse_threshold: float = 0.1,
+        cat_threshold: int = 4,
+    ) -> DenseMatrix:
+        if (self.values != 0).mean() > sparse_threshold:
+            return DenseMatrix(self.values)
+        else:
+            # Columns can become sparser, but not denser through interactions
+            return SparseMatrix(sparse.csc_matrix(self.values[:, numpy.newaxis]))
 
     def get_names(self) -> List[str]:
         if self.name is None:
@@ -283,7 +312,12 @@ class _InteractableSparseVector(_InteractableVector):
                 name=self.name,
             )
 
-    def to_tabmat(self) -> SparseMatrix:
+    def to_tabmat(
+        self,
+        dtype: numpy.dtype = numpy.float64,
+        sparse_threshold: float = 0.1,
+        cat_threshold: int = 4,
+    ) -> SparseMatrix:
         return SparseMatrix(self.values)
 
     def get_names(self) -> List[str]:
@@ -338,7 +372,12 @@ class _InteractableCategoricalVector(_InteractableVector):
                 name=self.name,
             )
 
-    def to_tabmat(self) -> Union[CategoricalMatrix, SparseMatrix]:
+    def to_tabmat(
+        self,
+        dtype: numpy.dtype = numpy.float64,
+        sparse_threshold: float = 0.1,
+        cat_threshold: int = 4,
+    ) -> Union[CategoricalMatrix, SplitMatrix]:
         codes = self.codes.copy()
         categories = self.categories.copy()
         if -2 in self.codes:
@@ -355,18 +394,18 @@ class _InteractableCategoricalVector(_InteractableVector):
             ordered=False,
         )
 
-        categorical_part = CategoricalMatrix(cat, drop_first=drop_first)
+        categorical_part = CategoricalMatrix(cat, drop_first=drop_first, dtype=dtype)
 
-        if (self.multipliers == 1).all():
+        if (self.codes == -2).all():
+            # All values are dropped
+            return DenseMatrix(numpy.empty((len(codes), 0), dtype=dtype))
+        elif (self.multipliers == 1).all() and len(categories) >= cat_threshold:
             return categorical_part
         else:
-            return SparseMatrix(
-                sparse.csc_matrix(
-                    categorical_part.tocsr().multiply(
-                        self.multipliers[:, numpy.newaxis]
-                    )
-                )
+            sparse_matrix = sparse.csc_matrix(
+                categorical_part.tocsr().multiply(self.multipliers[:, numpy.newaxis])
             )
+            return tm.from_csc(sparse_matrix, threshold=sparse_threshold)
 
     def get_names(self) -> List[str]:
         if self.name is None:
