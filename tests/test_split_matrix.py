@@ -109,6 +109,14 @@ def test_init(mat: SplitMatrix):
     assert mat.matrices[2].shape == (10, 3)
 
 
+@pytest.mark.parametrize("mat", [split_mat(), split_with_cat(), split_with_cat_64()])
+def test_init_from_split(mat):
+    np.testing.assert_array_equal(mat.A, tm.SplitMatrix([mat]).A)
+    np.testing.assert_array_equal(
+        np.hstack([mat.A, mat.A]), tm.SplitMatrix([mat, mat]).A
+    )
+
+
 def test_init_unsorted_indices():
     dense = tm.DenseMatrix(np.random.random((10, 3)))
     with pytest.raises(ValueError):

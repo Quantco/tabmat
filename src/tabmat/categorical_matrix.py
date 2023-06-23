@@ -465,6 +465,10 @@ class CategoricalMatrix(MatrixBase):
     def getcol(self, i: int) -> sps.csc_matrix:
         """Return matrix column at specified index."""
         i %= self.shape[1]  # wrap-around indexing
+
+        if self.drop_first:
+            i += 1
+
         col_i = sps.csc_matrix((self.indices == i).astype(int)[:, None])
         return col_i
 
