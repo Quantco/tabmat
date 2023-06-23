@@ -7,6 +7,13 @@
 Changelog
 =========
 
+3.1.10 - 2023-XX-XX
+-------------------
+
+**Bug fix:**
+
+- Fix column order when initializing a ``SplitMatrix`` from a list containing other ``SplitMatrix`` objects.
+
 3.1.9 - 2023-06-16
 -------------------
 
