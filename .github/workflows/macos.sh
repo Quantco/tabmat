@@ -10,4 +10,4 @@ mamba env create -f /tmp/environment.yml
 conda activate $(yq -r .name environment.yml)
 export MACOSX_DEPLOYMENT_TARGET=10.9
 pip install --no-use-pep517 --no-deps --disable-pip-version-check -e .
-pytest tests --doctest-modules src/
+pytest tests -m "not high_memory" --doctest-modules src/
