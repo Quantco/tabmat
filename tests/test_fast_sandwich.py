@@ -30,7 +30,7 @@ def test_fast_sandwich_sparse(dtype):
         np.testing.assert_allclose(true, out, atol=np.sqrt(np.finfo(dtype).eps))
 
 
-@pytest.mark.skip("Skipping because this test allocates a matrix of 50_000 x 50_000.")
+@pytest.mark.high_memory
 def test_fast_sandwich_sparse_large():
     # note that 50000 * 50000 > 2^31 - 1, so this will segfault when we index
     # with 32 bit integers (see GH #160)
@@ -103,3 +103,18 @@ def simulate_matrix(nonzero_frac=0.05, shape=(100, 50), seed=0, dtype=np.float64
         (np.random.randn(nnz).astype(dtype), (row_index, col_index)), shape
     )
     return A
+
+
+@pytest.mark.high_memory
+@pytest.mark.parametrize("order", ["C", "F"])
+def test_fast_sandwich_dense_large(order):
+    # this will segfault when we index with 32 bit integers (see GH #270)
+    ii32 = np.iinfo(np.int32)
+    K = 1000
+    N = ii32.max // (K - 1) + 1  # to make sure we overflow
+    rng = np.random.default_rng(seed=12345)
+    A = DenseMatrix(
+        np.ndarray(buffer=rng.random(N * K), dtype=float, shape=[N, K], order=order)
+    )
+    d = np.random.rand(A.shape[0])
+    A.sandwich(d)

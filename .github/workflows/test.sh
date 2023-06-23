@@ -44,4 +44,4 @@ fi
 git config --global --add safe.directory /github/workspace
 
 pip install --no-use-pep517 --no-deps --disable-pip-version-check -e .
-pytest -nauto tests --doctest-modules src/
+pytest -nauto tests -m "not high_memory" --doctest-modules src/
