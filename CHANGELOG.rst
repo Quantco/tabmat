@@ -14,7 +14,7 @@ Changelog
 
 - We fixed a bug in the dense sandwich product, which would previously segfault for very large matrices.
 - Fixed the column order when initializing a ``SplitMatrix`` from a list containing other ``SplitMatrix`` objects.
-- Fixed `getcol` not respecting the ``drop_first`` attribute of a ``CategoricalMatrix``.
+- Fixed ``getcol`` not respecting the ``drop_first`` attribute of a ``CategoricalMatrix``.
 
 3.1.9 - 2023-06-16
 ------------------
@@ -29,9 +29,9 @@ Changelog
 **Other changes:**
 
 - The C++ types have been refactored. Loop indices are now using the ``Py_ssize_t`` type. Integers now have a templated type as well.
-- The documentation for `matvec` and `matvec_transpose` has been updated to reflect actual behavior
-- Checks for dimension mismatch in `matvec` and `matvec_transpose` arguments have been added
-- Remove upper pin on xsimd
+- The documentation for ``matvec`` and ``matvec_transpose`` has been updated to reflect actual behavior.
+- Checks for dimension mismatch in ``matvec`` and ``matvec_transpose`` arguments have been added.
+- Remove upper pin on xsimd.
 
 3.1.7 - 2022-03-28
 ------------------
