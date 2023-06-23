@@ -45,6 +45,11 @@ def categorical_matrix():
     return tm.CategoricalMatrix(vec)
 
 
+def categorical_matrix_drop_first():
+    vec = [0, 1, 2]
+    return tm.CategoricalMatrix(vec, drop_first=True)
+
+
 def get_unscaled_matrices() -> (
     List[Union[tm.DenseMatrix, tm.SparseMatrix, tm.CategoricalMatrix]]
 ):
@@ -55,6 +60,7 @@ def get_unscaled_matrices() -> (
         sparse_matrix(),
         sparse_matrix_64(),
         categorical_matrix(),
+        categorical_matrix_drop_first(),
     ]
 
 
@@ -201,8 +207,10 @@ def test_getcol(mat: Union[tm.MatrixBase, tm.StandardizedMatrix], i):
 @pytest.mark.parametrize("mat", get_all_matrix_base_subclass_mats())
 def test_to_array_matrix_base(mat: tm.MatrixBase):
     assert isinstance(mat.A, np.ndarray)
-    if isinstance(mat, tm.CategoricalMatrix):
+    if isinstance(mat, tm.CategoricalMatrix) and not mat.drop_first:
         expected = np.array([[0, 1], [1, 0], [0, 1]])
+    elif isinstance(mat, tm.CategoricalMatrix) and mat.drop_first:
+        expected = np.array([[0, 0], [1, 0], [0, 1]])
     elif isinstance(mat, tm.SplitMatrix):
         expected = np.hstack([elt.A for elt in mat.matrices])
     else:
