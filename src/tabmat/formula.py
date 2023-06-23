@@ -11,11 +11,10 @@ from formulaic.materializers import FormulaMaterializer
 from formulaic.materializers.base import EncodedTermStructure
 from formulaic.materializers.types import FactorValues, NAAction
 from interface_meta import override
-from scipy import sparse
-
-import tabmat as tm
+from scipy import sparse as sps
 
 from .categorical_matrix import CategoricalMatrix
+from .constructor_util import _split_sparse_and_dense_parts
 from .dense_matrix import DenseMatrix
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
@@ -81,9 +80,7 @@ class TabmatMaterializer(FormulaMaterializer):
         if isinstance(values, pandas.Series):
             values = values.to_numpy().astype(self.dtype)
         if (values != 0).mean() <= self.sparse_threshold:
-            return _InteractableSparseVector(
-                sparse.csc_matrix(values[:, numpy.newaxis])
-            )
+            return _InteractableSparseVector(sps.csc_matrix(values[:, numpy.newaxis]))
         else:
             return _InteractableDenseVector(values)
 
@@ -288,7 +285,7 @@ class _InteractableDenseVector(_InteractableVector):
             return DenseMatrix(self.values)
         else:
             # Columns can become sparser, but not denser through interactions
-            return SparseMatrix(sparse.csc_matrix(self.values[:, numpy.newaxis]))
+            return SparseMatrix(sps.csc_matrix(self.values[:, numpy.newaxis]))
 
     def get_names(self) -> List[str]:
         if self.name is None:
@@ -301,7 +298,7 @@ class _InteractableDenseVector(_InteractableVector):
 
 
 class _InteractableSparseVector(_InteractableVector):
-    def __init__(self, values: sparse.csc_matrix, name: Optional[str] = None):
+    def __init__(self, values: sps.csc_matrix, name: Optional[str] = None):
         self.values = values
         self.name = name
 
@@ -402,10 +399,16 @@ class _InteractableCategoricalVector(_InteractableVector):
         elif (self.multipliers == 1).all() and len(categories) >= cat_threshold:
             return categorical_part
         else:
-            sparse_matrix = sparse.csc_matrix(
+            sparse_matrix = sps.csc_matrix(
                 categorical_part.tocsr().multiply(self.multipliers[:, numpy.newaxis])
             )
-            return tm.from_csc(sparse_matrix, threshold=sparse_threshold)
+            (
+                dense_part,
+                sparse_part,
+                dense_idx,
+                sparse_idx,
+            ) = _split_sparse_and_dense_parts(sparse_matrix, sparse_threshold)
+            return SplitMatrix([dense_part, sparse_part], [dense_idx, sparse_idx])
 
     def get_names(self) -> List[str]:
         if self.name is None:
