@@ -7,12 +7,13 @@
 Changelog
 =========
 
-3.1.10 - 2023-XX-XX
--------------------
+3.1.10 -- 2023-06-23
+--------------------
 
-**Bug fix:**
+**Bug fixes:**
 
-- Fix column order when initializing a ``SplitMatrix`` from a list containing other ``SplitMatrix`` objects.
+- We fixed a bug in the dense sandwich product, which would previously segfault for very large matrices.
+- Fixed the column order when initializing a ``SplitMatrix`` from a list containing other ``SplitMatrix`` objects.
 
 3.1.9 - 2023-06-16
 -------------------
