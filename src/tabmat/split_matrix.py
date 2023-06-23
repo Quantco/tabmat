@@ -133,6 +133,7 @@ class SplitMatrix(MatrixBase):
         indices: Optional[List[np.ndarray]] = None,
     ):
         flatten_matrices = []
+        index_corrections = []
         # First check that all matrices are valid types
         for mat in matrices:
             if not isinstance(mat, MatrixBase):
@@ -141,10 +142,19 @@ class SplitMatrix(MatrixBase):
                 )
             if isinstance(mat, SplitMatrix):
                 # Flatten out the SplitMatrix
-                for imat in mat.matrices:
+                current_idx = 0
+                for iind, imat in zip(mat.indices, mat.matrices):
                     flatten_matrices.append(imat)
+                    index_corrections.append(
+                        iind - np.arange(len(iind), dtype=np.int64) - current_idx
+                    )
+                    current_idx += len(iind)
             else:
                 flatten_matrices.append(mat)
+                if len(mat.shape) == 1:
+                    index_corrections.append(np.zeros(1, dtype=np.int64))
+                else:
+                    index_corrections.append(np.zeros(mat.shape[1], dtype=np.int64))
 
         # Now that we know these are all MatrixBase, we can check consistent
         # shapes and dtypes.
@@ -170,9 +180,10 @@ class SplitMatrix(MatrixBase):
         if indices is None:
             indices = []
             current_idx = 0
-            for mat in flatten_matrices:
+            for mat, ind_corr in zip(flatten_matrices, index_corrections):
                 indices.append(
                     np.arange(current_idx, current_idx + mat.shape[1], dtype=np.int64)
+                    + ind_corr
                 )
                 current_idx += mat.shape[1]
             n_col = current_idx

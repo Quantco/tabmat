@@ -7,12 +7,14 @@
 Changelog
 =========
 
-3.1.10 - 2023-XX-XX
+3.1.10 - 2023-06-23
 -------------------
 
-**Bug fix:**
+**Bug fixes:**
 
-- Fix `getcol` not respecting the `drop_first` attribute of `CategoricalMatrix`.
+- We fixed a bug in the dense sandwich product, which would previously segfault for very large matrices.
+- Fixed the column order when initializing a ``SplitMatrix`` from a list containing other ``SplitMatrix`` objects.
+- Fixed `getcol` not respecting the ``drop_first`` attribute of a ``CategoricalMatrix``.
 
 3.1.9 - 2023-06-16
 ------------------
