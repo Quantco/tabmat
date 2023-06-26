@@ -531,8 +531,8 @@ def _interact_categoricals(
     na_mask = (left.codes == -1) | (right.codes == -1)
     drop_mask = (left.codes == -2) | (right.codes == -2)
 
-    new_codes[drop_mask] = -2
     new_codes[na_mask] = -1
+    new_codes[drop_mask] = -2
 
     new_categories = [
         f"{left_cat}{separator}{right_cat}"
