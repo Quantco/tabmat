@@ -1,6 +1,6 @@
 import sys
 import warnings
-from typing import List, Union
+from typing import Any, List, Mapping, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -190,7 +190,7 @@ def from_formula(
     interaction_separator: str = ":",
     categorical_format: str = "{name}[T.{category}]",
     intercept_name: str = "Intercept",
-    context=0,
+    context: Optional[Union[int, Mapping[str, Any]]] = 0,
 ) -> SplitMatrix:
     """
     Transform a pandas data frame to a SplitMatrix using a Wilkinson formula.
@@ -210,7 +210,7 @@ def from_formula(
         Has to include the placeholders ``{name}`` and ``{category}``.
     intercept_name: str, default "Intercept"
         The name of the intercept column.
-    context:
+    context: Union[int, Mapping[str, Any]], default 0
         The context to use for evaluating the formula. If an integer, the
         context is taken from the stack frame of the caller at the given
         depth. If None, the context is taken from the stack frame of the

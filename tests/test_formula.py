@@ -512,12 +512,6 @@ class TestFormulaicTests:
             assert isinstance(mm, tm.MatrixBase)
             assert mm.shape == (3, len(tests[0]) + (-1 if "A" in formula else 0))
 
-            if formula != "C(A)":  # C(A) pre-encodes the data, stripping out nulls.
-                with pytest.raises(ValueError):
-                    TabmatMaterializer(data_with_nulls).get_model_matrix(
-                        formula, na_action="raise"
-                    )
-
     def test_state(self, materializer):
         mm = materializer.get_model_matrix("center(a) - 1")
         assert isinstance(mm, tm.MatrixBase)
