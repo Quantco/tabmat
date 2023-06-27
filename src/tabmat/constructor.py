@@ -182,7 +182,7 @@ def from_csc(mat: sps.csc_matrix, threshold=0.1):
 
 def from_formula(
     formula: Union[str, Formula],
-    df: pd.DataFrame,
+    data: pd.DataFrame,
     dtype: np.dtype = np.float64,
     sparse_threshold: float = 0.1,
     cat_threshold: int = 4,
@@ -199,7 +199,7 @@ def from_formula(
     ----------
     formula: str
         A formula accepted by formulaic.
-    df: pd.DataFrame
+    data: pd.DataFrame
         pandas data frame to be converted.
     ensure_full_rank: bool, default False
         If True, ensure that the matrix has full structural rank by categories.
@@ -227,7 +227,7 @@ def from_formula(
         ensure_full_rank=ensure_full_rank,
     )
     materializer = TabmatMaterializer(
-        df,
+        data,
         context=context,
         interaction_separator=interaction_separator,
         categorical_format=categorical_format,
