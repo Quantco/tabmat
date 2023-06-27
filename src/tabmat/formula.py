@@ -2,14 +2,17 @@ import functools
 import itertools
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from typing import List, Optional, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy
 import pandas
 from formulaic import ModelMatrix, ModelSpec
+from formulaic.errors import FactorEncodingError
 from formulaic.materializers import FormulaMaterializer
 from formulaic.materializers.base import EncodedTermStructure
-from formulaic.materializers.types import FactorValues, NAAction
+from formulaic.materializers.types import FactorValues, NAAction, ScopedTerm
+from formulaic.parser.types import Term
+from formulaic.transforms import stateful_transform
 from interface_meta import override
 from scipy import sparse as sps
 
@@ -212,6 +215,51 @@ class TabmatMaterializer(FormulaMaterializer):
                 ),
             )
         return out
+
+    # Again, need a small change to handle categoricals properly
+    @override
+    def _enforce_structure(
+        self,
+        cols: List[Tuple[Term, List[ScopedTerm], Dict[str, Any]]],
+        spec,
+        drop_rows: set,
+    ):
+        # TODO: Verify that imputation strategies are intuitive and make sense.
+        assert len(cols) == len(spec.structure)
+        for i, col_spec in enumerate(cols):
+            scoped_cols = col_spec[2]
+            target_cols = spec.structure[i][2]
+            if len(scoped_cols) > len(target_cols):
+                raise FactorEncodingError(
+                    f"Term `{col_spec[0]}` has generated too many columns compared to "
+                    f"specification: generated {list(scoped_cols)}, expecting "
+                    f"{target_cols}."
+                )
+            if len(scoped_cols) < len(target_cols):
+                if len(scoped_cols) == 0:
+                    col = self._encode_constant(0, None, None, spec, drop_rows)
+                elif len(scoped_cols) == 1:
+                    col = tuple(scoped_cols.values())[0]
+                    # This is the small change:
+                    if isinstance(col, _InteractableCategoricalVector):
+                        target_cols = [col.name]
+                else:
+                    raise FactorEncodingError(
+                        f"Term `{col_spec[0]}` has generated insufficient columns "
+                        "compared to specification: generated {list(scoped_cols)}, "
+                        f"expecting {target_cols}."
+                    )
+                scoped_cols = {name: col for name in target_cols}
+            elif set(scoped_cols) != set(target_cols):
+                raise FactorEncodingError(
+                    f"Term `{col_spec[0]}` has generated columns that are inconsistent "
+                    "with specification: generated {list(scoped_cols)}, expecting "
+                    f"{target_cols}."
+                )
+
+            yield col_spec[0], col_spec[1], {
+                col: scoped_cols[col] for col in target_cols
+            }
 
 
 class _InteractableVector(ABC):
@@ -553,6 +601,7 @@ def _interact_categoricals(
 def _C(
     data,
     *,
+    levels: Optional[Iterable[str]] = None,
     spans_intercept: bool = True,
 ):
     """
@@ -564,17 +613,20 @@ def _C(
     """
 
     def encoder(
-        values,
-        reduced_rank,
-        drop_rows,
-        encoder_state,
-        model_spec,
+        values: Any,
+        reduced_rank: bool,
+        drop_rows: List[int],
+        encoder_state: Dict[str, Any],
+        model_spec: ModelSpec,
     ):
         if drop_rows:
             values = values.drop(index=values.index[drop_rows])
-        cat = pandas.Categorical(values._values)
-        return _InteractableCategoricalVector.from_categorical(
-            cat, reduced_rank=reduced_rank
+        return encode_contrasts(
+            values,
+            levels=levels,
+            reduced_rank=reduced_rank,
+            _state=encoder_state,
+            _spec=model_spec,
         )
 
     return FactorValues(
@@ -582,4 +634,32 @@ def _C(
         kind="categorical",
         spans_intercept=spans_intercept,
         encoder=encoder,
+    )
+
+
+@stateful_transform
+def encode_contrasts(
+    data,
+    *,
+    levels: Optional[Iterable[str]] = None,
+    reduced_rank: bool = False,
+    _state=None,
+    _spec=None,
+) -> FactorValues[_InteractableCategoricalVector]:
+    """
+    Encode a categorical dataset into one an _InteractableCategoricalVector
+
+    Parameters
+    ----------
+        data: The categorical data array/series to be encoded.
+        levels: The complete set of levels (categories) posited to be present in
+            the data. This can also be used to reorder the levels as needed.
+        reduced_rank: Whether to reduce the rank of output encoded columns in
+            order to avoid spanning the intercept.
+    """
+    levels = levels if levels is not None else _state.get("categories")
+    cat = pandas.Categorical(data._values, categories=levels)
+    _state["categories"] = cat.categories
+    return _InteractableCategoricalVector.from_categorical(
+        cat, reduced_rank=reduced_rank
     )
