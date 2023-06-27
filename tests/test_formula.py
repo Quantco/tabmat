@@ -441,14 +441,30 @@ def test_interactable_vectors(left, right, reverse):
     else:
         result_np = left_np * right_np
 
-    result_tm = _interact(left, right, reverse=reverse)
-    np.testing.assert_array_equal(
-        result_tm.to_tabmat().A.squeeze(), result_np.squeeze()
-    )
-    if not reverse:
-        assert result_tm.name == left.name + ":" + right.name
+    result_vec = _interact(left, right, reverse=reverse)
+
+    # Test types
+    if isinstance(left, _InteractableCategoricalVector) or isinstance(
+        right, _InteractableCategoricalVector
+    ):
+        assert isinstance(result_vec, _InteractableCategoricalVector)
+    elif isinstance(left, _InteractableSparseVector) or isinstance(
+        right, _InteractableSparseVector
+    ):
+        assert isinstance(result_vec, _InteractableSparseVector)
     else:
-        assert result_tm.name == right.name + ":" + left.name
+        assert isinstance(result_vec, _InteractableDenseVector)
+
+    # Test values
+    np.testing.assert_array_equal(
+        result_vec.to_tabmat().A.squeeze(), result_np.squeeze()
+    )
+
+    # Test names
+    if not reverse:
+        assert result_vec.name == left.name + ":" + right.name
+    else:
+        assert result_vec.name == right.name + ":" + left.name
 
 
 # Tests from formulaic's test suite
