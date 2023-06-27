@@ -400,6 +400,19 @@ def test_names_against_pandas(df, formula, ensure_full_rank):
     assert model_tabmat.model_spec.column_names == tuple(model_df.columns)
 
 
+@pytest.mark.parametrize(
+    "ensure_full_rank", [True, False], ids=["full_rank", "all_levels"]
+)
+def test_C_state(df, ensure_full_rank):
+    model_tabmat = tm.from_formula("C(str_1) : C(cat_1)", df, cat_threshold=0)
+    model_tabmat_2 = model_tabmat.model_spec.get_model_matrix(df[:2])
+    np.testing.assert_array_equal(model_tabmat.A[:2, :], model_tabmat_2.A)
+    np.testing.assert_array_equal(
+        model_tabmat.matrices[1].cat.categories,
+        model_tabmat_2.matrices[1].cat.categories,
+    )
+
+
 VECTORS = [
     _InteractableDenseVector(np.array([1, 2, 3, 4, 5], dtype=np.float64)).set_name(
         "dense"
