@@ -457,7 +457,7 @@ def _interact(
             return _InteractableDenseVector(left.values * right.values, name=new_name)
 
         else:
-            return _interact(right, left, reverse=True, separator=separator)
+            return _interact(right, left, reverse=not reverse, separator=separator)
 
     if isinstance(left, _InteractableSparseVector):
         if isinstance(right, (_InteractableDenseVector, _InteractableSparseVector)):
@@ -466,19 +466,19 @@ def _interact(
             else:
                 new_name = f"{right.name}{separator}{left.name}"
             return _InteractableSparseVector(
-                left.values.multiply(right.values),
+                left.values.multiply(right.values.reshape((-1, 1))),
                 name=new_name,
             )
 
         else:
-            return _interact(right, left, reverse=True, separator=separator)
+            return _interact(right, left, reverse=not reverse, separator=separator)
 
     if isinstance(left, _InteractableCategoricalVector):
         if isinstance(right, (_InteractableDenseVector, _InteractableSparseVector)):
             if isinstance(right, _InteractableDenseVector):
                 right_values = right.values
             else:
-                right_values = right.values.todense()
+                right_values = right.values.toarray().squeeze()
             if not reverse:
                 new_categories = [
                     f"{cat}{separator}{right.name}" for cat in left.categories
@@ -497,7 +497,10 @@ def _interact(
             )
 
         elif isinstance(right, _InteractableCategoricalVector):
-            return _interact_categoricals(left, right, separator=separator)
+            if not reverse:
+                return _interact_categoricals(left, right, separator=separator)
+            else:
+                return _interact_categoricals(right, left, separator=separator)
 
     raise TypeError(
         f"Cannot interact {type(left).__name__} with {type(right).__name__}"

@@ -12,7 +12,13 @@ from formulaic.parser.types import Factor
 from scipy import sparse as sps
 
 import tabmat as tm
-from tabmat.formula import TabmatMaterializer
+from tabmat.formula import (
+    TabmatMaterializer,
+    _interact,
+    _InteractableCategoricalVector,
+    _InteractableDenseVector,
+    _InteractableSparseVector,
+)
 
 
 @pytest.fixture
@@ -393,6 +399,60 @@ def test_names_against_pandas(df, formula, ensure_full_rank):
     assert model_tabmat.model_spec.column_names == model_df.model_spec.column_names
     assert model_tabmat.model_spec.column_names == tuple(model_df.columns)
 
+
+VECTORS = [
+    _InteractableDenseVector(np.array([1, 2, 3, 4, 5], dtype=np.float64)).set_name(
+        "dense"
+    ),
+    _InteractableSparseVector(
+        sps.csc_matrix(np.array([[1, 0, 0, 0, 2]], dtype=np.float64).T)
+    ).set_name("sparse"),
+    _InteractableCategoricalVector.from_categorical(
+        pd.Categorical(["a", "b", "c", "b", "a"]), reduced_rank=True
+    ).set_name("cat_reduced"),
+    _InteractableCategoricalVector.from_categorical(
+        pd.Categorical(["a", "b", "c", "b", "a"]), reduced_rank=False
+    ).set_name("cat_full"),
+]
+
+
+@pytest.mark.parametrize(
+    "left", VECTORS, ids=["dense", "sparse", "cat_full", "cat_reduced"]
+)
+@pytest.mark.parametrize(
+    "right", VECTORS, ids=["dense", "sparse", "cat_full", "cat_reduced"]
+)
+@pytest.mark.parametrize("reverse", [False, True], ids=["not_reversed", "reversed"])
+def test_interactable_vectors(left, right, reverse):
+    n = left.to_tabmat().shape[0]
+    left_np = left.to_tabmat().A.reshape((n, -1))
+    right_np = right.to_tabmat().A.reshape((n, -1))
+
+    if reverse:
+        left_np, right_np = right_np, left_np
+
+    if isinstance(left, _InteractableCategoricalVector) and isinstance(
+        right, _InteractableCategoricalVector
+    ):
+        result_np = np.zeros((n, left_np.shape[1] * right_np.shape[1]))
+        for i in range(right_np.shape[1]):
+            for j in range(left_np.shape[1]):
+                result_np[:, i * left_np.shape[1] + j] = left_np[:, j] * right_np[:, i]
+    else:
+        result_np = left_np * right_np
+
+    result_tm = _interact(left, right, reverse=reverse)
+    np.testing.assert_array_equal(
+        result_tm.to_tabmat().A.squeeze(), result_np.squeeze()
+    )
+    if not reverse:
+        assert result_tm.name == left.name + ":" + right.name
+    else:
+        assert result_tm.name == right.name + ":" + left.name
+
+
+# Tests from formulaic's test suite
+# ---------------------------------
 
 FORMULAIC_TESTS = {
     # '<formula>': (<full_rank_names>, <names>, <full_rank_null_names>, <null_rows>)
