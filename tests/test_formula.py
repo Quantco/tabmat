@@ -48,7 +48,7 @@ def test_retrieval():
     "formula, expected",
     [
         pytest.param(
-            "num_1",
+            "1 + num_1",
             tm.SplitMatrix(
                 [
                     tm.DenseMatrix(
@@ -61,7 +61,7 @@ def test_retrieval():
             id="numeric",
         ),
         pytest.param(
-            "cat_1",
+            "1 + cat_1",
             tm.SplitMatrix(
                 [
                     tm.DenseMatrix(np.array([[1.0, 1.0, 1.0, 1.0, 1.0]]).T),
@@ -83,7 +83,7 @@ def test_retrieval():
             id="categorical",
         ),
         pytest.param(
-            "num_1 : cat_1",
+            "1 + num_1 : cat_1",
             tm.SplitMatrix(
                 [
                     tm.DenseMatrix(np.array([[1.0, 1.0, 1.0, 1.0, 1.0]]).T),
@@ -152,7 +152,7 @@ def test_matrix_against_expectation(df, formula, expected):
     "formula, expected",
     [
         pytest.param(
-            "num_1",
+            "1 + num_1",
             tm.SplitMatrix(
                 [
                     tm.DenseMatrix(
@@ -165,7 +165,7 @@ def test_matrix_against_expectation(df, formula, expected):
             id="numeric",
         ),
         pytest.param(
-            "cat_1",
+            "1 + cat_1",
             tm.SplitMatrix(
                 [
                     tm.DenseMatrix(np.array([[1.0, 1.0, 1.0, 1.0, 1.0]]).T),
@@ -187,7 +187,7 @@ def test_matrix_against_expectation(df, formula, expected):
             id="categorical",
         ),
         pytest.param(
-            "num_1 : cat_1",
+            "1 + num_1 : cat_1",
             tm.SplitMatrix(
                 [
                     tm.DenseMatrix(np.array([[1.0, 1.0, 1.0, 1.0, 1.0]]).T),
@@ -289,20 +289,24 @@ def test_matrix_against_expectation_qcl(df, formula, expected):
 def test_matrix_against_pandas(df, formula, ensure_full_rank):
     num_in_scope = 2  # noqa
     model_df = formulaic.model_matrix(formula, df, ensure_full_rank=ensure_full_rank)
-    model_tabmat = tm.from_formula(formula, df, ensure_full_rank=ensure_full_rank)
+    model_tabmat = tm.from_formula(
+        formula, df, ensure_full_rank=ensure_full_rank, include_intercept=True
+    )
     np.testing.assert_array_equal(model_df.to_numpy(), model_tabmat.A)
 
 
 @pytest.mark.parametrize(
     "formula, expected_names",
     [
-        pytest.param("num_1 + num_2", ("Intercept", "num_1", "num_2"), id="numeric"),
+        pytest.param(
+            "1 + num_1 + num_2", ("Intercept", "num_1", "num_2"), id="numeric"
+        ),
         pytest.param("num_1 + num_2 - 1", ("num_1", "num_2"), id="no_intercept"),
         pytest.param(
-            "cat_1", ("Intercept", "cat_1[T.b]", "cat_1[T.c]"), id="categorical"
+            "1 + cat_1", ("Intercept", "cat_1[T.b]", "cat_1[T.c]"), id="categorical"
         ),
         pytest.param(
-            "cat_2 * cat_3",
+            "1 + cat_2 * cat_3",
             (
                 "Intercept",
                 "cat_2[T.y]",
@@ -319,7 +323,9 @@ def test_matrix_against_pandas(df, formula, ensure_full_rank):
             id="polynomial",
         ),
         pytest.param(
-            "{np.log(num_1 ** 2)}", ("Intercept", "np.log(num_1 ** 2)"), id="functions"
+            "1 + {np.log(num_1 ** 2)}",
+            ("Intercept", "np.log(num_1 ** 2)"),
+            id="functions",
         ),
     ],
 )
@@ -331,9 +337,11 @@ def test_names_against_expectation(df, formula, expected_names):
 @pytest.mark.parametrize(
     "formula, expected_names",
     [
-        pytest.param("cat_1", ("intercept", "cat_1__b", "cat_1__c"), id="categorical"),
         pytest.param(
-            "cat_2 * cat_3",
+            "1 + cat_1", ("intercept", "cat_1__b", "cat_1__c"), id="categorical"
+        ),
+        pytest.param(
+            "1 + cat_2 * cat_3",
             (
                 "intercept",
                 "cat_2__y",
@@ -350,7 +358,9 @@ def test_names_against_expectation(df, formula, expected_names):
             id="polynomial",
         ),
         pytest.param(
-            "{np.log(num_1 ** 2)}", ("intercept", "np.log(num_1 ** 2)"), id="functions"
+            "1 + {np.log(num_1 ** 2)}",
+            ("intercept", "np.log(num_1 ** 2)"),
+            id="functions",
         ),
     ],
 )
@@ -372,22 +382,22 @@ def test_names_against_expectation_qcl(df, formula, expected_names):
 @pytest.mark.parametrize(
     "formula",
     [
-        pytest.param("num_1 + num_2", id="numeric"),
-        pytest.param("cat_1 + cat_2", id="categorical"),
-        pytest.param("cat_1 * cat_2 * cat_3", id="interaction"),
-        pytest.param("num_1 + cat_1 * num_2 * cat_2", id="mixed"),
-        pytest.param("{np.log(num_1)} + {num_in_scope * num_2}", id="functions"),
-        pytest.param("{num_1 * num_in_scope}", id="variable_in_scope"),
-        pytest.param("bs(num_1, 3)", id="spline"),
+        pytest.param("1 + num_1 + num_2", id="numeric"),
+        pytest.param("1 + cat_1 + cat_2", id="categorical"),
+        pytest.param("1 + cat_1 * cat_2 * cat_3", id="interaction"),
+        pytest.param("1 + num_1 + cat_1 * num_2 * cat_2", id="mixed"),
+        pytest.param("1 + {np.log(num_1)} + {num_in_scope * num_2}", id="functions"),
+        pytest.param("1 + {num_1 * num_in_scope}", id="variable_in_scope"),
+        pytest.param("1 + bs(num_1, 3)", id="spline"),
         pytest.param(
-            "poly(num_1, 3, raw=True) + poly(num_2, 3, raw=False)", id="polynomial"
+            "1 + poly(num_1, 3, raw=True) + poly(num_2, 3, raw=False)", id="polynomial"
         ),
         pytest.param(
-            "C(num_1)",
+            "1 + C(num_1)",
             id="convert_to_categorical",
         ),
         pytest.param(
-            "C(cat_1, spans_intercept=False) * cat_2 * cat_3",
+            "1 + C(cat_1, spans_intercept=False) * cat_2 * cat_3",
             id="custom_contrasts",
         ),
     ],
@@ -398,6 +408,56 @@ def test_names_against_pandas(df, formula, ensure_full_rank):
     model_tabmat = tm.from_formula(formula, df, ensure_full_rank=ensure_full_rank)
     assert model_tabmat.model_spec.column_names == model_df.model_spec.column_names
     assert model_tabmat.model_spec.column_names == tuple(model_df.columns)
+
+
+@pytest.mark.parametrize(
+    "ensure_full_rank", [True, False], ids=["full_rank", "all_levels"]
+)
+@pytest.mark.parametrize(
+    "formula, formula_with_intercept, formula_wo_intercept",
+    [
+        ("num_1", "1 + num_1", "num_1 - 1"),
+        ("cat_1", "1 + cat_1", "cat_1 - 1"),
+        (
+            "num_1 * cat_1 * cat_2",
+            "1 + num_1 * cat_1 * cat_2",
+            "num_1 * cat_1 * cat_2 - 1",
+        ),
+    ],
+    ids=["numeric", "categorical", "mixed"],
+)
+def test_include_intercept(
+    df, formula, formula_with_intercept, formula_wo_intercept, ensure_full_rank
+):
+    model_no_include = tm.from_formula(
+        formula, df, include_intercept=False, ensure_full_rank=ensure_full_rank
+    )
+    model_no_intercept = tm.from_formula(
+        formula_wo_intercept,
+        df,
+        include_intercept=True,
+        ensure_full_rank=ensure_full_rank,
+    )
+    np.testing.assert_array_equal(model_no_include.A, model_no_intercept.A)
+    assert (
+        model_no_include.model_spec.column_names
+        == model_no_intercept.model_spec.column_names
+    )
+
+    model_include = tm.from_formula(
+        formula, df, include_intercept=True, ensure_full_rank=ensure_full_rank
+    )
+    model_intercept = tm.from_formula(
+        formula_with_intercept,
+        df,
+        include_intercept=False,
+        ensure_full_rank=ensure_full_rank,
+    )
+    np.testing.assert_array_equal(model_include.A, model_intercept.A)
+    assert (
+        model_no_include.model_spec.column_names
+        == model_no_intercept.model_spec.column_names
+    )
 
 
 @pytest.mark.parametrize(
@@ -412,7 +472,7 @@ def test_names_against_pandas(df, formula, ensure_full_rank):
 )
 def test_C_state(df, formula, ensure_full_rank):
     model_tabmat = tm.from_formula(
-        "str_1 : cat_1", df, cat_threshold=0, ensure_full_rank=ensure_full_rank
+        "str_1 : cat_1 + 1", df, cat_threshold=0, ensure_full_rank=ensure_full_rank
     )
     model_tabmat_2 = model_tabmat.model_spec.get_model_matrix(df[:2])
     np.testing.assert_array_equal(model_tabmat.A[:2, :], model_tabmat_2.A)
@@ -602,13 +662,14 @@ class TestFormulaicTests:
         assert mm.shape == (tests[3], len(tests[2]))
         assert list(mm.model_spec.column_names) == tests[2]
 
-        # Tabmat does not allo NAs in categoricals
-        if formula == "a":
-            mm = TabmatMaterializer(data_with_nulls).get_model_matrix(
-                formula, na_action="ignore"
-            )
-            assert isinstance(mm, tm.MatrixBase)
-            assert mm.shape == (3, len(tests[0]) + (-1 if "A" in formula else 0))
+        if formula != "a":
+            pytest.skip("Tabmat does not allo NAs in categoricals")
+
+        mm = TabmatMaterializer(data_with_nulls).get_model_matrix(
+            formula, na_action="ignore"
+        )
+        assert isinstance(mm, tm.MatrixBase)
+        assert mm.shape == (3, len(tests[0]) + (-1 if "A" in formula else 0))
 
     def test_state(self, materializer):
         mm = materializer.get_model_matrix("center(a) - 1")

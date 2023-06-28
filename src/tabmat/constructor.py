@@ -5,6 +5,7 @@ from typing import Any, List, Mapping, Optional, Union
 import numpy as np
 import pandas as pd
 from formulaic import Formula, ModelSpec
+from formulaic.parser import DefaultFormulaParser
 from formulaic.utils.layered_mapping import LayeredMapping
 from pandas.api.types import is_numeric_dtype
 from scipy import sparse as sps
@@ -190,6 +191,7 @@ def from_formula(
     interaction_separator: str = ":",
     categorical_format: str = "{name}[T.{category}]",
     intercept_name: str = "Intercept",
+    include_intercept: bool = False,
     context: Optional[Union[int, Mapping[str, Any]]] = 0,
 ) -> SplitMatrix:
     """
@@ -210,6 +212,9 @@ def from_formula(
         Has to include the placeholders ``{name}`` and ``{category}``.
     intercept_name: str, default "Intercept"
         The name of the intercept column.
+    include_intercept: bool, default False
+        Whether to include an intercept column if the formula does not
+        include (``+ 1``) or exclude (``+ 0`` or ``- 1``) it explicitly.
     context: Union[int, Mapping[str, Any]], default 0
         The context to use for evaluating the formula. If an integer, the
         context is taken from the stack frame of the caller at the given
@@ -223,7 +228,9 @@ def from_formula(
         else:
             context = None
     spec = ModelSpec(
-        formula=Formula(formula),
+        formula=Formula(
+            formula, _parser=DefaultFormulaParser(include_intercept=include_intercept)
+        ),
         ensure_full_rank=ensure_full_rank,
     )
     materializer = TabmatMaterializer(
