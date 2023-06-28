@@ -401,10 +401,19 @@ def test_names_against_pandas(df, formula, ensure_full_rank):
 
 
 @pytest.mark.parametrize(
+    "formula",
+    [
+        pytest.param("str_1 : cat_1", id="implicit"),
+        pytest.param("C(str_1) : C(cat_1, spans_intercept=False)", id="explicit"),
+    ],
+)
+@pytest.mark.parametrize(
     "ensure_full_rank", [True, False], ids=["full_rank", "all_levels"]
 )
-def test_C_state(df, ensure_full_rank):
-    model_tabmat = tm.from_formula("C(str_1) : C(cat_1)", df, cat_threshold=0)
+def test_C_state(df, formula, ensure_full_rank):
+    model_tabmat = tm.from_formula(
+        "str_1 : cat_1", df, cat_threshold=0, ensure_full_rank=ensure_full_rank
+    )
     model_tabmat_2 = model_tabmat.model_spec.get_model_matrix(df[:2])
     np.testing.assert_array_equal(model_tabmat.A[:2, :], model_tabmat_2.A)
     np.testing.assert_array_equal(

@@ -94,9 +94,12 @@ class TabmatMaterializer(FormulaMaterializer):
         # We do not do any encoding here as it is handled by tabmat
         if drop_rows:
             values = values.drop(index=values.index[drop_rows])
-        cat = pandas.Categorical(values._values)
-        return _InteractableCategoricalVector.from_categorical(
-            cat, reduced_rank=reduced_rank
+        return encode_contrasts(
+            values,
+            reduced_rank=reduced_rank,
+            _metadata=metadata,
+            _state=encoder_state,
+            _spec=spec,
         )
 
     @override
@@ -216,7 +219,7 @@ class TabmatMaterializer(FormulaMaterializer):
             )
         return out
 
-    # Again, need a small change to handle categoricals properly
+    # Again, need a correction to handle categoricals properly
     @override
     def _enforce_structure(
         self,
@@ -224,11 +227,23 @@ class TabmatMaterializer(FormulaMaterializer):
         spec,
         drop_rows: set,
     ):
-        # TODO: Verify that imputation strategies are intuitive and make sense.
         assert len(cols) == len(spec.structure)
         for i, col_spec in enumerate(cols):
             scoped_cols = col_spec[2]
-            target_cols = spec.structure[i][2]
+            target_cols = spec.structure[i][2].copy()
+
+            # Correction for categorical variables:
+            for name, col in scoped_cols.items():
+                if isinstance(col, _InteractableCategoricalVector):
+                    try:
+                        _replace_sequence(target_cols, col.get_names(), name)
+                    except ValueError:
+                        raise FactorEncodingError(
+                            f"Term `{col_spec[0]}` has generated columns that are "
+                            "inconsistent with the specification: generated: "
+                            f"{col.get_names()}, expecting: {target_cols}."
+                        )
+
             if len(scoped_cols) > len(target_cols):
                 raise FactorEncodingError(
                     f"Term `{col_spec[0]}` has generated too many columns compared to "
@@ -240,9 +255,6 @@ class TabmatMaterializer(FormulaMaterializer):
                     col = self._encode_constant(0, None, None, spec, drop_rows)
                 elif len(scoped_cols) == 1:
                     col = tuple(scoped_cols.values())[0]
-                    # This is the small change:
-                    if isinstance(col, _InteractableCategoricalVector):
-                        target_cols = [col.name]
                 else:
                     raise FactorEncodingError(
                         f"Term `{col_spec[0]}` has generated insufficient columns "
@@ -663,3 +675,31 @@ def encode_contrasts(
     return _InteractableCategoricalVector.from_categorical(
         cat, reduced_rank=reduced_rank
     )
+
+
+def _replace_sequence(lst: List[str], sequence: List[str], replacement: "str") -> None:
+    """Replace a sequence of elements in a list with a single element.
+
+    Raises a ValueError if the sequence is not in the list in the correct order.
+    Only checks for the first possible start of the sequence.
+
+    Parameters
+    ----------
+    lst : List[str]
+        The list to replace elements in.
+    sequence : List[str]
+        The sequence of elements to replace.
+    replacement : str
+        The element to replace the sequence with.
+    """
+    try:
+        start = lst.index(sequence[0])
+    except ValueError:
+        start = 0  # Will handle this below
+
+    for elem in sequence:
+        if lst[start] != elem:
+            raise ValueError("The sequence is not in the list")
+        del lst[start]
+
+    lst.insert(start, replacement)
