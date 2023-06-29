@@ -7,6 +7,13 @@
 Changelog
 =========
 
+3.1.11 - 2023-XX-XX
+-------------------
+
+**Other changes:**
+
+- Improve the performance of ``from_pandas`` in the case of low-cardinality categorical variables.
+
 3.1.10 - 2023-06-23
 -------------------
 
