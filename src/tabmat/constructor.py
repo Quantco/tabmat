@@ -5,6 +5,7 @@ from typing import Any, List, Mapping, Optional, Union
 import numpy as np
 import pandas as pd
 from formulaic import Formula, ModelSpec
+from formulaic.materializers.types import NAAction
 from formulaic.parser import DefaultFormulaParser
 from formulaic.utils.layered_mapping import LayeredMapping
 from pandas.api.types import is_numeric_dtype
@@ -184,10 +185,11 @@ def from_csc(mat: sps.csc_matrix, threshold=0.1):
 def from_formula(
     formula: Union[str, Formula],
     data: pd.DataFrame,
+    ensure_full_rank: bool = False,
+    na_action: Union[str, NAAction] = NAAction.IGNORE,
     dtype: np.dtype = np.float64,
     sparse_threshold: float = 0.1,
     cat_threshold: int = 4,
-    ensure_full_rank: bool = False,
     interaction_separator: str = ":",
     categorical_format: str = "{name}[T.{category}]",
     intercept_name: str = "Intercept",
@@ -205,6 +207,15 @@ def from_formula(
         pandas data frame to be converted.
     ensure_full_rank: bool, default False
         If True, ensure that the matrix has full structural rank by categories.
+    na_action: Union[str, NAAction], default NAAction.IGNORE
+        How to handle missing values. Can be one of "drop", "ignore", "raise".
+    dtype: np.dtype, default np.float64
+        The dtype of the resulting matrix.
+    sparse_threshold: float, default 0.1
+        The density below which a column is treated as sparse.
+    cat_threshold: int, default 4
+        The number of categories below which a categorical column is one-hot
+        encoded. This is only checked after interactions have been applied.
     interaction_separator: str, default ":"
         The separator between the names of interacted variables.
     categorical_format: str, default "{name}[T.{category}]"
@@ -232,6 +243,7 @@ def from_formula(
             formula, _parser=DefaultFormulaParser(include_intercept=include_intercept)
         ),
         ensure_full_rank=ensure_full_rank,
+        na_action=na_action,
     )
     materializer = TabmatMaterializer(
         data,
