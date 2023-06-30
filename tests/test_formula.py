@@ -83,6 +83,25 @@ def test_retrieval():
             id="categorical",
         ),
         pytest.param(
+            "{np.where(num_1 >= 2, num_1, 0)} * {np.where(num_2 <= 2, num_2, 0)}",
+            tm.SplitMatrix(
+                [
+                    tm.DenseMatrix(np.array([[0.0, 2.0, 3.0, 4.0, 5.0]]).T),
+                    tm.SparseMatrix(
+                        sps.csc_matrix(
+                            np.array(
+                                [
+                                    [1.0, 2.0, 0.0, 0.0, 0.0],
+                                    [0.0, 2.0, 0.0, 0.0, 0.0],
+                                ]
+                            )
+                        ).T
+                    ),
+                ]
+            ),
+            id="numeric_sparse",
+        ),
+        pytest.param(
             "1 + num_1 : cat_1",
             tm.SplitMatrix(
                 [
