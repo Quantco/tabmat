@@ -250,6 +250,9 @@ class CategoricalMatrix(MatrixBase):
         cat_vec: Union[List, np.ndarray, pd.Categorical],
         drop_first: bool = False,
         dtype: np.dtype = np.float64,
+        column_name: Optional[str] = None,
+        term_name: Optional[str] = None,
+        column_name_format: str = "{name}[{category}]",
     ):
         if pd.isnull(cat_vec).any():
             raise ValueError("Categorical data can't have missing values.")
@@ -264,9 +267,13 @@ class CategoricalMatrix(MatrixBase):
         self.indices = self.cat.codes.astype(np.int32)
         self.x_csc: Optional[Tuple[Optional[np.ndarray], np.ndarray, np.ndarray]] = None
         self.dtype = np.dtype(dtype)
-        self._colname = None
-        self._term = None
-        self._colname_format = "{name}[{category}]"
+
+        self._colname = column_name
+        if term_name is None:
+            self._term = self._colname
+        else:
+            self._term = term_name
+        self._colname_format = column_name_format
 
     __array_ufunc__ = None
 

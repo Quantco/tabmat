@@ -114,10 +114,10 @@ def _combine_matrices(matrices, indices):
             new_matrix = mat_type_(stack_fn([matrices[i] for i in this_type_matrices]))
             new_indices = np.concatenate([indices[i] for i in this_type_matrices])
             new_colnames = np.concatenate(
-                np.array([matrices[i]._colnames for i in this_type_matrices])
+                [np.array(matrices[i]._colnames) for i in this_type_matrices]
             )
             new_terms = np.concatenate(
-                np.array([matrices[i]._terms for i in this_type_matrices])
+                [np.array(matrices[i]._terms) for i in this_type_matrices]
             )
             sorter = np.argsort(new_indices)
             sorted_matrix = new_matrix[:, sorter]

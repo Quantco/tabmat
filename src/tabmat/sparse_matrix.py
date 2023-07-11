@@ -30,7 +30,15 @@ class SparseMatrix(MatrixBase):
     SparseMatrix is instantiated in the same way as scipy.sparse.csc_matrix.
     """
 
-    def __init__(self, arg1, shape=None, dtype=None, copy=False):
+    def __init__(
+        self,
+        arg1,
+        shape=None,
+        dtype=None,
+        copy=False,
+        column_names=None,
+        term_names=None,
+    ):
         self._array = sps.csc_matrix(arg1, shape, dtype, copy)
 
         self.idx_dtype = max(self._array.indices.dtype, self._array.indptr.dtype)
@@ -44,8 +52,23 @@ class SparseMatrix(MatrixBase):
             self._array.sort_indices()
         self._array_csr = None
 
-        self._colnames = [None] * self.shape[1]
-        self._terms = [None] * self.shape[1]
+        if column_names is not None:
+            if len(column_names) != self.shape[1]:
+                raise ValueError(
+                    f"Expected {self.shape[1]} column names, got {len(column_names)}"
+                )
+            self._colnames = column_names
+        else:
+            self._colnames = [None] * self.shape[1]
+
+        if term_names is not None:
+            if len(term_names) != self.shape[1]:
+                raise ValueError(
+                    f"Expected {self.shape[1]} term names, got {len(term_names)}"
+                )
+            self._terms = term_names
+        else:
+            self._terms = self._colnames
 
 
     def __getitem__(self, key):

@@ -33,7 +33,7 @@ class DenseMatrix(MatrixBase):
 
     """
 
-    def __init__(self, input_array):
+    def __init__(self, input_array, column_names=None, term_names=None):
         input_array = np.asarray(input_array)
 
         if input_array.ndim == 1:
@@ -42,9 +42,23 @@ class DenseMatrix(MatrixBase):
             raise ValueError("Input array must be 1- or 2-dimensional")
 
         self._array = np.asarray(input_array)
+        width = self._array.shape[1]
 
-        self._colnames = [None] * input_array.shape[1]
-        self._terms = [None] * input_array.shape[1]
+        if column_names is not None:
+            if len(column_names) != width:
+                raise ValueError(
+                    f"Expected {width} column names, got {len(column_names)}"
+                )
+            self._colnames = column_names
+        else:
+            self._colnames = [None] * width
+
+        if term_names is not None:
+            if len(term_names) != width:
+                raise ValueError(f"Expected {width} term names, got {len(term_names)}")
+            self._terms = term_names
+        else:
+            self._terms = obj._colnames
 
     def __getitem__(self, key):
         if not isinstance(key, tuple):
