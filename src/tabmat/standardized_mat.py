@@ -298,3 +298,52 @@ class StandardizedMatrix:
         Mult: {self.mult}
         """
         return out
+
+    def get_column_names(
+        self, missing_prefix: str = "_col_", start_index: int = 0
+    ) -> List[str]:
+        """Get column names.
+
+        For columns that do not have a name, a default name is created using the
+        followig pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
+        the index of the column.
+
+        Parameters
+        ----------
+        missing_prefix
+            Prefix to use for columns that do not have a name.
+        start_index
+            Index to start from when creating default names.
+
+        Returns
+        -------
+        list of str
+            Column names.
+        """
+        return self.mat.get_column_names(missing_prefix, start_index)
+
+    def get_term_names(
+        self, missing_prefix: str = "_col_", start_index: int = 0
+    ) -> List[str]:
+        """Get term names.
+
+        The main difference to ``get_column_names`` is that a categorical submatrix
+        is counted as a single term. Furthermore, matrices created from formulas
+        have a difference between a column and term (c.f. ``formulaic`` docs).
+        For terms that do not have a name, a default name is created using the
+        followig pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
+        the index of the term.
+
+        Parameters
+        ----------
+        missing_prefix
+            Prefix to use for terms that do not have a name.
+        start_index
+            Index to start from when creating default names.
+
+        Returns
+        -------
+        list of str
+            Term names.
+        """
+        return self.mat.get_term_names(missing_prefix, start_index)

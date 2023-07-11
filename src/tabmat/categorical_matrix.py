@@ -264,6 +264,9 @@ class CategoricalMatrix(MatrixBase):
         self.indices = self.cat.codes.astype(np.int32)
         self.x_csc: Optional[Tuple[Optional[np.ndarray], np.ndarray, np.ndarray]] = None
         self.dtype = np.dtype(dtype)
+        self._colname = None
+        self._term = None
+        self._colname_format = "{name}[{category}]"
 
     __array_ufunc__ = None
 
@@ -655,3 +658,63 @@ class CategoricalMatrix(MatrixBase):
 
     def __repr__(self):
         return str(self.cat)
+
+    def get_column_names(
+        self, missing_prefix: str = "_col_", start_index: int = 0
+    ) -> List[str]:
+        """Get column names.
+
+        For columns that do not have a name, a default name is created using the
+        followig pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
+        the index of the column.
+
+        Parameters
+        ----------
+        missing_prefix
+            Prefix to use for columns that do not have a name.
+        start_index
+            Index to start from when creating default names.
+
+        Returns
+        -------
+        list of str
+            Column names.
+        """
+        if self._colname is None:
+            colname = f"{missing_prefix}{start_index}"
+        else:
+            colname = self._colname
+        return [
+            self._colname_format.format(name=colname, category=cat)
+            for cat in self.cat.categories[self.drop_first :]
+        ]
+
+    def get_term_names(
+        self, missing_prefix: str = "_col_", start_index: int = 0
+    ) -> List[str]:
+        """Get term names.
+
+        The main difference to ``get_column_names`` is that a categorical submatrix
+        is counted as a single term. Furthermore, matrices created from formulas
+        have a difference between a column and term (c.f. ``formulaic`` docs).
+        For terms that do not have a name, a default name is created using the
+        followig pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
+        the index of the term.
+
+        Parameters
+        ----------
+        missing_prefix
+            Prefix to use for terms that do not have a name.
+        start_index
+            Index to start from when creating default names.
+
+        Returns
+        -------
+        list of str
+            Term names.
+        """
+        if self._term is None:
+            term = f"{missing_prefix}{start_index}"
+        else:
+            term = self._term
+        return [term] * (len(self.cat.categories) - self.drop_first)

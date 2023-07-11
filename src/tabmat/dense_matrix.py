@@ -43,6 +43,9 @@ class DenseMatrix(MatrixBase):
 
         self._array = np.asarray(input_array)
 
+        self._colnames = [None] * input_array.shape[1]
+        self._terms = [None] * input_array.shape[1]
+
     def __getitem__(self, key):
         if not isinstance(key, tuple):
             key = (key,)
@@ -219,3 +222,62 @@ class DenseMatrix(MatrixBase):
         if np.asanyarray(other).ndim == 1:
             return type(self)(self._array.__mul__(other[:, np.newaxis]))
         return type(self)(self._array.__mul__(other))
+
+    def get_column_names(
+        self, missing_prefix: str = "_col_", start_index: int = 0
+    ) -> List[str]:
+        """Get column names.
+
+        For columns that do not have a name, a default name is created using the
+        followig pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
+        the index of the column.
+
+        Parameters
+        ----------
+        missing_prefix
+            Prefix to use for columns that do not have a name.
+        start_index
+            Index to start from when creating default names.
+
+        Returns
+        -------
+        list of str
+            Column names.
+        """
+        colnames = np.array(self._colnames)
+        default_colnames = np.array(
+            [f"{missing_prefix}{start_index + i}" for i in range(self.shape[1])]
+        )
+        colnames[colnames == None] = default_colnames[colnames == None]  # noqa: E711
+        return list(colnames)
+
+    def get_term_names(
+        self, missing_prefix: str = "_col_", start_index: int = 0
+    ) -> List[str]:
+        """Get term names.
+
+        The main difference to ``get_column_names`` is that a categorical submatrix
+        is counted as a single term. Furthermore, matrices created from formulas
+        have a difference between a column and term (c.f. ``formulaic`` docs).
+        For terms that do not have a name, a default name is created using the
+        followig pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
+        the index of the term.
+
+        Parameters
+        ----------
+        missing_prefix
+            Prefix to use for terms that do not have a name.
+        start_index
+            Index to start from when creating default names.
+
+        Returns
+        -------
+        list of str
+            Term names.
+        """
+        terms = np.array(self._terms)
+        default_terms = np.array(
+            [f"{missing_prefix}{start_index + i}" for i in range(self.shape[1])]
+        )
+        terms[terms == None] = default_terms[terms == None]  # noqa: E711
+        return list(terms)
