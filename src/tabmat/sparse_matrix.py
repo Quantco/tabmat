@@ -70,7 +70,6 @@ class SparseMatrix(MatrixBase):
         else:
             self._terms = self._colnames
 
-
     def __getitem__(self, key):
         if not isinstance(key, tuple):
             key = (key,)
@@ -78,7 +77,18 @@ class SparseMatrix(MatrixBase):
         # Always return a 2d array
         key = tuple([key_i] if np.isscalar(key_i) else key_i for key_i in key)
 
-        return type(self)(self._array.__getitem__(key))
+        if len(key) == 2:
+            colnames = list(np.array(self._colnames)[key[1]])
+            terms = list(np.array(self._terms)[key[1]])
+        else:
+            colnames = self._colnames
+            terms = self._terms
+
+        return type(self)(
+            self._array.__getitem__(key),
+            column_names=colnames,
+            term_names=terms
+        )
 
     def __matmul__(self, other):
         return self._array.__matmul__(other)
