@@ -299,8 +299,11 @@ class StandardizedMatrix:
         """
         return out
 
-    def get_column_names(
-        self, missing_prefix: str = "_col_", indices: Optional[List[int]] = None
+    def get_names(
+        self,
+        type: str = "column",
+        missing_prefix: str = "_col_",
+        indices: Optional[List[int]] = None,
     ) -> List[str]:
         """Get column names.
 
@@ -310,40 +313,20 @@ class StandardizedMatrix:
 
         Parameters
         ----------
+        type: str {'column'|'term'}
+            Whether to get column names or term names. The main difference is that
+            a categorical submatrix is counted as a single term, whereas it is
+            counted as multiple columns. Furthermore, matrices created from formulas
+            have a difference between a column and term (c.f. ``formulaic`` docs).
         missing_prefix
             Prefix to use for columns that do not have a name.
         indices
-            Ignored.
+            The indices used for columns that do not have a name. If ``None``,
+            then the indices are ``list(range(self.shape[1]))``.
 
         Returns
         -------
         list of str
             Column names.
         """
-        return self.mat.get_column_names(missing_prefix, indices)
-
-    def get_term_names(
-        self, missing_prefix: str = "_col_", indices: Optional[List[int]] = None
-    ) -> List[str]:
-        """Get term names.
-
-        The main difference to ``get_column_names`` is that a categorical submatrix
-        is counted as a single term. Furthermore, matrices created from formulas
-        have a difference between a column and term (c.f. ``formulaic`` docs).
-        For terms that do not have a name, a default name is created using the
-        followig pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
-        the index of the term.
-
-        Parameters
-        ----------
-        missing_prefix
-            Prefix to use for terms that do not have a name.
-        indices
-            Ignored.
-
-        Returns
-        -------
-        list of str
-            Term names.
-        """
-        return self.mat.get_term_names(missing_prefix, indices)
+        return self.mat.get_names(type, missing_prefix, indices)

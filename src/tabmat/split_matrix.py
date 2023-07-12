@@ -486,8 +486,11 @@ class SplitMatrix(MatrixBase):
 
     __array_priority__ = 13
 
-    def get_column_names(
-        self, missing_prefix: str = "_col_", indices: Optional[List[int]] = None
+    def get_names(
+        self,
+        type: str = "column",
+        missing_prefix: str = "_col_",
+        indices: Optional[List[int]] = None,
     ) -> List[str]:
         """Get column names.
 
@@ -497,46 +500,23 @@ class SplitMatrix(MatrixBase):
 
         Parameters
         ----------
+        type: str {'column'|'term'}
+            Whether to get column names or term names. The main difference is that
+            a categorical submatrix is counted as a single term, whereas it is
+            counted as multiple columns. Furthermore, matrices created from formulas
+            have a difference between a column and term (c.f. ``formulaic`` docs).
         missing_prefix
             Prefix to use for columns that do not have a name.
         indices
-            Ignored.
+            The indices used for columns that do not have a name. If ``None``,
+            then the indices are ``list(range(self.shape[1]))``.
 
         Returns
         -------
         list of str
             Column names.
         """
-        column_names = np.empty(self.shape[1], dtype=object)
+        names = np.empty(self.shape[1], dtype=object)
         for idx, mat in zip(self.indices, self.matrices):
-            column_names[idx] = mat.get_column_names(missing_prefix, idx)
-        return list(column_names)
-
-    def get_term_names(
-        self, missing_prefix: str = "_col_", indices: Optional[List[int]] = None
-    ) -> List[str]:
-        """Get term names.
-
-        The main difference to ``get_column_names`` is that a categorical submatrix
-        is counted as a single term. Furthermore, matrices created from formulas
-        have a difference between a column and term (c.f. ``formulaic`` docs).
-        For terms that do not have a name, a default name is created using the
-        followig pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
-        the index of the term.
-
-        Parameters
-        ----------
-        missing_prefix
-            Prefix to use for terms that do not have a name.
-        indices
-            Ignored.
-
-        Returns
-        -------
-        list of str
-            Term names.
-        """
-        term_names = np.empty(self.shape[1], dtype=object)
-        for idx, mat in zip(self.indices, self.matrices):
-            term_names[idx] = mat.get_term_names(missing_prefix, idx)
-        return list(term_names)
+            names[idx] = mat.get_names(type, missing_prefix, idx)
+        return list(names)

@@ -245,8 +245,11 @@ class DenseMatrix(MatrixBase):
             return type(self)(self._array.__mul__(other[:, np.newaxis]))
         return type(self)(self._array.__mul__(other))
 
-    def get_column_names(
-        self, missing_prefix: str = "_col_", indices: Optional[List[int]] = None
+    def get_names(
+        self,
+        type: str = "column",
+        missing_prefix: str = "_col_",
+        indices: Optional[List[int]] = None,
     ) -> List[str]:
         """Get column names.
 
@@ -256,6 +259,11 @@ class DenseMatrix(MatrixBase):
 
         Parameters
         ----------
+        type: str {'column'|'term'}
+            Whether to get column names or term names. The main difference is that
+            a categorical submatrix is counted as a single term, whereas it is
+            counted as multiple columns. Furthermore, matrices created from formulas
+            have a difference between a column and term (c.f. ``formulaic`` docs).
         missing_prefix
             Prefix to use for columns that do not have a name.
         indices
@@ -267,41 +275,16 @@ class DenseMatrix(MatrixBase):
         list of str
             Column names.
         """
+        if type == "column":
+            names = np.array(self._colnames)
+        elif type == "term":
+            names = np.array(self._terms)
+        else:
+            raise ValueError(f"Type must be 'column' or 'term', got {type}")
+
         if indices is None:
             indices = list(range(self.shape[1]))
-        colnames = np.array(self._colnames)
-        default_colnames = np.array([f"{missing_prefix}{i}" for i in indices])
-        colnames[colnames == None] = default_colnames[colnames == None]  # noqa: E711
-        return list(colnames)
 
-    def get_term_names(
-        self, missing_prefix: str = "_col_", indices: Optional[List[int]] = None
-    ) -> List[str]:
-        """Get term names.
-
-        The main difference to ``get_column_names`` is that a categorical submatrix
-        is counted as a single term. Furthermore, matrices created from formulas
-        have a difference between a column and term (c.f. ``formulaic`` docs).
-        For terms that do not have a name, a default name is created using the
-        followig pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
-        the index of the term.
-
-        Parameters
-        ----------
-        missing_prefix
-            Prefix to use for terms that do not have a name.
-        indices
-            The indices used for columns that do not have a name. If ``None``,
-            then the indices are ``list(range(self.shape[1]))``.
-
-        Returns
-        -------
-        list of str
-            Term names.
-        """
-        if indices is None:
-            indices = list(range(self.shape[1]))
-        terms = np.array(self._terms)
-        default_terms = np.array([f"{missing_prefix}{i}" for i in indices])
-        terms[terms == None] = default_terms[terms == None]  # noqa: E711
-        return list(terms)
+        default_names = np.array([f"{missing_prefix}{i}" for i in indices])
+        names[names == None] = default_names[names == None]  # noqa: E711
+        return list(names)

@@ -666,8 +666,11 @@ class CategoricalMatrix(MatrixBase):
     def __repr__(self):
         return str(self.cat)
 
-    def get_column_names(
-        self, missing_prefix: str = "_col_", indices: Optional[List[int]] = None
+    def get_names(
+        self,
+        type: str = "column",
+        missing_prefix: str = "_col_",
+        indices: Optional[List[int]] = None,
     ) -> List[str]:
         """Get column names.
 
@@ -677,6 +680,11 @@ class CategoricalMatrix(MatrixBase):
 
         Parameters
         ----------
+        type: str {'column'|'term'}
+            Whether to get column names or term names. The main difference is that
+            a categorical submatrix is counted as a single term, whereas it is
+            counted as multiple columns. Furthermore, matrices created from formulas
+            have a difference between a column and term (c.f. ``formulaic`` docs).
         missing_prefix
             Prefix to use for columns that do not have a name.
         indices
@@ -688,46 +696,22 @@ class CategoricalMatrix(MatrixBase):
         list of str
             Column names.
         """
+        if type == "column":
+            name = self._colname
+        elif type == "term":
+            name = self._term
+        else:
+            raise ValueError(f"Type must be 'column' or 'term', got {type}")
+
         if indices is None:
             indices = list(range(len(self.cat.categories) - self.drop_first))
-        if self._colname is None:
-            colname = f"{missing_prefix}{indices[0]}-{indices[-1]}"
+        if name is None:
+            name = f"{missing_prefix}{indices[0]}-{indices[-1]}"
+
+        if type == "column":
+            return [
+                self._colname_format.format(name=name, category=cat)
+                for cat in self.cat.categories[self.drop_first :]
+            ]
         else:
-            colname = self._colname
-        return [
-            self._colname_format.format(name=colname, category=cat)
-            for cat in self.cat.categories[self.drop_first :]
-        ]
-
-    def get_term_names(
-        self, missing_prefix: str = "_col_", indices: Optional[List[int]] = None
-    ) -> List[str]:
-        """Get term names.
-
-        The main difference to ``get_column_names`` is that a categorical submatrix
-        is counted as a single term. Furthermore, matrices created from formulas
-        have a difference between a column and term (c.f. ``formulaic`` docs).
-        For terms that do not have a name, a default name is created using the
-        followig pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
-        the index of the term.
-
-        Parameters
-        ----------
-        missing_prefix
-            Prefix to use for terms that do not have a name.
-        indices
-            The indices used for columns that do not have a name. If ``None``,
-            then the indices are ``list(range(self.shape[1]))``.
-
-        Returns
-        -------
-        list of str
-            Term names.
-        """
-        if indices is None:
-            indices = list(range(len(self.cat.categories) - self.drop_first))
-        if self._term is None:
-            term = f"{missing_prefix}{indices[0]}-{indices[-1]}"
-        else:
-            term = self._term
-        return [term] * (len(self.cat.categories) - self.drop_first)
+            return [name] * (len(self.cat.categories) - self.drop_first)

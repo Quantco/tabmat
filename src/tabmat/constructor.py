@@ -90,8 +90,8 @@ def from_pandas(
                 ) = _split_sparse_and_dense_parts(
                     sps.csc_matrix(cat.tocsr(), dtype=dtype),
                     threshold=sparse_threshold,
-                    column_names=cat.get_column_names(),
-                    term_names=cat.get_term_names(),
+                    column_names=cat.get_names("columns"),
+                    term_names=cat.get_names("terms"),
                 )
                 matrices.append(X_dense_F)
                 is_cat.append(True)
