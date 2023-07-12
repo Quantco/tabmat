@@ -161,6 +161,7 @@ This is `ext/split/sandwich_cat_dense`
 
 """
 
+import re
 from typing import Any, List, Optional, Tuple, Union
 
 import numpy as np
@@ -735,8 +736,23 @@ class CategoricalMatrix(MatrixBase):
         if isinstance(names, str):
             names = [names]
 
-        if len(names) == self.shape[1] and all(name == names[0] for name in names):
-            names = [names[0]]
+        if len(names) != 1:
+            if type == "column":
+                # Try finding the column name
+                base_names = []
+                for name, cat in zip(names, self.cat.categories[self.drop_first :]):
+                    partial_name = self._colname_format.format(
+                        name="__CAPTURE__", category=cat
+                    )
+                    pattern = re.escape(partial_name).replace("__CAPTURE__", "(.*)")
+                    if (name is not None) and (match := re.search(pattern, name)):
+                        base_names.append(match.group(1))
+                    else:
+                        base_names.append(name)
+                names = base_names
+
+            if len(names) == self.shape[1] and all(name == names[0] for name in names):
+                names = [names[0]]
 
         if len(names) != 1:
             raise ValueError("A categorical matrix has only one name")
