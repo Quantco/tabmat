@@ -248,9 +248,9 @@ class DenseMatrix(MatrixBase):
     def get_names(
         self,
         type: str = "column",
-        missing_prefix: str = "_col_",
+        missing_prefix: Optional[str] = None,
         indices: Optional[List[int]] = None,
-    ) -> List[str]:
+    ) -> List[Optional[str]]:
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
@@ -264,15 +264,16 @@ class DenseMatrix(MatrixBase):
             a categorical submatrix is counted as a single term, whereas it is
             counted as multiple columns. Furthermore, matrices created from formulas
             have a difference between a column and term (c.f. ``formulaic`` docs).
-        missing_prefix
-            Prefix to use for columns that do not have a name.
+        missing_prefix: Optional[str], default None
+            Prefix to use for columns that do not have a name. If None, then no
+            default name is created.
         indices
             The indices used for columns that do not have a name. If ``None``,
             then the indices are ``list(range(self.shape[1]))``.
 
         Returns
         -------
-        list of str
+        List[Optional[str]]
             Column names.
         """
         if type == "column":
@@ -285,6 +286,8 @@ class DenseMatrix(MatrixBase):
         if indices is None:
             indices = list(range(self.shape[1]))
 
-        default_names = np.array([f"{missing_prefix}{i}" for i in indices])
-        names[names == None] = default_names[names == None]  # noqa: E711
+        if missing_prefix is not None:
+            default_names = np.array([f"{missing_prefix}{i}" for i in indices])
+            names[names == None] = default_names[names == None]  # noqa: E711
+
         return list(names)
