@@ -227,9 +227,5 @@ def from_csc(mat: sps.csc_matrix, threshold=0.1, column_names=None, term_names=N
     The ``threshold`` parameter specifies the density below which a column is
     treated as sparse.
     """
-    if column_names is None:
-        column_names = [None] * mat.shape[1]
-    if term_names is None:
-        term_names = column_names
     dense, sparse, dense_idx, sparse_idx = _split_sparse_and_dense_parts(mat, threshold)
     return SplitMatrix([dense, sparse], [dense_idx, sparse_idx])
