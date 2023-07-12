@@ -117,7 +117,7 @@ class DenseMatrix(MatrixBase):
     def __getitem__(self, key):
         """Return a subset of the matrix."""
         result = super().__getitem__(key)
-        if len(key) == 2:
+        if isinstance(key, tuple) and len(key) == 2:
             result._colnames = list(np.array(self._colnames)[key[1]])
             result._terms = list(np.array(self._terms)[key[1]])
         return result
