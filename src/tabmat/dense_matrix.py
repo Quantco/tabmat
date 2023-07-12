@@ -291,3 +291,29 @@ class DenseMatrix(MatrixBase):
             names[names == None] = default_names[names == None]  # noqa: E711
 
         return list(names)
+
+    def set_names(self, names: Union[str, List[Optional[str]]], type: str = "column"):
+        """Set column names.
+
+        Parameters
+        ----------
+        names: List[Optional[str]]
+            Names to set.
+        type: str {'column'|'term'}
+            Whether to set column names or term names. The main difference is that
+            a categorical submatrix is counted as a single term, whereas it is
+            counted as multiple columns. Furthermore, matrices created from formulas
+            have a difference between a column and term (c.f. ``formulaic`` docs).
+        """
+        if isinstance(names, str):
+            names = [names]
+
+        if len(names) != self.shape[1]:
+            raise ValueError(f"Length of names must be {self.shape[1]}")
+
+        if type == "column":
+            self._colnames = names
+        elif type == "term":
+            self._terms = names
+        else:
+            raise ValueError(f"Type must be 'column' or 'term', got {type}")

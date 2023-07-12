@@ -521,3 +521,24 @@ class SplitMatrix(MatrixBase):
         for idx, mat in zip(self.indices, self.matrices):
             names[idx] = mat.get_names(type, missing_prefix, idx)
         return list(names)
+
+    def set_names(self, names: Union[str, List[Optional[str]]], type: str = "column"):
+        """Set column names.
+
+        Parameters
+        ----------
+        names: List[Optional[str]]
+            Names to set.
+        type: str {'column'|'term'}
+            Whether to set column names or term names. The main difference is that
+            a categorical submatrix is counted as a single term, whereas it is
+            counted as multiple columns. Furthermore, matrices created from formulas
+            have a difference between a column and term (c.f. ``formulaic`` docs).
+        """
+        names_array = np.array(names)
+
+        if len(names) != self.shape[1]:
+            raise ValueError(f"Length of names must be {self.shape[1]}")
+
+        for idx, mat in zip(self.indices, self.matrices):
+            mat.set_names(list(names_array[idx]), type)

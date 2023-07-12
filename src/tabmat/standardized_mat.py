@@ -331,3 +331,39 @@ class StandardizedMatrix:
             Column names.
         """
         return self.mat.get_names(type, missing_prefix, indices)
+
+    def set_names(self, names: Union[str, List[Optional[str]]], type: str = "column"):
+        """Set column names.
+
+        Parameters
+        ----------
+        names: List[Optional[str]]
+            Names to set.
+        type: str {'column'|'term'}
+            Whether to set column names or term names. The main difference is that
+            a categorical submatrix is counted as a single term, whereas it is
+            counted as multiple columns. Furthermore, matrices created from formulas
+            have a difference between a column and term (c.f. ``formulaic`` docs).
+        """
+        self.mat.set_names(names, type)
+
+    @property
+    def column_names(self):
+        """Column names of the matrix."""
+        return self.get_names(type="column")
+
+    @column_names.setter
+    def column_names(self, names: List[Optional[str]]):
+        self.set_names(names, type="column")
+
+    @property
+    def term_names(self):
+        """Term names of the matrix.
+
+        For differences between column names and term names, see ``get_names``.
+        """
+        return self.get_names(type="term")
+
+    @term_names.setter
+    def term_names(self, names: List[Optional[str]]):
+        self.set_names(names, type="term")

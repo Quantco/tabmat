@@ -718,3 +718,32 @@ class CategoricalMatrix(MatrixBase):
             ]
         else:
             return [name] * (len(self.cat.categories) - self.drop_first)
+
+    def set_names(self, names: Union[str, List[Optional[str]]], type: str = "column"):
+        """Set column names.
+
+        Parameters
+        ----------
+        names: List[Optional[str]]
+            Names to set.
+        type: str {'column'|'term'}
+            Whether to set column names or term names. The main difference is that
+            a categorical submatrix is counted as a single term, whereas it is
+            counted as multiple columns. Furthermore, matrices created from formulas
+            have a difference between a column and term (c.f. ``formulaic`` docs).
+        """
+        if isinstance(names, str):
+            names = [names]
+
+        if len(names) == self.shape[1] and all(name == names[0] for name in names):
+            names = [names[0]]
+
+        if len(names) != 1:
+            raise ValueError("A categorical matrix has only one name")
+
+        if type == "column":
+            self._colname = names[0]
+        elif type == "term":
+            self._term = names[0]
+        else:
+            raise ValueError(f"Type must be 'column' or 'term', got {type}")
