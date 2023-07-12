@@ -118,8 +118,13 @@ class DenseMatrix(MatrixBase):
         """Return a subset of the matrix."""
         result = type(self)(self._array.__getitem__(key))
         if isinstance(key, tuple) and len(key) == 2:
-            result._colnames = list(np.array(self._colnames)[key[1]])
-            result._terms = list(np.array(self._terms)[key[1]])
+            if key[1] is None:
+                # Handle np.newaxis
+                result._colnames = self._colnames
+                result._terms = self._terms
+            else:
+                result._colnames = list(np.array(self._colnames)[key[1]])
+                result._terms = list(np.array(self._terms)[key[1]])
         return result
 
     def getcol(self, i):
