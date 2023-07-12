@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List, Optional, Union
 
 import numpy as np
 from scipy import sparse as sps
@@ -300,7 +300,7 @@ class StandardizedMatrix:
         return out
 
     def get_column_names(
-        self, missing_prefix: str = "_col_", start_index: int = 0
+        self, missing_prefix: str = "_col_", indices: Optional[List[int]] = None
     ) -> List[str]:
         """Get column names.
 
@@ -312,18 +312,18 @@ class StandardizedMatrix:
         ----------
         missing_prefix
             Prefix to use for columns that do not have a name.
-        start_index
-            Index to start from when creating default names.
+        indices
+            Ignored.
 
         Returns
         -------
         list of str
             Column names.
         """
-        return self.mat.get_column_names(missing_prefix, start_index)
+        return self.mat.get_column_names(missing_prefix, indices)
 
     def get_term_names(
-        self, missing_prefix: str = "_col_", start_index: int = 0
+        self, missing_prefix: str = "_col_", indices: Optional[List[int]] = None
     ) -> List[str]:
         """Get term names.
 
@@ -338,12 +338,12 @@ class StandardizedMatrix:
         ----------
         missing_prefix
             Prefix to use for terms that do not have a name.
-        start_index
-            Index to start from when creating default names.
+        indices
+            Ignored.
 
         Returns
         -------
         list of str
             Term names.
         """
-        return self.mat.get_term_names(missing_prefix, start_index)
+        return self.mat.get_term_names(missing_prefix, indices)

@@ -487,7 +487,7 @@ class SplitMatrix(MatrixBase):
     __array_priority__ = 13
 
     def get_column_names(
-        self, missing_prefix: str = "_col_", start_index: int = 0
+        self, missing_prefix: str = "_col_", indices: Optional[List[int]] = None
     ) -> List[str]:
         """Get column names.
 
@@ -499,8 +499,8 @@ class SplitMatrix(MatrixBase):
         ----------
         missing_prefix
             Prefix to use for columns that do not have a name.
-        start_index
-            Index to start from when creating default names.
+        indices
+            Ignored.
 
         Returns
         -------
@@ -509,15 +509,11 @@ class SplitMatrix(MatrixBase):
         """
         column_names = np.empty(self.shape[1], dtype=object)
         for idx, mat in zip(self.indices, self.matrices):
-            column_names[idx] = mat.get_column_names(missing_prefix, start_index)
-            if isinstance(mat, CategoricalMatrix):
-                start_index += 1
-            else:
-                start_index += mat.shape[1]
+            column_names[idx] = mat.get_column_names(missing_prefix, idx)
         return list(column_names)
 
     def get_term_names(
-        self, missing_prefix: str = "_col_", start_index: int = 0
+        self, missing_prefix: str = "_col_", indices: Optional[List[int]] = None
     ) -> List[str]:
         """Get term names.
 
@@ -532,8 +528,8 @@ class SplitMatrix(MatrixBase):
         ----------
         missing_prefix
             Prefix to use for terms that do not have a name.
-        start_index
-            Index to start from when creating default names.
+        indices
+            Ignored.
 
         Returns
         -------
@@ -542,9 +538,5 @@ class SplitMatrix(MatrixBase):
         """
         term_names = np.empty(self.shape[1], dtype=object)
         for idx, mat in zip(self.indices, self.matrices):
-            term_names[idx] = mat.get_term_names(missing_prefix, start_index)
-            if isinstance(mat, CategoricalMatrix):
-                start_index += 1
-            else:
-                start_index += mat.shape[1]
+            term_names[idx] = mat.get_term_names(missing_prefix, idx)
         return list(term_names)

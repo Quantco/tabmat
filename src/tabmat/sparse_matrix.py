@@ -326,7 +326,7 @@ class SparseMatrix(MatrixBase):
         return type(self)(self._array.multiply(other))
 
     def get_column_names(
-        self, missing_prefix: str = "_col_", start_index: int = 0
+        self, missing_prefix: str = "_col_", indices: Optional[List[int]] = None
     ) -> List[str]:
         """Get column names.
 
@@ -338,23 +338,24 @@ class SparseMatrix(MatrixBase):
         ----------
         missing_prefix
             Prefix to use for columns that do not have a name.
-        start_index
-            Index to start from when creating default names.
+        indices
+            The indices used for columns that do not have a name. If ``None``,
+            then the indices are ``list(range(self.shape[1]))``.
 
         Returns
         -------
         list of str
             Column names.
         """
+        if indices is None:
+            indices = list(range(self.shape[1]))
         colnames = np.array(self._colnames)
-        default_colnames = np.array(
-            [f"{missing_prefix}{start_index + i}" for i in range(self.shape[1])]
-        )
+        default_colnames = np.array([f"{missing_prefix}{i}" for i in indices])
         colnames[colnames == None] = default_colnames[colnames == None]  # noqa: E711
         return list(colnames)
 
     def get_term_names(
-        self, missing_prefix: str = "_col_", start_index: int = 0
+        self, missing_prefix: str = "_col_", indices: Optional[List[int]] = None
     ) -> List[str]:
         """Get term names.
 
@@ -369,17 +370,18 @@ class SparseMatrix(MatrixBase):
         ----------
         missing_prefix
             Prefix to use for terms that do not have a name.
-        start_index
-            Index to start from when creating default names.
+        indices
+            The indices used for columns that do not have a name. If ``None``,
+            then the indices are ``list(range(self.shape[1]))``.
 
         Returns
         -------
         list of str
             Term names.
         """
+        if indices is None:
+            indices = list(range(self.shape[1]))
         terms = np.array(self._terms)
-        default_terms = np.array(
-            [f"{missing_prefix}{start_index + i}" for i in range(self.shape[1])]
-        )
+        default_terms = np.array([f"{missing_prefix}{i}" for i in indices])
         terms[terms == None] = default_terms[terms == None]  # noqa: E711
         return list(terms)

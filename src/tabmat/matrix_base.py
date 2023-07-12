@@ -166,7 +166,7 @@ class MatrixBase(ABC):
 
     @abstractmethod
     def get_column_names(
-        self, missing_prefix: str = "_col_", start_index: int = 0
+        self, missing_prefix: str = "_col_", indices: Optional[List[int]] = None
     ) -> List[str]:
         """Get column names.
 
@@ -178,8 +178,9 @@ class MatrixBase(ABC):
         ----------
         missing_prefix
             Prefix to use for columns that do not have a name.
-        start_index
-            Index to start from when creating default names.
+        indices
+            The indices used for columns that do not have a name. If ``None``,
+            then the indices are ``list(range(self.shape[1]))``.
 
         Returns
         -------
@@ -190,7 +191,7 @@ class MatrixBase(ABC):
 
     @abstractmethod
     def get_term_names(
-        self, missing_prefix: str = "_col_", start_index: int = 0
+        self, missing_prefix: str = "_col_", indices: Optional[List[int]] = None
     ) -> List[str]:
         """Get term names.
 
@@ -205,8 +206,9 @@ class MatrixBase(ABC):
         ----------
         missing_prefix
             Prefix to use for terms that do not have a name.
-        start_index
-            Index to start from when creating default names.
+        indices
+            The indices used for columns that do not have a name. If ``None``,
+            then the indices are ``list(range(self.shape[1]))``.
 
         Returns
         -------

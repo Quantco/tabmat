@@ -667,7 +667,7 @@ class CategoricalMatrix(MatrixBase):
         return str(self.cat)
 
     def get_column_names(
-        self, missing_prefix: str = "_col_", start_index: int = 0
+        self, missing_prefix: str = "_col_", indices: Optional[List[int]] = None
     ) -> List[str]:
         """Get column names.
 
@@ -679,16 +679,19 @@ class CategoricalMatrix(MatrixBase):
         ----------
         missing_prefix
             Prefix to use for columns that do not have a name.
-        start_index
-            Index to start from when creating default names.
+        indices
+            The indices used for columns that do not have a name. If ``None``,
+            then the indices are ``list(range(self.shape[1]))``.
 
         Returns
         -------
         list of str
             Column names.
         """
+        if indices is None:
+            indices = list(range(len(self.cat.categories) - self.drop_first))
         if self._colname is None:
-            colname = f"{missing_prefix}{start_index}"
+            colname = f"{missing_prefix}{indices[0]}-{indices[-1]}"
         else:
             colname = self._colname
         return [
@@ -697,7 +700,7 @@ class CategoricalMatrix(MatrixBase):
         ]
 
     def get_term_names(
-        self, missing_prefix: str = "_col_", start_index: int = 0
+        self, missing_prefix: str = "_col_", indices: Optional[List[int]] = None
     ) -> List[str]:
         """Get term names.
 
@@ -712,16 +715,19 @@ class CategoricalMatrix(MatrixBase):
         ----------
         missing_prefix
             Prefix to use for terms that do not have a name.
-        start_index
-            Index to start from when creating default names.
+        indices
+            The indices used for columns that do not have a name. If ``None``,
+            then the indices are ``list(range(self.shape[1]))``.
 
         Returns
         -------
         list of str
             Term names.
         """
+        if indices is None:
+            indices = list(range(len(self.cat.categories) - self.drop_first))
         if self._term is None:
-            term = f"{missing_prefix}{start_index}"
+            term = f"{missing_prefix}{indices[0]}-{indices[-1]}"
         else:
             term = self._term
         return [term] * (len(self.cat.categories) - self.drop_first)
