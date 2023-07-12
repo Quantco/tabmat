@@ -745,7 +745,11 @@ class CategoricalMatrix(MatrixBase):
                         name="__CAPTURE__", category=cat
                     )
                     pattern = re.escape(partial_name).replace("__CAPTURE__", "(.*)")
-                    if (name is not None) and (match := re.search(pattern, name)):
+                    if name is not None:
+                        match = re.search(pattern, name)
+                    else:
+                        match = None
+                    if match is not None:
                         base_names.append(match.group(1))
                     else:
                         base_names.append(name)
