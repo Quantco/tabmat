@@ -58,7 +58,7 @@ class DenseMatrix(MatrixBase):
                 raise ValueError(f"Expected {width} term names, got {len(term_names)}")
             self._terms = term_names
         else:
-            self._terms = obj._colnames
+            self._terms = self._colnames
 
     def __getitem__(self, key):
         if not isinstance(key, tuple):
@@ -116,7 +116,7 @@ class DenseMatrix(MatrixBase):
 
     def __getitem__(self, key):
         """Return a subset of the matrix."""
-        result = super().__getitem__(key)
+        result = type(self)(self._array.__getitem__(key))
         if isinstance(key, tuple) and len(key) == 2:
             result._colnames = list(np.array(self._colnames)[key[1]])
             result._terms = list(np.array(self._terms)[key[1]])
@@ -284,7 +284,7 @@ class DenseMatrix(MatrixBase):
             raise ValueError(f"Type must be 'column' or 'term', got {type}")
 
         if indices is None:
-            indices = list(range(self.shape[1]))
+            indices = list(range(len(self._colnames)))
 
         if missing_prefix is not None:
             default_names = np.array([f"{missing_prefix}{i}" for i in indices])

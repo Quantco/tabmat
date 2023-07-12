@@ -325,35 +325,6 @@ class SparseMatrix(MatrixBase):
             return type(self)(self._array.multiply(other[:, np.newaxis]))
         return type(self)(self._array.multiply(other))
 
-    def get_column_names(
-        self, missing_prefix: str = "_col_", indices: Optional[List[int]] = None
-    ) -> List[str]:
-        """Get column names.
-
-        For columns that do not have a name, a default name is created using the
-        followig pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
-        the index of the column.
-
-        Parameters
-        ----------
-        missing_prefix
-            Prefix to use for columns that do not have a name.
-        indices
-            The indices used for columns that do not have a name. If ``None``,
-            then the indices are ``list(range(self.shape[1]))``.
-
-        Returns
-        -------
-        list of str
-            Column names.
-        """
-        if indices is None:
-            indices = list(range(self.shape[1]))
-        colnames = np.array(self._colnames)
-        default_colnames = np.array([f"{missing_prefix}{i}" for i in indices])
-        colnames[colnames == None] = default_colnames[colnames == None]  # noqa: E711
-        return list(colnames)
-
     def get_names(
         self,
         type: str = "column",
@@ -393,7 +364,7 @@ class SparseMatrix(MatrixBase):
             raise ValueError(f"Type must be 'column' or 'term', got {type}")
 
         if indices is None:
-            indices = list(range(self.shape[1]))
+            indices = list(range(len(self._colnames)))
 
         if missing_prefix is not None:
             default_names = np.array([f"{missing_prefix}{i}" for i in indices])
