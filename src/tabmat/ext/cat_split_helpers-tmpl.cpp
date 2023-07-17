@@ -1,15 +1,15 @@
 #include <vector>
 
 
-<%def name="transpose_matvec(dropfirst)">
+<%def name="transpose_matvec(type)">
 template <typename Int, typename F>
-void _transpose_matvec_${dropfirst}(
+void _transpose_matvec_${type}(
     Int n_rows,
     Int* indices,
     F* other,
     F* res,
     Int res_size
-    % if dropfirst == 'all_rows_drop_first':
+    % if type == 'all_rows_complex':
         , bool drop_first
     % endif
 ) {
@@ -18,7 +18,7 @@ void _transpose_matvec_${dropfirst}(
         std::vector<F> restemp(res_size, 0.0);
         #pragma omp for
         for (Py_ssize_t i = 0; i < n_rows; i++) {
-            % if dropfirst == 'all_rows_drop_first':
+            % if type == 'all_rows_complex':
                 Py_ssize_t col_idx = indices[i] - drop_first;
                 if (col_idx >= 0) {
                     restemp[col_idx] += other[i];
@@ -123,5 +123,5 @@ void _sandwich_cat_dense${order}(
 
 ${sandwich_cat_dense_tmpl('C')}
 ${sandwich_cat_dense_tmpl('F')}
-${transpose_matvec('all_rows')}
-${transpose_matvec('all_rows_drop_first')}
+${transpose_matvec('all_rows_fast')}
+${transpose_matvec('all_rows_complex')}

@@ -11,11 +11,11 @@ from libcpp cimport bool
 
 
 cdef extern from "cat_split_helpers.cpp":
-    void _transpose_matvec_all_rows[Int, F](Int, Int*, F*, F*, Int)
-    void _transpose_matvec_all_rows_drop_first[Int, F](Int, Int*, F*, F*, Int, bool)
+    void _transpose_matvec_all_rows_fast[Int, F](Int, Int*, F*, F*, Int)
+    void _transpose_matvec_all_rows_complex[Int, F](Int, Int*, F*, F*, Int, bool)
 
 
-def transpose_matvec(
+def transpose_matvec_fast(
     int[:] indices,
     floating[:] other,
     int n_cols,
@@ -34,7 +34,7 @@ def transpose_matvec(
 
     # Case 1: No row or col restrictions
     if no_row_restrictions and no_col_restrictions:
-        _transpose_matvec_all_rows(n_rows, &indices[0], &other[0], &out[0], out_size)
+        _transpose_matvec_all_rows_fast(n_rows, &indices[0], &other[0], &out[0], out_size)
     # Case 2: row restrictions but no col restrictions
     elif no_col_restrictions:
         rows_view = rows
@@ -62,7 +62,7 @@ def transpose_matvec(
                     out[col] += other[row]
 
 
-def transpose_matvec_drop_first(
+def transpose_matvec_complex(
     int[:] indices,
     floating[:] other,
     int n_cols,
@@ -82,7 +82,7 @@ def transpose_matvec_drop_first(
 
     # Case 1: No row or col restrictions
     if no_row_restrictions and no_col_restrictions:
-        _transpose_matvec_all_rows_drop_first(n_rows, &indices[0], &other[0], &out[0], out_size, drop_first)
+        _transpose_matvec_all_rows_complex(n_rows, &indices[0], &other[0], &out[0], out_size, drop_first)
     # Case 2: row restrictions but no col restrictions
     elif no_col_restrictions:
         rows_view = rows
@@ -120,7 +120,7 @@ def get_col_included(int[:] cols, int n_cols):
     return col_included
 
 
-def matvec(
+def matvec_fast(
     const int[:] indices,
     floating[:] other,
     int n_rows,
@@ -146,7 +146,7 @@ def matvec(
     return
 
 
-def matvec_drop_first(
+def matvec_complex(
     const int[:] indices, 
     floating[:] other, 
     int n_rows, 
@@ -175,7 +175,7 @@ def matvec_drop_first(
     return
 
 
-def sandwich_categorical(
+def sandwich_categorical_fast(
     const int[:] indices,
     floating[:] d,
     int[:] rows,
@@ -193,7 +193,7 @@ def sandwich_categorical(
     return np.asarray(res)
 
 
-def sandwich_categorical_drop_first(
+def sandwich_categorical_complex(
     const int[:] indices,
     floating[:] d,
     int[:] rows,
@@ -213,7 +213,7 @@ def sandwich_categorical_drop_first(
     return np.asarray(res)
 
 
-def multiply_drop_first(
+def multiply_complex(
     int[:] indices,
     numeric[:] d,
     int ncols,
@@ -269,7 +269,7 @@ def multiply_drop_first(
     return new_data[:nonref_cnt], new_indices[:nonref_cnt], new_indptr
 
 
-def subset_categorical_drop_first(
+def subset_categorical_complex(
     int[:] indices,
     int ncols,
     bint drop_first

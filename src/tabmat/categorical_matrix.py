@@ -169,14 +169,14 @@ import pandas as pd
 from scipy import sparse as sps
 
 from .ext.categorical import (
-    matvec,
-    matvec_drop_first,
-    multiply_drop_first,
-    sandwich_categorical,
-    sandwich_categorical_drop_first,
-    subset_categorical_drop_first,
-    transpose_matvec,
-    transpose_matvec_drop_first,
+    matvec_complex,
+    matvec_fast,
+    multiply_complex,
+    sandwich_categorical_complex,
+    sandwich_categorical_fast,
+    subset_categorical_complex,
+    transpose_matvec_complex,
+    transpose_matvec_fast,
 )
 from .ext.split import sandwich_cat_cat, sandwich_cat_dense
 from .matrix_base import MatrixBase
@@ -338,7 +338,7 @@ class CategoricalMatrix(MatrixBase):
             out = np.zeros(self.shape[0], dtype=other_m.dtype)
 
         if self.drop_first or self.has_missing:
-            matvec_drop_first(
+            matvec_complex(
                 self.indices,
                 other_m,
                 self.shape[0],
@@ -348,7 +348,7 @@ class CategoricalMatrix(MatrixBase):
                 self.drop_first,
             )
         else:
-            matvec(self.indices, other_m, self.shape[0], cols, self.shape[1], out)
+            matvec_fast(self.indices, other_m, self.shape[0], cols, self.shape[1], out)
 
         if is_int:
             return out.astype(int)
@@ -411,7 +411,7 @@ class CategoricalMatrix(MatrixBase):
             cols = set_up_rows_or_cols(cols, self.shape[1])
 
         if self.drop_first or self.has_missing:
-            transpose_matvec_drop_first(
+            transpose_matvec_complex(
                 self.indices,
                 vec,
                 self.shape[1],
@@ -422,7 +422,7 @@ class CategoricalMatrix(MatrixBase):
                 self.drop_first,
             )
         else:
-            transpose_matvec(
+            transpose_matvec_fast(
                 self.indices, vec, self.shape[1], vec.dtype, rows, cols, out
             )
 
@@ -454,11 +454,11 @@ class CategoricalMatrix(MatrixBase):
         d = np.asarray(d)
         rows = set_up_rows_or_cols(rows, self.shape[0])
         if self.drop_first or self.has_missing:
-            res_diag = sandwich_categorical_drop_first(
+            res_diag = sandwich_categorical_complex(
                 self.indices, d, rows, d.dtype, self.shape[1], self.drop_first
             )
         else:
-            res_diag = sandwich_categorical(
+            res_diag = sandwich_categorical_fast(
                 self.indices, d, rows, d.dtype, self.shape[1]
             )
 
@@ -506,7 +506,7 @@ class CategoricalMatrix(MatrixBase):
     def tocsr(self) -> sps.csr_matrix:
         """Return scipy csr representation of matrix."""
         if self.drop_first or self.has_missing:
-            nnz, indices, indptr = subset_categorical_drop_first(
+            nnz, indices, indptr = subset_categorical_complex(
                 self.indices, self.shape[1], self.drop_first
             )
             return sps.csr_matrix(
@@ -660,7 +660,7 @@ class CategoricalMatrix(MatrixBase):
         if self.drop_first or self.has_missing:
             return SparseMatrix(
                 sps.csr_matrix(
-                    multiply_drop_first(
+                    multiply_complex(
                         indices=self.indices,
                         d=np.squeeze(other),
                         ncols=self.shape[1],
