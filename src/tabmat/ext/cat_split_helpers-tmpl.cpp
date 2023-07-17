@@ -9,6 +9,9 @@ void _transpose_matvec_${dropfirst}(
     F* other,
     F* res,
     Int res_size
+    % if dropfirst == 'all_rows_drop_first':
+        , bool drop_first
+    % endif
 ) {
     #pragma omp parallel
     {
@@ -16,8 +19,8 @@ void _transpose_matvec_${dropfirst}(
         #pragma omp for
         for (Py_ssize_t i = 0; i < n_rows; i++) {
             % if dropfirst == 'all_rows_drop_first':
-                Py_ssize_t col_idx = indices[i] - 1;
-                if (col_idx != -1) {
+                Py_ssize_t col_idx = indices[i] - drop_first;
+                if (col_idx >= 0) {
                     restemp[col_idx] += other[i];
                 }
             % else:
@@ -54,11 +57,11 @@ void _sandwich_cat_cat(
         for (Py_ssize_t k_idx = 0; k_idx < len_rows; k_idx++) {
             Int k = rows[k_idx];
             Int i = i_indices[k] - i_drop_first;
-            if (i == -1) {
+            if (i < 0) {
                 continue;
             }
             Int j = j_indices[k] - j_drop_first;
-            if (j == -1) {
+            if (j < 0) {
                 continue;
             }
             restemp[(Py_ssize_t) i * res_n_col + j] += d[k];
@@ -99,13 +102,15 @@ void _sandwich_cat_dense${order}(
             // instructions
             // MAYBE TODO: explore whether swapping the loop order for F-ordered mat_j
             // is useful.
-            for (Py_ssize_t j_idx = 0; j_idx < len_j_cols; j_idx++) {
-                Py_ssize_t j = j_cols[j_idx];
-                % if order == 'C':
-                    restemp[i * len_j_cols + j_idx] += d[k] * mat_j[k * mat_j_ncol + j];
-                % else:
-                    restemp[i * len_j_cols + j_idx] += d[k] * mat_j[j * mat_j_nrow + k];
-                % endif
+            if (i >= 0) {
+                for (Py_ssize_t j_idx = 0; j_idx < len_j_cols; j_idx++) {
+                    Py_ssize_t j = j_cols[j_idx];
+                    % if order == 'C':
+                        restemp[i * len_j_cols + j_idx] += d[k] * mat_j[k * mat_j_ncol + j];
+                    % else:
+                        restemp[i * len_j_cols + j_idx] += d[k] * mat_j[j * mat_j_nrow + k];
+                    % endif
+                }
             }
         }
         for (Py_ssize_t i = 0; i < res_size; i++) {

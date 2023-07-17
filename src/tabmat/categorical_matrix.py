@@ -251,7 +251,9 @@ class CategoricalMatrix(MatrixBase):
         column_name_format: str = "{name}[{category}]",
     ):
         if pd.isnull(cat_vec).any():
-            raise ValueError("Categorical data can't have missing values.")
+            self.has_missing = True
+        else:
+            self.has_missing = False
 
         if isinstance(cat_vec, pd.Categorical):
             self.cat = cat_vec
@@ -335,9 +337,15 @@ class CategoricalMatrix(MatrixBase):
         if out is None:
             out = np.zeros(self.shape[0], dtype=other_m.dtype)
 
-        if self.drop_first:
+        if self.drop_first or self.has_missing:
             matvec_drop_first(
-                self.indices, other_m, self.shape[0], cols, self.shape[1], out
+                self.indices,
+                other_m,
+                self.shape[0],
+                cols,
+                self.shape[1],
+                out,
+                self.drop_first,
             )
         else:
             matvec(self.indices, other_m, self.shape[0], cols, self.shape[1], out)
@@ -402,9 +410,16 @@ class CategoricalMatrix(MatrixBase):
         if cols is not None:
             cols = set_up_rows_or_cols(cols, self.shape[1])
 
-        if self.drop_first:
+        if self.drop_first or self.has_missing:
             transpose_matvec_drop_first(
-                self.indices, vec, self.shape[1], vec.dtype, rows, cols, out
+                self.indices,
+                vec,
+                self.shape[1],
+                vec.dtype,
+                rows,
+                cols,
+                out,
+                self.drop_first,
             )
         else:
             transpose_matvec(
@@ -438,9 +453,9 @@ class CategoricalMatrix(MatrixBase):
         """
         d = np.asarray(d)
         rows = set_up_rows_or_cols(rows, self.shape[0])
-        if self.drop_first:
+        if self.drop_first or self.has_missing:
             res_diag = sandwich_categorical_drop_first(
-                self.indices, d, rows, d.dtype, self.shape[1]
+                self.indices, d, rows, d.dtype, self.shape[1], self.drop_first
             )
         else:
             res_diag = sandwich_categorical(
@@ -490,9 +505,9 @@ class CategoricalMatrix(MatrixBase):
 
     def tocsr(self) -> sps.csr_matrix:
         """Return scipy csr representation of matrix."""
-        if self.drop_first:
+        if self.drop_first or self.has_missing:
             nnz, indices, indptr = subset_categorical_drop_first(
-                self.indices, self.shape[1]
+                self.indices, self.shape[1], self.drop_first
             )
             return sps.csr_matrix(
                 (np.ones(nnz, dtype=int), indices, indptr), shape=self.shape
@@ -642,7 +657,7 @@ class CategoricalMatrix(MatrixBase):
                 f"Shapes do not match. Expected length of {self.shape[0]}. Got {len(other)}."
             )
 
-        if self.drop_first:
+        if self.drop_first or self.has_missing:
             return SparseMatrix(
                 sps.csr_matrix(
                     multiply_drop_first(
@@ -650,6 +665,7 @@ class CategoricalMatrix(MatrixBase):
                         d=np.squeeze(other),
                         ncols=self.shape[1],
                         dtype=other.dtype,
+                        drop_first=self.drop_first,
                     ),
                     shape=self.shape,
                 )
