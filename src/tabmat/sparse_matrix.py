@@ -59,8 +59,7 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         self, d: np.ndarray, rows: np.ndarray = None, cols: np.ndarray = None
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
-        if not hasattr(d, "dtype"):
-            d = np.asarray(d)
+        d = np.asarray(d)
         if not self.dtype == d.dtype:
             raise TypeError(
                 f"""self and d need to be of same dtype, either np.float64
@@ -80,9 +79,11 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         R_cols: Optional[np.ndarray] = None,
     ):
         """Perform a sandwich product: X.T @ diag(d) @ Y."""
-        if isinstance(other, np.ndarray):
-            return self.sandwich_dense(other, d, rows, L_cols, R_cols)
         from .categorical_matrix import CategoricalMatrix
+        from .dense_matrix import DenseMatrix
+
+        if isinstance(other, (np.ndarray, DenseMatrix)):
+            return self.sandwich_dense(np.asarray(other), d, rows, L_cols, R_cols)
 
         if isinstance(other, CategoricalMatrix):
             return other._cross_sandwich(self, d, rows, R_cols, L_cols).T

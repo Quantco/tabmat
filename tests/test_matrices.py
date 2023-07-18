@@ -24,7 +24,7 @@ def dense_matrix_C() -> tm.DenseMatrix:
 
 def dense_matrix_not_writeable() -> tm.DenseMatrix:
     mat = dense_matrix_F()
-    mat.setflags(write=False)
+    mat._array.setflags(write=False)
     return mat
 
 
@@ -440,7 +440,7 @@ def test_rmatmul(mat: Union[tm.MatrixBase, tm.StandardizedMatrix], vec_type):
     expected = vec_as_list @ mat.A
     np.testing.assert_allclose(res, expected)
     np.testing.assert_allclose(res2, expected)
-    assert isinstance(res, np.ndarray)
+    assert isinstance(res, (np.ndarray, tm.DenseMatrix))
 
 
 @pytest.mark.parametrize("mat", get_matrices())

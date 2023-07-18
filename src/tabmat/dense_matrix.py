@@ -17,7 +17,7 @@ from .util import (
 )
 
 
-class DenseMatrix(np.ndarray, MatrixBase):
+class DenseMatrix(np.lib.mixins.NDArrayOperatorsMixin, MatrixBase):
     """
     A ``numpy.ndarray`` subclass with several additional functions that allow
     it to share the MatrixBase API with SparseMatrix and CategoricalMatrix.
@@ -32,29 +32,65 @@ class DenseMatrix(np.ndarray, MatrixBase):
 
     """
 
-    def __new__(cls, input_array):  # noqa
-        """
-        Details of how to subclass np.ndarray are explained here:
+    def __init__(self, input_array):
+        self._array = np.asarray(input_array)
 
-        https://docs.scipy.org/doc/numpy/user/basics.subclassing.html\
-            #slightly-more-realistic-example-attribute-added-to-existing-array
-        """
-        obj = np.asarray(input_array).view(cls)
-        if not np.issubdtype(obj.dtype, np.floating):
-            raise NotImplementedError("DenseMatrix is only implemented for float data")
-        return obj
+    def __getitem__(self, key):
+        return type(self)(self._array.__getitem__(key))
 
-    def __array_finalize__(self, obj):
-        if obj is None:
-            return
+    def __array__(self, dtype=None):
+        return self._array.astype(dtype, copy=False)
+
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        inputs = (x._array if isinstance(x, DenseMatrix) else x for x in inputs)
+        result = getattr(ufunc, method)(*inputs, **kwargs)
+        if method in ["__call__", "accumulate"]:
+            return type(self)(result)
+        else:
+            return result
+
+    def __matmul__(self, other):
+        return self._array.__matmul__(other)
+
+    def __rmatmul__(self, other):
+        return self._array.__rmatmul__(other)
+
+    @property
+    def shape(self):
+        """Tuple of array dimensions."""
+        return self._array.shape
+
+    @property
+    def ndim(self):
+        """Number of array dimensions."""  # noqa: D401
+        return self._array.ndim
+
+    @property
+    def dtype(self):
+        """Data-type of the array’s elements."""  # noqa: D401
+        return self._array.dtype
+
+    def transpose(self):
+        """Returns a view of the array with axes transposed."""  # noqa: D401
+        return type(self)(self._array.T)
+
+    T = property(transpose)
+
+    def astype(self, dtype, order="K", casting="unsafe", copy=True):
+        """Copy of the array, cast to a specified type."""
+        return type(self)(self._array.astype(dtype, order, casting, copy))
+
+    def sum(self, *args, **kwargs):
+        """Return the sum of the array elements over the given axis."""
+        return self._array.sum(*args, **kwargs)
 
     def getcol(self, i):
         """Return matrix column at specified index."""
-        return self[:, [i]]
+        return type(self)(self._array[:, [i]])
 
     def toarray(self):
         """Return array representation of matrix."""
-        return np.asarray(self)
+        return self._array
 
     def sandwich(
         self, d: np.ndarray, rows: np.ndarray = None, cols: np.ndarray = None
@@ -62,7 +98,7 @@ class DenseMatrix(np.ndarray, MatrixBase):
         """Perform a sandwich product: X.T @ diag(d) @ X."""
         d = np.asarray(d)
         rows, cols = setup_restrictions(self.shape, rows, cols)
-        return dense_sandwich(self, d, rows, cols)
+        return dense_sandwich(self._array, d, rows, cols)
 
     def _cross_sandwich(
         self,
@@ -81,7 +117,7 @@ class DenseMatrix(np.ndarray, MatrixBase):
 
     def _get_col_stds(self, weights: np.ndarray, col_means: np.ndarray) -> np.ndarray:
         """Get standard deviations of columns."""
-        sqrt_arg = transpose_square_dot_weights(self, weights) - col_means**2
+        sqrt_arg = transpose_square_dot_weights(self._array, weights) - col_means**2
         # Minor floating point errors above can result in a very slightly
         # negative sqrt_arg (e.g. -5e-16). We just set those values equal to
         # zero.
@@ -105,7 +141,7 @@ class DenseMatrix(np.ndarray, MatrixBase):
         # this without an explosion of code?
         vec = np.asarray(vec)
         check_matvec_dimensions(self, vec, transpose=transpose)
-        X = self.T if transpose else self
+        X = self._array.T if transpose else self._array
 
         # NOTE: We assume that rows and cols are unique
         unrestricted_rows = rows is None or len(rows) == self.shape[0]
@@ -122,11 +158,11 @@ class DenseMatrix(np.ndarray, MatrixBase):
             # TODO: should take 'out' parameter
             fast_fnc = dense_rmatvec if transpose else dense_matvec
             if vec.ndim == 1:
-                res = fast_fnc(self, vec, rows, cols)
+                res = fast_fnc(self._array, vec, rows, cols)
             elif vec.ndim == 2 and vec.shape[1] == 1:
-                res = fast_fnc(self, vec[:, 0], rows, cols)[:, None]
+                res = fast_fnc(self._array, vec[:, 0], rows, cols)[:, None]
             else:
-                subset = self[np.ix_(rows, cols)]
+                subset = self._array[np.ix_(rows, cols)]
                 res = subset.T.dot(vec[rows]) if transpose else subset.dot(vec[cols])
             if out is None:
                 return res
@@ -164,5 +200,5 @@ class DenseMatrix(np.ndarray, MatrixBase):
         This assumes that ``other`` is a vector of size ``self.shape[0]``.
         """
         if np.asanyarray(other).ndim == 1:
-            return super().__mul__(other[:, np.newaxis])
-        return super().__mul__(other)
+            return type(self)(self._array.__mul__(other[:, np.newaxis]))
+        return type(self)(self._array.__mul__(other))
