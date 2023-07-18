@@ -72,6 +72,7 @@ def from_pandas(
         if object_as_cat and coldata.dtype == object:
             coldata = coldata.astype("category")
         if isinstance(coldata.dtype, pd.CategoricalDtype):
+            cat = CategoricalMatrix(coldata, drop_first=drop_first, dtype=dtype)
             if len(coldata.cat.categories) < cat_threshold:
                 (
                     X_dense_F,
@@ -79,15 +80,7 @@ def from_pandas(
                     dense_indices,
                     sparse_indices,
                 ) = _split_sparse_and_dense_parts(
-                    pd.get_dummies(
-                        coldata,
-                        prefix=colname,
-                        sparse=True,
-                        drop_first=drop_first,
-                        dtype=np.float64,
-                    )
-                    .sparse.to_coo()
-                    .tocsc(),
+                    sps.csc_matrix(cat.tocsr(), dtype=dtype),
                     threshold=sparse_threshold,
                 )
                 matrices.append(X_dense_F)
@@ -103,7 +96,6 @@ def from_pandas(
                     indices.append(sparse_indices)
 
             else:
-                cat = CategoricalMatrix(coldata, drop_first=drop_first, dtype=dtype)
                 matrices.append(cat)
                 is_cat.append(True)
                 if cat_position == "expand":
