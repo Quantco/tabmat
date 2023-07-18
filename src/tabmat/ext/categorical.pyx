@@ -225,9 +225,6 @@ def multiply_complex(
     The output cannot be a CategoricalMatrix anymore. Here
     we return the inputs to transform to a csr_matrix.
 
-    Note that *_drop_first function assume the CategoricalMatrix
-    has its first category dropped.
-
     Parameters
     ----------
     indices:
