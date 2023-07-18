@@ -237,7 +237,7 @@ class CategoricalMatrix(MatrixBase):
         drop the first level of the dummy encoding. This allows a CategoricalMatrix
         to be used in an unregularized setting.
 
-    missing_method: str {'fail'|'ignore'}, default 'fail'
+    cat_missing_method: str {'fail'|'ignore'}, default 'fail'
         How to handle missing values. Either "fail" or "zero". If "fail", an error
         will be raised if there are missing values. If "zero", missing values will
         represent all-zero indicator columns.
