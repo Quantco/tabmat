@@ -613,15 +613,17 @@ class CategoricalMatrix(MatrixBase):
 
         res = sandwich_cat_dense(
             self.indices,
-            self.shape[1] + self.drop_first,
+            self.shape[1],
             d,
             other,
             rows,
             R_cols,
             is_c_contiguous,
+            has_missing=self.has_missing,
+            drop_first=self.drop_first,
         )
 
-        res = _row_col_indexing(res[self.drop_first :], L_cols, None)
+        res = _row_col_indexing(res, L_cols, None)
         return res
 
     def _cross_categorical(
@@ -649,6 +651,8 @@ class CategoricalMatrix(MatrixBase):
             d.dtype,
             self.drop_first,
             other.drop_first,
+            self.has_missing,
+            other.has_missing,
         )
 
         res = _row_col_indexing(res, L_cols, R_cols)

@@ -21,9 +21,12 @@ ctypedef fused win_integral:
 
 
 cdef extern from "cat_split_helpers.cpp":
-    void _sandwich_cat_denseC[Int, F](F*, Int*, Int*, Int, Int*, Int, F*, Int, F*, Int, Int) nogil
-    void _sandwich_cat_denseF[Int, F](F*, Int*, Int*, Int, Int*, Int, F*, Int, F*, Int, Int) nogil
-    void _sandwich_cat_cat[Int, F](F*, const Int*, const Int*, Int*, Int, F*, Int, Int, bool, bool)
+    void _sandwich_cat_denseC_fast[Int, F](F*, Int*, Int*, Int, Int*, Int, F*, Int, F*, Int, Int) nogil
+    void _sandwich_cat_denseF_fast[Int, F](F*, Int*, Int*, Int, Int*, Int, F*, Int, F*, Int, Int) nogil
+    void _sandwich_cat_denseC_complex[Int, F](F*, Int*, Int*, Int, Int*, Int, F*, Int, F*, Int, Int, bool) nogil
+    void _sandwich_cat_denseF_complex[Int, F](F*, Int*, Int*, Int, Int*, Int, F*, Int, F*, Int, Int, bool) nogil
+    void _sandwich_cat_cat_fast[Int, F](F*, const Int*, const Int*, Int*, Int, F*, Int, Int)
+    void _sandwich_cat_cat_complex[Int, F](F*, const Int*, const Int*, Int*, Int, F*, Int, Int, bool, bool)
 
 
 def sandwich_cat_dense(
@@ -33,7 +36,9 @@ def sandwich_cat_dense(
     np.ndarray mat_j,
     int[:] rows,
     int[:] j_cols,
-    bool is_c_contiguous
+    bool is_c_contiguous,
+    bool has_missing,
+    bint drop_first
 ):
     cdef int nj_rows = mat_j.shape[0]
     cdef int nj_cols = mat_j.shape[1]
@@ -53,14 +58,24 @@ def sandwich_cat_dense(
 
     cdef floating* mat_j_p = <floating*>mat_j.data
 
-    if is_c_contiguous:
-        _sandwich_cat_denseC(d_p, i_indices_p, rows_p, n_active_rows, j_cols_p,
-                            nj_active_cols, &res[0, 0], res_size, mat_j_p,
-                            nj_rows, nj_cols)
+    if (not drop_first) and (not has_missing):
+        if is_c_contiguous:
+            _sandwich_cat_denseC_fast(d_p, i_indices_p, rows_p, n_active_rows, j_cols_p,
+                                      nj_active_cols, &res[0, 0], res_size, mat_j_p,
+                                      nj_rows, nj_cols)
+        else:
+            _sandwich_cat_denseF_fast(d_p, i_indices_p, rows_p, n_active_rows, j_cols_p,
+                                      nj_active_cols, &res[0, 0], res_size, mat_j_p,
+                                      nj_rows, nj_cols)
     else:
-        _sandwich_cat_denseF(d_p, i_indices_p, rows_p, n_active_rows, j_cols_p,
-                            nj_active_cols, &res[0, 0], res_size, mat_j_p,
-                            nj_rows, nj_cols)
+        if is_c_contiguous:
+            _sandwich_cat_denseC_complex(d_p, i_indices_p, rows_p, n_active_rows, j_cols_p,
+                                         nj_active_cols, &res[0, 0], res_size, mat_j_p,
+                                         nj_rows, nj_cols, drop_first)
+        else:
+            _sandwich_cat_denseF_complex(d_p, i_indices_p, rows_p, n_active_rows, j_cols_p,
+                                         nj_active_cols, &res[0, 0], res_size, mat_j_p,
+                                         nj_rows, nj_cols, drop_first)
 
     return np.asarray(res)
 
@@ -74,7 +89,9 @@ def sandwich_cat_cat(
     int[:] rows,
     dtype,
     bint i_drop_first,
-    bint j_drop_first
+    bint j_drop_first,
+    bool i_has_missing,
+    bool j_has_missing
 ):
     """
     (X1.T @ diag(d) @ X2)[i, j] = sum_k X1[k, i] d[k] X2[k, j]
@@ -83,8 +100,13 @@ def sandwich_cat_cat(
     cdef int n_rows = len(rows)
     cdef int res_size = res.size
 
-    _sandwich_cat_cat(&d[0], &i_indices[0], &j_indices[0], &rows[0], n_rows,
-                        &res[0, 0], j_ncol, res_size, i_drop_first, j_drop_first)
+    if i_drop_first or j_drop_first or i_has_missing or j_has_missing:
+        _sandwich_cat_cat_complex(&d[0], &i_indices[0], &j_indices[0], &rows[0],
+                                  n_rows, &res[0, 0], j_ncol, res_size,
+                                  i_drop_first, j_drop_first)
+    else:
+        _sandwich_cat_cat_fast(&d[0], &i_indices[0], &j_indices[0], &rows[0],
+                               n_rows, &res[0, 0], j_ncol, res_size)
 
     return np.asarray(res)
 
