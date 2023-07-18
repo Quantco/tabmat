@@ -298,7 +298,11 @@ class CategoricalMatrix(MatrixBase):
 
         Test: matrix/test_categorical_matrix::test_recover_orig
         """
-        return self.cat.categories[self.cat.codes]
+        orig = self.cat.categories[self.cat.codes].to_numpy()
+        if self.has_missing:
+            orig = orig.view(np.ma.MaskedArray)
+            orig.mask = self.cat.codes == -1
+        return orig
 
     def _matvec_setup(
         self,
