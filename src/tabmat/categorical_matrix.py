@@ -237,6 +237,11 @@ class CategoricalMatrix(MatrixBase):
         drop the first level of the dummy encoding. This allows a CategoricalMatrix
         to be used in an unregularized setting.
 
+    missing_method: str {'fail'|'ignore'}, default 'fail'
+        How to handle missing values. Either "fail" or "zero". If "fail", an error
+        will be raised if there are missing values. If "zero", missing values will
+        represent all-zero indicator columns.
+
     dtype:
         data type
     """
@@ -249,8 +254,20 @@ class CategoricalMatrix(MatrixBase):
         column_name: Optional[str] = None,
         term_name: Optional[str] = None,
         column_name_format: str = "{name}[{category}]",
+        cat_missing_method: str = "fail",
     ):
+        if cat_missing_method not in ["fail", "zero"]:
+            raise ValueError(
+                f"cat_missing_method must be 'fail' or 'zero', not {cat_missing_method}"
+            )
+        self.missing_method = cat_missing_method
+
         if pd.isnull(cat_vec).any():
+            if self.missing_method == "fail":
+                raise ValueError(
+                    "Categorical data can't have missing values "
+                    "if cat_missing_method='fail'."
+                )
             self.has_missing = True
         else:
             self.has_missing = False

@@ -29,6 +29,7 @@ def from_pandas(
     cat_position: str = "expand",
     drop_first: bool = False,
     categorical_format: str = "{name}[{category}]",
+    cat_missing_method: str = "fail",
 ) -> MatrixBase:
     """
     Transform a pandas.DataFrame into an efficient SplitMatrix. For most users, this
@@ -58,6 +59,10 @@ def from_pandas(
         If true, categoricals variables will have their first category dropped.
         This allows multiple categorical variables to be included in an
         unregularized model. If False, all categories are included.
+    cat_missing_method: str {'fail'|'ignore'}, default 'fail'
+        How to handle missing values. Either "fail" or "zero". If "fail", an error
+        will be raised if there are missing values. If "zero", missing values will
+        represent all-zero indicator columns.
 
     Returns
     -------
@@ -87,6 +92,7 @@ def from_pandas(
                 column_name=colname,
                 term_name=colname,
                 column_name_format=categorical_format,
+                cat_missing_method=cat_missing_method,
             )
             if len(coldata.cat.categories) < cat_threshold:
                 (
