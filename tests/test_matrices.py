@@ -233,7 +233,7 @@ def test_to_array_standardized_mat(mat: tm.StandardizedMatrix):
 @pytest.mark.parametrize("mat", get_matrices())
 @pytest.mark.parametrize(
     "other_type",
-    [lambda x: x, np.asarray, tm.DenseMatrix],
+    [lambda x: x, np.asarray],
 )
 @pytest.mark.parametrize("cols", [None, [], [1], np.array([1])])
 @pytest.mark.parametrize("other_shape", [[], [1], [2]])
@@ -243,7 +243,7 @@ def test_matvec(
     """
     Mat.
 
-    other_type: Function transforming list to list, array, or DenseMatrix
+    t: Function transforming list to list, array, or DenseMatrix
     cols: Argument 1 to matvec, specifying which columns of the matrix (and
         which elements of 'other') to use
     other_shape: Second dimension of 'other.shape', if any. If other_shape is [], then
@@ -303,7 +303,7 @@ def process_mat_vec_subsets(mat, vec, mat_rows, mat_cols, vec_idxs):
 @pytest.mark.parametrize("mat", get_matrices())
 @pytest.mark.parametrize(
     "other_type",
-    [lambda x: x, np.array, tm.DenseMatrix],
+    [lambda x: x, np.array],
 )
 @pytest.mark.parametrize("rows", [None, [], [2], np.arange(2)])
 @pytest.mark.parametrize("cols", [None, [], [1], np.arange(1)])
@@ -373,7 +373,7 @@ def test_cross_sandwich(
 @pytest.mark.parametrize("mat", get_matrices())
 @pytest.mark.parametrize(
     "vec_type",
-    [lambda x: x, np.array, tm.DenseMatrix],
+    [lambda x: x, np.array],
 )
 @pytest.mark.parametrize("rows", [None, [], [1], np.arange(2)])
 @pytest.mark.parametrize("cols", [None, [], [0], np.arange(1)])
@@ -430,7 +430,7 @@ def test_transpose(mat):
 @pytest.mark.parametrize("mat", get_matrices())
 @pytest.mark.parametrize(
     "vec_type",
-    [lambda x: x, np.array, tm.DenseMatrix],
+    [lambda x: x, np.array],
 )
 def test_rmatmul(mat: Union[tm.MatrixBase, tm.StandardizedMatrix], vec_type):
     vec_as_list = [3.0, -0.1, 0]
@@ -559,6 +559,7 @@ def test_indexing_int_row(mat: Union[tm.MatrixBase, tm.StandardizedMatrix]):
 @pytest.mark.parametrize("mat", get_matrices())
 def test_indexing_range_row(mat: Union[tm.MatrixBase, tm.StandardizedMatrix]):
     res = mat[0:2, :]
+    assert res.ndim == 2
     if not isinstance(res, np.ndarray):
         res = res.A
     expected = mat.A[0:2, :]

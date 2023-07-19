@@ -33,9 +33,22 @@ class DenseMatrix(np.lib.mixins.NDArrayOperatorsMixin, MatrixBase):
     """
 
     def __init__(self, input_array):
+        input_array = np.asarray(input_array)
+
+        if input_array.ndim == 1:
+            input_array = input_array.reshape(-1, 1)
+        elif input_array.ndim > 2:
+            raise ValueError("Input array must be 1- or 2-dimensional")
+
         self._array = np.asarray(input_array)
 
     def __getitem__(self, key):
+        if not isinstance(key, tuple):
+            key = (key,)
+
+        # Always return a 2d array
+        key = tuple([key_i] if np.isscalar(key_i) else key_i for key_i in key)
+
         return type(self)(self._array.__getitem__(key))
 
     def __array__(self, dtype=None):
@@ -44,7 +57,8 @@ class DenseMatrix(np.lib.mixins.NDArrayOperatorsMixin, MatrixBase):
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         inputs = (x._array if isinstance(x, DenseMatrix) else x for x in inputs)
         result = getattr(ufunc, method)(*inputs, **kwargs)
-        if method in ["__call__", "accumulate"]:
+        if method in ("call", "accumulate") and ufunc.signature is None:
+            # Does not change shape
             return type(self)(result)
         else:
             return result
