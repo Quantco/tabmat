@@ -1,3 +1,4 @@
+import textwrap
 from typing import List, Optional, Union
 
 import numpy as np
@@ -68,6 +69,18 @@ class DenseMatrix(np.lib.mixins.NDArrayOperatorsMixin, MatrixBase):
 
     def __rmatmul__(self, other):
         return self._array.__rmatmul__(other)
+
+    def __str__(self):
+        return "{}x{} DenseMatrix:\n\n".format(*self.shape) + np.array_str(self._array)
+
+    def __repr__(self):
+        class_name = type(self).__name__
+        array_str = f"{class_name}({np.array2string(self._array, separator=', ')})"
+        return textwrap.indent(
+            array_str,
+            " " * (len(class_name) + 1),
+            predicate=lambda line: not line.startswith(class_name),
+        )
 
     @property
     def shape(self):
