@@ -59,10 +59,11 @@ def from_pandas(
         If true, categoricals variables will have their first category dropped.
         This allows multiple categorical variables to be included in an
         unregularized model. If False, all categories are included.
-    cat_missing_method: str {'fail'|'ignore'}, default 'fail'
-        How to handle missing values. Either "fail" or "zero". If "fail", an error
-        will be raised if there are missing values. If "zero", missing values will
-        represent all-zero indicator columns.
+    cat_missing_method: str {'fail'|'zero'|'convert'}, default 'fail'
+        How to handle missing values in categorical columns:
+        - if 'fail', raise an error if there are missing values
+        - if 'zero', missing values will represent all-zero indicator columns.
+        - if 'convert', missing values will be converted to the '(MISSING)' category.
 
     Returns
     -------

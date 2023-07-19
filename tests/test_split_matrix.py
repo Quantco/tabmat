@@ -308,7 +308,7 @@ def test_matvec(n_rows):
     np.testing.assert_allclose(mat.matvec(np.array(mat.shape[1] * [1])), n_cols)
 
 
-@pytest.mark.parametrize("cat_missing_method", ["fail", "zero"])
+@pytest.mark.parametrize("cat_missing_method", ["fail", "zero", "convert"])
 def test_from_pandas_missing(cat_missing_method):
     df = pd.DataFrame({"cat": pd.Categorical([1, 2, pd.NA, 1, 2, pd.NA])})
     if cat_missing_method == "fail":
@@ -318,3 +318,5 @@ def test_from_pandas_missing(cat_missing_method):
             from_pandas(df, cat_missing_method=cat_missing_method)
     elif cat_missing_method == "zero":
         assert from_pandas(df, cat_missing_method=cat_missing_method).shape == (6, 2)
+    elif cat_missing_method == "convert":
+        assert from_pandas(df, cat_missing_method=cat_missing_method).shape == (6, 3)

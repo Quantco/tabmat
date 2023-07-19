@@ -237,10 +237,10 @@ class CategoricalMatrix(MatrixBase):
         drop the first level of the dummy encoding. This allows a CategoricalMatrix
         to be used in an unregularized setting.
 
-    cat_missing_method: str {'fail'|'ignore'}, default 'fail'
-        How to handle missing values. Either "fail" or "zero". If "fail", an error
-        will be raised if there are missing values. If "zero", missing values will
-        represent all-zero indicator columns.
+    cat_missing_method: str {'fail'|'zero'|'convert'}, default 'fail'
+        - if 'fail', raise an error if there are missing values
+        - if 'zero', missing values will represent all-zero indicator columns.
+        - if 'convert', missing values will be converted to the '(MISSING)' category.
 
     dtype:
         data type
@@ -256,26 +256,40 @@ class CategoricalMatrix(MatrixBase):
         column_name_format: str = "{name}[{category}]",
         cat_missing_method: str = "fail",
     ):
-        if cat_missing_method not in ["fail", "zero"]:
+        if cat_missing_method not in ["fail", "zero", "convert"]:
             raise ValueError(
-                f"cat_missing_method must be 'fail' or 'zero', not {cat_missing_method}"
+                "cat_missing_method must be 'fail' 'zero' od 'convert', "
+                f" got {cat_missing_method}"
             )
-        self.missing_method = cat_missing_method
-
-        if pd.isnull(cat_vec).any():
-            if self.missing_method == "fail":
-                raise ValueError(
-                    "Categorical data can't have missing values "
-                    "if cat_missing_method='fail'."
-                )
-            self._has_missing = True
-        else:
-            self._has_missing = False
+        self._missing_method = cat_missing_method
+        self._missing_category = "(MISSING)"
 
         if isinstance(cat_vec, pd.Categorical):
             self.cat = cat_vec
         else:
             self.cat = pd.Categorical(cat_vec)
+
+        if pd.isnull(self.cat).any():
+            if self._missing_method == "fail":
+                raise ValueError(
+                    "Categorical data can't have missing values "
+                    "if cat_missing_method='fail'."
+                )
+
+            elif self._missing_method == "convert":
+                if self._missing_category not in self.cat.categories:
+                    self.cat = self.cat.add_categories([self._missing_category])
+                else:
+                    self.cat = self.cat.copy()
+
+                self.cat[pd.isnull(self.cat)] = self._missing_category
+                self._has_missing = False
+
+            else:
+                self._has_missing = True
+
+        else:
+            self._has_missing = False
 
         self.drop_first = drop_first
         self.shape = (len(self.cat), len(self.cat.categories) - int(drop_first))
@@ -299,9 +313,18 @@ class CategoricalMatrix(MatrixBase):
         Test: matrix/test_categorical_matrix::test_recover_orig
         """
         orig = self.cat.categories[self.cat.codes].to_numpy()
+
         if self._has_missing:
             orig = orig.view(np.ma.MaskedArray)
             orig.mask = self.cat.codes == -1
+        elif (
+            self._missing_method == "convert"
+            and self._missing_category in self.cat.categories
+        ):
+            orig = orig.view(np.ma.MaskedArray)
+            missing_code = self.cat.categories.get_loc(self._missing_category)
+            orig.mask = self.cat.codes == missing_code
+
         return orig
 
     def _matvec_setup(
