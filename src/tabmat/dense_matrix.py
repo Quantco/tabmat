@@ -80,10 +80,6 @@ class DenseMatrix(np.lib.mixins.NDArrayOperatorsMixin, MatrixBase):
         """Copy of the array, cast to a specified type."""
         return type(self)(self._array.astype(dtype, order, casting, copy))
 
-    def sum(self, *args, **kwargs):
-        """Return the sum of the array elements over the given axis."""
-        return self._array.sum(*args, **kwargs)
-
     def getcol(self, i):
         """Return matrix column at specified index."""
         return type(self)(self._array[:, [i]])
