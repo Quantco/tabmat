@@ -22,7 +22,7 @@ from .util import (
 )
 
 
-class SparseMatrix(sps.csc_matrix, MatrixBase):
+class SparseMatrix(MatrixBase):
     """
     A scipy.sparse csc matrix subclass that allows such objects to conform
     to the ``MatrixBase`` interface.
@@ -43,6 +43,15 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         if not self._array.has_sorted_indices:
             self._array.sort_indices()
         self._array_csr = None
+
+    def __getitem__(self, key):
+        if not isinstance(key, tuple):
+            key = (key,)
+
+        # Always return a 2d array
+        key = tuple([key_i] if np.isscalar(key_i) else key_i for key_i in key)
+
+        return type(self)(self._array.__getitem__(key))
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         from .dense_matrix import DenseMatrix
@@ -110,6 +119,24 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
                 self._array_csr.indptr = self._array_csr.indptr.astype(self.idx_dtype)
 
         return self._array_csr
+
+    def transpose(self):
+        """Returns a view of the array with axes transposed."""  # noqa: D401
+        return type(self)(self._array.T)
+
+    T = property(transpose)
+
+    def getcol(self, i):
+        """Return matrix column at specified index."""
+        return type(self)(self._array.getcol(i))
+
+    def toarray(self):
+        """Return a dense ndarray representation of the matrix."""
+        return self._array.toarray()
+
+    def dot(self, other):
+        """Return the dot product as a scipy sparse matrix."""
+        return self._array.dot(other)
 
     def sandwich(
         self, d: np.ndarray, rows: np.ndarray = None, cols: np.ndarray = None
@@ -206,7 +233,7 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
             res = fast_fnc(vec[:, 0])[:, None]
         else:
             res = matrix_matvec(
-                self[np.ix_(rows, cols)], vec[rows] if transpose else vec[cols]
+                self[np.ix_(rows, cols)]._array, vec[rows] if transpose else vec[cols]
             )
         if out is None:
             return res
