@@ -31,29 +31,65 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
     """
 
     def __init__(self, arg1, shape=None, dtype=None, copy=False):
-        super().__init__(arg1, shape, dtype, copy)
-        self.idx_dtype = max(self.indices.dtype, self.indptr.dtype)
-        if self.indices.dtype != self.idx_dtype:
-            self.indices = self.indices.astype(self.idx_dtype)
-        if self.indptr.dtype != self.idx_dtype:
-            self.indptr = self.indptr.astype(self.idx_dtype)
+        self._array = sps.csc_matrix(arg1, shape, dtype, copy)
+
+        self.idx_dtype = max(self._array.indices.dtype, self._array.indptr.dtype)
+        if self._array.indices.dtype != self.idx_dtype:
+            self._array.indices = self._array.indices.astype(self.idx_dtype)
+        if self._array.indptr.dtype != self.idx_dtype:
+            self._array.indptr = self._array.indptr.astype(self.idx_dtype)
         assert self.indices.dtype == self.idx_dtype
 
-        if not self.has_sorted_indices:
-            self.sort_indices()
-        self._x_csr = None
+        if not self._array.has_sorted_indices:
+            self._array.sort_indices()
+        self._array_csr = None
 
     @property
-    def x_csr(self):
-        """Cache the CSR representation of the matrix."""
-        if self._x_csr is None:
-            self._x_csr = self.tocsr(copy=False)
-            if self._x_csr.indices.dtype != self.idx_dtype:
-                self._x_csr.indices = self._x_csr.indices.astype(self.idx_dtype)
-            if self._x_csr.indptr.dtype != self.idx_dtype:
-                self._x_csr.indptr = self._x_csr.indptr.astype(self.idx_dtype)
+    def shape(self):
+        """Tuple of array dimensions."""
+        return self._array.shape
 
-        return self._x_csr
+    @property
+    def ndim(self):
+        """Number of array dimensions."""  # noqa: D401
+        return self._array.ndim
+
+    @property
+    def dtype(self):
+        """Data-type of the array’s elements."""  # noqa: D401
+        return self._array.dtype
+
+    @property
+    def indices(self):
+        """Indices of the matrix."""  # noqa: D401
+        return self._array.indices
+
+    @property
+    def indptr(self):
+        """Indptr of the matrix."""  # noqa: D401
+        return self._array.indptr
+
+    @property
+    def data(self):
+        """Data of the matrix."""  # noqa: D401
+        return self._array.data
+
+    @property
+    def array_csc(self):
+        """Return the CSC representation of the matrix."""
+        return self._array
+
+    @property
+    def array_csr(self):
+        """Cache the CSR representation of the matrix."""
+        if self._array_csr is None:
+            self._array_csr = self._array.tocsr(copy=False)
+            if self._array_csr.indices.dtype != self.idx_dtype:
+                self._array_csr.indices = self._array_csr.indices.astype(self.idx_dtype)
+            if self._array_csr.indptr.dtype != self.idx_dtype:
+                self._array_csr.indptr = self._array_csr.indptr.astype(self.idx_dtype)
+
+        return self._array_csr
 
     def sandwich(
         self, d: np.ndarray, rows: np.ndarray = None, cols: np.ndarray = None
@@ -68,7 +104,7 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
             )
 
         rows, cols = setup_restrictions(self.shape, rows, cols, dtype=self.idx_dtype)
-        return sparse_sandwich(self, self.x_csr, d, rows, cols)
+        return sparse_sandwich(self, self.array_csr, d, rows, cols)
 
     def _cross_sandwich(
         self,
@@ -112,7 +148,7 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
 
         rows, L_cols = setup_restrictions(self.shape, rows, L_cols)
         R_cols = set_up_rows_or_cols(R_cols, B.shape[1])
-        return csr_dense_sandwich(self.x_csr, B, d, rows, L_cols, R_cols)
+        return csr_dense_sandwich(self.array_csr, B, d, rows, L_cols, R_cols)
 
     def _matvec_helper(
         self,
@@ -129,9 +165,11 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         unrestricted_cols = cols is None or len(cols) == self.shape[1]
         if unrestricted_rows and unrestricted_cols and vec.ndim == 1:
             if transpose:
-                return csc_rmatvec_unrestricted(self, vec, out, self.indices)
+                return csc_rmatvec_unrestricted(self.array_csc, vec, out, self.indices)
             else:
-                return csr_matvec_unrestricted(self.x_csr, vec, out, self.x_csr.indices)
+                return csr_matvec_unrestricted(
+                    self.array_csr, vec, out, self.array_csr.indices
+                )
 
         matrix_matvec = lambda x, v: sps.csc_matrix.dot(x, v)
         if transpose:
@@ -139,9 +177,9 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
 
         rows, cols = setup_restrictions(self.shape, rows, cols, dtype=self.idx_dtype)
         if transpose:
-            fast_fnc = lambda v: csc_rmatvec(self, v, rows, cols)
+            fast_fnc = lambda v: csc_rmatvec(self.array_csc, v, rows, cols)
         else:
-            fast_fnc = lambda v: csr_matvec(self.x_csr, v, rows, cols)
+            fast_fnc = lambda v: csr_matvec(self.array_csr, v, rows, cols)
         if vec.ndim == 1:
             res = fast_fnc(vec)
         elif vec.ndim == 2 and vec.shape[1] == 1:
@@ -180,7 +218,11 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         """Get standard deviations of columns."""
         sqrt_arg = (
             transpose_square_dot_weights(
-                self.data, self.indices, self.indptr, weights, weights.dtype
+                self._array.data,
+                self._array.indices,
+                self._array.indptr,
+                weights,
+                weights.dtype,
             )
             - col_means**2
         )
@@ -192,7 +234,7 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
 
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
         """Return SparseMatrix cast to new type."""
-        return super().astype(dtype, casting, copy)
+        return type(self)(self._array.astype(dtype, casting, copy))
 
     def multiply(self, other):
         """Element-wise multiplication.
@@ -202,5 +244,5 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         ``self.shape[0]``.
         """
         if other.ndim == 1:
-            return SparseMatrix(super().multiply(other[:, np.newaxis]))
-        return SparseMatrix(super().multiply(other))
+            return type(self)(self._array.multiply(other[:, np.newaxis]))
+        return type(self)(self._array.multiply(other))
