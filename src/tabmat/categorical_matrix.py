@@ -458,6 +458,8 @@ class CategoricalMatrix(MatrixBase):
             return self._cross_dense(np.asarray(other), d, rows, L_cols, R_cols)
         if isinstance(other, sps.csc_matrix):
             return self._cross_sparse(other, d, rows, L_cols, R_cols)
+        if isinstance(other, SparseMatrix):
+            return self._cross_sparse(other.array_csc, d, rows, L_cols, R_cols)
         if isinstance(other, CategoricalMatrix):
             return self._cross_categorical(other, d, rows, L_cols, R_cols)
         raise TypeError

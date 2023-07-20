@@ -75,8 +75,14 @@ def _combine_matrices(matrices, indices):
     n_row = matrices[0].shape[0]
 
     for mat_type_, stack_fn in [
-        (DenseMatrix, np.hstack),
-        (SparseMatrix, sps.hstack),
+        (
+            DenseMatrix,
+            lambda matrices: np.hstack([mat._array for mat in matrices]),
+        ),
+        (
+            SparseMatrix,
+            lambda matrices: sps.hstack([mat._array for mat in matrices]),
+        ),
     ]:
         this_type_matrices = [
             i for i, mat in enumerate(matrices) if isinstance(mat, mat_type_)
