@@ -58,7 +58,7 @@ class DenseMatrix(np.lib.mixins.NDArrayOperatorsMixin, MatrixBase):
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         inputs = (x._array if isinstance(x, DenseMatrix) else x for x in inputs)
         result = getattr(ufunc, method)(*inputs, **kwargs)
-        if method in ("call", "accumulate") and ufunc.signature is None:
+        if method in ("__call__", "accumulate") and ufunc.signature is None:
             # Does not change shape
             return type(self)(result)
         else:
