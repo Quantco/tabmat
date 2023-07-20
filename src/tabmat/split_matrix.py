@@ -29,7 +29,7 @@ def as_mx(a: Any):
         return a
     elif sps.issparse(a):
         return SparseMatrix(a)
-    elif isinstance(a, np.ndarray):
+    elif isinstance(a, (np.ndarray, DenseMatrix)):
         return DenseMatrix(a)
     else:
         raise ValueError(f"Cannot convert type {type(a)} to Matrix.")
