@@ -44,6 +44,26 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
             self._array.sort_indices()
         self._array_csr = None
 
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        from .dense_matrix import DenseMatrix
+
+        if ufunc.nin == 1 and ufunc.nout == 1:
+            if getattr(ufunc, method)(0) == 0:
+                result_matrix = sps.csc_matrix(
+                    (
+                        getattr(ufunc, method)(self._array.data, **kwargs),
+                        self._array.indices,
+                        self._array.indptr,
+                    ),
+                    shape=self._array.shape,
+                )
+                return type(self)(result_matrix)
+            else:
+                result_matrix = getattr(ufunc, method)(self._array.todense(), **kwargs)
+                return DenseMatrix(result_matrix)
+        else:
+            return NotImplemented
+
     @property
     def shape(self):
         """Tuple of array dimensions."""
@@ -200,8 +220,6 @@ class SparseMatrix(sps.csc_matrix, MatrixBase):
         """Perform self[:, cols] @ other[cols]."""
         check_matvec_out_shape(self, out)
         return self._matvec_helper(vec, None, cols, out, False)
-
-    __array_priority__ = 12
 
     def transpose_matvec(
         self,
