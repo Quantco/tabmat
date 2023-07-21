@@ -56,6 +56,9 @@ class SparseMatrix(MatrixBase):
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         from .dense_matrix import DenseMatrix
 
+        if "out" in kwargs:
+            raise NotImplementedError("out argument is not supported")
+
         if ufunc.nin == 1 and ufunc.nout == 1:
             if getattr(ufunc, method)(0) == 0:
                 result_matrix = sps.csc_matrix(
