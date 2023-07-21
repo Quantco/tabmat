@@ -70,6 +70,17 @@ class SparseMatrix(MatrixBase):
             else:
                 result_matrix = getattr(ufunc, method)(self._array.todense(), **kwargs)
                 return DenseMatrix(result_matrix)
+
+        elif ufunc == np.multiply:
+            if isinstance(inputs[0], SparseMatrix) and isinstance(
+                inputs[1], SparseMatrix
+            ):
+                return SparseMatrix(inputs[0].array_csc.multiply(inputs[1].array_csc))
+            elif isinstance(inputs[0], SparseMatrix):
+                return SparseMatrix(inputs[0].array_csc.multiply(inputs[1]))
+            else:
+                return SparseMatrix(inputs[1].array_csc.multiply(inputs[0]))
+
         else:
             return NotImplemented
 
