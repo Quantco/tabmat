@@ -72,14 +72,12 @@ class SparseMatrix(MatrixBase):
                 return DenseMatrix(result_matrix)
 
         elif ufunc == np.multiply:
-            if isinstance(inputs[0], SparseMatrix) and isinstance(
-                inputs[1], SparseMatrix
-            ):
-                return SparseMatrix(inputs[0].array_csc.multiply(inputs[1].array_csc))
-            elif isinstance(inputs[0], SparseMatrix):
-                return SparseMatrix(inputs[0].array_csc.multiply(inputs[1]))
+            if isinstance(inputs[0], type(self)) and isinstance(inputs[1], type(self)):
+                return type(self)(inputs[0].array_csc.multiply(inputs[1].array_csc))
+            elif isinstance(inputs[0], type(self)):
+                return type(self)(inputs[0].array_csc.multiply(inputs[1]))
             else:
-                return SparseMatrix(inputs[1].array_csc.multiply(inputs[0]))
+                return type(self)(inputs[1].array_csc.multiply(inputs[0]))
 
         else:
             return NotImplemented
