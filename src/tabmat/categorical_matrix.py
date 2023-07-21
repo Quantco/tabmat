@@ -265,6 +265,12 @@ class CategoricalMatrix(MatrixBase):
         self.x_csc: Optional[Tuple[Optional[np.ndarray], np.ndarray, np.ndarray]] = None
         self.dtype = np.dtype(dtype)
 
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        inputs = (
+            x.to_sparse_matrix() if isinstance(x, type(self)) else x for x in inputs
+        )
+        return getattr(ufunc, method)(*inputs, **kwargs)
+
     def recover_orig(self) -> np.ndarray:
         """
         Return 1d numpy array with same data as what was initially fed to __init__.
@@ -490,6 +496,12 @@ class CategoricalMatrix(MatrixBase):
             (data, self.indices, np.arange(self.shape[0] + 1, dtype=int)),
             shape=self.shape,
         )
+
+    def to_sparse_matrix(self):
+        """Return a tabmat.SparseMatrix representation."""
+        from .sparse_matrix import SparseMatrix
+
+        return SparseMatrix(self.tocsr())
 
     def toarray(self) -> np.ndarray:
         """Return array representation of matrix."""
