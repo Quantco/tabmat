@@ -1,3 +1,4 @@
+import numbers
 import textwrap
 from typing import List, Optional, Union
 
@@ -56,7 +57,9 @@ class DenseMatrix(np.lib.mixins.NDArrayOperatorsMixin, MatrixBase):
         return self._array.astype(dtype, copy=False)
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
-        if not all(isinstance(x, (np.ndarray, type(self))) for x in inputs):
+        if not all(
+            isinstance(x, (np.ndarray, type(self), numbers.Number)) for x in inputs
+        ):
             return NotImplemented
 
         inputs = (x._array if isinstance(x, type(self)) else x for x in inputs)
