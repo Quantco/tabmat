@@ -131,6 +131,10 @@ class SparseMatrix(MatrixBase):
 
         return self._array_csr
 
+    def tocsc(self, copy=False):
+        """Return the matrix in CSC format."""
+        return self._array.tocsc(copy=copy)
+
     def transpose(self):
         """Returns a view of the array with axes transposed."""  # noqa: D401
         return type(self)(self._array.T)
