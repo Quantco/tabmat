@@ -454,10 +454,8 @@ class CategoricalMatrix(MatrixBase):
         """Perform a sandwich product: X.T @ diag(d) @ Y."""
         from .dense_matrix import DenseMatrix
 
-        if isinstance(other, (np.ndarray, DenseMatrix)):
+        if isinstance(other, DenseMatrix):
             return self._cross_dense(np.asarray(other), d, rows, L_cols, R_cols)
-        if isinstance(other, sps.csc_matrix):
-            return self._cross_sparse(other, d, rows, L_cols, R_cols)
         if isinstance(other, SparseMatrix):
             return self._cross_sparse(other.array_csc, d, rows, L_cols, R_cols)
         if isinstance(other, CategoricalMatrix):

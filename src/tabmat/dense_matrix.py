@@ -56,6 +56,9 @@ class DenseMatrix(np.lib.mixins.NDArrayOperatorsMixin, MatrixBase):
         return self._array.astype(dtype, copy=False)
 
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        if not all(isinstance(x, (np.ndarray, DenseMatrix)) for x in inputs):
+            return NotImplemented
+
         inputs = (x._array if isinstance(x, DenseMatrix) else x for x in inputs)
         result = getattr(ufunc, method)(*inputs, **kwargs)
         if method in ("__call__", "accumulate") and ufunc.signature is None:
