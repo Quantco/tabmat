@@ -1,6 +1,6 @@
 repos:
  - repo: https://github.com/Quantco/pre-commit-mirrors-black
-   rev: 23.3.0
+   rev: 23.7.0
    hooks:
      - id: black-conda
        additional_dependencies: [flake8-docstrings, flake8-rst-docstrings]
@@ -33,7 +33,7 @@ repos:
       additional_dependencies:
        - python=3.8
  - repo: https://github.com/Quantco/pre-commit-mirrors-pyupgrade
-   rev: 3.7.0
+   rev: 3.9.0
    hooks:
     - id: pyupgrade-conda
  - repo: https://github.com/Quantco/pre-commit-mirrors-cython-lint
