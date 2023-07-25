@@ -53,37 +53,7 @@ class SparseMatrix(MatrixBase):
 
         return type(self)(self._array.__getitem__(key))
 
-    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
-        from .dense_matrix import DenseMatrix
-
-        if "out" in kwargs:
-            raise NotImplementedError("out argument is not supported")
-
-        if ufunc.nin == 1 and ufunc.nout == 1:
-            if getattr(ufunc, method)(0) == 0:
-                result_matrix = sps.csc_matrix(
-                    (
-                        getattr(ufunc, method)(self._array.data, **kwargs),
-                        self._array.indices,
-                        self._array.indptr,
-                    ),
-                    shape=self._array.shape,
-                )
-                return type(self)(result_matrix)
-            else:
-                result_matrix = getattr(ufunc, method)(self._array.todense(), **kwargs)
-                return DenseMatrix(result_matrix)
-
-        elif ufunc == np.multiply:
-            if isinstance(inputs[0], type(self)) and isinstance(inputs[1], type(self)):
-                return type(self)(inputs[0].array_csc.multiply(inputs[1].array_csc))
-            elif isinstance(inputs[0], type(self)):
-                return type(self)(inputs[0].array_csc.multiply(inputs[1]))
-            else:
-                return type(self)(inputs[1].array_csc.multiply(inputs[0]))
-
-        else:
-            return NotImplemented
+    __array_ufunc__ = None
 
     @property
     def shape(self):
@@ -181,8 +151,8 @@ class SparseMatrix(MatrixBase):
         from .categorical_matrix import CategoricalMatrix
         from .dense_matrix import DenseMatrix
 
-        if isinstance(other, (np.ndarray, DenseMatrix)):
-            return self.sandwich_dense(np.asarray(other), d, rows, L_cols, R_cols)
+        if isinstance(other, DenseMatrix):
+            return self.sandwich_dense(other._array, d, rows, L_cols, R_cols)
 
         if isinstance(other, CategoricalMatrix):
             return other._cross_sandwich(self, d, rows, R_cols, L_cols).T

@@ -265,11 +265,7 @@ class CategoricalMatrix(MatrixBase):
         self.x_csc: Optional[Tuple[Optional[np.ndarray], np.ndarray, np.ndarray]] = None
         self.dtype = np.dtype(dtype)
 
-    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
-        inputs = (
-            x.to_sparse_matrix() if isinstance(x, type(self)) else x for x in inputs
-        )
-        return getattr(ufunc, method)(*inputs, **kwargs)
+    __array_ufunc__ = None
 
     def recover_orig(self) -> np.ndarray:
         """
@@ -461,7 +457,7 @@ class CategoricalMatrix(MatrixBase):
         from .dense_matrix import DenseMatrix
 
         if isinstance(other, DenseMatrix):
-            return self._cross_dense(np.asarray(other), d, rows, L_cols, R_cols)
+            return self._cross_dense(other._array, d, rows, L_cols, R_cols)
         if isinstance(other, SparseMatrix):
             return self._cross_sparse(other.array_csc, d, rows, L_cols, R_cols)
         if isinstance(other, CategoricalMatrix):
