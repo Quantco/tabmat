@@ -18,7 +18,7 @@ from .util import (
 )
 
 
-class DenseMatrix(np.lib.mixins.NDArrayOperatorsMixin, MatrixBase):
+class DenseMatrix(MatrixBase):
     """
     A ``numpy.ndarray`` subclass with several additional functions that allow
     it to share the MatrixBase API with SparseMatrix and CategoricalMatrix.

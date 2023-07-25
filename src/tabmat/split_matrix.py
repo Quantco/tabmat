@@ -1,10 +1,9 @@
 import warnings
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from scipy import sparse as sps
 
-from .categorical_matrix import CategoricalMatrix
 from .dense_matrix import DenseMatrix
 from .ext.split import is_sorted, split_col_subsets
 from .matrix_base import MatrixBase
@@ -29,7 +28,7 @@ def as_mx(a: Any):
         return a
     elif sps.issparse(a):
         return SparseMatrix(a)
-    elif isinstance(a, (np.ndarray, DenseMatrix)):
+    elif isinstance(a, np.ndarray):
         return DenseMatrix(a)
     else:
         raise ValueError(f"Cannot convert type {type(a)} to Matrix.")
@@ -135,7 +134,7 @@ class SplitMatrix(MatrixBase):
 
     def __init__(
         self,
-        matrices: List[Union[DenseMatrix, SparseMatrix, CategoricalMatrix]],
+        matrices: Sequence[MatrixBase],
         indices: Optional[List[np.ndarray]] = None,
     ):
         flatten_matrices = []
@@ -149,7 +148,7 @@ class SplitMatrix(MatrixBase):
             if isinstance(mat, SplitMatrix):
                 # Flatten out the SplitMatrix
                 current_idx = 0
-                for iind, imat in zip(mat.indices, mat.matrices):
+                for iind, imat in zip(mat.indices, mat.matrices):  # type: ignore
                     flatten_matrices.append(imat)
                     index_corrections.append(
                         iind - np.arange(len(iind), dtype=np.int64) - current_idx

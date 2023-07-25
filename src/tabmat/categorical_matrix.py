@@ -466,7 +466,7 @@ class CategoricalMatrix(MatrixBase):
 
     # TODO: best way to return this depends on the use case. See what that is
     # See how csr getcol works
-    def getcol(self, i: int) -> sps.csc_matrix:
+    def getcol(self, i: int) -> SparseMatrix:
         """Return matrix column at specified index."""
         i %= self.shape[1]  # wrap-around indexing
 
@@ -474,7 +474,7 @@ class CategoricalMatrix(MatrixBase):
             i += 1
 
         col_i = sps.csc_matrix((self.indices == i).astype(int)[:, None])
-        return col_i
+        return SparseMatrix(col_i)
 
     def tocsr(self) -> sps.csr_matrix:
         """Return scipy csr representation of matrix."""
