@@ -1,5 +1,5 @@
 import warnings
-from typing import Any, List, Optional, Sequence, Tuple, Union
+from typing import List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from scipy import sparse as sps
@@ -16,7 +16,7 @@ from .util import (
 )
 
 
-def as_mx(a: Any):
+def as_tabmat(a: Union[MatrixBase, StandardizedMatrix, np.ndarray, sps.spmatrix]):
     """Convert an array to a corresponding MatrixBase type.
 
     If the input is already a MatrixBase, return untouched.
@@ -27,11 +27,35 @@ def as_mx(a: Any):
     if isinstance(a, (MatrixBase, StandardizedMatrix)):
         return a
     elif sps.issparse(a):
-        return SparseMatrix(a)
+        return SparseMatrix(a.tocsc(copy=False))
     elif isinstance(a, np.ndarray):
         return DenseMatrix(a)
     else:
         raise ValueError(f"Cannot convert type {type(a)} to Matrix.")
+
+
+def hstack(tup: Sequence[Union[MatrixBase, np.ndarray, sps.spmatrix]]) -> MatrixBase:
+    """Stack arrays in sequence horizontally (column wise).
+
+    This is equivalent to concatenation along the second axis,
+    except for 1-D arrays where it concatenates along the first axis.
+
+    Parameters
+    ----------
+    tup: sequence of arrays
+        The arrays must have the same shape along all but the second axis.
+    """
+    matrices = [as_tabmat(a) for a in tup]
+
+    if len(matrices) == 0:
+        raise ValueError("Need at least one array to concatenate.")
+
+    if all(isinstance(mat, SparseMatrix) for mat in matrices):
+        return SparseMatrix(sps.hstack([mat._array for mat in matrices]))
+    elif all(isinstance(mat, DenseMatrix) for mat in matrices):
+        return DenseMatrix(np.hstack([mat._array for mat in matrices]))
+    else:
+        return SplitMatrix(matrices)
 
 
 def _prepare_out_array(out: Optional[np.ndarray], out_shape, out_dtype):
