@@ -22,7 +22,14 @@ def cat_vec(missing):
 @pytest.mark.parametrize("cat_missing_method", ["fail", "zero", "convert"])
 def test_recover_orig(cat_vec, vec_dtype, drop_first, missing, cat_missing_method):
     if missing and cat_missing_method == "fail":
-        pytest.skip("missing values not supported")
+        with pytest.raises(
+            ValueError, match="Categorical data can't have missing values"
+        ):
+            CategoricalMatrix(
+                cat_vec, drop_first=drop_first, cat_missing_method=cat_missing_method
+            )
+        return
+
     orig_recovered = CategoricalMatrix(
         cat_vec, drop_first=drop_first, cat_missing_method=cat_missing_method
     ).recover_orig()
@@ -37,7 +44,14 @@ def test_csr_matvec_categorical(
     cat_vec, vec_dtype, drop_first, missing, cat_missing_method
 ):
     if missing and cat_missing_method == "fail":
-        pytest.skip("missing values not supported")
+        with pytest.raises(
+            ValueError, match="Categorical data can't have missing values"
+        ):
+            CategoricalMatrix(
+                cat_vec, drop_first=drop_first, cat_missing_method=cat_missing_method
+            )
+        return
+
     mat = pd.get_dummies(
         cat_vec,
         drop_first=drop_first,
@@ -57,7 +71,14 @@ def test_csr_matvec_categorical(
 @pytest.mark.parametrize("cat_missing_method", ["fail", "zero", "convert"])
 def test_tocsr(cat_vec, drop_first, missing, cat_missing_method):
     if missing and cat_missing_method == "fail":
-        pytest.skip("missing values not supported")
+        with pytest.raises(
+            ValueError, match="Categorical data can't have missing values"
+        ):
+            CategoricalMatrix(
+                cat_vec, drop_first=drop_first, cat_missing_method=cat_missing_method
+            )
+        return
+
     cat_mat = CategoricalMatrix(
         cat_vec, drop_first=drop_first, cat_missing_method=cat_missing_method
     )
@@ -76,7 +97,14 @@ def test_tocsr(cat_vec, drop_first, missing, cat_missing_method):
 @pytest.mark.parametrize("cat_missing_method", ["fail", "zero", "convert"])
 def test_transpose_matvec(cat_vec, drop_first, missing, cat_missing_method):
     if missing and cat_missing_method == "fail":
-        pytest.skip("missing values not supported")
+        with pytest.raises(
+            ValueError, match="Categorical data can't have missing values"
+        ):
+            CategoricalMatrix(
+                cat_vec, drop_first=drop_first, cat_missing_method=cat_missing_method
+            )
+        return
+
     cat_mat = CategoricalMatrix(
         cat_vec, drop_first=drop_first, cat_missing_method=cat_missing_method
     )
@@ -96,7 +124,14 @@ def test_transpose_matvec(cat_vec, drop_first, missing, cat_missing_method):
 @pytest.mark.parametrize("cat_missing_method", ["fail", "zero", "convert"])
 def test_multiply(cat_vec, drop_first, missing, cat_missing_method):
     if missing and cat_missing_method == "fail":
-        pytest.skip("missing values not supported")
+        with pytest.raises(
+            ValueError, match="Categorical data can't have missing values"
+        ):
+            CategoricalMatrix(
+                cat_vec, drop_first=drop_first, cat_missing_method=cat_missing_method
+            )
+        return
+
     cat_mat = CategoricalMatrix(
         cat_vec, drop_first=drop_first, cat_missing_method=cat_missing_method
     )
@@ -142,17 +177,25 @@ def test_cat_missing_name(cat_missing_name):
 @pytest.mark.parametrize("missing", [True, False], ids=["missing", "no_missing"])
 @pytest.mark.parametrize("cat_missing_method", ["fail", "zero", "convert"])
 def test_categorical_indexing(drop_first, missing, cat_missing_method):
-    if missing and cat_missing_method == "fail":
-        pytest.skip("missing values not supported")
     if not missing:
-        catvec = [0, 1, 2, 0, 1, 2, 0, 1, 2, 3, 3]
+        cat_vec = [0, 1, 2, 0, 1, 2, 0, 1, 2, 3, 3]
     else:
-        catvec = [0, None, 2, 0, None, 2, 0, None, 2, 3, 3]
+        cat_vec = [0, None, 2, 0, None, 2, 0, None, 2, 3, 3]
+
+    if missing and cat_missing_method == "fail":
+        with pytest.raises(
+            ValueError, match="Categorical data can't have missing values"
+        ):
+            CategoricalMatrix(
+                cat_vec, drop_first=drop_first, cat_missing_method=cat_missing_method
+            )
+        return
+
     mat = CategoricalMatrix(
-        catvec, drop_first=drop_first, cat_missing_method=cat_missing_method
+        cat_vec, drop_first=drop_first, cat_missing_method=cat_missing_method
     )
     expected = pd.get_dummies(
-        catvec,
+        cat_vec,
         drop_first=drop_first,
         dummy_na=cat_missing_method == "convert" and missing,
     ).to_numpy()[:, [0, 1]]
