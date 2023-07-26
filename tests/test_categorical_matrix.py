@@ -1,3 +1,5 @@
+import re
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -161,7 +163,8 @@ def test_cat_missing_name(cat_missing_name):
     vec = [None, "(MISSING)", "__None__", "a", "b"]
     if cat_missing_name in vec:
         with pytest.raises(
-            ValueError, match="new categories must not include old categories"
+            ValueError,
+            match=re.escape(f"Missing category {cat_missing_name} already exists."),
         ):
             CategoricalMatrix(
                 vec, cat_missing_method="convert", cat_missing_name=cat_missing_name

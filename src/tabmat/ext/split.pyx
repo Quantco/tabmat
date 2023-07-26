@@ -37,7 +37,7 @@ def sandwich_cat_dense(
     int[:] rows,
     int[:] j_cols,
     bool is_c_contiguous,
-    bool has_missing,
+    bool has_missings,
     bint drop_first
 ):
     cdef int nj_rows = mat_j.shape[0]
@@ -58,7 +58,7 @@ def sandwich_cat_dense(
 
     cdef floating* mat_j_p = <floating*>mat_j.data
 
-    if (not drop_first) and (not has_missing):
+    if (not drop_first) and (not has_missings):
         if is_c_contiguous:
             _sandwich_cat_denseC_fast(d_p, i_indices_p, rows_p, n_active_rows, j_cols_p,
                                       nj_active_cols, &res[0, 0], res_size, mat_j_p,
@@ -90,8 +90,8 @@ def sandwich_cat_cat(
     dtype,
     bint i_drop_first,
     bint j_drop_first,
-    bool i_has_missing,
-    bool j_has_missing
+    bool i_has_missings,
+    bool j_has_missings
 ):
     """
     (X1.T @ diag(d) @ X2)[i, j] = sum_k X1[k, i] d[k] X2[k, j]
@@ -100,7 +100,7 @@ def sandwich_cat_cat(
     cdef int n_rows = len(rows)
     cdef int res_size = res.size
 
-    if i_drop_first or j_drop_first or i_has_missing or j_has_missing:
+    if i_drop_first or j_drop_first or i_has_missings or j_has_missings:
         _sandwich_cat_cat_complex(&d[0], &i_indices[0], &j_indices[0], &rows[0],
                                   n_rows, &res[0, 0], j_ncol, res_size,
                                   i_drop_first, j_drop_first)

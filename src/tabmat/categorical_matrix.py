@@ -245,7 +245,8 @@ class CategoricalMatrix(MatrixBase):
 
     cat_missing_name: str, default '(MISSING)'
         Name of the category to which missing values will be converted if
-        ``cat_missing_method='convert'``.
+        ``cat_missing_method='convert'``. If this category already exists, an error
+        will be raised.
 
     dtype:
         data type
@@ -264,7 +265,7 @@ class CategoricalMatrix(MatrixBase):
     ):
         if cat_missing_method not in ["fail", "zero", "convert"]:
             raise ValueError(
-                "cat_missing_method must be 'fail' 'zero' od 'convert', "
+                "cat_missing_method must be one of 'fail' 'zero' or 'convert', "
                 f" got {cat_missing_method}"
             )
         self._missing_method = cat_missing_method
@@ -283,16 +284,21 @@ class CategoricalMatrix(MatrixBase):
                 )
 
             elif self._missing_method == "convert":
+                if self._missing_category in self.cat.categories:
+                    raise ValueError(
+                        f"Missing category {self._missing_category} already exists."
+                    )
+
                 self.cat = self.cat.add_categories([self._missing_category])
 
                 self.cat[pd.isnull(self.cat)] = self._missing_category
-                self._has_missing = False
+                self._has_missings = False
 
             else:
-                self._has_missing = True
+                self._has_missings = True
 
         else:
-            self._has_missing = False
+            self._has_missings = False
 
         self.drop_first = drop_first
         self.shape = (len(self.cat), len(self.cat.categories) - int(drop_first))
@@ -317,7 +323,7 @@ class CategoricalMatrix(MatrixBase):
         """
         orig = self.cat.categories[self.cat.codes].to_numpy()
 
-        if self._has_missing:
+        if self._has_missings:
             orig = orig.view(np.ma.MaskedArray)
             orig.mask = self.cat.codes == -1
         elif (
@@ -384,7 +390,7 @@ class CategoricalMatrix(MatrixBase):
         if out is None:
             out = np.zeros(self.shape[0], dtype=other_m.dtype)
 
-        if self.drop_first or self._has_missing:
+        if self.drop_first or self._has_missings:
             matvec_complex(
                 self.indices,
                 other_m,
@@ -457,7 +463,7 @@ class CategoricalMatrix(MatrixBase):
         if cols is not None:
             cols = set_up_rows_or_cols(cols, self.shape[1])
 
-        if self.drop_first or self._has_missing:
+        if self.drop_first or self._has_missings:
             transpose_matvec_complex(
                 self.indices,
                 vec,
@@ -500,7 +506,7 @@ class CategoricalMatrix(MatrixBase):
         """
         d = np.asarray(d)
         rows = set_up_rows_or_cols(rows, self.shape[0])
-        if self.drop_first or self._has_missing:
+        if self.drop_first or self._has_missings:
             res_diag = sandwich_categorical_complex(
                 self.indices, d, rows, d.dtype, self.shape[1], self.drop_first
             )
@@ -552,7 +558,7 @@ class CategoricalMatrix(MatrixBase):
 
     def tocsr(self) -> sps.csr_matrix:
         """Return scipy csr representation of matrix."""
-        if self.drop_first or self._has_missing:
+        if self.drop_first or self._has_missings:
             nnz, indices, indptr = subset_categorical_complex(
                 self.indices, self.shape[1], self.drop_first
             )
@@ -645,7 +651,7 @@ class CategoricalMatrix(MatrixBase):
             rows,
             R_cols,
             is_c_contiguous,
-            has_missing=self._has_missing,
+            has_missings=self._has_missings,
             drop_first=self.drop_first,
         )
 
@@ -677,8 +683,8 @@ class CategoricalMatrix(MatrixBase):
             d.dtype,
             self.drop_first,
             other.drop_first,
-            self._has_missing,
-            other._has_missing,
+            self._has_missings,
+            other._has_missings,
         )
 
         res = _row_col_indexing(res, L_cols, R_cols)
@@ -709,7 +715,7 @@ class CategoricalMatrix(MatrixBase):
                 f"Shapes do not match. Expected length of {self.shape[0]}. Got {len(other)}."
             )
 
-        if self.drop_first or self._has_missing:
+        if self.drop_first or self._has_missings:
             return SparseMatrix(
                 sps.csr_matrix(
                     multiply_complex(
