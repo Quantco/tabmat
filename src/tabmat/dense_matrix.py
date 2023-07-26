@@ -105,6 +105,10 @@ class DenseMatrix(MatrixBase):
         """Return array representation of matrix."""
         return self._array
 
+    def unpack(self):
+        """Return the underlying numpy.ndarray."""
+        return self._array
+
     def sandwich(
         self, d: np.ndarray, rows: np.ndarray = None, cols: np.ndarray = None
     ) -> np.ndarray:

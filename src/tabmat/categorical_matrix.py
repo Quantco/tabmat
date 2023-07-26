@@ -503,6 +503,10 @@ class CategoricalMatrix(MatrixBase):
         """Return array representation of matrix."""
         return self.tocsr().A
 
+    def unpack(self):
+        """Return the underlying pandas.Categorical."""
+        return self.cat
+
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
         """Return CategoricalMatrix cast to new type."""
         self.dtype = dtype

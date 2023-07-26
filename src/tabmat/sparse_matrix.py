@@ -116,6 +116,10 @@ class SparseMatrix(MatrixBase):
         """Return matrix column at specified index."""
         return type(self)(self._array.getcol(i))
 
+    def unpack(self):
+        """Return the underlying scipy.sparse.csc_matrix."""
+        return self._array
+
     def toarray(self):
         """Return a dense ndarray representation of the matrix."""
         return self._array.toarray()
