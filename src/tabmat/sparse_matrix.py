@@ -53,6 +53,12 @@ class SparseMatrix(MatrixBase):
 
         return type(self)(self._array.__getitem__(key))
 
+    def __matmul__(self, other):
+        return self._array.__matmul__(other)
+
+    def __rmatmul__(self, other):
+        return self._array.__rmatmul__(other)
+
     __array_ufunc__ = None
 
     @property
