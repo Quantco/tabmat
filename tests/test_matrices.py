@@ -632,3 +632,32 @@ def test_multiply(mat):
     for act in actual:
         assert isinstance(act, MatrixBase)
         np.testing.assert_allclose(act.A, expected)
+
+
+@pytest.mark.parametrize(
+    "mat_1",
+    get_all_matrix_base_subclass_mats()
+    + [base_array()]
+    + [sps.csc_matrix(base_array())],
+)
+@pytest.mark.parametrize(
+    "mat_2",
+    get_all_matrix_base_subclass_mats()
+    + [base_array()]
+    + [sps.csc_matrix(base_array())],
+)
+def test_hstack(mat_1, mat_2):
+    mats = [mat_1, mat_2]
+    stacked = tm.hstack(mats)
+
+    if all(isinstance(mat, (np.ndarray, tm.DenseMatrix)) for mat in mats):
+        assert isinstance(stacked, tm.DenseMatrix)
+    elif all(isinstance(mat, (sps.csc_matrix, tm.SparseMatrix)) for mat in mats):
+        assert isinstance(stacked, tm.SparseMatrix)
+    else:
+        assert isinstance(stacked, tm.SplitMatrix)
+
+    np.testing.assert_array_equal(
+        stacked.A,
+        np.hstack([mat.A if not isinstance(mat, np.ndarray) else mat for mat in mats]),
+    )
