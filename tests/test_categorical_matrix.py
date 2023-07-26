@@ -121,6 +121,23 @@ def test_nulls(mi_element):
         CategoricalMatrix(vec)
 
 
+@pytest.mark.parametrize("cat_missing_name", ["(MISSING)", "__None__", "[NULL]"])
+def test_cat_missing_name(cat_missing_name):
+    vec = [None, "(MISSING)", "__None__", "a", "b"]
+    if cat_missing_name in vec:
+        with pytest.raises(
+            ValueError, match="new categories must not include old categories"
+        ):
+            CategoricalMatrix(
+                vec, cat_missing_method="convert", cat_missing_name=cat_missing_name
+            )
+    else:
+        cat = CategoricalMatrix(
+            vec, cat_missing_method="convert", cat_missing_name=cat_missing_name
+        )
+        assert set(cat.cat.categories) == set(vec) - {None} | {cat_missing_name}
+
+
 @pytest.mark.parametrize("drop_first", [True, False], ids=["drop_first", "no_drop"])
 @pytest.mark.parametrize("missing", [True, False], ids=["missing", "no_missing"])
 @pytest.mark.parametrize("cat_missing_method", ["fail", "zero", "convert"])
