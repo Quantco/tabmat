@@ -238,9 +238,14 @@ class CategoricalMatrix(MatrixBase):
         to be used in an unregularized setting.
 
     cat_missing_method: str {'fail'|'zero'|'convert'}, default 'fail'
-        - if 'fail', raise an error if there are missing values
+        - if 'fail', raise an error if there are missing values.
         - if 'zero', missing values will represent all-zero indicator columns.
-        - if 'convert', missing values will be converted to the '(MISSING)' category.
+        - if 'convert', missing values will be converted to the ``cat_missing_name``
+          category.
+
+    cat_missing_name: str, default '(MISSING)'
+        Name of the category to which missing values will be converted if
+        ``cat_missing_method='convert'``.
 
     dtype:
         data type
@@ -255,6 +260,7 @@ class CategoricalMatrix(MatrixBase):
         term_name: Optional[str] = None,
         column_name_format: str = "{name}[{category}]",
         cat_missing_method: str = "fail",
+        cat_missing_name: str = "(MISSING)",
     ):
         if cat_missing_method not in ["fail", "zero", "convert"]:
             raise ValueError(
@@ -262,7 +268,7 @@ class CategoricalMatrix(MatrixBase):
                 f" got {cat_missing_method}"
             )
         self._missing_method = cat_missing_method
-        self._missing_category = "(MISSING)"
+        self._missing_category = cat_missing_name
 
         if isinstance(cat_vec, pd.Categorical):
             self.cat = cat_vec
@@ -277,10 +283,7 @@ class CategoricalMatrix(MatrixBase):
                 )
 
             elif self._missing_method == "convert":
-                if self._missing_category not in self.cat.categories:
-                    self.cat = self.cat.add_categories([self._missing_category])
-                else:
-                    self.cat = self.cat.copy()
+                self.cat = self.cat.add_categories([self._missing_category])
 
                 self.cat[pd.isnull(self.cat)] = self._missing_category
                 self._has_missing = False

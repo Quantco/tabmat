@@ -30,6 +30,7 @@ def from_pandas(
     drop_first: bool = False,
     categorical_format: str = "{name}[{category}]",
     cat_missing_method: str = "fail",
+    cat_missing_name: str = "(MISSING)",
 ) -> MatrixBase:
     """
     Transform a pandas.DataFrame into an efficient SplitMatrix. For most users, this
@@ -64,6 +65,9 @@ def from_pandas(
         - if 'fail', raise an error if there are missing values
         - if 'zero', missing values will represent all-zero indicator columns.
         - if 'convert', missing values will be converted to the '(MISSING)' category.
+    cat_missing_name: str, default '(MISSING)'
+        Name of the category to which missing values will be converted if
+        ``cat_missing_method='convert'``.
 
     Returns
     -------
@@ -94,6 +98,7 @@ def from_pandas(
                 term_name=colname,
                 column_name_format=categorical_format,
                 cat_missing_method=cat_missing_method,
+                cat_missing_name=cat_missing_name,
             )
             if len(coldata.cat.categories) < cat_threshold:
                 (
