@@ -147,7 +147,11 @@ class SparseMatrix(MatrixBase):
 
     def getcol(self, i):
         """Return matrix column at specified index."""
-        return type(self)(self._array.getcol(i))
+        return type(self)(
+            self._array.getcol(i),
+            column_names=[self.column_names[i]],
+            term_names=[self.term_names[i]],
+        )
 
     def unpack(self):
         """Return the underlying scipy.sparse.csc_matrix."""
@@ -311,9 +315,17 @@ class SparseMatrix(MatrixBase):
         from the parent class except that ``other`` is assumed to be a vector of size
         ``self.shape[0]``.
         """
-        if other.ndim == 1:
-            return type(self)(self._array.multiply(other[:, np.newaxis]))
-        return type(self)(self._array.multiply(other))
+        if np.asanyarray(other).ndim == 1:
+            return type(self)(
+                self._array.multiply(other[:, np.newaxis]),
+                column_names=self.column_names,
+                term_names=self.term_names,
+            )
+        return type(self)(
+            self._array.multiply(other),
+            column_names=self.column_names,
+            term_names=self.term_names,
+        )
 
     def get_names(
         self,

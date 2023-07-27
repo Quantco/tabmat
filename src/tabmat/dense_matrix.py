@@ -113,11 +113,19 @@ class DenseMatrix(MatrixBase):
 
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
         """Copy of the array, cast to a specified type."""
-        return type(self)(self._array.astype(dtype, order, casting, copy))
+        return type(self)(
+            self._array.astype(dtype, order, casting, copy),
+            column_names=self.column_names,
+            term_names=self.term_names,
+        )
 
     def getcol(self, i):
         """Return matrix column at specified index."""
-        return type(self)(self._array[:, [i]])
+        return type(self)(
+            self._array[:, [i]],
+            column_names=[self.column_names[i]],
+            term_names=[self.term_names[i]],
+        )
 
     def toarray(self):
         """Return array representation of matrix."""
@@ -235,8 +243,16 @@ class DenseMatrix(MatrixBase):
         This assumes that ``other`` is a vector of size ``self.shape[0]``.
         """
         if np.asanyarray(other).ndim == 1:
-            return type(self)(self._array.__mul__(other[:, np.newaxis]))
-        return type(self)(self._array.__mul__(other))
+            return type(self)(
+                self._array.__mul__(other[:, np.newaxis]),
+                column_names=self.column_names,
+                term_names=self.term_names,
+            )
+        return type(self)(
+            self._array.__mul__(other),
+            column_names=self.column_names,
+            term_names=self.term_names,
+        )
 
     def get_names(
         self,

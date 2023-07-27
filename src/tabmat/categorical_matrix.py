@@ -477,10 +477,16 @@ class CategoricalMatrix(MatrixBase):
         i %= self.shape[1]  # wrap-around indexing
 
         if self.drop_first:
-            i += 1
+            i_corr = i + 1
+        else:
+            i_corr = i
 
-        col_i = sps.csc_matrix((self.indices == i).astype(int)[:, None])
-        return SparseMatrix(col_i)
+        col_i = sps.csc_matrix((self.indices == i_corr).astype(int)[:, None])
+        return SparseMatrix(
+            col_i,
+            column_names=[self.column_names[i]],
+            term_names=[self.term_names[i]],
+        )
 
     def tocsr(self) -> sps.csr_matrix:
         """Return scipy csr representation of matrix."""
@@ -657,7 +663,9 @@ class CategoricalMatrix(MatrixBase):
                     np.arange(self.shape[0] + 1, dtype=int),
                 ),
                 shape=self.shape,
-            )
+            ),
+            column_names=self.column_names,
+            term_names=self.term_names,
         )
 
     def __repr__(self):
