@@ -552,8 +552,8 @@ def test_indexing_int_row(mat: Union[tm.MatrixBase, tm.StandardizedMatrix]):
     res = mat[0, :]
     if not isinstance(res, np.ndarray):
         res = res.A
-    expected = mat.A[0, :]
-    np.testing.assert_allclose(np.squeeze(res), expected)
+    expected = mat.A[[0], :]
+    np.testing.assert_allclose(res, expected)
 
 
 @pytest.mark.parametrize("mat", get_matrices())
@@ -563,7 +563,58 @@ def test_indexing_range_row(mat: Union[tm.MatrixBase, tm.StandardizedMatrix]):
     if not isinstance(res, np.ndarray):
         res = res.A
     expected = mat.A[0:2, :]
-    np.testing.assert_allclose(np.squeeze(res), expected)
+    np.testing.assert_array_equal(res, expected)
+
+
+@pytest.mark.parametrize("mat", get_unscaled_matrices())
+def test_indexing_int_col(mat):
+    res = mat[:, 0]
+    if not isinstance(res, np.ndarray):
+        res = res.A
+    assert res.shape == (mat.shape[0], 1)
+    expected = mat.A[:, [0]]
+    np.testing.assert_array_equal(res, expected)
+
+
+@pytest.mark.parametrize("mat", get_unscaled_matrices())
+def test_indexing_range_col(mat):
+    res = mat[:, 0:2]
+    if not isinstance(res, np.ndarray):
+        res = res.A
+    assert res.shape == (mat.shape[0], 2)
+    expected = mat.A[:, 0:2]
+    np.testing.assert_array_equal(res, expected)
+
+
+@pytest.mark.parametrize("mat", get_unscaled_matrices())
+def test_indexing_int_both(mat):
+    res = mat[0, 0]
+    if not isinstance(res, np.ndarray):
+        res = res.A
+    assert res.shape == (1, 1)
+    expected = mat.A[0, 0]
+    np.testing.assert_array_equal(res, expected)
+
+
+@pytest.mark.parametrize("mat", get_unscaled_matrices())
+def test_indexing_seq_both(mat):
+    res = mat[[0, 1], [0, 1]]
+    if not isinstance(res, np.ndarray):
+        res = res.A
+    assert res.shape == (2, 2)
+    expected = mat.A[np.ix_([0, 1], [0, 1])]
+    np.testing.assert_array_equal(res, expected)
+
+
+@pytest.mark.parametrize("mat", get_unscaled_matrices())
+def test_indexing_ix_both(mat):
+    indexer = np.ix_([0, 1], [0, 1])
+    res = mat[indexer]
+    if not isinstance(res, np.ndarray):
+        res = res.A
+    assert res.shape == (2, 2)
+    expected = mat.A[indexer]
+    np.testing.assert_array_equal(res, expected)
 
 
 def test_pandas_to_matrix():
@@ -661,6 +712,8 @@ def test_hstack(mat_1, mat_2):
         stacked.A,
         np.hstack([mat.A if not isinstance(mat, np.ndarray) else mat for mat in mats]),
     )
+
+
 def test_names_against_expectation():
     X = tm.DenseMatrix(
         np.ones((5, 2)), column_names=["a", None], term_names=["a", None]
