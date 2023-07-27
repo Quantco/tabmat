@@ -14,6 +14,7 @@ from .ext.sparse import (
 )
 from .matrix_base import MatrixBase
 from .util import (
+    _check_indexer,
     check_matvec_dimensions,
     check_matvec_out_shape,
     check_transpose_matvec_out_shape,
@@ -45,13 +46,7 @@ class SparseMatrix(MatrixBase):
         self._array_csr = None
 
     def __getitem__(self, key):
-        if not isinstance(key, tuple):
-            key = (key,)
-
-        # Always return a 2d array
-        key = tuple([key_i] if np.isscalar(key_i) else key_i for key_i in key)
-
-        return type(self)(self._array.__getitem__(key))
+        return type(self)(self._array.__getitem__(_check_indexer(key)))
 
     def __matmul__(self, other):
         return self._array.__matmul__(other)
