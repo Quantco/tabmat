@@ -78,16 +78,14 @@ class SparseMatrix(MatrixBase):
         key = tuple([key_i] if np.isscalar(key_i) else key_i for key_i in key)
 
         if len(key) == 2:
-            colnames = list(np.array(self._colnames)[key[1]])
-            terms = list(np.array(self._terms)[key[1]])
+            colnames = list(np.array(self._colnames)[key[1]].ravel())
+            terms = list(np.array(self._terms)[key[1]].ravel())
         else:
             colnames = self._colnames
             terms = self._terms
 
         return type(self)(
-            self._array.__getitem__(key),
-            column_names=colnames,
-            term_names=terms
+            self._array.__getitem__(key), column_names=colnames, term_names=terms
         )
 
     def __matmul__(self, other):

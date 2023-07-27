@@ -67,7 +67,16 @@ class DenseMatrix(MatrixBase):
         # Always return a 2d array
         key = tuple([key_i] if np.isscalar(key_i) else key_i for key_i in key)
 
-        return type(self)(self._array.__getitem__(key))
+        if len(key) == 2:
+            colnames = list(np.array(self._colnames)[key[1]].ravel())
+            terms = list(np.array(self._terms)[key[1]].ravel())
+        else:
+            colnames = self._colnames
+            terms = self._terms
+
+        return type(self)(
+            self._array.__getitem__(key), column_names=colnames, term_names=terms
+        )
 
     __array_ufunc__ = None
 
@@ -113,19 +122,6 @@ class DenseMatrix(MatrixBase):
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
         """Copy of the array, cast to a specified type."""
         return type(self)(self._array.astype(dtype, order, casting, copy))
-
-    def __getitem__(self, key):
-        """Return a subset of the matrix."""
-        result = type(self)(self._array.__getitem__(key))
-        if isinstance(key, tuple) and len(key) == 2:
-            if key[1] is None:
-                # Handle np.newaxis
-                result._colnames = self._colnames
-                result._terms = self._terms
-            else:
-                result._colnames = list(np.array(self._colnames)[key[1]])
-                result._terms = list(np.array(self._terms)[key[1]])
-        return result
 
     def getcol(self, i):
         """Return matrix column at specified index."""
