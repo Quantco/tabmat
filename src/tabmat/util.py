@@ -50,3 +50,51 @@ def check_matvec_dimensions(mat, vec: np.ndarray, transpose: bool) -> None:
             f"shapes {mat.shape} and {vec.shape} not aligned: "
             f"{mat.shape[match_dim]} (dim {match_dim}) != {vec.shape[0]} (dim 0)"
         )
+
+
+def _check_indexer(indexer):
+    """Check that the indexer is valid, and transform it to a canonical format."""
+    if not isinstance(indexer, tuple):
+        indexer = (indexer, slice(None, None, None))
+
+    if len(indexer) > 2:
+        raise ValueError("More than two indexers are not supported.")
+
+    row_indexer, col_indexer = indexer
+
+    if isinstance(row_indexer, slice):
+        if isinstance(col_indexer, slice):
+            return row_indexer, col_indexer
+        else:
+            col_indexer = np.asarray(col_indexer)
+            if col_indexer.ndim > 1:
+                raise ValueError(
+                    "Indexing would result in a matrix with more than 2 dimensions."
+                )
+            else:
+                return row_indexer, col_indexer.reshape(-1)
+
+    elif isinstance(col_indexer, slice):
+        row_indexer = np.asarray(row_indexer)
+        if row_indexer.ndim > 1:
+            raise ValueError(
+                "Indexing would result in a matrix with more than 2 dimensions."
+            )
+        else:
+            return row_indexer.reshape(-1), col_indexer
+
+    else:
+        row_indexer = np.asarray(row_indexer)
+        col_indexer = np.asarray(col_indexer)
+        if row_indexer.ndim <= 1 and col_indexer.ndim <= 1:
+            return np.ix_(row_indexer.reshape(-1), col_indexer.reshape(-1))
+        elif (
+            row_indexer.ndim == 2
+            and row_indexer.shape[1] == 1
+            and col_indexer.ndim == 2
+            and col_indexer.shape[0] == 1
+        ):
+            # support for np.ix_-ed indices
+            return row_indexer, col_indexer
+        else:
+            raise ValueError("This type of indexing is not supported.")
