@@ -194,6 +194,7 @@ def from_formula(
     categorical_format: str = "{name}[T.{category}]",
     intercept_name: str = "Intercept",
     include_intercept: bool = False,
+    add_column_for_intercept: bool = True,
     context: Optional[Union[int, Mapping[str, Any]]] = 0,
 ) -> SplitMatrix:
     """
@@ -224,8 +225,11 @@ def from_formula(
     intercept_name: str, default "Intercept"
         The name of the intercept column.
     include_intercept: bool, default False
-        Whether to include an intercept column if the formula does not
+        Whether to include an intercept term if the formula does not
         include (``+ 1``) or exclude (``+ 0`` or ``- 1``) it explicitly.
+    add_column_for_intercept: bool, default = True
+        Whether to add a column of ones for the intercept, or just
+        have a term without a corresponding column. For advanced use only.
     context: Union[int, Mapping[str, Any]], default 0
         The context to use for evaluating the formula. If an integer, the
         context is taken from the stack frame of the caller at the given
@@ -254,5 +258,6 @@ def from_formula(
         dtype=dtype,
         sparse_threshold=sparse_threshold,
         cat_threshold=cat_threshold,
+        add_column_for_intercept=add_column_for_intercept,
     )
     return materializer.get_model_matrix(spec)

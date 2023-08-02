@@ -41,6 +41,9 @@ class TabmatMaterializer(FormulaMaterializer):
         self.dtype = self.params.get("dtype", numpy.float64)
         self.sparse_threshold = self.params.get("sparse_threshold", 0.1)
         self.cat_threshold = self.params.get("cat_threshold", 4)
+        self.add_column_for_intercept = self.params.get(
+            "add_column_for_intercept", True
+        )
 
         # We can override formulaic's C() function here
         self.context["C"] = _C
@@ -139,6 +142,8 @@ class TabmatMaterializer(FormulaMaterializer):
             scoped_cols = OrderedDict()
             for scoped_term in scoped_terms:
                 if not scoped_term.factors:
+                    if not self.add_column_for_intercept:
+                        continue
                     scoped_cols[
                         "Intercept"
                     ] = scoped_term.scale * self._encode_constant(
