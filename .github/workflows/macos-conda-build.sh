@@ -2,7 +2,7 @@
 
 set -exo pipefail
 
-mamba install -y conda-build
+mamba install -y conda-build boa
 
 # Don't test cross-compiled result (there is no emulation) and use the latest MacOS SDK.
 if grep -q "osx-arm64" .ci_support/${CONDA_BUILD_YML}.yaml; then
@@ -13,4 +13,4 @@ CONDA_BUILD_SYSROOT:
  - "${CONDA_BUILD_SYSROOT}"
 EOF
 fi
-conda build -m .ci_support/${CONDA_BUILD_YML}.yaml conda.recipe ${CONDA_BUILD_ARGS:-}
+conda mambabuild -m .ci_support/${CONDA_BUILD_YML}.yaml conda.recipe ${CONDA_BUILD_ARGS:-}
