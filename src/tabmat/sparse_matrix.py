@@ -33,7 +33,7 @@ class SparseMatrix(MatrixBase):
 
     def __init__(
         self,
-        array,
+        input_array,
         shape=None,
         dtype=None,
         copy=False,
