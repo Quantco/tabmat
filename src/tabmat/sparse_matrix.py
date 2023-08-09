@@ -33,14 +33,20 @@ class SparseMatrix(MatrixBase):
 
     def __init__(
         self,
-        arg1,
+        array,
         shape=None,
         dtype=None,
         copy=False,
         column_names=None,
         term_names=None,
     ):
-        self._array = sps.csc_matrix(arg1, shape, dtype, copy)
+        if isinstance(input_array, np.ndarray):
+            if input_array.ndim == 1:
+                input_array = input_array.reshape(-1, 1)
+            elif input_array.ndim > 2:
+                raise ValueError("Input array must be 1- or 2-dimensional")
+
+        self._array = sps.csc_matrix(input_array, shape, dtype, copy)
 
         self.idx_dtype = max(self._array.indices.dtype, self._array.indptr.dtype)
         if self._array.indices.dtype != self.idx_dtype:
