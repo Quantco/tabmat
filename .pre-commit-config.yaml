@@ -27,13 +27,13 @@ repos:
     - id: isort-conda
       additional_dependencies: [toml]
  - repo: https://github.com/Quantco/pre-commit-mirrors-mypy
-   rev: "1.4.1"
+   rev: "1.5.0"
    hooks:
     - id: mypy-conda
       additional_dependencies:
        - python=3.8
  - repo: https://github.com/Quantco/pre-commit-mirrors-pyupgrade
-   rev: 3.9.0
+   rev: 3.10.1
    hooks:
     - id: pyupgrade-conda
  - repo: https://github.com/Quantco/pre-commit-mirrors-cython-lint
