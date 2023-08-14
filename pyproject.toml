@@ -45,7 +45,7 @@ before-build = [
 ]
 
 [tool.cibuildwheel.macos.environment]
-LDFLAGS="-Wl,-rpath,$CONDA/envs/build/lib -L$CONDA/envs/build/lib -lomp"
+LDFLAGS="-Wl,-rpath,$CONDA/envs/build/lib -L$CONDA/envs/build/lib -lomp -ljemalloclocal"
 CFLAGS="-I$CONDA/envs/build/include"
 CXXFLAGS="-I$CONDA/envs/build/include"
 CXX="/usr/bin/clang++"
