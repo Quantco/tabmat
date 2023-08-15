@@ -164,6 +164,76 @@ class MatrixBase(ABC):
     def __getitem__(self, item):
         pass
 
+    @abstractmethod
+    def get_names(
+        self,
+        type: str = "column",
+        missing_prefix: Optional[str] = None,
+        indices: Optional[List[int]] = None,
+    ) -> List[Optional[str]]:
+        """Get column names.
+
+        For columns that do not have a name, a default name is created using the
+        followig pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
+        the index of the column.
+
+        Parameters
+        ----------
+        type: str {'column'|'term'}
+            Whether to get column names or term names. The main difference is that
+            a categorical submatrix is counted as a single term, whereas it is
+            counted as multiple columns. Furthermore, matrices created from formulas
+            have a difference between a column and term (c.f. ``formulaic`` docs).
+        missing_prefix: Optional[str], default None
+            Prefix to use for columns that do not have a name. If None, then no
+            default name is created.
+        indices
+            The indices used for columns that do not have a name. If ``None``,
+            then the indices are ``list(range(self.shape[1]))``.
+
+        Returns
+        -------
+        List[Optional[str]]
+            Column names.
+        """
+        pass
+
+    def set_names(self, names: Union[str, List[Optional[str]]], type: str = "column"):
+        """Set column names.
+
+        Parameters
+        ----------
+        names: List[Optional[str]]
+            Names to set.
+        type: str {'column'|'term'}
+            Whether to set column names or term names. The main difference is that
+            a categorical submatrix is counted as a single term, whereas it is
+            counted as multiple columns. Furthermore, matrices created from formulas
+            have a difference between a column and term (c.f. ``formulaic`` docs).
+        """
+        pass
+
+    @property
+    def column_names(self):
+        """Column names of the matrix."""
+        return self.get_names(type="column")
+
+    @column_names.setter
+    def column_names(self, names: List[Optional[str]]):
+        self.set_names(names, type="column")
+
+    @property
+    def term_names(self):
+        """Term names of the matrix.
+
+        For differences between column names and term names, see ``get_names``.
+        """
+        return self.get_names(type="term")
+
+    @term_names.setter
+    def term_names(self, names: List[Optional[str]]):
+        self.set_names(names, type="term")
+
     # Higher priority than numpy arrays, so behavior for funcs like "@" defaults to the
     # behavior of this class
     __array_priority__ = 11

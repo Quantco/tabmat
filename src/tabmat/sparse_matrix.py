@@ -31,7 +31,15 @@ class SparseMatrix(MatrixBase):
     SparseMatrix is instantiated in the same way as scipy.sparse.csc_matrix.
     """
 
-    def __init__(self, input_array, shape=None, dtype=None, copy=False):
+    def __init__(
+        self,
+        input_array,
+        shape=None,
+        dtype=None,
+        copy=False,
+        column_names=None,
+        term_names=None,
+    ):
         if isinstance(input_array, np.ndarray):
             if input_array.ndim == 1:
                 input_array = input_array.reshape(-1, 1)
@@ -51,8 +59,32 @@ class SparseMatrix(MatrixBase):
             self._array.sort_indices()
         self._array_csr = None
 
+        if column_names is not None:
+            if len(column_names) != self.shape[1]:
+                raise ValueError(
+                    f"Expected {self.shape[1]} column names, got {len(column_names)}"
+                )
+            self._colnames = column_names
+        else:
+            self._colnames = [None] * self.shape[1]
+
+        if term_names is not None:
+            if len(term_names) != self.shape[1]:
+                raise ValueError(
+                    f"Expected {self.shape[1]} term names, got {len(term_names)}"
+                )
+            self._terms = term_names
+        else:
+            self._terms = self._colnames
+
     def __getitem__(self, key):
-        return type(self)(self._array.__getitem__(_check_indexer(key)))
+        row, col = _check_indexer(key)
+        colnames = list(np.array(self.column_names)[col].ravel())
+        terms = list(np.array(self.term_names)[col].ravel())
+
+        return type(self)(
+            self._array.__getitem__((row, col)), column_names=colnames, term_names=terms
+        )
 
     def __matmul__(self, other):
         return self._array.__matmul__(other)
@@ -121,7 +153,11 @@ class SparseMatrix(MatrixBase):
 
     def getcol(self, i):
         """Return matrix column at specified index."""
-        return type(self)(self._array.getcol(i))
+        return type(self)(
+            self._array.getcol(i),
+            column_names=[self.column_names[i]],
+            term_names=[self.term_names[i]],
+        )
 
     def unpack(self):
         """Return the underlying scipy.sparse.csc_matrix."""
@@ -285,6 +321,87 @@ class SparseMatrix(MatrixBase):
         from the parent class except that ``other`` is assumed to be a vector of size
         ``self.shape[0]``.
         """
-        if other.ndim == 1:
-            return type(self)(self._array.multiply(other[:, np.newaxis]))
-        return type(self)(self._array.multiply(other))
+        if np.asanyarray(other).ndim == 1:
+            return type(self)(
+                self._array.multiply(other[:, np.newaxis]),
+                column_names=self.column_names,
+                term_names=self.term_names,
+            )
+        return type(self)(
+            self._array.multiply(other),
+            column_names=self.column_names,
+            term_names=self.term_names,
+        )
+
+    def get_names(
+        self,
+        type: str = "column",
+        missing_prefix: Optional[str] = None,
+        indices: Optional[List[int]] = None,
+    ) -> List[Optional[str]]:
+        """Get column names.
+
+        For columns that do not have a name, a default name is created using the
+        followig pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
+        the index of the column.
+
+        Parameters
+        ----------
+        type: str {'column'|'term'}
+            Whether to get column names or term names. The main difference is that
+            a categorical submatrix is counted as a single term, whereas it is
+            counted as multiple columns. Furthermore, matrices created from formulas
+            have a difference between a column and term (c.f. ``formulaic`` docs).
+        missing_prefix: Optional[str], default None
+            Prefix to use for columns that do not have a name. If None, then no
+            default name is created.
+        indices
+            The indices used for columns that do not have a name. If ``None``,
+            then the indices are ``list(range(self.shape[1]))``.
+
+        Returns
+        -------
+        List[Optional[str]]
+            Column names.
+        """
+        if type == "column":
+            names = np.array(self._colnames)
+        elif type == "term":
+            names = np.array(self._terms)
+        else:
+            raise ValueError(f"Type must be 'column' or 'term', got {type}")
+
+        if indices is None:
+            indices = list(range(len(self._colnames)))
+
+        if missing_prefix is not None:
+            default_names = np.array([f"{missing_prefix}{i}" for i in indices])
+            names[names == None] = default_names[names == None]  # noqa: E711
+
+        return list(names)
+
+    def set_names(self, names: Union[str, List[Optional[str]]], type: str = "column"):
+        """Set column names.
+
+        Parameters
+        ----------
+        names: List[Optional[str]]
+            Names to set.
+        type: str {'column'|'term'}
+            Whether to set column names or term names. The main difference is that
+            a categorical submatrix is counted as a single term, whereas it is
+            counted as multiple columns. Furthermore, matrices created from formulas
+            have a difference between a column and term (c.f. ``formulaic`` docs).
+        """
+        if isinstance(names, str):
+            names = [names]
+
+        if len(names) != self.shape[1]:
+            raise ValueError(f"Length of names must be {self.shape[1]}")
+
+        if type == "column":
+            self._colnames = names
+        elif type == "term":
+            self._terms = names
+        else:
+            raise ValueError(f"Type must be 'column' or 'term', got {type}")

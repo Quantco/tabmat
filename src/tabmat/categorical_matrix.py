@@ -161,6 +161,7 @@ This is `ext/split/sandwich_cat_dense`
 
 """
 
+import re
 from typing import List, Optional, Tuple, Union
 
 import numpy as np
@@ -245,6 +246,9 @@ class CategoricalMatrix(MatrixBase):
         cat_vec: Union[List, np.ndarray, pd.Categorical],
         drop_first: bool = False,
         dtype: np.dtype = np.float64,
+        column_name: Optional[str] = None,
+        term_name: Optional[str] = None,
+        column_name_format: str = "{name}[{category}]",
     ):
         if pd.isnull(cat_vec).any():
             raise ValueError("Categorical data can't have missing values.")
@@ -259,6 +263,13 @@ class CategoricalMatrix(MatrixBase):
         self.indices = self.cat.codes.astype(np.int32)
         self.x_csc: Optional[Tuple[Optional[np.ndarray], np.ndarray, np.ndarray]] = None
         self.dtype = np.dtype(dtype)
+
+        self._colname = column_name
+        if term_name is None:
+            self._term = self._colname
+        else:
+            self._term = term_name
+        self._colname_format = column_name_format
 
     __array_ufunc__ = None
 
@@ -466,10 +477,16 @@ class CategoricalMatrix(MatrixBase):
         i %= self.shape[1]  # wrap-around indexing
 
         if self.drop_first:
-            i += 1
+            i_corr = i + 1
+        else:
+            i_corr = i
 
-        col_i = sps.csc_matrix((self.indices == i).astype(int)[:, None])
-        return SparseMatrix(col_i)
+        col_i = sps.csc_matrix((self.indices == i_corr).astype(int)[:, None])
+        return SparseMatrix(
+            col_i,
+            column_names=[self.column_names[i]],
+            term_names=[self.term_names[i]],
+        )
 
     def tocsr(self) -> sps.csr_matrix:
         """Return scipy csr representation of matrix."""
@@ -492,7 +509,11 @@ class CategoricalMatrix(MatrixBase):
         """Return a tabmat.SparseMatrix representation."""
         from .sparse_matrix import SparseMatrix
 
-        return SparseMatrix(self.tocsr())
+        return SparseMatrix(
+            self.tocsr(),
+            column_names=self.column_names,
+            term_names=self.term_names,
+        )
 
     def toarray(self) -> np.ndarray:
         """Return array representation of matrix."""
@@ -523,7 +544,11 @@ class CategoricalMatrix(MatrixBase):
             if isinstance(row, np.ndarray):
                 row = row.ravel()
             return CategoricalMatrix(
-                self.cat[row], drop_first=self.drop_first, dtype=self.dtype
+                self.cat[row],
+                drop_first=self.drop_first,
+                dtype=self.dtype,
+                column_name=self._colname,
+                column_name_format=self._colname_format,
             )
         else:
             # return a SparseMatrix if we subset columns
@@ -638,8 +663,111 @@ class CategoricalMatrix(MatrixBase):
                     np.arange(self.shape[0] + 1, dtype=int),
                 ),
                 shape=self.shape,
-            )
+            ),
+            column_names=self.column_names,
+            term_names=self.term_names,
         )
 
     def __repr__(self):
         return str(self.cat)
+
+    def get_names(
+        self,
+        type: str = "column",
+        missing_prefix: Optional[str] = None,
+        indices: Optional[List[int]] = None,
+    ) -> List[Optional[str]]:
+        """Get column names.
+
+        For columns that do not have a name, a default name is created using the
+        followig pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
+        the index of the column.
+
+        Parameters
+        ----------
+        type: str {'column'|'term'}
+            Whether to get column names or term names. The main difference is that
+            a categorical submatrix is counted as a single term, whereas it is
+            counted as multiple columns. Furthermore, matrices created from formulas
+            have a difference between a column and term (c.f. ``formulaic`` docs).
+        missing_prefix: Optional[str], default None
+            Prefix to use for columns that do not have a name. If None, then no
+            default name is created.
+        indices
+            The indices used for columns that do not have a name. If ``None``,
+            then the indices are ``list(range(self.shape[1]))``.
+
+        Returns
+        -------
+        List[Optional[str]]
+            Column names.
+        """
+        if type == "column":
+            name = self._colname
+        elif type == "term":
+            name = self._term
+        else:
+            raise ValueError(f"Type must be 'column' or 'term', got {type}")
+
+        if indices is None:
+            indices = list(range(len(self.cat.categories) - self.drop_first))
+        if name is None and missing_prefix is None:
+            return [None] * (len(self.cat.categories) - self.drop_first)
+        elif name is None:
+            name = f"{missing_prefix}{indices[0]}-{indices[-1]}"
+
+        if type == "column":
+            return [
+                self._colname_format.format(name=name, category=cat)
+                for cat in self.cat.categories[self.drop_first :]
+            ]
+        else:
+            return [name] * (len(self.cat.categories) - self.drop_first)
+
+    def set_names(self, names: Union[str, List[Optional[str]]], type: str = "column"):
+        """Set column names.
+
+        Parameters
+        ----------
+        names: List[Optional[str]]
+            Names to set.
+        type: str {'column'|'term'}
+            Whether to set column names or term names. The main difference is that
+            a categorical submatrix is counted as a single term, whereas it is
+            counted as multiple columns. Furthermore, matrices created from formulas
+            have a difference between a column and term (c.f. ``formulaic`` docs).
+        """
+        if isinstance(names, str):
+            names = [names]
+
+        if len(names) != 1:
+            if type == "column":
+                # Try finding the column name
+                base_names = []
+                for name, cat in zip(names, self.cat.categories[self.drop_first :]):
+                    partial_name = self._colname_format.format(
+                        name="__CAPTURE__", category=cat
+                    )
+                    pattern = re.escape(partial_name).replace("__CAPTURE__", "(.*)")
+                    if name is not None:
+                        match = re.search(pattern, name)
+                    else:
+                        match = None
+                    if match is not None:
+                        base_names.append(match.group(1))
+                    else:
+                        base_names.append(name)
+                names = base_names
+
+            if len(names) == self.shape[1] and all(name == names[0] for name in names):
+                names = [names[0]]
+
+        if len(names) != 1:
+            raise ValueError("A categorical matrix has only one name")
+
+        if type == "column":
+            self._colname = names[0]
+        elif type == "term":
+            self._term = names[0]
+        else:
+            raise ValueError(f"Type must be 'column' or 'term', got {type}")

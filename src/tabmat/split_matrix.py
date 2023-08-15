@@ -113,8 +113,16 @@ def _combine_matrices(matrices, indices):
         if len(this_type_matrices) > 1:
             new_matrix = mat_type_(stack_fn([matrices[i] for i in this_type_matrices]))
             new_indices = np.concatenate([indices[i] for i in this_type_matrices])
+            new_colnames = np.concatenate(
+                [np.array(matrices[i]._colnames) for i in this_type_matrices]
+            )
+            new_terms = np.concatenate(
+                [np.array(matrices[i]._terms) for i in this_type_matrices]
+            )
             sorter = np.argsort(new_indices)
             sorted_matrix = new_matrix[:, sorter]
+            sorted_matrix._colnames = list(new_colnames[sorter])
+            sorted_matrix._terms = list(new_terms[sorter])
             sorted_indices = new_indices[sorter]
 
             assert sorted_matrix.shape[0] == n_row
@@ -477,3 +485,60 @@ class SplitMatrix(MatrixBase):
         return out
 
     __array_priority__ = 13
+
+    def get_names(
+        self,
+        type: str = "column",
+        missing_prefix: Optional[str] = None,
+        indices: Optional[List[int]] = None,
+    ) -> List[Optional[str]]:
+        """Get column names.
+
+        For columns that do not have a name, a default name is created using the
+        followig pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
+        the index of the column.
+
+        Parameters
+        ----------
+        type: str {'column'|'term'}
+            Whether to get column names or term names. The main difference is that
+            a categorical submatrix is counted as a single term, whereas it is
+            counted as multiple columns. Furthermore, matrices created from formulas
+            have a difference between a column and term (c.f. ``formulaic`` docs).
+        missing_prefix: Optional[str], default None
+            Prefix to use for columns that do not have a name. If None, then no
+            default name is created.
+        indices
+            The indices used for columns that do not have a name. If ``None``,
+            then the indices are ``list(range(self.shape[1]))``.
+
+        Returns
+        -------
+        List[Optional[str]]
+            Column names.
+        """
+        names = np.empty(self.shape[1], dtype=object)
+        for idx, mat in zip(self.indices, self.matrices):
+            names[idx] = mat.get_names(type, missing_prefix, idx)
+        return list(names)
+
+    def set_names(self, names: Union[str, List[Optional[str]]], type: str = "column"):
+        """Set column names.
+
+        Parameters
+        ----------
+        names: List[Optional[str]]
+            Names to set.
+        type: str {'column'|'term'}
+            Whether to set column names or term names. The main difference is that
+            a categorical submatrix is counted as a single term, whereas it is
+            counted as multiple columns. Furthermore, matrices created from formulas
+            have a difference between a column and term (c.f. ``formulaic`` docs).
+        """
+        names_array = np.array(names)
+
+        if len(names) != self.shape[1]:
+            raise ValueError(f"Length of names must be {self.shape[1]}")
+
+        for idx, mat in zip(self.indices, self.matrices):
+            mat.set_names(list(names_array[idx]), type)
