@@ -48,8 +48,8 @@ before-build = [
 LDFLAGS="-Wl,-rpath,$CONDA/envs/build/lib -L$CONDA/envs/build/lib -lomp -ljemalloclocal"
 CFLAGS="-I$CONDA/envs/build/include -fopenmp"
 CXXFLAGS="-I$CONDA/envs/build/include -fopenmp"
-CXX="/usr/bin/clang++"
-CC="/usr/bin/clang"
+CXX="$CONDA/envs/build/bin/clang++"
+CC="$CONDA/envs/build/bin/clang"
 JE_INSTALL_SUFFIX="local"
 
 [tool.cibuildwheel.windows]
