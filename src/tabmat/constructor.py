@@ -277,15 +277,9 @@ def from_formula(
     )
     result = materializer.get_model_matrix(spec)
 
-    column_names = []
-    term_names = []
-
-    for term, _, columns in result.model_spec.structure:
-        for column in columns:
-            column_names.append(str(column))
-            term_names.append(str(term))
-
-    result.column_names = column_names
-    result.term_names = term_names
+    term_names = np.zeros(len(result.term_names), dtype="object")
+    for term, indices in result.model_spec.term_indices.items():
+        term_names[indices] = str(term)
+    result.term_names = term_names.tolist()
 
     return result

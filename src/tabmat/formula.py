@@ -347,10 +347,12 @@ class _InteractableDenseVector(_InteractableVector):
         cat_threshold: int = 4,
     ) -> Union[SparseMatrix, DenseMatrix]:
         if (self.values != 0).mean() > sparse_threshold:
-            return DenseMatrix(self.values)
+            return DenseMatrix(self.values, column_names=[self.name])
         else:
             # Columns can become sparser, but not denser through interactions
-            return SparseMatrix(sps.csc_matrix(self.values[:, numpy.newaxis]))
+            return SparseMatrix(
+                sps.csc_matrix(self.values[:, numpy.newaxis]), column_names=[self.name]
+            )
 
     def get_names(self) -> List[str]:
         if self.name is None:
@@ -380,7 +382,7 @@ class _InteractableSparseVector(_InteractableVector):
         sparse_threshold: float = 0.1,
         cat_threshold: int = 4,
     ) -> SparseMatrix:
-        return SparseMatrix(self.values)
+        return SparseMatrix(self.values, column_names=[self.name])
 
     def get_names(self) -> List[str]:
         if self.name is None:
@@ -456,7 +458,13 @@ class _InteractableCategoricalVector(_InteractableVector):
             ordered=False,
         )
 
-        categorical_part = CategoricalMatrix(cat, drop_first=drop_first, dtype=dtype)
+        categorical_part = CategoricalMatrix(
+            cat,
+            drop_first=drop_first,
+            dtype=dtype,
+            column_name=self.name,
+            column_name_format="{category}",
+        )
 
         if (self.codes == -2).all():
             # All values are dropped
@@ -472,7 +480,11 @@ class _InteractableCategoricalVector(_InteractableVector):
                 sparse_part,
                 dense_idx,
                 sparse_idx,
-            ) = _split_sparse_and_dense_parts(sparse_matrix, sparse_threshold)
+            ) = _split_sparse_and_dense_parts(
+                sparse_matrix,
+                sparse_threshold,
+                column_names=categorical_part.column_names,
+            )
             return SplitMatrix([dense_part, sparse_part], [dense_idx, sparse_idx])
 
     def get_names(self) -> List[str]:
