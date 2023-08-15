@@ -13,6 +13,7 @@ Unreleased
 **New features:**
 
 - Add column name and term name metadata to ``MatrixBase`` objects. These are automatically populated when initializing a ``MatrixBase`` from a ``pandas.DataFrame``. In addition, they can be accessed and modified via the ``column_names`` and ``term_names`` properties.
+- Add a formula interface for creating tabmat matrices from pandas data frames. See :func:`tabmat.from_formula` for details.
 
 **Other changes:**
 
@@ -28,7 +29,7 @@ Unreleased
 - Fixed ``getcol`` not respecting the ``drop_first`` attribute of a ``CategoricalMatrix``.
 
 3.1.9 - 2023-06-16
--------------------
+------------------
 
 **Other changes:**
 
