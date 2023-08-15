@@ -35,7 +35,7 @@ class TabmatMaterializer(FormulaMaterializer):
     def _init(self):
         self.interaction_separator = self.params.get("interaction_separator", ":")
         self.categorical_format = self.params.get(
-            "categorical_format", "{name}[T.{category}]"
+            "categorical_format", "{name}[{category}]"
         )
         self.intercept_name = self.params.get("intercept_name", "Intercept")
         self.dtype = self.params.get("dtype", numpy.float64)
@@ -481,7 +481,7 @@ class _InteractableCategoricalVector(_InteractableVector):
         return self.categories
 
     def set_name(
-        self, name, name_format="{name}[T.{category}]"
+        self, name, name_format="{name}[{category}]"
     ) -> "_InteractableCategoricalVector":
         if self.name is None:
             # Make sure to only format the name once

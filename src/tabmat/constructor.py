@@ -206,7 +206,7 @@ def from_formula(
     sparse_threshold: float = 0.1,
     cat_threshold: int = 4,
     interaction_separator: str = ":",
-    categorical_format: str = "{name}[T.{category}]",
+    categorical_format: str = "{name}[{category}]",
     intercept_name: str = "Intercept",
     include_intercept: bool = False,
     add_column_for_intercept: bool = True,
@@ -275,4 +275,17 @@ def from_formula(
         cat_threshold=cat_threshold,
         add_column_for_intercept=add_column_for_intercept,
     )
-    return materializer.get_model_matrix(spec)
+    result = materializer.get_model_matrix(spec)
+
+    column_names = []
+    term_names = []
+
+    for term, _, columns in result.model_spec.structure:
+        for column in columns:
+            column_names.append(str(column))
+            term_names.append(str(term))
+
+    result.column_names = column_names
+    result.term_names = term_names
+
+    return result
