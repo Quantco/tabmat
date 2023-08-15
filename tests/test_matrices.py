@@ -712,3 +712,186 @@ def test_hstack(mat_1, mat_2):
         stacked.A,
         np.hstack([mat.A if not isinstance(mat, np.ndarray) else mat for mat in mats]),
     )
+
+
+def test_names_against_expectation():
+    X = tm.DenseMatrix(
+        np.ones((5, 2)), column_names=["a", None], term_names=["a", None]
+    )
+    Xc = tm.CategoricalMatrix(
+        pd.Categorical(["a", "b", "c", "b", "a"]), column_name="c", term_name="c"
+    )
+    Xc2 = tm.CategoricalMatrix(pd.Categorical(["a", "b", "c", "b", "a"]))
+    Xs = tm.SparseMatrix(
+        sps.csc_matrix(np.ones((5, 2))),
+        column_names=["s1", "s2"],
+        term_names=["s", "s"],
+    )
+
+    mat = tm.SplitMatrix(matrices=[X, Xc, Xc2, Xs])
+
+    assert mat.get_names(type="column") == [
+        "a",
+        None,
+        "c[a]",
+        "c[b]",
+        "c[c]",
+        None,
+        None,
+        None,
+        "s1",
+        "s2",
+    ]
+
+    assert mat.get_names(type="term") == [
+        "a",
+        None,
+        "c",
+        "c",
+        "c",
+        None,
+        None,
+        None,
+        "s",
+        "s",
+    ]
+
+    assert mat.get_names(type="column", missing_prefix="_col_") == [
+        "a",
+        "_col_1",
+        "c[a]",
+        "c[b]",
+        "c[c]",
+        "_col_5-7[a]",
+        "_col_5-7[b]",
+        "_col_5-7[c]",
+        "s1",
+        "s2",
+    ]
+
+    assert mat.get_names(type="term", missing_prefix="_col_") == [
+        "a",
+        "_col_1",
+        "c",
+        "c",
+        "c",
+        "_col_5-7",
+        "_col_5-7",
+        "_col_5-7",
+        "s",
+        "s",
+    ]
+
+
+@pytest.mark.parametrize("mat", get_matrices())
+@pytest.mark.parametrize("missing_prefix", ["_col_", "X"])
+def test_names_getter_setter(mat, missing_prefix):
+    names = mat.get_names(missing_prefix=missing_prefix, type="column")
+    mat.column_names = names
+    assert mat.column_names == names
+
+
+@pytest.mark.parametrize("mat", get_matrices())
+@pytest.mark.parametrize("missing_prefix", ["_col_", "X"])
+def test_terms_getter_setter(mat, missing_prefix):
+    names = mat.get_names(missing_prefix=missing_prefix, type="term")
+    mat.term_names = names
+    assert mat.term_names == names
+
+
+@pytest.mark.parametrize("indexer_1", [slice(None, None), 0, slice(2, 8)])
+@pytest.mark.parametrize("indexer_2", [[0], slice(1, 4), [0, 2, 3], [4, 3, 2, 1, 0]])
+@pytest.mark.parametrize("sparse", [True, False])
+def test_names_indexing(indexer_1, indexer_2, sparse):
+    X = np.ones((10, 5), dtype=np.float64)
+    colnames = ["a", "b", None, "d", "e"]
+    termnames = ["t1", "t1", None, "t4", "t5"]
+
+    colnames_array = np.array(colnames)
+    termnames_array = np.array(termnames)
+
+    if sparse:
+        X = tm.SparseMatrix(
+            sps.csc_matrix(X), column_names=colnames, term_names=termnames
+        )
+    else:
+        X = tm.DenseMatrix(X, column_names=colnames, term_names=termnames)
+
+    X_indexed = X[indexer_1, indexer_2]
+    if not isinstance(X_indexed, tm.MatrixBase):
+        pytest.skip("Does not return MatrixBase")
+    assert X_indexed.column_names == list(colnames_array[indexer_2])
+    assert X_indexed.term_names == list(termnames_array[indexer_2])
+
+
+@pytest.mark.parametrize("mat_1", get_all_matrix_base_subclass_mats())
+@pytest.mark.parametrize("mat_2", get_all_matrix_base_subclass_mats())
+def test_combine_names(mat_1, mat_2):
+    mat_1.column_names = mat_1.get_names(missing_prefix="m1_", type="column")
+    mat_2.column_names = mat_2.get_names(missing_prefix="m2_", type="column")
+
+    mat_1.term_names = mat_1.get_names(missing_prefix="m1_", type="term")
+    mat_2.term_names = mat_2.get_names(missing_prefix="m2_", type="term")
+
+    combined = tm.SplitMatrix(matrices=[mat_1, mat_2])
+
+    assert combined.column_names == mat_1.column_names + mat_2.column_names
+    assert combined.term_names == mat_1.term_names + mat_2.term_names
+
+
+@pytest.mark.parametrize("prefix_sep", ["_", ": "])
+@pytest.mark.parametrize("drop_first", [True, False])
+def test_names_pandas(prefix_sep, drop_first):
+    n_rows = 50
+    dense_column = np.linspace(-10, 10, num=n_rows, dtype=np.float64)
+    dense_column_with_lots_of_zeros = dense_column.copy()
+    dense_column_with_lots_of_zeros[:44] = 0.0
+    sparse_column = np.zeros(n_rows, dtype=np.float64)
+    sparse_column[0] = 1.0
+    cat_column_lowdim = np.tile(["a", "b"], n_rows // 2)
+    cat_column_highdim = np.arange(n_rows)
+
+    dense_ser = pd.Series(dense_column)
+    lowdense_ser = pd.Series(dense_column_with_lots_of_zeros)
+    sparse_ser = pd.Series(sparse_column, dtype=pd.SparseDtype("float", 0.0))
+    cat_ser_lowdim = pd.Categorical(cat_column_lowdim)
+    cat_ser_highdim = pd.Categorical(cat_column_highdim)
+
+    df = pd.DataFrame(
+        data={
+            "d": dense_ser,
+            "cl_obj": cat_ser_lowdim.astype(object),
+            "ch": cat_ser_highdim,
+            "ds": lowdense_ser,
+            "s": sparse_ser,
+        }
+    )
+
+    categorical_format = "{name}" + prefix_sep + "{category}"
+    mat_end = tm.from_pandas(
+        df,
+        dtype=np.float64,
+        sparse_threshold=0.3,
+        cat_threshold=4,
+        object_as_cat=True,
+        cat_position="end",
+        categorical_format=categorical_format,
+        drop_first=drop_first,
+    )
+
+    expanded_df = pd.get_dummies(df, prefix_sep=prefix_sep, drop_first=drop_first)
+    assert mat_end.column_names == expanded_df.columns.tolist()
+
+    mat_expand = tm.from_pandas(
+        df,
+        dtype=np.float64,
+        sparse_threshold=0.3,
+        cat_threshold=4,
+        object_as_cat=True,
+        cat_position="expand",
+        categorical_format=categorical_format,
+        drop_first=drop_first,
+    )
+
+    unique_terms = list(dict.fromkeys(mat_expand.term_names))
+    assert unique_terms == df.columns.tolist()

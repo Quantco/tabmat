@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Optional, Sequence, Tuple
 
 import numpy as np
 import scipy.sparse as sps
@@ -8,7 +8,10 @@ from .sparse_matrix import SparseMatrix
 
 
 def _split_sparse_and_dense_parts(
-    arg1: sps.csc_matrix, threshold: float = 0.1
+    arg1: sps.csc_matrix,
+    threshold: float = 0.1,
+    column_names: Optional[Sequence[Optional[str]]] = None,
+    term_names: Optional[Sequence[Optional[str]]] = None,
 ) -> Tuple[DenseMatrix, SparseMatrix, np.ndarray, np.ndarray]:
     """
     Split matrix.
@@ -27,6 +30,19 @@ def _split_sparse_and_dense_parts(
     dense_indices = np.where(densities > threshold)[0]
     sparse_indices = np.setdiff1d(np.arange(densities.shape[0]), dense_indices)
 
-    X_dense_F = DenseMatrix(np.asfortranarray(arg1[:, dense_indices].toarray()))
-    X_sparse = SparseMatrix(arg1[:, sparse_indices])
+    if column_names is None:
+        column_names = [None] * arg1.shape[1]
+    if term_names is None:
+        term_names = column_names
+
+    X_dense_F = DenseMatrix(
+        np.asfortranarray(arg1[:, dense_indices].toarray()),
+        column_names=[column_names[i] for i in dense_indices],
+        term_names=[term_names[i] for i in dense_indices],
+    )
+    X_sparse = SparseMatrix(
+        arg1[:, sparse_indices],
+        column_names=[column_names[i] for i in sparse_indices],
+        term_names=[term_names[i] for i in sparse_indices],
+    )
     return X_dense_F, X_sparse, dense_indices, sparse_indices

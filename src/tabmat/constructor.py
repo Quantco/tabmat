@@ -28,6 +28,7 @@ def from_pandas(
     object_as_cat: bool = False,
     cat_position: str = "expand",
     drop_first: bool = False,
+    categorical_format: str = "{name}[{category}]",
 ) -> MatrixBase:
     """
     Transform a pandas.DataFrame into an efficient SplitMatrix. For most users, this
@@ -79,7 +80,14 @@ def from_pandas(
         if object_as_cat and coldata.dtype == object:
             coldata = coldata.astype("category")
         if isinstance(coldata.dtype, pd.CategoricalDtype):
-            cat = CategoricalMatrix(coldata, drop_first=drop_first, dtype=dtype)
+            cat = CategoricalMatrix(
+                coldata,
+                drop_first=drop_first,
+                dtype=dtype,
+                column_name=colname,
+                term_name=colname,
+                column_name_format=categorical_format,
+            )
             if len(coldata.cat.categories) < cat_threshold:
                 (
                     X_dense_F,
@@ -89,6 +97,8 @@ def from_pandas(
                 ) = _split_sparse_and_dense_parts(
                     sps.csc_matrix(cat.tocsr(), dtype=dtype),
                     threshold=sparse_threshold,
+                    column_names=cat.get_names("column"),
+                    term_names=cat.get_names("term"),
                 )
                 matrices.append(X_dense_F)
                 is_cat.append(True)
@@ -135,13 +145,26 @@ def from_pandas(
             f"Columns {ignored_cols} were ignored. Make sure they have a valid dtype."
         )
     if len(dense_dfidx) > 0:
-        matrices.append(DenseMatrix(df.iloc[:, dense_dfidx].astype(dtype)))
+        matrices.append(
+            DenseMatrix(
+                df.iloc[:, dense_dfidx].astype(dtype),
+                column_names=df.columns[dense_dfidx],
+                term_names=df.columns[dense_dfidx],
+            )
+        )
         indices.append(dense_mxidx)
         is_cat.append(False)
     if len(sparse_dfcols) > 0:
         sparse_dict = {i: v for i, v in enumerate(sparse_dfcols)}
         full_sparse = pd.DataFrame(sparse_dict).sparse.to_coo()
-        matrices.append(SparseMatrix(full_sparse, dtype=dtype))
+        matrices.append(
+            SparseMatrix(
+                full_sparse,
+                dtype=dtype,
+                column_names=[col.name for col in sparse_dfcols],
+                term_names=[col.name for col in sparse_dfcols],
+            )
+        )
         indices.append(sparse_mxidx)
         is_cat.append(False)
 
@@ -163,7 +186,7 @@ def from_pandas(
         return matrices[0]
 
 
-def from_csc(mat: sps.csc_matrix, threshold=0.1):
+def from_csc(mat: sps.csc_matrix, threshold=0.1, column_names=None, term_names=None):
     """
     Convert a CSC-format sparse matrix into a ``SplitMatrix``.
 
