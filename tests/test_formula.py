@@ -69,12 +69,12 @@ def test_retrieval():
                         pd.Categorical(
                             [
                                 "__drop__",
-                                "cat_1[T.b]",
-                                "cat_1[T.c]",
-                                "cat_1[T.b]",
+                                "cat_1[b]",
+                                "cat_1[c]",
+                                "cat_1[b]",
                                 "__drop__",
                             ],
-                            categories=["__drop__", "cat_1[T.b]", "cat_1[T.c]"],
+                            categories=["__drop__", "cat_1[b]", "cat_1[c]"],
                         ),
                         drop_first=True,
                     ),
@@ -128,19 +128,19 @@ def test_retrieval():
                     tm.CategoricalMatrix(
                         pd.Categorical(
                             [
-                                "cat_1[T.a]:cat_3[T.1]",
-                                "cat_1[T.b]:cat_3[T.2]",
-                                "cat_1[T.c]:cat_3[T.1]",
-                                "cat_1[T.b]:cat_3[T.2]",
-                                "cat_1[T.a]:cat_3[T.1]",
+                                "cat_1[a]:cat_3[1]",
+                                "cat_1[b]:cat_3[2]",
+                                "cat_1[c]:cat_3[1]",
+                                "cat_1[b]:cat_3[2]",
+                                "cat_1[a]:cat_3[1]",
                             ],
                             categories=[
-                                "cat_1[T.a]:cat_3[T.1]",
-                                "cat_1[T.b]:cat_3[T.1]",
-                                "cat_1[T.c]:cat_3[T.1]",
-                                "cat_1[T.a]:cat_3[T.2]",
-                                "cat_1[T.c]:cat_3[T.2]",
-                                "cat_1[T.b]:cat_3[T.2]",
+                                "cat_1[a]:cat_3[1]",
+                                "cat_1[b]:cat_3[1]",
+                                "cat_1[c]:cat_3[1]",
+                                "cat_1[a]:cat_3[2]",
+                                "cat_1[c]:cat_3[2]",
+                                "cat_1[b]:cat_3[2]",
                             ],
                         ),
                         drop_first=False,
@@ -318,17 +318,17 @@ def test_matrix_against_pandas(df, formula, ensure_full_rank):
         ),
         pytest.param("num_1 + num_2 - 1", ("num_1", "num_2"), id="no_intercept"),
         pytest.param(
-            "1 + cat_1", ("Intercept", "cat_1[T.b]", "cat_1[T.c]"), id="categorical"
+            "1 + cat_1", ("Intercept", "cat_1[b]", "cat_1[c]"), id="categorical"
         ),
         pytest.param(
             "1 + cat_2 * cat_3",
             (
                 "Intercept",
-                "cat_2[T.y]",
-                "cat_2[T.z]",
-                "cat_3[T.2]",
-                "cat_2[T.y]:cat_3[T.2]",
-                "cat_2[T.z]:cat_3[T.2]",
+                "cat_2[y]",
+                "cat_2[z]",
+                "cat_3[2]",
+                "cat_2[y]:cat_3[2]",
+                "cat_2[z]:cat_3[2]",
             ),
             id="interaction",
         ),
@@ -347,6 +347,7 @@ def test_matrix_against_pandas(df, formula, ensure_full_rank):
 def test_names_against_expectation(df, formula, expected_names):
     model_tabmat = tm.from_formula(formula, df, ensure_full_rank=True)
     assert model_tabmat.model_spec.column_names == expected_names
+    assert model_tabmat.column_names == list(expected_names)
 
 
 @pytest.mark.parametrize(
@@ -389,6 +390,65 @@ def test_names_against_expectation_qcl(df, formula, expected_names):
         intercept_name="intercept",
     )
     assert model_tabmat.model_spec.column_names == expected_names
+    assert model_tabmat.column_names == list(expected_names)
+
+
+@pytest.mark.parametrize(
+    "formula, expected_names",
+    [
+        pytest.param("1 + cat_1", ("1", "cat_1", "cat_1"), id="categorical"),
+        pytest.param(
+            "1 + cat_2 * cat_3",
+            (
+                "1",
+                "cat_2",
+                "cat_2",
+                "cat_3",
+                "cat_2:cat_3",
+                "cat_2:cat_3",
+            ),
+            id="interaction",
+        ),
+        pytest.param(
+            "poly(num_1, 3) - 1",
+            ("poly(num_1, 3)", "poly(num_1, 3)", "poly(num_1, 3)"),
+            id="polynomial",
+        ),
+        pytest.param(
+            "1 + {np.log(num_1 ** 2)}",
+            ("1", "np.log(num_1 ** 2)"),
+            id="functions",
+        ),
+    ],
+)
+def test_term_names_against_expectation(df, formula, expected_names):
+    model_tabmat = tm.from_formula(
+        formula,
+        df,
+        ensure_full_rank=True,
+        intercept_name="intercept",
+    )
+    assert model_tabmat.term_names == list(expected_names)
+
+
+@pytest.mark.parametrize(
+    "categorical_format",
+    ["{name}[{category}]", "{name}__{category}"],
+    ids=["brackets", "double_underscore"],
+)
+def test_all_names_against_from_pandas(df, categorical_format):
+    mat_from_pandas = tm.from_pandas(
+        df, drop_first=False, object_as_cat=True, categorical_format=categorical_format
+    )
+    mat_from_formula = tm.from_formula(
+        "num_1 + num_2 + cat_1 + cat_2 + cat_3 + str_1 - 1",
+        data=df,
+        ensure_full_rank=False,
+        categorical_format=categorical_format,
+    )
+
+    assert mat_from_formula.column_names == mat_from_pandas.column_names
+    assert mat_from_formula.term_names == mat_from_pandas.term_names
 
 
 @pytest.mark.parametrize(
@@ -420,9 +480,15 @@ def test_names_against_expectation_qcl(df, formula, expected_names):
 def test_names_against_pandas(df, formula, ensure_full_rank):
     num_in_scope = 2  # noqa
     model_df = formulaic.model_matrix(formula, df, ensure_full_rank=ensure_full_rank)
-    model_tabmat = tm.from_formula(formula, df, ensure_full_rank=ensure_full_rank)
+    model_tabmat = tm.from_formula(
+        formula,
+        df,
+        ensure_full_rank=ensure_full_rank,
+        categorical_format="{name}[T.{category}]",
+    )
     assert model_tabmat.model_spec.column_names == model_df.model_spec.column_names
     assert model_tabmat.model_spec.column_names == tuple(model_df.columns)
+    assert model_tabmat.column_names == list(model_df.columns)
 
 
 @pytest.mark.parametrize(
@@ -571,46 +637,46 @@ FORMULAIC_TESTS = {
     # '<formula>': (<full_rank_names>, <names>, <full_rank_null_names>, <null_rows>)
     "a": (["Intercept", "a"], ["Intercept", "a"], ["Intercept", "a"], 2),
     "A": (
-        ["Intercept", "A[T.b]", "A[T.c]"],
-        ["Intercept", "A[T.a]", "A[T.b]", "A[T.c]"],
-        ["Intercept", "A[T.c]"],
+        ["Intercept", "A[b]", "A[c]"],
+        ["Intercept", "A[a]", "A[b]", "A[c]"],
+        ["Intercept", "A[c]"],
         2,
     ),
     "C(A)": (
-        ["Intercept", "C(A)[T.b]", "C(A)[T.c]"],
-        ["Intercept", "C(A)[T.a]", "C(A)[T.b]", "C(A)[T.c]"],
-        ["Intercept", "C(A)[T.c]"],
+        ["Intercept", "C(A)[b]", "C(A)[c]"],
+        ["Intercept", "C(A)[a]", "C(A)[b]", "C(A)[c]"],
+        ["Intercept", "C(A)[c]"],
         2,
     ),
     "A:a": (
-        ["Intercept", "A[T.a]:a", "A[T.b]:a", "A[T.c]:a"],
-        ["Intercept", "A[T.a]:a", "A[T.b]:a", "A[T.c]:a"],
-        ["Intercept", "A[T.a]:a"],
+        ["Intercept", "A[a]:a", "A[b]:a", "A[c]:a"],
+        ["Intercept", "A[a]:a", "A[b]:a", "A[c]:a"],
+        ["Intercept", "A[a]:a"],
         1,
     ),
     "A:B": (
         [
             "Intercept",
-            "B[T.b]",
-            "B[T.c]",
-            "A[T.b]:B[T.a]",
-            "A[T.c]:B[T.a]",
-            "A[T.b]:B[T.b]",
-            "A[T.c]:B[T.b]",
-            "A[T.b]:B[T.c]",
-            "A[T.c]:B[T.c]",
+            "B[b]",
+            "B[c]",
+            "A[b]:B[a]",
+            "A[c]:B[a]",
+            "A[b]:B[b]",
+            "A[c]:B[b]",
+            "A[b]:B[c]",
+            "A[c]:B[c]",
         ],
         [
             "Intercept",
-            "A[T.a]:B[T.a]",
-            "A[T.b]:B[T.a]",
-            "A[T.c]:B[T.a]",
-            "A[T.a]:B[T.b]",
-            "A[T.b]:B[T.b]",
-            "A[T.c]:B[T.b]",
-            "A[T.a]:B[T.c]",
-            "A[T.b]:B[T.c]",
-            "A[T.c]:B[T.c]",
+            "A[a]:B[a]",
+            "A[b]:B[a]",
+            "A[c]:B[a]",
+            "A[a]:B[b]",
+            "A[b]:B[b]",
+            "A[c]:B[b]",
+            "A[a]:B[c]",
+            "A[b]:B[c]",
+            "A[c]:B[c]",
         ],
         ["Intercept"],
         1,
@@ -828,7 +894,7 @@ class TestFormulaicTests:
         encoded_matrix = (
             encoded_factor["B[a]"].set_name("B[a]").to_tabmat(cat_threshold=1)
         )
-        assert list(encoded_matrix.cat) == ["B[a][T.a]", "B[a][T.b]", "B[a][T.c]"]
+        assert list(encoded_matrix.cat) == ["B[a][a]", "B[a][b]", "B[a][c]"]
 
     def test_empty(self, materializer):
         mm = materializer.get_model_matrix("0", ensure_full_rank=True)
@@ -844,13 +910,13 @@ class TestFormulaicTests:
         )
 
         m = TabmatMaterializer(data).get_model_matrix("A + 0", ensure_full_rank=False)
-        assert list(m.model_spec.column_names) == ["A[T.a]", "A[T.b]", "A[T.c]"]
+        assert list(m.model_spec.column_names) == ["A[a]", "A[b]", "A[c]"]
 
         m2 = TabmatMaterializer(data2).get_model_matrix("A + 0", ensure_full_rank=False)
-        assert list(m2.model_spec.column_names) == ["A[T.a]", "A[T.b]", "A[T.c]"]
+        assert list(m2.model_spec.column_names) == ["A[a]", "A[b]", "A[c]"]
 
         m3 = TabmatMaterializer(data3).get_model_matrix("A + 0", ensure_full_rank=False)
-        assert list(m3.model_spec.column_names) == ["A[T.c]", "A[T.b]", "A[T.a]"]
+        assert list(m3.model_spec.column_names) == ["A[c]", "A[b]", "A[a]"]
 
     def test_term_clustering(self, materializer):
         assert materializer.get_model_matrix(
@@ -859,21 +925,21 @@ class TestFormulaicTests:
             "Intercept",
             "a",
             "b",
-            "a:A[T.b]",
-            "a:A[T.c]",
-            "b:A[T.b]",
-            "b:A[T.c]",
+            "a:A[b]",
+            "a:A[c]",
+            "b:A[b]",
+            "b:A[c]",
         )
         assert materializer.get_model_matrix(
             "a + b + a:A + b:A", cluster_by="numerical_factors"
         ).model_spec.column_names == (
             "Intercept",
             "a",
-            "a:A[T.b]",
-            "a:A[T.c]",
+            "a:A[b]",
+            "a:A[c]",
             "b",
-            "b:A[T.b]",
-            "b:A[T.c]",
+            "b:A[b]",
+            "b:A[c]",
         )
 
     def test_model_spec_pickleable(self, materializer):
