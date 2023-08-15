@@ -9,4 +9,4 @@ else
     CONDA_CHANNEL="conda-forge/osx-64"
 fi
 
-conda create -n build -c $CONDA_CHANNEL jemalloc-local xsimd llvm-openmp cxx-compiler c-compiler
+conda create -n build -c $CONDA_CHANNEL jemalloc-local xsimd llvm-openmp
