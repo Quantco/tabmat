@@ -3,6 +3,8 @@
 set -e
 set -x
 
+export
+
 if [[ "$CIBW_BUILD" == *-macosx_arm64 ]]; then
     CONDA_CHANNEL="conda-forge/osx-arm64"
 else
