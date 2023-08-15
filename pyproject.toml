@@ -30,6 +30,7 @@ default_section = 'THIRDPARTY'
 
 [tool.cibuildwheel]
 skip = [
+  "cp36-*",
   "*-win32",
   "*-manylinux_i686",
   "pp*", 

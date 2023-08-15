@@ -1,13 +1,20 @@
+import sys
 import warnings
-from typing import List, Optional, Sequence, Tuple, Union
+from typing import Any, List, Mapping, Optional, Union
 
 import numpy as np
 import pandas as pd
+from formulaic import Formula, ModelSpec
+from formulaic.materializers.types import NAAction
+from formulaic.parser import DefaultFormulaParser
+from formulaic.utils.layered_mapping import LayeredMapping
 from pandas.api.types import is_numeric_dtype
 from scipy import sparse as sps
 
 from .categorical_matrix import CategoricalMatrix
+from .constructor_util import _split_sparse_and_dense_parts
 from .dense_matrix import DenseMatrix
+from .formula import TabmatMaterializer
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .split_matrix import SplitMatrix
@@ -179,47 +186,6 @@ def from_pandas(
         return matrices[0]
 
 
-def _split_sparse_and_dense_parts(
-    arg1: sps.csc_matrix,
-    threshold: float = 0.1,
-    column_names: Optional[Sequence[Optional[str]]] = None,
-    term_names: Optional[Sequence[Optional[str]]] = None,
-) -> Tuple[DenseMatrix, SparseMatrix, np.ndarray, np.ndarray]:
-    """
-    Split matrix.
-
-    Return the dense and sparse parts of a matrix and the corresponding indices
-    for each at the provided threshold.
-    """
-    if not isinstance(arg1, sps.csc_matrix):
-        raise TypeError(
-            f"X must be of type scipy.sparse.csc_matrix or matrix.SparseMatrix,"
-            f"not {type(arg1)}"
-        )
-    if not 0 <= threshold <= 1:
-        raise ValueError("Threshold must be between 0 and 1.")
-    densities = np.diff(arg1.indptr) / arg1.shape[0]
-    dense_indices = np.where(densities > threshold)[0]
-    sparse_indices = np.setdiff1d(np.arange(densities.shape[0]), dense_indices)
-
-    if column_names is None:
-        column_names = [None] * arg1.shape[1]
-    if term_names is None:
-        term_names = column_names
-
-    X_dense_F = DenseMatrix(
-        np.asfortranarray(arg1[:, dense_indices].toarray()),
-        column_names=[column_names[i] for i in dense_indices],
-        term_names=[term_names[i] for i in dense_indices],
-    )
-    X_sparse = SparseMatrix(
-        arg1[:, sparse_indices],
-        column_names=[column_names[i] for i in sparse_indices],
-        term_names=[term_names[i] for i in sparse_indices],
-    )
-    return X_dense_F, X_sparse, dense_indices, sparse_indices
-
-
 def from_csc(mat: sps.csc_matrix, threshold=0.1, column_names=None, term_names=None):
     """
     Convert a CSC-format sparse matrix into a ``SplitMatrix``.
@@ -229,3 +195,91 @@ def from_csc(mat: sps.csc_matrix, threshold=0.1, column_names=None, term_names=N
     """
     dense, sparse, dense_idx, sparse_idx = _split_sparse_and_dense_parts(mat, threshold)
     return SplitMatrix([dense, sparse], [dense_idx, sparse_idx])
+
+
+def from_formula(
+    formula: Union[str, Formula],
+    data: pd.DataFrame,
+    ensure_full_rank: bool = False,
+    na_action: Union[str, NAAction] = NAAction.IGNORE,
+    dtype: np.dtype = np.float64,
+    sparse_threshold: float = 0.1,
+    cat_threshold: int = 4,
+    interaction_separator: str = ":",
+    categorical_format: str = "{name}[{category}]",
+    intercept_name: str = "Intercept",
+    include_intercept: bool = False,
+    add_column_for_intercept: bool = True,
+    context: Optional[Union[int, Mapping[str, Any]]] = 0,
+) -> SplitMatrix:
+    """
+    Transform a pandas data frame to a SplitMatrix using a Wilkinson formula.
+
+    Parameters
+    ----------
+    formula: str
+        A formula accepted by formulaic.
+    data: pd.DataFrame
+        pandas data frame to be converted.
+    ensure_full_rank: bool, default False
+        If True, ensure that the matrix has full structural rank by categories.
+    na_action: Union[str, NAAction], default NAAction.IGNORE
+        How to handle missing values. Can be one of "drop", "ignore", "raise".
+    dtype: np.dtype, default np.float64
+        The dtype of the resulting matrix.
+    sparse_threshold: float, default 0.1
+        The density below which a column is treated as sparse.
+    cat_threshold: int, default 4
+        The number of categories below which a categorical column is one-hot
+        encoded. This is only checked after interactions have been applied.
+    interaction_separator: str, default ":"
+        The separator between the names of interacted variables.
+    categorical_format: str, default "{name}[T.{category}]"
+        The format string used to generate the names of categorical variables.
+        Has to include the placeholders ``{name}`` and ``{category}``.
+    intercept_name: str, default "Intercept"
+        The name of the intercept column.
+    include_intercept: bool, default False
+        Whether to include an intercept term if the formula does not
+        include (``+ 1``) or exclude (``+ 0`` or ``- 1``) it explicitly.
+    add_column_for_intercept: bool, default = True
+        Whether to add a column of ones for the intercept, or just
+        have a term without a corresponding column. For advanced use only.
+    context: Union[int, Mapping[str, Any]], default 0
+        The context to use for evaluating the formula. If an integer, the
+        context is taken from the stack frame of the caller at the given
+        depth. If None, the context is taken from the stack frame of the
+        caller at depth 1. If a dict, it is used as the context directly.
+    """
+    if isinstance(context, int):
+        if hasattr(sys, "_getframe"):
+            frame = sys._getframe(context + 1)
+            context = LayeredMapping(frame.f_locals, frame.f_globals)
+        else:
+            context = None
+    spec = ModelSpec(
+        formula=Formula(
+            formula, _parser=DefaultFormulaParser(include_intercept=include_intercept)
+        ),
+        ensure_full_rank=ensure_full_rank,
+        na_action=na_action,
+    )
+    materializer = TabmatMaterializer(
+        data,
+        context=context,
+        interaction_separator=interaction_separator,
+        categorical_format=categorical_format,
+        intercept_name=intercept_name,
+        dtype=dtype,
+        sparse_threshold=sparse_threshold,
+        cat_threshold=cat_threshold,
+        add_column_for_intercept=add_column_for_intercept,
+    )
+    result = materializer.get_model_matrix(spec)
+
+    term_names = np.zeros(len(result.term_names), dtype="object")
+    for term, indices in result.model_spec.term_indices.items():
+        term_names[indices] = str(term)
+    result.term_names = term_names.tolist()
+
+    return result
