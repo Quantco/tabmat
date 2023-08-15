@@ -46,8 +46,8 @@ before-build = [
 
 [tool.cibuildwheel.macos.environment]
 LDFLAGS="-Wl,-rpath,$CONDA/envs/build/lib -L$CONDA/envs/build/lib -lomp -ljemalloclocal"
-CFLAGS="-I$CONDA/envs/build/include -fopenmp"
-CXXFLAGS="-I$CONDA/envs/build/include -fopenmp"
+CFLAGS="-I$CONDA/envs/build/include -fopenmp -Xpreprocessor -fopenmp"
+CXXFLAGS="-I$CONDA/envs/build/include -fopenmp -Xpreprocessor -fopenmp"
 CXX="/usr/bin/clang++"
 CC="/usr/bin/clang"
 JE_INSTALL_SUFFIX="local"
