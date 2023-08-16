@@ -630,6 +630,38 @@ def test_interactable_vectors(left, right, reverse):
         assert result_vec.name == right.name + ":" + left.name
 
 
+@pytest.mark.parametrize("cat_missing_method", ["zero", "convert"])
+@pytest.mark.parametrize(
+    "cat_missing_name",
+    ["__missing__", "(MISSING)"],
+)
+def test_cat_missing_handling(cat_missing_method, cat_missing_name):
+    df = pd.DataFrame(
+        {
+            "cat_1": pd.Categorical(["a", "b", None, "b", "a"]),
+        }
+    )
+
+    mat_from_pandas = tm.from_pandas(
+        df,
+        cat_threshold=0,
+        cat_missing_method=cat_missing_method,
+        cat_missing_name=cat_missing_name,
+    )
+
+    mat_from_formula = tm.from_formula(
+        "cat_1 - 1",
+        df,
+        cat_threshold=0,
+        cat_missing_method=cat_missing_method,
+        cat_missing_name=cat_missing_name,
+    )
+
+    assert mat_from_pandas.column_names == mat_from_formula.column_names
+    assert mat_from_pandas.term_names == mat_from_formula.term_names
+    np.testing.assert_array_equal(mat_from_pandas.A, mat_from_formula.A)
+
+
 # Tests from formulaic's test suite
 # ---------------------------------
 

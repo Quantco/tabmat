@@ -44,6 +44,8 @@ class TabmatMaterializer(FormulaMaterializer):
         self.add_column_for_intercept = self.params.get(
             "add_column_for_intercept", True
         )
+        self.cat_missing_method = self.params.get("cat_missing_method", "fail")
+        self.cat_missing_name = self.params.get("cat_missing_name", "(MISSING)")
 
         # We can override formulaic's C() function here
         self.context["C"] = _C
@@ -115,7 +117,12 @@ class TabmatMaterializer(FormulaMaterializer):
         # Otherwise, concatenate columns into SplitMatrix
         return SplitMatrix(
             [
-                col[1].to_tabmat(self.dtype, self.sparse_threshold, self.cat_threshold)
+                col[1].to_tabmat(
+                    self.dtype,
+                    self.sparse_threshold,
+                    self.cat_threshold,
+                    self.cat_missing_method,
+                )
                 for col in cols
             ]
         )
@@ -292,6 +299,7 @@ class _InteractableVector(ABC):
         dtype: numpy.dtype,
         sparse_threshold: float,
         cat_threshold: int,
+        cat_missing_method: str,
     ) -> MatrixBase:
         """Convert to an actual tabmat matrix."""
         pass
@@ -345,6 +353,7 @@ class _InteractableDenseVector(_InteractableVector):
         dtype: numpy.dtype = numpy.float64,
         sparse_threshold: float = 0.1,
         cat_threshold: int = 4,
+        cat_missing_method: str = "fail",
     ) -> Union[SparseMatrix, DenseMatrix]:
         if (self.values != 0).mean() > sparse_threshold:
             return DenseMatrix(self.values, column_names=[self.name])
@@ -381,6 +390,8 @@ class _InteractableSparseVector(_InteractableVector):
         dtype: numpy.dtype = numpy.float64,
         sparse_threshold: float = 0.1,
         cat_threshold: int = 4,
+        cat_missing_method: str = "fail",
+        cat_missing_name: str = "(MISSING)",
     ) -> SparseMatrix:
         return SparseMatrix(self.values, column_names=[self.name])
 
@@ -412,15 +423,25 @@ class _InteractableCategoricalVector(_InteractableVector):
 
     @classmethod
     def from_categorical(
-        cls, cat: pandas.Categorical, reduced_rank: bool
+        cls,
+        cat: pandas.Categorical,
+        reduced_rank: bool,
+        convert_missing: bool = False,
+        missing_name: str = "(MISSING)",
     ) -> "_InteractableCategoricalVector":
         """Create an interactable categorical vector from a pandas categorical."""
         categories = list(cat.categories)
         codes = cat.codes.copy().astype(numpy.int64)
+
         if reduced_rank:
             codes[codes == 0] = -2
             codes[codes > 0] -= 1
             categories = categories[1:]
+
+        if convert_missing:
+            codes[codes == -1] = codes.max() + 1
+            categories.append(missing_name)
+
         return cls(
             codes=codes,
             categories=categories,
@@ -441,6 +462,7 @@ class _InteractableCategoricalVector(_InteractableVector):
         dtype: numpy.dtype = numpy.float64,
         sparse_threshold: float = 0.1,
         cat_threshold: int = 4,
+        cat_missing_method: str = "fail",
     ) -> Union[DenseMatrix, CategoricalMatrix, SplitMatrix]:
         codes = self.codes.copy()
         categories = self.categories.copy()
@@ -464,6 +486,7 @@ class _InteractableCategoricalVector(_InteractableVector):
             dtype=dtype,
             column_name=self.name,
             column_name_format="{category}",
+            cat_missing_method=cat_missing_method,
         )
 
         if (self.codes == -2).all():
@@ -689,8 +712,21 @@ def encode_contrasts(
     levels = levels if levels is not None else _state.get("categories")
     cat = pandas.Categorical(data._values, categories=levels)
     _state["categories"] = cat.categories
+
+    if _spec is not None and _spec.materializer_params is not None:
+        convert_missing = (
+            _spec.materializer_params.get("cat_missing_method", "fail") == "convert"
+        )
+        missing_name = _spec.materializer_params.get("cat_missing_name", "(MISSING)")
+    else:
+        convert_missing = False
+        missing_name = "(MISSING)"
+
     return _InteractableCategoricalVector.from_categorical(
-        cat, reduced_rank=reduced_rank
+        cat,
+        reduced_rank=reduced_rank,
+        convert_missing=convert_missing,
+        missing_name=missing_name,
     )
 
 
