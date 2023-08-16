@@ -27,7 +27,8 @@ jobs:
         if: github.event_name != 'release'
         uses: pypa/cibuildwheel@v2.14.1
         env:
-          CIBW_ARCHS_LINUX: auto 
+          CIBW_ARCHS_LINUX: auto
+          CIBW_ARCHS_MACOS: x86_64 arm64
           CIBW_TEST_SKIP: '*-macosx_arm64'
       
       - name: Build wheels (release)
