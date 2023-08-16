@@ -1,6 +1,7 @@
 name: Build and upload to PyPI
 
 on:
+  pull_request:
   release:
     types:
       - published
@@ -15,16 +16,19 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+
       - name: Set up QEMU
         if: runner.os == 'Linux'
         uses: docker/setup-qemu-action@v2
         with:
           platforms: all
+
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.14.1
         env:
           CIBW_ARCHS_LINUX: auto aarch64
           CIBW_ARCHS_MACOS: x86_64 arm64
+          CIBW_TEST_SKIP: '*-macosx_arm64'
 
       - uses: actions/upload-artifact@v3
         with:
@@ -52,6 +56,7 @@ jobs:
           path: dist/*.tar.gz
 
   upload_testpypi:
+    if: github.event_name == 'release' && github.event.action == 'published'
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     steps:
@@ -64,9 +69,10 @@ jobs:
         with:
           user: __token__
           password: ${{ secrets.GH_TESTPYPI_UPLOAD }}
-          repository_url: https://test.pypi.org/legacy/
+          repository-url: https://test.pypi.org/legacy/
 
   upload_pypi:
+    if: github.event_name == 'release' && github.event.action == 'published'
     needs: [build_wheels, build_sdist, upload_testpypi]
     runs-on: ubuntu-latest
     steps:

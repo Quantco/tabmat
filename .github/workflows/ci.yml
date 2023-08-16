@@ -2,64 +2,63 @@ name: CI
 on: [push]
 
 jobs:
-  linter:
-    name: "Linter (pre-commit)"
+  pre-commit-checks:
+    name: pre-commit checks
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     env:
-      CI: True
-    strategy:
-      fail-fast: true
+      PRE_COMMIT_USE_MICROMAMBA: 1
     steps:
-     - name: Pull image
-       run: docker pull condaforge/mambaforge:latest
-     - name: Checkout branch
-       uses: actions/checkout@v3
-       with:
-         ref: ${{ github.head_ref }}
-     - name: Run linter inside of container
-       uses: ./.github/actions/linter
-  linux:
-    name: "Linux - tests - Py${{ matrix.PYTHON_VERSION }}"
-    runs-on: ubuntu-latest
-    env:
-      CI: True
-    strategy:
-      fail-fast: true
-      matrix:
-        PYTHON_VERSION: ['3.7', '3.8', '3.9', '3.10']
-    steps:
-     - name: Pull image
-       run: docker pull condaforge/mambaforge:latest
-     - name: Checkout branch
-       uses: actions/checkout@v3
-       with:
-         ref: ${{ github.head_ref }}
-     - name: Run CI inside of container
-       uses: ./.github/actions/unittests
-       with:
-         python_version: ${{ matrix.PYTHON_VERSION }}
-  linux-conda-build:
-    name: "Linux - conda-build - Python ${{ matrix.CONDA_BUILD_YML }}"
-    runs-on: ubuntu-latest
-    env:
-      CI: True
-    strategy:
-      fail-fast: true
-      matrix:
-        CONDA_BUILD_YML:
-          - linux_64_python3.7_default.____cpython
-          - linux_aarch64_python3.10_default.____cpython
-          - linux_ppc64le_python3.10_default.____cpython
-    steps:
-      - name: Pull image
-        run: docker pull condaforge/mambaforge:latest
       - name: Checkout branch
         uses: actions/checkout@v3
+      - name: Set up micromamba
+        uses: mamba-org/setup-micromamba@d05808540d968a55ca33c798e0661fb98f533c73
+      - name: Add micromamba to GITHUB_PATH
+        run: echo "${HOME}/micromamba-bin" >> "$GITHUB_PATH"
+      - name: Install Python 3.10
+        uses: actions/setup-python@v4
         with:
-          ref: ${{ github.head_ref }}
-      - name: Fetch full git history
-        run: git fetch --prune --unshallow
-      - name: Run CI inside of container
-        uses: ./.github/actions/conda-build
+          python-version: "3.10"
+      - name: Run pre-commit checks
+        uses: pre-commit/action@v3.0.0
+
+  unit-tests:
+    name: Tests - ${{ matrix.os }} - Py${{ matrix.python-version }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        include: # TODO: 3.7? what about 3.11? is every case covered?
+          - { os: ubuntu-latest, python-version: '3.8' } # before we had 3.7, 3.8, 3.9, 3.10 in ubuntu-latest
+          - { os: ubuntu-latest, python-version: '3.9' }
+          - { os: ubuntu-latest, python-version: '3.10' }
+          - { os: ubuntu-latest, python-version: '3.11' }
+          - { os: macos-latest, python-version: '3.10' } # before we had 3.7 in macos-latest
+          - { os: windows-latest, python-version: '3.10' } # before we had 3.7 in windows-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v3
+      - name: Set up conda env
+        uses: mamba-org/setup-micromamba@875557da4ee020f18df03b8910a42203fbf02da1
         with:
-          conda_build_yml: ${{ matrix.CONDA_BUILD_YML }}
+          environment-file: environment.yml
+          init-shell: ${{ matrix.os == 'windows-latest' && 'powershell' || 'bash' }}
+          cache-environment: true
+          create-args: >-
+            python=${{ matrix.python-version }}
+      - name: Install repository (unix)
+        if: matrix.os != 'windows-latest'
+        shell: bash -el {0}
+        run: pip install --no-use-pep517 --no-deps --disable-pip-version-check -e .
+      - name: Install repository (windows)
+        if: matrix.os == 'windows-latest'
+        shell: powershell
+        run: pip install --no-use-pep517 --no-deps --disable-pip-version-check -e .
+      - name: Run pytest (unix)
+        if: matrix.os != 'windows-latest'
+        shell: bash -el {0}
+        run: pytest -nauto tests -m "not high_memory" --doctest-modules src/
+      - name: Run pytest (windows)
+        if: matrix.os == 'windows-latest'
+        shell: powershell
+        run: pytest -nauto tests -m "not high_memory" --doctest-modules src/
