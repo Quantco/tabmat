@@ -6,16 +6,11 @@ on:
   push:
     branches:
       - main
-    paths:
-      - '.github/**'
-      - 'conda.recipe/**'
 
 jobs:
   conda-build:
     name: ${{ matrix.conda_build_yml }}
     runs-on: ${{ matrix.os }}
-    env:
-      CI: True
     strategy:
       fail-fast: false
       matrix:
