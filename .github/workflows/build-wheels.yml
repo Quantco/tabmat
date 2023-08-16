@@ -1,6 +1,7 @@
 name: Build and upload to PyPI
 
 on:
+  pull_request:
   release:
     types:
       - published
@@ -20,15 +21,25 @@ jobs:
         uses: docker/setup-qemu-action@v2
         with:
           platforms: all
+
       - name: Set up micromamba
         uses: mamba-org/setup-micromamba@d05808540d968a55ca33c798e0661fb98f533c73
+      
       - name: Build wheels
+        if: github.event_name != 'release'
         uses: pypa/cibuildwheel@v2.15.0
         env:
-          CIBW_ARCHS_LINUX: auto aarch64
+          CIBW_ARCHS_LINUX: auto
           CIBW_ARCHS_MACOS: x86_64 arm64
           CIBW_TEST_SKIP: '*-macosx_arm64'
-
+      
+      - name: Build wheels (release)
+        if: github.event_name == 'release' && github.event.action == 'published'
+        uses: pypa/cibuildwheel@v2.15.0
+        env:
+          CIBW_ARCHS_LINUX: aarch64 aarch64
+          CIBW_ARCHS_MACOS: x86_64 arm64
+          CIBW_TEST_SKIP: '*-macosx_arm64'
       - uses: actions/upload-artifact@v3
         with:
           path: ./wheelhouse/*.whl
@@ -55,6 +66,7 @@ jobs:
           path: dist/*.tar.gz
 
   upload_testpypi:
+    if: github.event_name == 'release' && github.event.action == 'published'
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     steps:
@@ -67,9 +79,10 @@ jobs:
         with:
           user: __token__
           password: ${{ secrets.GH_TESTPYPI_UPLOAD }}
-          repository_url: https://test.pypi.org/legacy/
+          repository-url: https://test.pypi.org/legacy/
 
   upload_pypi:
+    if: github.event_name == 'release' && github.event.action == 'published'
     needs: [build_wheels, build_sdist, upload_testpypi]
     runs-on: ubuntu-latest
     steps:
