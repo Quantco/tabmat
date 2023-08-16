@@ -1,9 +1,6 @@
 #!/bin/bash
 
-set -e
-set -x
-
-export
+set -exuo pipefail
 
 if [[ "${ARCHFLAGS}" == *arm64 ]]; then
     CONDA_CHANNEL="conda-forge/osx-arm64"
