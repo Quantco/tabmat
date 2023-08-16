@@ -22,7 +22,7 @@ jobs:
       - name: Set up micromamba
         uses: mamba-org/setup-micromamba@d05808540d968a55ca33c798e0661fb98f533c73
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.14.1
+        uses: pypa/cibuildwheel@v2.15.0
         env:
           CIBW_ARCHS_LINUX: auto
           CIBW_ARCHS_MACOS: x86_64 arm64
