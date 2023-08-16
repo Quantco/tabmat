@@ -1,6 +1,10 @@
 # Efficient matrix representations for working with tabular data
 
-![CI](https://github.com/Quantco/tabmat/workflows/CI/badge.svg)
+[![CI](https://github.com/Quantco/tabmat/workflows/CI/badge.svg)](https://github.com/Quantco/tabmat/actions)
+[![Docs](https://readthedocs.org/projects/pip/badge/?version=latest&style=flat)](https://tabmat.readthedocs.io/)
+[![Conda-forge](https://img.shields.io/conda/vn/conda-forge/tabmat?logoColor=white&logo=conda-forge)](https://anaconda.org/conda-forge/tabmat)
+[![PypiVersion](https://img.shields.io/pypi/v/tabmat.svg?logo=pypi&logoColor=white)](https://pypi.org/project/tabmat)
+[![PythonVersion](https://img.shields.io/pypi/pyversions/tabmat?logoColor=white&logo=python)](https://pypi.org/project/tabmat)
 
 ## Installation
 
@@ -11,9 +15,20 @@ conda install -c conda-forge tabmat
 
 <img src="https://raw.githubusercontent.com/Quantco/tabmat/main/docs/_static/headline.png" width="600px">
 
+## Getting Started
+
+The easiest way to start with tabmat is to use the convenience constructor `tabmat.from_pandas`.
+
+```python
+import tabmat as tm
+import numpy as np
+
+dense_array = np.random.normal(size=(100, 1))
+```
+
 ## Use case
 
-TL;DR: We provide matrix classes for efficiently building statistical algorithms with data that is partially dense, partially sparse and partially categorical. 
+TL;DR: We provide matrix classes for efficiently building statistical algorithms with data that is partially dense, partially sparse and partially categorical.
 
 Data used in economics, actuarial science, and many other fields is often tabular, containing rows and columns. Further common properties are also common:
 - It often is **very sparse**.
