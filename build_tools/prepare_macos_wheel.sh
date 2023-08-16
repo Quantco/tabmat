@@ -2,7 +2,7 @@
 
 set -exuo pipefail
 
-if [[ "${ARCHFLAGS}" == *arm64 ]]; then
+if [[ "${ARCHFLAGS:-}" == *arm64 ]]; then
     CONDA_CHANNEL="conda-forge/osx-arm64"
 else
     CONDA_CHANNEL="conda-forge/osx-64"
