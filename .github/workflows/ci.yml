@@ -64,7 +64,7 @@ jobs:
       - name: Run pytest (windows)
         if: matrix.os == 'windows-latest'
         shell: powershell
-        run: pytest -nauto tests -m "not high_memory" --doctest-modules src/
+        run: pytest -nauto tests -m "not high_memory"
       - name: Run doctest
         if: matrix.os != 'windows-latest'
         shell: bash -el {0}
