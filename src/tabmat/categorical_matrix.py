@@ -617,7 +617,7 @@ class CategoricalMatrix(MatrixBase):
                 dtype=self.dtype,
                 column_name=self._colname,
                 column_name_format=self._colname_format,
-                cat_missing_method=self.missing_method,
+                cat_missing_method=self._missing_method,
             )
         else:
             # return a SparseMatrix if we subset columns
