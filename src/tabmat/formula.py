@@ -102,6 +102,8 @@ class TabmatMaterializer(FormulaMaterializer):
         return encode_contrasts(
             values,
             reduced_rank=reduced_rank,
+            missing_method=self.cat_missing_method,
+            missing_name=self.cat_missing_name,
             _metadata=metadata,
             _state=encoder_state,
             _spec=spec,
@@ -121,7 +123,6 @@ class TabmatMaterializer(FormulaMaterializer):
                     self.dtype,
                     self.sparse_threshold,
                     self.cat_threshold,
-                    self.cat_missing_method,
                 )
                 for col in cols
             ]
@@ -299,7 +300,6 @@ class _InteractableVector(ABC):
         dtype: numpy.dtype,
         sparse_threshold: float,
         cat_threshold: int,
-        cat_missing_method: str,
     ) -> MatrixBase:
         """Convert to an actual tabmat matrix."""
         pass
@@ -353,7 +353,6 @@ class _InteractableDenseVector(_InteractableVector):
         dtype: numpy.dtype = numpy.float64,
         sparse_threshold: float = 0.1,
         cat_threshold: int = 4,
-        cat_missing_method: str = "fail",
     ) -> Union[SparseMatrix, DenseMatrix]:
         if (self.values != 0).mean() > sparse_threshold:
             return DenseMatrix(self.values, column_names=[self.name])
@@ -390,8 +389,6 @@ class _InteractableSparseVector(_InteractableVector):
         dtype: numpy.dtype = numpy.float64,
         sparse_threshold: float = 0.1,
         cat_threshold: int = 4,
-        cat_missing_method: str = "fail",
-        cat_missing_name: str = "(MISSING)",
     ) -> SparseMatrix:
         return SparseMatrix(self.values, column_names=[self.name])
 
@@ -426,7 +423,7 @@ class _InteractableCategoricalVector(_InteractableVector):
         cls,
         cat: pandas.Categorical,
         reduced_rank: bool,
-        convert_missing: bool = False,
+        missing_method: str = "fail",
         missing_name: str = "(MISSING)",
     ) -> "_InteractableCategoricalVector":
         """Create an interactable categorical vector from a pandas categorical."""
@@ -438,8 +435,14 @@ class _InteractableCategoricalVector(_InteractableVector):
             codes[codes > 0] -= 1
             categories = categories[1:]
 
-        if convert_missing:
-            codes[codes == -1] = codes.max() + 1
+        if missing_method == "fail" and -1 in codes:
+            raise ValueError(
+                "Categorical data can't have missing values "
+                "if [cat_]missing_method='fail'."
+            )
+
+        if missing_method == "convert" and -1 in codes:
+            codes[codes == -1] = len(categories)
             categories.append(missing_name)
 
         return cls(
@@ -462,7 +465,6 @@ class _InteractableCategoricalVector(_InteractableVector):
         dtype: numpy.dtype = numpy.float64,
         sparse_threshold: float = 0.1,
         cat_threshold: int = 4,
-        cat_missing_method: str = "fail",
     ) -> Union[DenseMatrix, CategoricalMatrix, SplitMatrix]:
         codes = self.codes.copy()
         categories = self.categories.copy()
@@ -486,7 +488,7 @@ class _InteractableCategoricalVector(_InteractableVector):
             dtype=dtype,
             column_name=self.name,
             column_name_format="{category}",
-            cat_missing_method=cat_missing_method,
+            cat_missing_method="zero",  # missing values are already handled
         )
 
         if (self.codes == -2).all():
@@ -654,6 +656,8 @@ def _C(
     data,
     *,
     levels: Optional[Iterable[str]] = None,
+    missing_method: str = "fail",
+    missing_name: str = "(MISSING)",
     spans_intercept: bool = True,
 ):
     """
@@ -677,6 +681,8 @@ def _C(
             values,
             levels=levels,
             reduced_rank=reduced_rank,
+            missing_method=missing_method,
+            missing_name=missing_name,
             _state=encoder_state,
             _spec=model_spec,
         )
@@ -694,6 +700,8 @@ def encode_contrasts(
     data,
     *,
     levels: Optional[Iterable[str]] = None,
+    missing_method: str = "fail",
+    missing_name: str = "(MISSING)",
     reduced_rank: bool = False,
     _state=None,
     _spec=None,
@@ -713,19 +721,10 @@ def encode_contrasts(
     cat = pandas.Categorical(data._values, categories=levels)
     _state["categories"] = cat.categories
 
-    if _spec is not None and _spec.materializer_params is not None:
-        convert_missing = (
-            _spec.materializer_params.get("cat_missing_method", "fail") == "convert"
-        )
-        missing_name = _spec.materializer_params.get("cat_missing_name", "(MISSING)")
-    else:
-        convert_missing = False
-        missing_name = "(MISSING)"
-
     return _InteractableCategoricalVector.from_categorical(
         cat,
         reduced_rank=reduced_rank,
-        convert_missing=convert_missing,
+        missing_method=missing_method,
         missing_name=missing_name,
     )
 
