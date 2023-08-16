@@ -145,7 +145,7 @@ class TabmatMaterializer(FormulaMaterializer):
                     if not self.add_column_for_intercept:
                         continue
                     scoped_cols[
-                        "Intercept"
+                        self.intercept_name
                     ] = scoped_term.scale * self._encode_constant(
                         1, None, {}, spec, drop_rows
                     )
