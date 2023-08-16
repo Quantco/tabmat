@@ -28,13 +28,14 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
-        include: # TODO: 3.7? what about 3.11? is every case covered?
-          - { os: ubuntu-latest, python-version: '3.8' } # before we had 3.7, 3.8, 3.9, 3.10 in ubuntu-latest
+        include:
+          - { os: ubuntu-latest, python-version: '3.7' }
+          - { os: ubuntu-latest, python-version: '3.8' }
           - { os: ubuntu-latest, python-version: '3.9' }
           - { os: ubuntu-latest, python-version: '3.10' }
           - { os: ubuntu-latest, python-version: '3.11' }
-          - { os: macos-latest, python-version: '3.10' } # before we had 3.7 in macos-latest
-          - { os: windows-latest, python-version: '3.10' } # before we had 3.7 in windows-latest
+          - { os: macos-latest, python-version: '3.7' }
+          - { os: windows-latest, python-version: '3.7' }
     steps:
       - name: Checkout branch
         uses: actions/checkout@v3
@@ -62,3 +63,14 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: powershell
         run: pytest -nauto tests -m "not high_memory" --doctest-modules src/
+      - name: Run doctest
+        if: matrix.os != 'windows-latest'
+        shell: bash -el {0}
+        # Check that the readme example will work by running via doctest.
+        # We run outside the repo to make the test a bit more similar to
+        # a user running after installing with conda.
+        run: |
+          mkdir ../temp
+          cp README.md ../temp
+          cd ../temp
+          python -m doctest -v README.md
