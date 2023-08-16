@@ -23,8 +23,8 @@ jobs:
         uses: pre-commit/action@v3.0.0
 
   unit-tests:
-    name: Tests - ${{ matrix.os }} - Py${{ matrix.python-version }}"
-    runs-on: ubuntu-latest
+    name: Tests - ${{ matrix.os }} - Py${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
       matrix:
