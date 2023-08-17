@@ -29,6 +29,8 @@ def from_pandas(
     cat_position: str = "expand",
     drop_first: bool = False,
     categorical_format: str = "{name}[{category}]",
+    cat_missing_method: str = "fail",
+    cat_missing_name: str = "(MISSING)",
 ) -> MatrixBase:
     """
     Transform a pandas.DataFrame into an efficient SplitMatrix. For most users, this
@@ -58,6 +60,14 @@ def from_pandas(
         If true, categoricals variables will have their first category dropped.
         This allows multiple categorical variables to be included in an
         unregularized model. If False, all categories are included.
+    cat_missing_method: str {'fail'|'zero'|'convert'}, default 'fail'
+        How to handle missing values in categorical columns:
+        - if 'fail', raise an error if there are missing values
+        - if 'zero', missing values will represent all-zero indicator columns.
+        - if 'convert', missing values will be converted to the '(MISSING)' category.
+    cat_missing_name: str, default '(MISSING)'
+        Name of the category to which missing values will be converted if
+        ``cat_missing_method='convert'``.
 
     Returns
     -------
@@ -87,6 +97,8 @@ def from_pandas(
                 column_name=colname,
                 term_name=colname,
                 column_name_format=categorical_format,
+                cat_missing_method=cat_missing_method,
+                cat_missing_name=cat_missing_name,
             )
             if len(coldata.cat.categories) < cat_threshold:
                 (
@@ -207,6 +219,8 @@ def from_formula(
     cat_threshold: int = 4,
     interaction_separator: str = ":",
     categorical_format: str = "{name}[{category}]",
+    cat_missing_method: str = "fail",
+    cat_missing_name: str = "(MISSING)",
     intercept_name: str = "Intercept",
     include_intercept: bool = False,
     add_column_for_intercept: bool = True,
@@ -237,6 +251,14 @@ def from_formula(
     categorical_format: str, default "{name}[T.{category}]"
         The format string used to generate the names of categorical variables.
         Has to include the placeholders ``{name}`` and ``{category}``.
+    cat_missing_method: str {'fail'|'zero'|'convert'}, default 'fail'
+        How to handle missing values in categorical columns:
+        - if 'fail', raise an error if there are missing values
+        - if 'zero', missing values will represent all-zero indicator columns.
+        - if 'convert', missing values will be converted to the '(MISSING)' category.
+    cat_missing_name: str, default '(MISSING)'
+        Name of the category to which missing values will be converted if
+        ``cat_missing_method='convert'``.
     intercept_name: str, default "Intercept"
         The name of the intercept column.
     include_intercept: bool, default False
@@ -274,6 +296,8 @@ def from_formula(
         sparse_threshold=sparse_threshold,
         cat_threshold=cat_threshold,
         add_column_for_intercept=add_column_for_intercept,
+        cat_missing_method=cat_missing_method,
+        cat_missing_name=cat_missing_name,
     )
     result = materializer.get_model_matrix(spec)
 

@@ -44,6 +44,8 @@ class TabmatMaterializer(FormulaMaterializer):
         self.add_column_for_intercept = self.params.get(
             "add_column_for_intercept", True
         )
+        self.cat_missing_method = self.params.get("cat_missing_method", "fail")
+        self.cat_missing_name = self.params.get("cat_missing_name", "(MISSING)")
 
         # We can override formulaic's C() function here
         self.context["C"] = _C
@@ -100,6 +102,8 @@ class TabmatMaterializer(FormulaMaterializer):
         return encode_contrasts(
             values,
             reduced_rank=reduced_rank,
+            missing_method=self.cat_missing_method,
+            missing_name=self.cat_missing_name,
             _metadata=metadata,
             _state=encoder_state,
             _spec=spec,
@@ -115,7 +119,11 @@ class TabmatMaterializer(FormulaMaterializer):
         # Otherwise, concatenate columns into SplitMatrix
         return SplitMatrix(
             [
-                col[1].to_tabmat(self.dtype, self.sparse_threshold, self.cat_threshold)
+                col[1].to_tabmat(
+                    self.dtype,
+                    self.sparse_threshold,
+                    self.cat_threshold,
+                )
                 for col in cols
             ]
         )
@@ -145,7 +153,7 @@ class TabmatMaterializer(FormulaMaterializer):
                     if not self.add_column_for_intercept:
                         continue
                     scoped_cols[
-                        "Intercept"
+                        self.intercept_name
                     ] = scoped_term.scale * self._encode_constant(
                         1, None, {}, spec, drop_rows
                     )
@@ -412,15 +420,31 @@ class _InteractableCategoricalVector(_InteractableVector):
 
     @classmethod
     def from_categorical(
-        cls, cat: pandas.Categorical, reduced_rank: bool
+        cls,
+        cat: pandas.Categorical,
+        reduced_rank: bool,
+        missing_method: str = "fail",
+        missing_name: str = "(MISSING)",
     ) -> "_InteractableCategoricalVector":
         """Create an interactable categorical vector from a pandas categorical."""
         categories = list(cat.categories)
         codes = cat.codes.copy().astype(numpy.int64)
+
         if reduced_rank:
             codes[codes == 0] = -2
             codes[codes > 0] -= 1
             categories = categories[1:]
+
+        if missing_method == "fail" and -1 in codes:
+            raise ValueError(
+                "Categorical data can't have missing values "
+                "if [cat_]missing_method='fail'."
+            )
+
+        if missing_method == "convert" and -1 in codes:
+            codes[codes == -1] = len(categories)
+            categories.append(missing_name)
+
         return cls(
             codes=codes,
             categories=categories,
@@ -464,6 +488,7 @@ class _InteractableCategoricalVector(_InteractableVector):
             dtype=dtype,
             column_name=self.name,
             column_name_format="{category}",
+            cat_missing_method="zero",  # missing values are already handled
         )
 
         if (self.codes == -2).all():
@@ -631,6 +656,8 @@ def _C(
     data,
     *,
     levels: Optional[Iterable[str]] = None,
+    missing_method: str = "fail",
+    missing_name: str = "(MISSING)",
     spans_intercept: bool = True,
 ):
     """
@@ -654,6 +681,8 @@ def _C(
             values,
             levels=levels,
             reduced_rank=reduced_rank,
+            missing_method=missing_method,
+            missing_name=missing_name,
             _state=encoder_state,
             _spec=model_spec,
         )
@@ -671,6 +700,8 @@ def encode_contrasts(
     data,
     *,
     levels: Optional[Iterable[str]] = None,
+    missing_method: str = "fail",
+    missing_name: str = "(MISSING)",
     reduced_rank: bool = False,
     _state=None,
     _spec=None,
@@ -689,8 +720,12 @@ def encode_contrasts(
     levels = levels if levels is not None else _state.get("categories")
     cat = pandas.Categorical(data._values, categories=levels)
     _state["categories"] = cat.categories
+
     return _InteractableCategoricalVector.from_categorical(
-        cat, reduced_rank=reduced_rank
+        cat,
+        reduced_rank=reduced_rank,
+        missing_method=missing_method,
+        missing_name=missing_name,
     )
 
 

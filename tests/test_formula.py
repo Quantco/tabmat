@@ -630,6 +630,116 @@ def test_interactable_vectors(left, right, reverse):
         assert result_vec.name == right.name + ":" + left.name
 
 
+@pytest.mark.parametrize("cat_missing_method", ["zero", "convert"])
+@pytest.mark.parametrize(
+    "cat_missing_name",
+    ["__missing__", "(MISSING)"],
+)
+def test_cat_missing_handling(cat_missing_method, cat_missing_name):
+    df = pd.DataFrame(
+        {
+            "cat_1": pd.Categorical(["a", "b", None, "b", "a"]),
+        }
+    )
+
+    mat_from_pandas = tm.from_pandas(
+        df,
+        cat_threshold=0,
+        cat_missing_method=cat_missing_method,
+        cat_missing_name=cat_missing_name,
+    )
+
+    mat_from_formula = tm.from_formula(
+        "cat_1 - 1",
+        df,
+        cat_threshold=0,
+        cat_missing_method=cat_missing_method,
+        cat_missing_name=cat_missing_name,
+    )
+
+    assert mat_from_pandas.column_names == mat_from_formula.column_names
+    assert mat_from_pandas.term_names == mat_from_formula.term_names
+    np.testing.assert_array_equal(mat_from_pandas.A, mat_from_formula.A)
+
+    mat_from_formula_new = mat_from_formula.model_spec.get_model_matrix(df)
+    assert mat_from_pandas.column_names == mat_from_formula_new.column_names
+    assert mat_from_pandas.term_names == mat_from_formula_new.term_names
+    np.testing.assert_array_equal(mat_from_pandas.A, mat_from_formula_new.A)
+
+
+def test_cat_missing_C():
+    df = pd.DataFrame(
+        {
+            "cat_1": pd.Categorical(["a", "b", None, "b", "a"]),
+            "cat_2": pd.Categorical(["1", "2", None, "1", "2"]),
+        }
+    )
+    formula = (
+        "C(cat_1, missing_method='convert', missing_name='M') "
+        "+ C(cat_2, missing_method='zero')"
+    )
+    expected_names = [
+        "C(cat_1, missing_method='convert', missing_name='M')[a]",
+        "C(cat_1, missing_method='convert', missing_name='M')[b]",
+        "C(cat_1, missing_method='convert', missing_name='M')[M]",
+        "C(cat_2, missing_method='zero')[1]",
+        "C(cat_2, missing_method='zero')[2]",
+    ]
+
+    result = tm.from_formula(formula, df)
+
+    assert result.column_names == expected_names
+    assert result.model_spec.get_model_matrix(df).column_names == expected_names
+
+
+@pytest.mark.parametrize(
+    "cat_missing_method", ["zero", "convert"], ids=["zero", "convert"]
+)
+def test_cat_missing_unseen(cat_missing_method):
+    df = pd.DataFrame(
+        {
+            "cat_1": pd.Categorical(["a", "b", None, "b", "a"]),
+        }
+    )
+    df_unseen = pd.DataFrame(
+        {
+            "cat_1": pd.Categorical(["a", None]),
+        }
+    )
+    result_seen = tm.from_formula(
+        "cat_1 - 1", df, cat_missing_method=cat_missing_method
+    )
+    result_unseen = result_seen.model_spec.get_model_matrix(df_unseen)
+
+    assert result_seen.column_names == result_unseen.column_names
+    if cat_missing_method == "convert":
+        expected_array = np.array([[1, 0, 0], [0, 0, 1]], dtype=np.float64)
+    elif cat_missing_method == "zero":
+        expected_array = np.array([[1, 0], [0, 0]], dtype=np.float64)
+
+    np.testing.assert_array_equal(result_unseen.A, expected_array)
+
+
+def test_cat_missing_interactions():
+    df = pd.DataFrame(
+        {
+            "cat_1": pd.Categorical(["a", "b", None, "b", "a"]),
+            "cat_2": pd.Categorical(["1", "2", None, "1", "2"]),
+        }
+    )
+    formula = "C(cat_1, missing_method='convert') : C(cat_2, missing_method='zero') - 1"
+    expected_names = [
+        "C(cat_1, missing_method='convert')[a]:C(cat_2, missing_method='zero')[1]",
+        "C(cat_1, missing_method='convert')[b]:C(cat_2, missing_method='zero')[1]",
+        "C(cat_1, missing_method='convert')[(MISSING)]:C(cat_2, missing_method='zero')[1]",
+        "C(cat_1, missing_method='convert')[a]:C(cat_2, missing_method='zero')[2]",
+        "C(cat_1, missing_method='convert')[b]:C(cat_2, missing_method='zero')[2]",
+        "C(cat_1, missing_method='convert')[(MISSING)]:C(cat_2, missing_method='zero')[2]",
+    ]
+
+    assert tm.from_formula(formula, df).column_names == expected_names
+
+
 # Tests from formulaic's test suite
 # ---------------------------------
 
