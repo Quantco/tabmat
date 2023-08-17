@@ -15,6 +15,7 @@ Unreleased
 - Add column name and term name metadata to ``MatrixBase`` objects. These are automatically populated when initializing a ``MatrixBase`` from a ``pandas.DataFrame``. In addition, they can be accessed and modified via the ``column_names`` and ``term_names`` properties.
 - Add a formula interface for creating tabmat matrices from pandas data frames. See :func:`tabmat.from_formula` for details.
 - Add support for missing values in ``CategoricalMatrix`` by either creating a separate category for them or treating them as all-zero rows.
+- Add support for handling missing categorical values in pandas data frames.
 
 **Other changes:**
 
