@@ -690,6 +690,10 @@ def test_cat_missing_C():
 
     assert result.column_names == expected_names
     assert result.model_spec.get_model_matrix(df).column_names == expected_names
+    np.testing.assert_equal(result.model_spec.get_model_matrix(df).A, result.A)
+    np.testing.assert_equal(
+        result.model_spec.get_model_matrix(df[:2]).A, result.A[:2, :]
+    )
 
 
 @pytest.mark.parametrize(
