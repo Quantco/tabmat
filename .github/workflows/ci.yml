@@ -10,7 +10,7 @@ jobs:
       PRE_COMMIT_USE_MICROMAMBA: 1
     steps:
       - name: Checkout branch
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Set up micromamba
         uses: mamba-org/setup-micromamba@2b72821d5ad7f6da3c003a3684ce341bf187b46f
       - name: Add micromamba to GITHUB_PATH
@@ -40,7 +40,7 @@ jobs:
           - { os: windows-latest, python-version: '3.11' }
     steps:
       - name: Checkout branch
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Set up conda env
         uses: mamba-org/setup-micromamba@2b72821d5ad7f6da3c003a3684ce341bf187b46f
         with:
