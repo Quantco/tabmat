@@ -13,6 +13,7 @@ Unreleased
 **Other changes:**
 
 - Improve the performance of ``from_pandas`` in the case of low-cardinality categorical variables.
+- Require Python>=3.9 in line with `NEP 29 <https://numpy.org/neps/nep-0029-deprecation_policy.html#support-table>`_
 
 3.1.10 - 2023-06-23
 -------------------
