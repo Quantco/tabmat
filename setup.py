@@ -159,6 +159,7 @@ setup(
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     install_requires=["numpy", "pandas", "scipy"],
+    python_requires=">=3.9",
     ext_modules=cythonize(
         ext_modules,
         annotate=False,
