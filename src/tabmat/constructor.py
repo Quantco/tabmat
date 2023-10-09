@@ -1,5 +1,5 @@
 import warnings
-from typing import List, Tuple, Union
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -55,9 +55,9 @@ def from_pandas(
     -------
     SplitMatrix
     """
-    matrices: List[Union[DenseMatrix, SparseMatrix, CategoricalMatrix]] = []
-    indices: List[List[int]] = []
-    is_cat: List[bool] = []
+    matrices: list[Union[DenseMatrix, SparseMatrix, CategoricalMatrix]] = []
+    indices: list[list[int]] = []
+    is_cat: list[bool] = []
 
     dense_dfidx = []  # column index in original DataFrame
     dense_mxidx = []  # index in the new SplitMatrix
@@ -158,7 +158,7 @@ def from_pandas(
 
 def _split_sparse_and_dense_parts(
     arg1: sps.csc_matrix, threshold: float = 0.1
-) -> Tuple[DenseMatrix, SparseMatrix, np.ndarray, np.ndarray]:
+) -> tuple[DenseMatrix, SparseMatrix, np.ndarray, np.ndarray]:
     """
     Split matrix.
 

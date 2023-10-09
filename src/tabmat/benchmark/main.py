@@ -1,6 +1,6 @@
 import pickle
 import time
-from typing import Dict, List, Union
+from typing import Union
 
 import click
 import numpy as np
@@ -68,7 +68,7 @@ def get_op_names():
 
 
 def run_one_benchmark_set(
-    matrices: Dict[
+    matrices: dict[
         str, Union[tm.MatrixBase, tm.StandardizedMatrix, np.ndarray, sps.spmatrix]
     ],
     include_baseline: bool,
@@ -245,11 +245,11 @@ def run_one_benchmark_set(
 def run_all_benchmarks(
     operation_name: str,
     matrix_name: str,
-    dense: List,
-    sparse: List,
-    one_cat: List,
-    two_cat: List,
-    dense_cat: List,
+    dense: list,
+    sparse: list,
+    one_cat: list,
+    two_cat: list,
+    dense_cat: list,
     bench_memory: bool,
     n_iterations: int,
     include_baseline: bool,

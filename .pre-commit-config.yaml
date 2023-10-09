@@ -34,9 +34,10 @@ repos:
       additional_dependencies:
        - python=3.9
  - repo: https://github.com/Quantco/pre-commit-mirrors-pyupgrade
-   rev: 3.13.0
+   rev: 3.15.0
    hooks:
     - id: pyupgrade-conda
+      args: [--py39-plus]
  - repo: https://github.com/Quantco/pre-commit-mirrors-cython-lint
    rev: 0.15.0
    hooks:

@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Optional
 
 import numpy as np
 
@@ -13,11 +13,11 @@ def set_up_rows_or_cols(
 
 
 def setup_restrictions(
-    shape: Tuple[int, int],
+    shape: tuple[int, int],
     rows: Optional[np.ndarray],
     cols: Optional[np.ndarray],
     dtype=np.int32,
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Set up row and column restrictions."""
     rows = set_up_rows_or_cols(rows, shape[0], dtype)
     cols = set_up_rows_or_cols(cols, shape[1], dtype)

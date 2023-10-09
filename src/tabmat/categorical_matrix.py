@@ -161,7 +161,7 @@ This is `ext/split/sandwich_cat_dense`
 
 """
 
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -247,7 +247,7 @@ class CategoricalMatrix(MatrixBase):
 
     def __init__(
         self,
-        cat_vec: Union[List, np.ndarray, pd.Categorical],
+        cat_vec: Union[list, np.ndarray, pd.Categorical],
         drop_first: bool = False,
         dtype: np.dtype = np.float64,
     ):
@@ -262,7 +262,7 @@ class CategoricalMatrix(MatrixBase):
         self.drop_first = drop_first
         self.shape = (len(self.cat), len(self.cat.categories) - int(drop_first))
         self.indices = self.cat.codes.astype(np.int32)
-        self.x_csc: Optional[Tuple[Optional[np.ndarray], np.ndarray, np.ndarray]] = None
+        self.x_csc: Optional[tuple[Optional[np.ndarray], np.ndarray, np.ndarray]] = None
         self.dtype = np.dtype(dtype)
 
     def recover_orig(self) -> np.ndarray:
@@ -275,9 +275,9 @@ class CategoricalMatrix(MatrixBase):
 
     def _matvec_setup(
         self,
-        other: Union[List, np.ndarray],
+        other: Union[list, np.ndarray],
         cols: np.ndarray = None,
-    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+    ) -> tuple[np.ndarray, Optional[np.ndarray]]:
         other = np.asarray(other)
         if other.ndim > 1:
             raise NotImplementedError(
@@ -298,7 +298,7 @@ class CategoricalMatrix(MatrixBase):
 
     def matvec(
         self,
-        other: Union[List, np.ndarray],
+        other: Union[list, np.ndarray],
         cols: np.ndarray = None,
         out: np.ndarray = None,
     ) -> np.ndarray:
@@ -340,7 +340,7 @@ class CategoricalMatrix(MatrixBase):
 
     def transpose_matvec(
         self,
-        vec: Union[np.ndarray, List],
+        vec: Union[np.ndarray, list],
         rows: Optional[np.ndarray] = None,
         cols: Optional[np.ndarray] = None,
         out: Optional[np.ndarray] = None,
@@ -409,7 +409,7 @@ class CategoricalMatrix(MatrixBase):
 
     def sandwich(
         self,
-        d: Union[np.ndarray, List],
+        d: Union[np.ndarray, list],
         rows: np.ndarray = None,
         cols: np.ndarray = None,
     ) -> sps.dia_matrix:
@@ -446,7 +446,7 @@ class CategoricalMatrix(MatrixBase):
     def _cross_sandwich(
         self,
         other: MatrixBase,
-        d: Union[np.ndarray, List],
+        d: Union[np.ndarray, list],
         rows: Optional[np.ndarray] = None,
         L_cols: Optional[np.ndarray] = None,
         R_cols: Optional[np.ndarray] = None,

@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import Union
 
 import numpy as np
 from scipy import sparse as sps
@@ -35,8 +35,8 @@ class StandardizedMatrix:
     def __init__(
         self,
         mat: MatrixBase,
-        shift: Union[np.ndarray, List],
-        mult: Union[np.ndarray, List] = None,
+        shift: Union[np.ndarray, list],
+        mult: Union[np.ndarray, list] = None,
     ):
         shift_arr = np.atleast_1d(np.squeeze(shift))
         expected_shape = (mat.shape[1],)
@@ -66,7 +66,7 @@ class StandardizedMatrix:
 
     def matvec(
         self,
-        other_mat: Union[np.ndarray, List],
+        other_mat: Union[np.ndarray, list],
         cols: np.ndarray = None,
         out: np.ndarray = None,
     ) -> np.ndarray:
@@ -168,7 +168,7 @@ class StandardizedMatrix:
 
     def transpose_matvec(
         self,
-        other: Union[np.ndarray, List],
+        other: Union[np.ndarray, list],
         rows: np.ndarray = None,
         cols: np.ndarray = None,
         out: np.ndarray = None,
@@ -220,7 +220,7 @@ class StandardizedMatrix:
             out[cols] += res
             return out
 
-    def __rmatmul__(self, other: Union[np.ndarray, List]) -> np.ndarray:
+    def __rmatmul__(self, other: Union[np.ndarray, list]) -> np.ndarray:
         """
         Return matrix multiplication with other.
 
