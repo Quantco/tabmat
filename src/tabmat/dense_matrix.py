@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 import numpy as np
 
@@ -90,7 +90,7 @@ class DenseMatrix(np.ndarray, MatrixBase):
 
     def _matvec_helper(
         self,
-        vec: Union[List, np.ndarray],
+        vec: Union[list, np.ndarray],
         rows: Optional[np.ndarray],
         cols: Optional[np.ndarray],
         out: Optional[np.ndarray],
@@ -139,7 +139,7 @@ class DenseMatrix(np.ndarray, MatrixBase):
 
     def transpose_matvec(
         self,
-        vec: Union[np.ndarray, List],
+        vec: Union[np.ndarray, list],
         rows: np.ndarray = None,
         cols: np.ndarray = None,
         out: np.ndarray = None,
@@ -150,7 +150,7 @@ class DenseMatrix(np.ndarray, MatrixBase):
 
     def matvec(
         self,
-        vec: Union[np.ndarray, List],
+        vec: Union[np.ndarray, list],
         cols: np.ndarray = None,
         out: np.ndarray = None,
     ) -> np.ndarray:

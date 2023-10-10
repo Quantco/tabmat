@@ -1,5 +1,5 @@
 import warnings
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 from scipy import sparse as sps
@@ -129,8 +129,8 @@ class SplitMatrix(MatrixBase):
 
     def __init__(
         self,
-        matrices: List[Union[DenseMatrix, SparseMatrix, CategoricalMatrix]],
-        indices: Optional[List[np.ndarray]] = None,
+        matrices: list[Union[DenseMatrix, SparseMatrix, CategoricalMatrix]],
+        indices: Optional[list[np.ndarray]] = None,
     ):
         flatten_matrices = []
         index_corrections = []
@@ -227,7 +227,7 @@ class SplitMatrix(MatrixBase):
 
     def _split_col_subsets(
         self, cols: Optional[np.ndarray]
-    ) -> Tuple[List[np.ndarray], List[Optional[np.ndarray]], int]:
+    ) -> tuple[list[np.ndarray], list[Optional[np.ndarray]], int]:
         """
         Return tuple of things helpful for applying column restrictions to sub-matrices.
 
@@ -282,7 +282,7 @@ class SplitMatrix(MatrixBase):
 
     def sandwich(
         self,
-        d: Union[np.ndarray, List],
+        d: Union[np.ndarray, list],
         rows: np.ndarray = None,
         cols: np.ndarray = None,
     ) -> np.ndarray:
@@ -376,7 +376,7 @@ class SplitMatrix(MatrixBase):
 
     def transpose_matvec(
         self,
-        v: Union[np.ndarray, List],
+        v: Union[np.ndarray, list],
         rows: np.ndarray = None,
         cols: np.ndarray = None,
         out: np.ndarray = None,

@@ -1,5 +1,5 @@
 import warnings
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -51,7 +51,7 @@ def categorical_matrix_drop_first():
 
 
 def get_unscaled_matrices() -> (
-    List[Union[tm.DenseMatrix, tm.SparseMatrix, tm.CategoricalMatrix]]
+    list[Union[tm.DenseMatrix, tm.SparseMatrix, tm.CategoricalMatrix]]
 ):
     return [
         dense_matrix_F(),
