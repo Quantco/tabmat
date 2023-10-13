@@ -37,6 +37,9 @@ skip = [
   "cp36*",
   "cp37*",
   "cp38*",
+  "cp310*",
+  "cp311*",
+  "cp312*",
 ]
 test-requires = ["pytest", "pytest-xdist"]
 test-command = "pytest {package}/tests/test_matrices.py"

@@ -1,7 +1,7 @@
 name: Build and upload to PyPI
 
 on:
-  pull_request:
+  push:
   release:
     types:
       - published
@@ -43,6 +43,14 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           path: ./wheelhouse/*.whl
+
+      - name: See content of wheel files
+        run: |
+          ls -l wheelhouse
+          for f in wheelhouse/*.whl; do
+            echo "Contents of $f"
+            unzip -l $f
+          done
 
   build_sdist:
     name: Build source distribution
