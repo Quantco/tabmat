@@ -83,7 +83,12 @@ jobs:
           path: dist
 
       - name: see content of dist
-        run: ls -l dist
+        run: |
+          ls -l dist
+          for f in dist/*.whl; do
+            echo "Contents of $f"
+            unzip -l $f
+          done
           
 
   upload_testpypi:
