@@ -10,11 +10,16 @@ Changelog
 Unreleased
 ----------
 
+
+3.1.11 - 2023-10-13
+-------------------
+
 **Other changes:**
 
 - Improve the performance of ``from_pandas`` in the case of low-cardinality categorical variables.
 - Require Python>=3.9 in line with `NEP 29 <https://numpy.org/neps/nep-0029-deprecation_policy.html#support-table>`_
 - Build and test with Python 3.12 in CI.
+- Fixed macos arm64 wheels with proper linkage.
 
 3.1.10 - 2023-06-23
 -------------------
