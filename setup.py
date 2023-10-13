@@ -4,7 +4,6 @@ import shutil
 import sys
 from os import path
 from pathlib import Path
-from time import time
 
 import mako.template
 import numpy as np
@@ -143,7 +142,7 @@ setup(
     name="tabmat",
     use_scm_version={
         "version_scheme": "post-release",
-        "local_scheme": lambda _: f"{int(time())}",
+        "local_scheme": "no-local-version",
     },
     setup_requires=["setuptools_scm"],
     description="Efficient matrix representations for working with tabular data.",
