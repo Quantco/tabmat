@@ -9,4 +9,4 @@ else
 fi
 
 conda install -n base --override-channels -c conda-forge mamba -y
-mamba env create -y -n build -c $CONDA_CHANNEL jemalloc-local xsimd llvm-openmp
+conda run -n base --no-capture-output sh -c "mamba env create -y -n build -c $CONDA_CHANNEL jemalloc-local xsimd llvm-openmp"
