@@ -8,4 +8,5 @@ else
     CONDA_CHANNEL="conda-forge/osx-64"
 fi
 
+conda install -n base --override-channels -c conda-forge mamba -y
 mamba env create -y -n build -c $CONDA_CHANNEL jemalloc-local xsimd llvm-openmp
