@@ -8,4 +8,4 @@ else
     CONDA_CHANNEL="conda-forge/osx-64"
 fi
 
-/Users/runner/micromamba-bin/micromamba create -y -p $CONDA/envs/build -c $CONDA_CHANNEL jemalloc-local xsimd llvm-openmp
+conda create -y -n build -c $CONDA_CHANNEL jemalloc-local xsimd llvm-openmp
