@@ -8,4 +8,5 @@ else
     CONDA_CHANNEL="conda-forge/osx-64"
 fi
 
-conda create -y -n build -c $CONDA_CHANNEL jemalloc-local xsimd llvm-openmp
+mamba env create -y -n build
+mamba env install -y -n build -c $CONDA_CHANNEL jemalloc-local xsimd llvm-openmp
