@@ -140,10 +140,7 @@ ext_modules = [
 
 setup(
     name="tabmat",
-    use_scm_version={
-        "version_scheme": "post-release",
-        "local_scheme": "no-local-version",
-    },
+    use_scm_version={"version_scheme": "post-release"},
     setup_requires=["setuptools_scm"],
     description="Efficient matrix representations for working with tabular data.",
     long_description=long_description,
