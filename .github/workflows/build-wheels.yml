@@ -1,6 +1,7 @@
 name: Build and upload to PyPI
 
 on:
+  push:
   pull_request:
   release:
     types:
@@ -16,6 +17,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Set up QEMU
         if: runner.os == 'Linux'
         uses: docker/setup-qemu-action@v3
@@ -49,6 +52,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v4
         name: Install Python
@@ -66,9 +71,14 @@ jobs:
           path: dist/*.tar.gz
 
   upload_testpypi:
-    if: github.event_name == 'release' && github.event.action == 'published'
+    #if: github.event_name == 'release' && github.event.action == 'published'
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
+    environment: 
+      name: release
+      url: https://test.pypi.org/p/tabmat
+    permissions:
+      id-token: write
     steps:
       - uses: actions/download-artifact@v3
         with:
@@ -76,10 +86,6 @@ jobs:
           path: dist
 
       - uses: pypa/gh-action-pypi-publish@v1.8.10
-        with:
-          user: __token__
-          password: ${{ secrets.GH_TESTPYPI_UPLOAD }}
-          repository-url: https://test.pypi.org/legacy/
 
   upload_pypi:
     if: github.event_name == 'release' && github.event.action == 'published'
