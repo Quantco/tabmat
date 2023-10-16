@@ -3,9 +3,9 @@
 set -exuo pipefail
 
 if [[ "${ARCHFLAGS:-}" == *arm64 ]]; then
-    CONDA_CHANNEL="conda-forge/osx-arm64"
+    export CONDA_SUBDIR="osx-arm64"
 else
-    CONDA_CHANNEL="conda-forge/osx-64"
+    export CONDA_SUBDIR="osx-64"
 fi
 
-/Users/runner/micromamba-bin/micromamba create -y -p $CONDA/envs/build -c $CONDA_CHANNEL jemalloc-local xsimd llvm-openmp
+/Users/runner/micromamba-bin/micromamba create -y -p $CONDA/envs/build -c conda-forge jemalloc-local xsimd llvm-openmp
