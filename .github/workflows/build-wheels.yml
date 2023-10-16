@@ -86,6 +86,8 @@ jobs:
           path: dist
 
       - uses: pypa/gh-action-pypi-publish@v1.8.10
+        with:
+          repository-url: https://test.pypi.org/legacy/
 
   upload_pypi:
     if: github.event_name == 'release' && github.event.action == 'published'
