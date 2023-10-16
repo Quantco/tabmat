@@ -1,7 +1,6 @@
 name: Build and upload to PyPI
 
 on:
-  push:
   pull_request:
   release:
     types:
@@ -13,7 +12,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04]
+        os: [ubuntu-20.04, windows-2019, macos-11]
 
     steps:
       - uses: actions/checkout@v4
@@ -71,7 +70,7 @@ jobs:
           path: dist/*.tar.gz
 
   upload_testpypi:
-    #if: github.event_name == 'release' && github.event.action == 'published'
+    if: github.event_name == 'release' && github.event.action == 'published'
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     environment: 
@@ -91,8 +90,13 @@ jobs:
 
   upload_pypi:
     if: github.event_name == 'release' && github.event.action == 'published'
-    needs: [build_wheels, build_sdist, upload_testpypi]
+    needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
+    environment: 
+      name: release
+      url: https://pypi.org/p/tabmat
+    permissions:
+      id-token: write
     steps:
       - uses: actions/download-artifact@v3
         with:
@@ -100,6 +104,3 @@ jobs:
           path: dist
 
       - uses: pypa/gh-action-pypi-publish@v1.8.10
-        with:
-          user: __token__
-          password: ${{ secrets.GH_PYPI_UPLOAD }}
