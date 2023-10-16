@@ -1,6 +1,7 @@
 name: Build and upload to PyPI
 
 on:
+  pull_request:
   release:
     types:
       - published
@@ -14,18 +15,31 @@ jobs:
         os: [ubuntu-20.04, windows-2019, macos-11]
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up QEMU
         if: runner.os == 'Linux'
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
         with:
           platforms: all
-      - name: Build wheels
-        uses: pypa/cibuildwheel@v2.14.1
-        env:
-          CIBW_ARCHS_LINUX: auto aarch64
-          CIBW_ARCHS_MACOS: x86_64 arm64
 
+      - name: Set up micromamba
+        uses: mamba-org/setup-micromamba@54d4d5980e1a4aa7cdc8b050cf2d19b7e262ce18
+      
+      - name: Build wheels
+        if: github.event_name != 'release'
+        uses: pypa/cibuildwheel@v2.16.2
+        env:
+          CIBW_ARCHS_LINUX: auto
+          CIBW_ARCHS_MACOS: x86_64 arm64
+          CIBW_TEST_SKIP: '*-macosx_arm64'
+      
+      - name: Build wheels (release)
+        if: github.event_name == 'release' && github.event.action == 'published'
+        uses: pypa/cibuildwheel@v2.16.2
+        env:
+          CIBW_ARCHS_LINUX: aarch64 aarch64
+          CIBW_ARCHS_MACOS: x86_64 arm64
+          CIBW_TEST_SKIP: '*-macosx_arm64'
       - uses: actions/upload-artifact@v3
         with:
           path: ./wheelhouse/*.whl
@@ -34,7 +48,7 @@ jobs:
     name: Build source distribution
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v4
         name: Install Python
@@ -52,6 +66,7 @@ jobs:
           path: dist/*.tar.gz
 
   upload_testpypi:
+    if: github.event_name == 'release' && github.event.action == 'published'
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     steps:
@@ -60,13 +75,14 @@ jobs:
           name: artifact
           path: dist
 
-      - uses: pypa/gh-action-pypi-publish@v1.8.8
+      - uses: pypa/gh-action-pypi-publish@v1.8.10
         with:
           user: __token__
           password: ${{ secrets.GH_TESTPYPI_UPLOAD }}
-          repository_url: https://test.pypi.org/legacy/
+          repository-url: https://test.pypi.org/legacy/
 
   upload_pypi:
+    if: github.event_name == 'release' && github.event.action == 'published'
     needs: [build_wheels, build_sdist, upload_testpypi]
     runs-on: ubuntu-latest
     steps:
@@ -75,7 +91,7 @@ jobs:
           name: artifact
           path: dist
 
-      - uses: pypa/gh-action-pypi-publish@v1.8.8
+      - uses: pypa/gh-action-pypi-publish@v1.8.10
         with:
           user: __token__
           password: ${{ secrets.GH_PYPI_UPLOAD }}

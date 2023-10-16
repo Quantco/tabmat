@@ -162,7 +162,7 @@ This is `ext/split/sandwich_cat_dense`
 """
 
 import re
-from typing import List, Optional, Tuple, Union
+from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -254,7 +254,7 @@ class CategoricalMatrix(MatrixBase):
 
     def __init__(
         self,
-        cat_vec: Union[List, np.ndarray, pd.Categorical],
+        cat_vec: Union[list, np.ndarray, pd.Categorical],
         drop_first: bool = False,
         dtype: np.dtype = np.float64,
         column_name: Optional[str] = None,
@@ -303,7 +303,7 @@ class CategoricalMatrix(MatrixBase):
         self.drop_first = drop_first
         self.shape = (len(self.cat), len(self.cat.categories) - int(drop_first))
         self.indices = self.cat.codes.astype(np.int32)
-        self.x_csc: Optional[Tuple[Optional[np.ndarray], np.ndarray, np.ndarray]] = None
+        self.x_csc: Optional[tuple[Optional[np.ndarray], np.ndarray, np.ndarray]] = None
         self.dtype = np.dtype(dtype)
 
         self._colname = column_name
@@ -338,9 +338,9 @@ class CategoricalMatrix(MatrixBase):
 
     def _matvec_setup(
         self,
-        other: Union[List, np.ndarray],
+        other: Union[list, np.ndarray],
         cols: np.ndarray = None,
-    ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+    ) -> tuple[np.ndarray, Optional[np.ndarray]]:
         other = np.asarray(other)
         if other.ndim > 1:
             raise NotImplementedError(
@@ -361,7 +361,7 @@ class CategoricalMatrix(MatrixBase):
 
     def matvec(
         self,
-        other: Union[List, np.ndarray],
+        other: Union[list, np.ndarray],
         cols: np.ndarray = None,
         out: np.ndarray = None,
     ) -> np.ndarray:
@@ -409,7 +409,7 @@ class CategoricalMatrix(MatrixBase):
 
     def transpose_matvec(
         self,
-        vec: Union[np.ndarray, List],
+        vec: Union[np.ndarray, list],
         rows: Optional[np.ndarray] = None,
         cols: Optional[np.ndarray] = None,
         out: Optional[np.ndarray] = None,
@@ -485,7 +485,7 @@ class CategoricalMatrix(MatrixBase):
 
     def sandwich(
         self,
-        d: Union[np.ndarray, List],
+        d: Union[np.ndarray, list],
         rows: np.ndarray = None,
         cols: np.ndarray = None,
     ) -> sps.dia_matrix:
@@ -522,7 +522,7 @@ class CategoricalMatrix(MatrixBase):
     def _cross_sandwich(
         self,
         other: MatrixBase,
-        d: Union[np.ndarray, List],
+        d: Union[np.ndarray, list],
         rows: Optional[np.ndarray] = None,
         L_cols: Optional[np.ndarray] = None,
         R_cols: Optional[np.ndarray] = None,
@@ -749,8 +749,8 @@ class CategoricalMatrix(MatrixBase):
         self,
         type: str = "column",
         missing_prefix: Optional[str] = None,
-        indices: Optional[List[int]] = None,
-    ) -> List[Optional[str]]:
+        indices: Optional[list[int]] = None,
+    ) -> list[Optional[str]]:
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
@@ -773,7 +773,7 @@ class CategoricalMatrix(MatrixBase):
 
         Returns
         -------
-        List[Optional[str]]
+        list[Optional[str]]
             Column names.
         """
         if type == "column":
@@ -798,12 +798,12 @@ class CategoricalMatrix(MatrixBase):
         else:
             return [name] * (len(self.cat.categories) - self.drop_first)
 
-    def set_names(self, names: Union[str, List[Optional[str]]], type: str = "column"):
+    def set_names(self, names: Union[str, list[Optional[str]]], type: str = "column"):
         """Set column names.
 
         Parameters
         ----------
-        names: List[Optional[str]]
+        names: list[Optional[str]]
             Names to set.
         type: str {'column'|'term'}
             Whether to set column names or term names. The main difference is that

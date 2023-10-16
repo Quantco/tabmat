@@ -1,6 +1,7 @@
 import sys
 import warnings
-from typing import Any, List, Mapping, Optional, Union
+from collections.abc import Mapping
+from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -73,9 +74,9 @@ def from_pandas(
     -------
     SplitMatrix
     """
-    matrices: List[Union[DenseMatrix, SparseMatrix, CategoricalMatrix]] = []
-    indices: List[List[int]] = []
-    is_cat: List[bool] = []
+    matrices: list[Union[DenseMatrix, SparseMatrix, CategoricalMatrix]] = []
+    indices: list[list[int]] = []
+    is_cat: list[bool] = []
 
     dense_dfidx = []  # column index in original DataFrame
     dense_mxidx = []  # index in the new SplitMatrix

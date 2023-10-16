@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 import numpy as np
 from scipy import sparse as sps
@@ -35,8 +35,8 @@ class StandardizedMatrix:
     def __init__(
         self,
         mat: MatrixBase,
-        shift: Union[np.ndarray, List],
-        mult: Union[np.ndarray, List] = None,
+        shift: Union[np.ndarray, list],
+        mult: Union[np.ndarray, list] = None,
     ):
         shift_arr = np.atleast_1d(np.squeeze(shift))
         expected_shape = (mat.shape[1],)
@@ -66,7 +66,7 @@ class StandardizedMatrix:
 
     def matvec(
         self,
-        other_mat: Union[np.ndarray, List],
+        other_mat: Union[np.ndarray, list],
         cols: np.ndarray = None,
         out: np.ndarray = None,
     ) -> np.ndarray:
@@ -168,7 +168,7 @@ class StandardizedMatrix:
 
     def transpose_matvec(
         self,
-        other: Union[np.ndarray, List],
+        other: Union[np.ndarray, list],
         rows: np.ndarray = None,
         cols: np.ndarray = None,
         out: np.ndarray = None,
@@ -220,7 +220,7 @@ class StandardizedMatrix:
             out[cols] += res
             return out
 
-    def __rmatmul__(self, other: Union[np.ndarray, List]) -> np.ndarray:
+    def __rmatmul__(self, other: Union[np.ndarray, list]) -> np.ndarray:
         """
         Return matrix multiplication with other.
 
@@ -303,8 +303,8 @@ class StandardizedMatrix:
         self,
         type: str = "column",
         missing_prefix: Optional[str] = None,
-        indices: Optional[List[int]] = None,
-    ) -> List[Optional[str]]:
+        indices: Optional[list[int]] = None,
+    ) -> list[Optional[str]]:
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
@@ -327,17 +327,17 @@ class StandardizedMatrix:
 
         Returns
         -------
-        List[Optional[str]]
+        list[Optional[str]]
             Column names.
         """
         return self.mat.get_names(type, missing_prefix, indices)
 
-    def set_names(self, names: Union[str, List[Optional[str]]], type: str = "column"):
+    def set_names(self, names: Union[str, list[Optional[str]]], type: str = "column"):
         """Set column names.
 
         Parameters
         ----------
-        names: List[Optional[str]]
+        names: list[Optional[str]]
             Names to set.
         type: str {'column'|'term'}
             Whether to set column names or term names. The main difference is that
@@ -353,7 +353,7 @@ class StandardizedMatrix:
         return self.get_names(type="column")
 
     @column_names.setter
-    def column_names(self, names: List[Optional[str]]):
+    def column_names(self, names: list[Optional[str]]):
         self.set_names(names, type="column")
 
     @property
@@ -365,5 +365,5 @@ class StandardizedMatrix:
         return self.get_names(type="term")
 
     @term_names.setter
-    def term_names(self, names: List[Optional[str]]):
+    def term_names(self, names: list[Optional[str]]):
         self.set_names(names, type="term")

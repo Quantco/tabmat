@@ -1,4 +1,5 @@
-from typing import Optional, Sequence, Tuple
+from collections.abc import Sequence
+from typing import Optional
 
 import numpy as np
 import scipy.sparse as sps
@@ -12,7 +13,7 @@ def _split_sparse_and_dense_parts(
     threshold: float = 0.1,
     column_names: Optional[Sequence[Optional[str]]] = None,
     term_names: Optional[Sequence[Optional[str]]] = None,
-) -> Tuple[DenseMatrix, SparseMatrix, np.ndarray, np.ndarray]:
+) -> tuple[DenseMatrix, SparseMatrix, np.ndarray, np.ndarray]:
     """
     Split matrix.
 

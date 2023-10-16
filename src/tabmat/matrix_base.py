@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Optional, Union
 
 import numpy as np
 
@@ -8,7 +8,7 @@ class MatrixBase(ABC):
     """Base class for all matrix classes. ``MatrixBase`` cannot be instantiated."""
 
     ndim = 2
-    shape: Tuple[int, int]
+    shape: tuple[int, int]
     dtype: np.dtype
 
     @abstractmethod
@@ -31,7 +31,7 @@ class MatrixBase(ABC):
     @abstractmethod
     def transpose_matvec(
         self,
-        vec: Union[np.ndarray, List],
+        vec: Union[np.ndarray, list],
         rows: np.ndarray = None,
         cols: np.ndarray = None,
         out: np.ndarray = None,
@@ -89,7 +89,7 @@ class MatrixBase(ABC):
         """Convert self into an np.ndarray."""
         pass
 
-    def __rmatmul__(self, other: Union[np.ndarray, List]) -> np.ndarray:
+    def __rmatmul__(self, other: Union[np.ndarray, list]) -> np.ndarray:
         """
         Perform other @ X = (X.T @ other.T).T = X.transpose_matvec(other.T).T.
 
@@ -122,7 +122,7 @@ class MatrixBase(ABC):
 
     def standardize(
         self, weights: np.ndarray, center_predictors: bool, scale_predictors: bool
-    ) -> Tuple[Any, np.ndarray, Optional[np.ndarray]]:
+    ) -> tuple[Any, np.ndarray, Optional[np.ndarray]]:
         """
         Return a StandardizedMatrix along with the column means and column standard deviations.
 
@@ -169,8 +169,8 @@ class MatrixBase(ABC):
         self,
         type: str = "column",
         missing_prefix: Optional[str] = None,
-        indices: Optional[List[int]] = None,
-    ) -> List[Optional[str]]:
+        indices: Optional[list[int]] = None,
+    ) -> list[Optional[str]]:
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
@@ -193,17 +193,17 @@ class MatrixBase(ABC):
 
         Returns
         -------
-        List[Optional[str]]
+        list[Optional[str]]
             Column names.
         """
         pass
 
-    def set_names(self, names: Union[str, List[Optional[str]]], type: str = "column"):
+    def set_names(self, names: Union[str, list[Optional[str]]], type: str = "column"):
         """Set column names.
 
         Parameters
         ----------
-        names: List[Optional[str]]
+        names: list[Optional[str]]
             Names to set.
         type: str {'column'|'term'}
             Whether to set column names or term names. The main difference is that
@@ -219,7 +219,7 @@ class MatrixBase(ABC):
         return self.get_names(type="column")
 
     @column_names.setter
-    def column_names(self, names: List[Optional[str]]):
+    def column_names(self, names: list[Optional[str]]):
         self.set_names(names, type="column")
 
     @property
@@ -231,7 +231,7 @@ class MatrixBase(ABC):
         return self.get_names(type="term")
 
     @term_names.setter
-    def term_names(self, names: List[Optional[str]]):
+    def term_names(self, names: list[Optional[str]]):
         self.set_names(names, type="term")
 
     # Higher priority than numpy arrays, so behavior for funcs like "@" defaults to the

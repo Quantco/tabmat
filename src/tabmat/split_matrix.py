@@ -1,5 +1,6 @@
 import warnings
-from typing import List, Optional, Sequence, Tuple, Union
+from collections.abc import Sequence
+from typing import Optional, Union
 
 import numpy as np
 from scipy import sparse as sps
@@ -167,7 +168,7 @@ class SplitMatrix(MatrixBase):
     def __init__(
         self,
         matrices: Sequence[MatrixBase],
-        indices: Optional[List[np.ndarray]] = None,
+        indices: Optional[list[np.ndarray]] = None,
     ):
         flatten_matrices = []
         index_corrections = []
@@ -264,7 +265,7 @@ class SplitMatrix(MatrixBase):
 
     def _split_col_subsets(
         self, cols: Optional[np.ndarray]
-    ) -> Tuple[List[np.ndarray], List[Optional[np.ndarray]], int]:
+    ) -> tuple[list[np.ndarray], list[Optional[np.ndarray]], int]:
         """
         Return tuple of things helpful for applying column restrictions to sub-matrices.
 
@@ -319,7 +320,7 @@ class SplitMatrix(MatrixBase):
 
     def sandwich(
         self,
-        d: Union[np.ndarray, List],
+        d: Union[np.ndarray, list],
         rows: np.ndarray = None,
         cols: np.ndarray = None,
     ) -> np.ndarray:
@@ -413,7 +414,7 @@ class SplitMatrix(MatrixBase):
 
     def transpose_matvec(
         self,
-        v: Union[np.ndarray, List],
+        v: Union[np.ndarray, list],
         rows: np.ndarray = None,
         cols: np.ndarray = None,
         out: np.ndarray = None,
@@ -490,8 +491,8 @@ class SplitMatrix(MatrixBase):
         self,
         type: str = "column",
         missing_prefix: Optional[str] = None,
-        indices: Optional[List[int]] = None,
-    ) -> List[Optional[str]]:
+        indices: Optional[list[int]] = None,
+    ) -> list[Optional[str]]:
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
@@ -514,7 +515,7 @@ class SplitMatrix(MatrixBase):
 
         Returns
         -------
-        List[Optional[str]]
+        list[Optional[str]]
             Column names.
         """
         names = np.empty(self.shape[1], dtype=object)
@@ -522,12 +523,12 @@ class SplitMatrix(MatrixBase):
             names[idx] = mat.get_names(type, missing_prefix, idx)
         return list(names)
 
-    def set_names(self, names: Union[str, List[Optional[str]]], type: str = "column"):
+    def set_names(self, names: Union[str, list[Optional[str]]], type: str = "column"):
         """Set column names.
 
         Parameters
         ----------
-        names: List[Optional[str]]
+        names: list[Optional[str]]
             Names to set.
         type: str {'column'|'term'}
             Whether to set column names or term names. The main difference is that

@@ -1,5 +1,5 @@
 import textwrap
-from typing import List, Optional, Union
+from typing import Optional, Union
 
 import numpy as np
 
@@ -169,7 +169,7 @@ class DenseMatrix(MatrixBase):
 
     def _matvec_helper(
         self,
-        vec: Union[List, np.ndarray],
+        vec: Union[list, np.ndarray],
         rows: Optional[np.ndarray],
         cols: Optional[np.ndarray],
         out: Optional[np.ndarray],
@@ -218,7 +218,7 @@ class DenseMatrix(MatrixBase):
 
     def transpose_matvec(
         self,
-        vec: Union[np.ndarray, List],
+        vec: Union[np.ndarray, list],
         rows: np.ndarray = None,
         cols: np.ndarray = None,
         out: np.ndarray = None,
@@ -229,7 +229,7 @@ class DenseMatrix(MatrixBase):
 
     def matvec(
         self,
-        vec: Union[np.ndarray, List],
+        vec: Union[np.ndarray, list],
         cols: np.ndarray = None,
         out: np.ndarray = None,
     ) -> np.ndarray:
@@ -258,8 +258,8 @@ class DenseMatrix(MatrixBase):
         self,
         type: str = "column",
         missing_prefix: Optional[str] = None,
-        indices: Optional[List[int]] = None,
-    ) -> List[Optional[str]]:
+        indices: Optional[list[int]] = None,
+    ) -> list[Optional[str]]:
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
@@ -282,7 +282,7 @@ class DenseMatrix(MatrixBase):
 
         Returns
         -------
-        List[Optional[str]]
+        list[Optional[str]]
             Column names.
         """
         if type == "column":
@@ -301,12 +301,12 @@ class DenseMatrix(MatrixBase):
 
         return list(names)
 
-    def set_names(self, names: Union[str, List[Optional[str]]], type: str = "column"):
+    def set_names(self, names: Union[str, list[Optional[str]]], type: str = "column"):
         """Set column names.
 
         Parameters
         ----------
-        names: List[Optional[str]]
+        names: list[Optional[str]]
             Names to set.
         type: str {'column'|'term'}
             Whether to set column names or term names. The main difference is that
