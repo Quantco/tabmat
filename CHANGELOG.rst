@@ -11,6 +11,13 @@ Unreleased
 ----------
 
 
+3.1.12 - 2023-10-16
+-------------------
+
+**Other changes:**
+
+- Fixed macos arm64 wheels with proper linkage.
+
 3.1.11 - 2023-10-13
 -------------------
 
