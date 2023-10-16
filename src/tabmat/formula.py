@@ -2,7 +2,8 @@ import functools
 import itertools
 from abc import ABC, abstractmethod
 from collections import OrderedDict
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from collections.abc import Iterable
+from typing import Any, Optional, Union
 
 import numpy
 import pandas
@@ -236,7 +237,7 @@ class TabmatMaterializer(FormulaMaterializer):
     @override
     def _enforce_structure(
         self,
-        cols: List[Tuple[Term, List[ScopedTerm], Dict[str, Any]]],
+        cols: list[tuple[Term, list[ScopedTerm], dict[str, Any]]],
         spec,
         drop_rows: set,
     ):
@@ -305,7 +306,7 @@ class _InteractableVector(ABC):
         pass
 
     @abstractmethod
-    def get_names(self) -> List[str]:
+    def get_names(self) -> list[str]:
         """Return the names of the columns represented by this vector.
 
         Returns
@@ -362,7 +363,7 @@ class _InteractableDenseVector(_InteractableVector):
                 sps.csc_matrix(self.values[:, numpy.newaxis]), column_names=[self.name]
             )
 
-    def get_names(self) -> List[str]:
+    def get_names(self) -> list[str]:
         if self.name is None:
             raise RuntimeError("Name not set")
         return [self.name]
@@ -392,7 +393,7 @@ class _InteractableSparseVector(_InteractableVector):
     ) -> SparseMatrix:
         return SparseMatrix(self.values, column_names=[self.name])
 
-    def get_names(self) -> List[str]:
+    def get_names(self) -> list[str]:
         if self.name is None:
             raise RuntimeError("Name not set")
         return [self.name]
@@ -406,7 +407,7 @@ class _InteractableCategoricalVector(_InteractableVector):
     def __init__(
         self,
         codes: numpy.ndarray,
-        categories: List[str],
+        categories: list[str],
         multipliers: numpy.ndarray,
         name: Optional[str] = None,
     ):
@@ -513,7 +514,7 @@ class _InteractableCategoricalVector(_InteractableVector):
             )
             return SplitMatrix([dense_part, sparse_part], [dense_idx, sparse_idx])
 
-    def get_names(self) -> List[str]:
+    def get_names(self) -> list[str]:
         if self.name is None:
             raise RuntimeError("Name not set")
         return self.categories
@@ -672,8 +673,8 @@ def _C(
     def encoder(
         values: Any,
         reduced_rank: bool,
-        drop_rows: List[int],
-        encoder_state: Dict[str, Any],
+        drop_rows: list[int],
+        encoder_state: dict[str, Any],
         model_spec: ModelSpec,
     ):
         if drop_rows:
@@ -733,7 +734,7 @@ def encode_contrasts(
     )
 
 
-def _replace_sequence(lst: List[str], sequence: List[str], replacement: "str") -> None:
+def _replace_sequence(lst: list[str], sequence: list[str], replacement: "str") -> None:
     """Replace a sequence of elements in a list with a single element.
 
     Raises a ValueError if the sequence is not in the list in the correct order.
