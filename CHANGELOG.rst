@@ -7,12 +7,13 @@
 Changelog
 =========
 
-Unreleased
-----------
+3.1.13 - 2023-10-17
+-------------------
 
 **Other changes:**
 
 - Pypi release is now done using trusted publisher.
+- Fix build and upload of ``x86_64`` wheels on Linux.
 
 3.1.12 - 2023-10-16
 -------------------
