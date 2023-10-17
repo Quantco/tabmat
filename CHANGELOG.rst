@@ -10,6 +10,9 @@ Changelog
 Unreleased
 ----------
 
+**Other changes:**
+
+- Pypi release is now done using trusted publisher.
 
 3.1.12 - 2023-10-16
 -------------------

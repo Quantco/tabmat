@@ -69,6 +69,11 @@ jobs:
     if: github.event_name == 'release' && github.event.action == 'published'
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
+    environment: 
+      name: release
+      url: https://test.pypi.org/p/tabmat
+    permissions:
+      id-token: write
     steps:
       - uses: actions/download-artifact@v3
         with:
@@ -77,14 +82,17 @@ jobs:
 
       - uses: pypa/gh-action-pypi-publish@v1.8.10
         with:
-          user: __token__
-          password: ${{ secrets.GH_TESTPYPI_UPLOAD }}
           repository-url: https://test.pypi.org/legacy/
 
   upload_pypi:
     if: github.event_name == 'release' && github.event.action == 'published'
     needs: [build_wheels, build_sdist, upload_testpypi]
     runs-on: ubuntu-latest
+    environment: 
+      name: release
+      url: https://pypi.org/p/tabmat
+    permissions:
+      id-token: write
     steps:
       - uses: actions/download-artifact@v3
         with:
@@ -92,6 +100,3 @@ jobs:
           path: dist
 
       - uses: pypa/gh-action-pypi-publish@v1.8.10
-        with:
-          user: __token__
-          password: ${{ secrets.GH_PYPI_UPLOAD }}
