@@ -28,7 +28,7 @@ jobs:
         if: matrix.NOTE == 'Nightly Builds'
         shell: bash -el {0}
         run: |
-          PRE_WHEELS="https://pypi.anaconda.org/scipy-wheels-nightly/simple"
+          PRE_WHEELS="https://pypi.anaconda.org/scientific-python-nightly-wheels/simple/"
           for pkg in numpy pandas scipy; do
             echo "Installing $pkg nightly"
             micromamba remove -y --force $pkg
