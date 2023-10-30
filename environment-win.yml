@@ -7,8 +7,7 @@ dependencies:
   - pandas
 
   # development tools
-  - black
-  - flake8
+  - ruff
   - numpydoc
   - pip
   - pre-commit
@@ -19,7 +18,7 @@ dependencies:
   # build tools
   - c-compiler
   - cxx-compiler
-  - cython
+  - cython !=3.0.4
   - make
   - mako
   - mkl-include

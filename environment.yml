@@ -17,7 +17,7 @@ dependencies:
   # build tools
   - c-compiler
   - cxx-compiler
-  - cython
+  - cython !=3.0.4
   - jemalloc-local
   - make
   - mako
