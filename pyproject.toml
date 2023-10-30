@@ -5,7 +5,7 @@ requires = [
   'wheel',
   'mako',
   'oldest-supported-numpy',
-  'Cython!=3.0.4',
+  'Cython != 3.0.4',
 ]
 
 [tool.ruff]
