@@ -35,7 +35,9 @@ class MemoryPoller:
 
 
 def track_peak_mem(f, *args, **kwargs):
-    """Track peak memory. Used in benchmarks to track memory used during matrix operations."""
+    """Track peak memory. Used in benchmarks to track memory used during matrix
+    operations.
+    """
     with MemoryPoller() as mp:
         f(*args, **kwargs)
     for s in mp.snapshots:
