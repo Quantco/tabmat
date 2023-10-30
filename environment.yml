@@ -6,12 +6,13 @@ dependencies:
   - pandas
 
   # development tools
-  - ruff
+  - click
   - numpydoc
   - pip
   - pre-commit
   - pytest
   - pytest-xdist
+  - ruff
   - setuptools_scm
 
   # build tools
