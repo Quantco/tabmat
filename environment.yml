@@ -6,8 +6,7 @@ dependencies:
   - pandas
 
   # development tools
-  - black
-  - flake8
+  - ruff
   - numpydoc
   - pip
   - pre-commit

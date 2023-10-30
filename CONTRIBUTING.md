@@ -39,7 +39,7 @@ conda install -y pre-commit
 git clone git@github.com:Quantco/tabmat.git
 cd tabmat
 
-# Set up our pre-commit hooks for black, mypy, isort and flake8.
+# Set up our pre-commit hooks for ruff, mypy, and cython-lint.
 pre-commit install
 
 # Set up a conda environment with name "tabmat"
