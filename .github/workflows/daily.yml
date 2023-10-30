@@ -3,6 +3,9 @@ on:
   schedule:
     - cron: '0 5 * * *'
   workflow_dispatch:
+  push:
+    paths:
+    - '.github/workflows/daily.yml'
 
 jobs:
   linux-daily-unittests:
@@ -34,6 +37,10 @@ jobs:
             micromamba remove -y --force $pkg
             pip install --pre --no-deps --only-binary :all: --upgrade --timeout=60 -i $PRE_WHEELS $pkg
           done
+          echo Install pyarrow nightly
+          micromamba remove -y --force pyarrow
+          pip install --extra-index-url https://pypi.fury.io/arrow-nightlies/ --prefer-binary --pre --no-deps pyarrow
+          micromamba list
       - name: Install repository
         shell: bash -el {0}
         run: pip install --no-use-pep517 --no-deps --disable-pip-version-check -e .
