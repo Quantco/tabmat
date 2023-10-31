@@ -58,7 +58,8 @@ def _filter_out_empty(matrices, indices):
 
 def _combine_matrices(matrices, indices):
     """
-    Combine multiple SparseMatrix and DenseMatrix objects into a single object of each type.
+    Combine multiple SparseMatrix and DenseMatrix objects into a single object of each
+    type.
 
     ``matrices`` is  and ``indices`` marks which columns they correspond to.
     Categorical matrices remain unmodified by this function since categorical
@@ -169,8 +170,8 @@ class SplitMatrix(MatrixBase):
             if not mat.shape[0] == n_row:
                 raise ValueError(
                     "All matrices should have the same first dimension, "
-                    f"but the first matrix has first dimension {n_row} and matrix {i} has "
-                    f"first dimension {mat.shape[0]}."
+                    f"but the first matrix has first dimension {n_row} and matrix {i} "
+                    f"has first dimension {mat.shape[0]}."
                 )
             if mat.ndim == 1:
                 flatten_matrices[i] = mat[:, np.newaxis]

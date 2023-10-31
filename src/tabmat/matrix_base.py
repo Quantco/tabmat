@@ -124,7 +124,8 @@ class MatrixBase(ABC):
         self, weights: np.ndarray, center_predictors: bool, scale_predictors: bool
     ) -> tuple[Any, np.ndarray, Optional[np.ndarray]]:
         """
-        Return a StandardizedMatrix along with the column means and column standard deviations.
+        Return a StandardizedMatrix along with the column means and column standard
+        deviations.
 
         It is often useful to modify a dataset so that each column has mean
         zero and standard deviation one. This function does this "standardization"

@@ -7,6 +7,13 @@
 Changelog
 =========
 
+Unreleased
+----------
+
+**Other changes:**
+
+- Refactored the pre-commit hooks to use ruff.
+
 3.1.13 - 2023-10-17
 -------------------
 

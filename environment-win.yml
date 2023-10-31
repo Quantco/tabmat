@@ -7,13 +7,13 @@ dependencies:
   - pandas
 
   # development tools
-  - black
-  - flake8
+  - click
   - numpydoc
   - pip
   - pre-commit
   - pytest
   - pytest-xdist
+  - ruff
   - setuptools_scm
 
   # build tools

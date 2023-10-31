@@ -16,7 +16,8 @@ from tabmat.benchmark.main import (
     "cli_input",
     [
         "",
-        "dense,sparse,sparse_narrow, sparse_wide,one_cat,two_cat,dense_cat,dense_smallcat",
+        "dense,sparse,sparse_narrow, sparse_wide,one_cat,two_cat,dense_cat,"
+        "dense_smallcat",
     ],
 )
 def test_generate_matrices(cli_input: str):

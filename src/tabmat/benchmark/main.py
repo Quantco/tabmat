@@ -142,8 +142,9 @@ def run_one_benchmark_set(
     "--operation_name",
     type=str,
     help=(
-        f"Specify a comma-separated list of operations you want to run. Leaving this blank "
-        f"will default to running all operations. Operation options: {get_op_names()}"
+        f"Specify a comma-separated list of operations you want to run. Leaving this "
+        f"blank will default to running all operations. Operation options: "
+        f"{get_op_names()}"
     ),
 )
 @click.option(
@@ -152,9 +153,9 @@ def run_one_benchmark_set(
     help=(
         f"Specify a comma-separated list of matrices you want to run or specify. "
         f"Leaving this blank will default to running all predefined matrices. "
-        f"Matrix options: {get_matrix_names()} OR custom. If custom, specify details using "
-        f"additional custom matrix options. See --dense, --sparse, --one_cat, --two_cat, "
-        f"and --dense_cat options for more details"
+        f"Matrix options: {get_matrix_names()} OR custom. If custom, specify details "
+        f"using additional custom matrix options. See --dense, --sparse, --one_cat, "
+        f"--two_cat, and --dense_cat options for more details"
     ),
 )
 @click.option(
@@ -214,7 +215,8 @@ def run_one_benchmark_set(
     help=(
         "Should we benchmark memory usage with tracemalloc. Turning this on will make "
         "the runtime benchmarks less useful due to memory benchmarking overhead. "
-        "Also, when memory benchmarking is on, debuggers like pdb and ipdb seem to fail."
+        "Also, when memory benchmarking is on, debuggers like pdb and ipdb seem to "
+        "fail."
     ),
     default=False,
 )
@@ -223,8 +225,9 @@ def run_one_benchmark_set(
     type=int,
     help=(
         "How many times to re-run the benchmark. The maximum memory usage and minimum "
-        "runtime will be reported. Higher numbers of iterations reduce noise. This defaults "
-        "to 100 unless memory benchmarking is turned on in which case it will be 1."
+        "runtime will be reported. Higher numbers of iterations reduce noise. This "
+        "defaults to 100 unless memory benchmarking is turned on in which case it will "
+        "be 1."
     ),
     default=None,
 )
@@ -323,7 +326,8 @@ def run_all_benchmarks(
             for params in two_cat:
                 n_rows, n_cat_cols_1, n_cat_cols_2 = (int(float(x)) for x in params)
                 benchmark_matrices[
-                    f"two_cat #rows:{n_rows}, #cats_1:{n_cat_cols_1}, #cats_2:{n_cat_cols_2}"
+                    f"two_cat #rows:{n_rows}, #cats_1:{n_cat_cols_1}, "
+                    f"#cats_2:{n_cat_cols_2}"
                 ] = make_cat_matrices(n_rows, n_cat_cols_1, n_cat_cols_2)
         if dense_cat:
             for params in dense_cat:

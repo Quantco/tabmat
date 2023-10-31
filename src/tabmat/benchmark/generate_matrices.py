@@ -47,9 +47,7 @@ def make_cat_matrices(n_rows: int, n_cat_cols_1: int, n_cat_cols_2: int) -> dict
     two_cat_matrices["scipy.sparse csr"] = sps.hstack(
         [elt.tocsr() for elt in two_cat_matrices["tabmat"].matrices]
     )
-    two_cat_matrices["scipy.sparse csc"] = two_cat_matrices[
-        "scipy.sparse csr"
-    ].tocsc()  # type: ignore
+    two_cat_matrices["scipy.sparse csc"] = two_cat_matrices["scipy.sparse csr"].tocsc()  # type: ignore
     return two_cat_matrices
 
 
