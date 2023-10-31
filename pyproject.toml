@@ -28,6 +28,9 @@ target-version = "py39"
 [tool.ruff.isort]
 known-first-party = ["tabmat"]
 
+[tool.mypy]
+python_version = '3.9'
+
 [tool.cibuildwheel]
 skip = [
   "*-win32",
