@@ -10,6 +10,11 @@ Changelog
 Unreleased
 ----------
 
+**Bug fix:**
+
+- Added cython compiler directive legacy_implicit_noexcept = True to fix performance regression with cython 3.
+
+
 **Other changes:**
 
 - Refactored the pre-commit hooks to use ruff.
