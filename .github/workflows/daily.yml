@@ -45,7 +45,7 @@ jobs:
         shell: bash -el {0}
         run: pytest -nauto tests -m "not high_memory" --doctest-modules src/
       - name: Issue on failure
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         if: ${{ failure() }}
         with:
           script: |
