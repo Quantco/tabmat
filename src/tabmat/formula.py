@@ -139,13 +139,13 @@ class TabmatMaterializer(FormulaMaterializer):
         # always been in the generated order.
         terms = self._cluster_terms(spec.formula, cluster_by=spec.cluster_by)
 
-        # Step 1: Determine strategy to maintain structural full-rankness of output matrix
+        # Step 1: Determine strategy to maintain full-rankness of output matrix
         scoped_terms_for_terms = self._get_scoped_terms(
             terms,
             ensure_full_rank=spec.ensure_full_rank,
         )
 
-        # Step 2: Generate the columns which will be collated into the full matrix
+        # Step 2: Generate the columns which will be collated
         cols = []
         for term, scoped_terms in scoped_terms_for_terms:
             scoped_cols = OrderedDict()
@@ -153,10 +153,9 @@ class TabmatMaterializer(FormulaMaterializer):
                 if not scoped_term.factors:
                     if not self.add_column_for_intercept:
                         continue
-                    scoped_cols[
-                        self.intercept_name
-                    ] = scoped_term.scale * self._encode_constant(
-                        1, None, {}, spec, drop_rows
+                    scoped_cols[self.intercept_name] = (
+                        scoped_term.scale
+                        * self._encode_constant(1, None, {}, spec, drop_rows)
                     )
                 else:
                     scoped_cols.update(
@@ -181,7 +180,9 @@ class TabmatMaterializer(FormulaMaterializer):
             cols = self._enforce_structure(cols, spec, drop_rows)
         else:
             # for term, scoped_terms, columns in spec.structure:
-            # expanded_columns = list(itertools.chain(colname_dict[col] for col in columns))
+            # expanded_columns = list(
+            #   itertools.chain(colname_dict[col] for col in columns
+            # ))
             # expanded_structure.append(
             #     EncodedTermStructure(term, scoped_terms, expanded_columns)
             # )
@@ -283,9 +284,11 @@ class TabmatMaterializer(FormulaMaterializer):
                     f"{target_cols}."
                 )
 
-            yield col_spec[0], col_spec[1], {
-                col: scoped_cols[col] for col in target_cols
-            }
+            yield (
+                col_spec[0],
+                col_spec[1],
+                {col: scoped_cols[col] for col in target_cols},
+            )
 
 
 class _InteractableVector(ABC):
@@ -737,8 +740,8 @@ def encode_contrasts(
 def _replace_sequence(lst: list[str], sequence: list[str], replacement: "str") -> None:
     """Replace a sequence of elements in a list with a single element.
 
-    Raises a ValueError if the sequence is not in the list in the correct order.
-    Only checks for the first possible start of the sequence.
+    Raises a ValueError if the sequence is not in the list in the correct
+    order. Only checks for the first possible start of the sequence.
 
     Parameters
     ----------

@@ -735,10 +735,12 @@ def test_cat_missing_interactions():
     expected_names = [
         "C(cat_1, missing_method='convert')[a]:C(cat_2, missing_method='zero')[1]",
         "C(cat_1, missing_method='convert')[b]:C(cat_2, missing_method='zero')[1]",
-        "C(cat_1, missing_method='convert')[(MISSING)]:C(cat_2, missing_method='zero')[1]",
+        "C(cat_1, missing_method='convert')[(MISSING)]:"
+        + "C(cat_2, missing_method='zero')[1]",
         "C(cat_1, missing_method='convert')[a]:C(cat_2, missing_method='zero')[2]",
         "C(cat_1, missing_method='convert')[b]:C(cat_2, missing_method='zero')[2]",
-        "C(cat_1, missing_method='convert')[(MISSING)]:C(cat_2, missing_method='zero')[2]",
+        "C(cat_1, missing_method='convert')[(MISSING)]:"
+        + "C(cat_2, missing_method='zero')[2]",
     ]
 
     assert tm.from_formula(formula, df).column_names == expected_names
@@ -908,8 +910,8 @@ class TestFormulaicTests:
                 drop_rows=set(),
             )
 
-        # Test that if an encoding has already been determined, that an exception is raised
-        # if the new encoding does not match
+        # For an encoding has already been determined, an exception
+        # should be raised if the new encoding does not match
         materializer.factor_cache = {}
         with pytest.raises(
             formulaic.errors.FactorEncodingError,
