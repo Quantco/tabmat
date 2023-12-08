@@ -169,6 +169,7 @@ setup(
             "initializedcheck": False,
             "nonecheck": False,
             "cdivision": True,
+            "legacy_implicit_noexcept": True,
         },
     ),
     zip_safe=False,

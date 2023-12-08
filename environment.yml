@@ -7,19 +7,19 @@ dependencies:
   - formulaic>=0.4
 
   # development tools
-  - black
-  - flake8
+  - click
   - numpydoc
   - pip
   - pre-commit
   - pytest
   - pytest-xdist
+  - ruff
   - setuptools_scm
 
   # build tools
   - c-compiler
   - cxx-compiler
-  - cython
+  - cython !=3.0.4
   - jemalloc-local
   - make
   - mako

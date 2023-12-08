@@ -2,8 +2,8 @@
 Categorical data.
 
 One-hot encoding a feature creates a sparse matrix that has some special properties:
-All of its nonzero elements are ones, and since each element starts a new row, it's ``indptr``,
-which indicates where rows start and end, will increment by 1 every time.
+All of its nonzero elements are ones, and since each element starts a new row, it's
+``indptr``, which indicates where rows start and end, will increment by 1 every time.
 
 Storage
 ^^^^^^^
@@ -28,11 +28,11 @@ csr storage
     array([0, 1, 2, 3], dtype=int32)
 
 
-The size of this matrix, if the original array is of length ``n``, is ``n`` bytes for the
-data (stored as quarter-precision integers), ``4n`` for ``indices``, and ``4(n+1)`` for
-``indptr``. However, if we know the matrix results from one-hot encoding, we only need to
-store the ``indices``, so we can reduce memory usage to slightly less than 4/9 of the
-original.
+The size of this matrix, if the original array is of length ``n``, is ``n`` bytes for
+the data (stored as quarter-precision integers), ``4n`` for ``indices``, and ``4(n+1)``
+for ``indptr``. However, if we know the matrix results from one-hot encoding, we only
+need to store the ``indices``, so we can reduce memory usage to slightly less than 4/9
+of the  original.
 
 csc storage
 -----------
@@ -62,7 +62,8 @@ Matrix vector products
 ----------------------
 
 A general sparse CSR matrix-vector products in pseudocode,
-modeled on [scipy sparse](https://github.com/scipy/scipy/blob/1dc960a33b000b95b1e399582c154efc0360a576/scipy/sparse/sparsetools/csr.h#L1120):  # noqa:
+modeled on [scipy sparse](https://github.com/scipy/scipy/blob/1dc960a33b000b95b\
+1e399582c154efc0360a576/scipy/sparse/sparsetools/csr.h#L1120):
 
 ::
 
@@ -74,8 +75,8 @@ modeled on [scipy sparse](https://github.com/scipy/scipy/blob/1dc960a33b000b95b1
                 res[i] += mat.data[j] * vec[mat.indices[j]]
         return res
 
-With a CSR categorical matrix, ``data`` is all 1 and ``j`` always equals ``i``, so we can
-simplify this function to be
+With a CSR categorical matrix, ``data`` is all 1 and ``j`` always equals ``i``, so we
+can simplify this function to be
 
 ::
 
@@ -86,9 +87,9 @@ simplify this function to be
             res[i] = vec[mat.indices[j]]
         return res
 
-The original function involved ``6N`` lookups, ``N`` multiplications, and ``N`` additions,
-while the new function involves only ``3N`` lookups. It thus has the potential to be
-significantly faster.
+The original function involved ``6N`` lookups, ``N`` multiplications, and ``N``
+additions, while the new function involves only ``3N`` lookups. It thus has the
+potential to be significantly faster.
 
 sandwich: X.T @ diag(d) @ X
 ---------------------------
@@ -712,7 +713,8 @@ class CategoricalMatrix(MatrixBase):
         """
         if self.shape[0] != other.shape[0]:
             raise ValueError(
-                f"Shapes do not match. Expected length of {self.shape[0]}. Got {len(other)}."
+                f"Shapes do not match. Expected length of {self.shape[0]}. Got "
+                f"{len(other)}."
             )
 
         if self.drop_first or self._has_missings:

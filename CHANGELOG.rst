@@ -17,6 +17,22 @@ Unreleased
 - Add support for missing values in ``CategoricalMatrix`` by either creating a separate category for them or treating them as all-zero rows.
 - Add support for handling missing categorical values in pandas data frames.
 
+**Bug fix:**
+
+- Added cython compiler directive legacy_implicit_noexcept = True to fix performance regression with cython 3.
+
+
+**Other changes:**
+
+- Refactored the pre-commit hooks to use ruff.
+
+3.1.13 - 2023-10-17
+-------------------
+
+**Other changes:**
+
+- Pypi release is now done using trusted publisher.
+- Fix build and upload of ``x86_64`` wheels on Linux.
 
 3.1.12 - 2023-10-16
 -------------------

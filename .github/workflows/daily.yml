@@ -3,6 +3,9 @@ on:
   schedule:
     - cron: '0 5 * * *'
   workflow_dispatch:
+  push:
+    paths:
+    - '.github/workflows/daily.yml'
 
 jobs:
   linux-daily-unittests:
@@ -19,7 +22,7 @@ jobs:
     steps:
       - name: Checkout branch
         uses: actions/checkout@v4
-      - uses: mamba-org/setup-micromamba@54d4d5980e1a4aa7cdc8b050cf2d19b7e262ce18
+      - uses: mamba-org/setup-micromamba@db1df3ba9e07ea86f759e98b575c002747e9e757
         with:
           environment-file: environment.yml
           create-args: >-
@@ -28,12 +31,13 @@ jobs:
         if: matrix.NOTE == 'Nightly Builds'
         shell: bash -el {0}
         run: |
-          PRE_WHEELS="https://pypi.anaconda.org/scipy-wheels-nightly/simple"
+          PRE_WHEELS="https://pypi.anaconda.org/scientific-python-nightly-wheels/simple/"
           for pkg in numpy pandas scipy; do
             echo "Installing $pkg nightly"
             micromamba remove -y --force $pkg
             pip install --pre --no-deps --only-binary :all: --upgrade --timeout=60 -i $PRE_WHEELS $pkg
           done
+          micromamba list
       - name: Install repository
         shell: bash -el {0}
         run: pip install --no-use-pep517 --no-deps --disable-pip-version-check -e .
@@ -41,7 +45,7 @@ jobs:
         shell: bash -el {0}
         run: pytest -nauto tests -m "not high_memory" --doctest-modules src/
       - name: Issue on failure
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         if: ${{ failure() }}
         with:
           script: |

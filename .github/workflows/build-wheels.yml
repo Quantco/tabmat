@@ -23,7 +23,7 @@ jobs:
           platforms: all
 
       - name: Set up micromamba
-        uses: mamba-org/setup-micromamba@54d4d5980e1a4aa7cdc8b050cf2d19b7e262ce18
+        uses: mamba-org/setup-micromamba@db1df3ba9e07ea86f759e98b575c002747e9e757
       
       - name: Build wheels
         if: github.event_name != 'release'
@@ -37,7 +37,7 @@ jobs:
         if: github.event_name == 'release' && github.event.action == 'published'
         uses: pypa/cibuildwheel@v2.16.2
         env:
-          CIBW_ARCHS_LINUX: aarch64 aarch64
+          CIBW_ARCHS_LINUX: x86_64 aarch64
           CIBW_ARCHS_MACOS: x86_64 arm64
           CIBW_TEST_SKIP: '*-macosx_arm64'
       - uses: actions/upload-artifact@v3
@@ -56,7 +56,7 @@ jobs:
           python-version: '3.10'
 
       - name: Install build dependencies
-        run: python -m pip install setuptools setuptools-scm wheel mako numpy Cython 
+        run: python -m pip install setuptools setuptools-scm wheel mako numpy 'Cython!=3.0.4' 
 
       - name: Build sdist
         run: python setup.py sdist
@@ -69,6 +69,11 @@ jobs:
     if: github.event_name == 'release' && github.event.action == 'published'
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
+    environment: 
+      name: release
+      url: https://test.pypi.org/p/tabmat
+    permissions:
+      id-token: write
     steps:
       - uses: actions/download-artifact@v3
         with:
@@ -77,14 +82,17 @@ jobs:
 
       - uses: pypa/gh-action-pypi-publish@v1.8.10
         with:
-          user: __token__
-          password: ${{ secrets.GH_TESTPYPI_UPLOAD }}
           repository-url: https://test.pypi.org/legacy/
 
   upload_pypi:
     if: github.event_name == 'release' && github.event.action == 'published'
     needs: [build_wheels, build_sdist, upload_testpypi]
     runs-on: ubuntu-latest
+    environment: 
+      name: release
+      url: https://pypi.org/p/tabmat
+    permissions:
+      id-token: write
     steps:
       - uses: actions/download-artifact@v3
         with:
@@ -92,6 +100,3 @@ jobs:
           path: dist
 
       - uses: pypa/gh-action-pypi-publish@v1.8.10
-        with:
-          user: __token__
-          password: ${{ secrets.GH_PYPI_UPLOAD }}
