@@ -60,7 +60,7 @@ JE_INSTALL_SUFFIX="local"
 
 [tool.cibuildwheel.windows]
 before-all = [
-  "C:\\Miniconda\\condabin\\conda install -c conda-forge xsimd",
+  "C:\\Miniconda\\condabin\\conda install -c conda-forge 'xsimd<11'",
 ]
 
 [tool.cibuildwheel.windows.environment]

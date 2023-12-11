@@ -23,7 +23,7 @@ dependencies:
   - make
   - mako
   - mkl-include
-  - xsimd
+  - xsimd <11
 
   # documentation dev
   - jupyterlab
