@@ -22,7 +22,7 @@ dependencies:
   - jemalloc-local
   - make
   - mako
-  - xsimd <11, >12.1
+  - xsimd <11,>12.1
 
   # documentation dev
   - jupyterlab
