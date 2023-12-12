@@ -51,7 +51,7 @@ before-build = [
 ]
 
 [tool.cibuildwheel.macos.environment]
-LDFLAGS="-Wl,-rpath,$CONDA/envs/build/lib -L$CONDA/envs/build/lib"
+LDFLAGS="-Wl,-rpath,$CONDA/envs/build/lib -L$CONDA/envs/build/lib -headerpad_max_install_names"
 CFLAGS="-I$CONDA/envs/build/include"
 CXXFLAGS="-I$CONDA/envs/build/include"
 CXX="/usr/bin/clang++"
@@ -60,7 +60,7 @@ JE_INSTALL_SUFFIX="local"
 
 [tool.cibuildwheel.windows]
 before-all = [
-  "C:\\Miniconda\\condabin\\conda install -c conda-forge xsimd",
+  "C:\\Miniconda\\condabin\\conda install -c conda-forge \"xsimd<11\"",
 ]
 
 [tool.cibuildwheel.windows.environment]
@@ -69,13 +69,13 @@ INCLUDE="C:\\\\Miniconda\\\\Library\\\\include"
 [tool.cibuildwheel.linux]
 before-all = [
   "cd ~/",
-  "git clone --branch 5.2.1 https://github.com/jemalloc/jemalloc.git",
+  "git clone --branch 5.3.0 https://github.com/jemalloc/jemalloc.git",
   "cd jemalloc",
   "./autogen.sh --disable-cxx --with-jemalloc-prefix=local --with-install-suffix=local --disable-tls --disable-initial-exec-tls",
   "make",
   "make install_bin install_include install_lib",
   "cd ~/",
-  "git clone --branch 7.6.0 https://github.com/xtensor-stack/xsimd.git",
+  "git clone --branch 12.1.1 https://github.com/xtensor-stack/xsimd.git",
   "cd xsimd",
   "mkdir build",
   "cd build",
