@@ -32,7 +32,7 @@ requirements:
     - numpy
     - pip
     - setuptools_scm
-    - xsimd <11
+    - xsimd <11|>12.1
   run:
     - python
     - {{ pin_compatible('numpy') }}
