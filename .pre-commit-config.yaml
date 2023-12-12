@@ -1,15 +1,15 @@
 repos:
   - repo: https://github.com/Quantco/pre-commit-mirrors-ruff
-    rev: 0.1.3
+    rev: 0.1.6
     hooks:
       - id: ruff-conda
       - id: ruff-format-conda
   - repo: https://github.com/Quantco/pre-commit-mirrors-mypy
-    rev: "1.6.1"
+    rev: "1.7.1"
     hooks:
       - id: mypy-conda
   - repo: https://github.com/Quantco/pre-commit-mirrors-cython-lint
-    rev: 0.15.0
+    rev: 0.16.0
     hooks:
       - id: cython-lint-conda
         args: [--no-pycodestyle]
