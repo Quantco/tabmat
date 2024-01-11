@@ -433,8 +433,8 @@ def test_term_names_against_expectation(df, formula, expected_names):
 
 @pytest.mark.parametrize(
     "categorical_format",
-    ["{name}[{category}]", "{name}__{category}"],
-    ids=["brackets", "double_underscore"],
+    ["{name}[{category}]", "{name}__{category}", "{name}<<{category}>>"],
+    ids=["brackets", "double_underscore", "custom"],
 )
 def test_all_names_against_from_pandas(df, categorical_format):
     mat_from_pandas = tm.from_pandas(
