@@ -746,6 +746,28 @@ def test_cat_missing_interactions():
     assert tm.from_formula(formula, df).column_names == expected_names
 
 
+@pytest.mark.parametrize(
+    "cat_missing_method", ["zero", "convert"], ids=["zero", "convert"]
+)
+def test_unseen_category(cat_missing_method):
+    df = pd.DataFrame(
+        {
+            "cat_1": pd.Categorical(["a", "b"]),
+        }
+    )
+    df_unseen = pd.DataFrame(
+        {
+            "cat_1": pd.Categorical(["a", "b", "c"]),
+        }
+    )
+    result_seen = tm.from_formula(
+        "cat_1 - 1", df, cat_missing_method=cat_missing_method
+    )
+
+    with pytest.raises(ValueError, match="contains unseen categories"):
+        result_seen.model_spec.get_model_matrix(df_unseen)
+
+
 # Tests from formulaic's test suite
 # ---------------------------------
 

@@ -726,7 +726,7 @@ def encode_contrasts(
     force_convert = _state.get("force_convert", False)
 
     if levels is not None:
-        unseen_categories = set(data.unique()) - set(levels)
+        unseen_categories = set(data.dropna().unique()) - set(levels)
         if unseen_categories:
             raise ValueError(
                 f"Column {data.name} contains unseen categories: {unseen_categories}."
