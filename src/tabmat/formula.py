@@ -724,6 +724,14 @@ def encode_contrasts(
     """
     levels = levels if levels is not None else _state.get("categories")
     force_convert = _state.get("force_convert", False)
+
+    if levels is not None:
+        unseen_categories = set(data._values.unique()) - set(levels)
+        if unseen_categories:
+            raise ValueError(
+                f"Column {data.name} contains unseen categories: {unseen_categories}."
+            )
+
     cat = pandas.Categorical(data._values, categories=levels)
     _state["categories"] = cat.categories
     _state["force_convert"] = missing_method == "convert" and cat.isna().any()
