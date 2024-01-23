@@ -747,7 +747,7 @@ def test_cat_missing_interactions():
 
 
 @pytest.mark.parametrize(
-    "cat_missing_method", ["zero", "convert"], ids=["zero", "convert"]
+    "cat_missing_method", ["zero", "convert", "fail"], ids=["zero", "convert", "fail"]
 )
 def test_unseen_category(cat_missing_method):
     df = pd.DataFrame(
@@ -763,6 +763,23 @@ def test_unseen_category(cat_missing_method):
     result_seen = tm.from_formula(
         "cat_1 - 1", df, cat_missing_method=cat_missing_method
     )
+
+    with pytest.raises(ValueError, match="contains unseen categories"):
+        result_seen.model_spec.get_model_matrix(df_unseen)
+
+
+def test_unseen_missing_convert():
+    df = pd.DataFrame(
+        {
+            "cat_1": pd.Categorical(["a", "b"]),
+        }
+    )
+    df_unseen = pd.DataFrame(
+        {
+            "cat_1": pd.Categorical(["a", "b", pd.NA]),
+        }
+    )
+    result_seen = tm.from_formula("cat_1 - 1", df, cat_missing_method="convert")
 
     with pytest.raises(ValueError, match="contains unseen categories"):
         result_seen.model_spec.get_model_matrix(df_unseen)

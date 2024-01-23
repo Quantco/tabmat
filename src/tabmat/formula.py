@@ -429,7 +429,7 @@ class _InteractableCategoricalVector(_InteractableVector):
         reduced_rank: bool,
         missing_method: str = "fail",
         missing_name: str = "(MISSING)",
-        force_convert: bool = False,
+        add_category_for_nan: bool = False,
     ) -> "_InteractableCategoricalVector":
         """Create an interactable categorical vector from a pandas categorical."""
         categories = list(cat.categories)
@@ -446,7 +446,7 @@ class _InteractableCategoricalVector(_InteractableVector):
                 "if cat_missing_method='fail'."
             )
 
-        if missing_method == "convert" and (-1 in codes or force_convert):
+        if missing_method == "convert" and (-1 in codes or add_category_for_nan):
             codes[codes == -1] = len(categories)
             categories.append(missing_name)
 
@@ -723,10 +723,15 @@ def encode_contrasts(
             order to avoid spanning the intercept.
     """
     levels = levels if levels is not None else _state.get("categories")
-    force_convert = _state.get("force_convert", False)
+    add_category_for_nan = _state.get("add_category_for_nan", False)
 
+    # Check for unseen categories when levels are specified
     if levels is not None:
-        unseen_categories = set(data.dropna().unique()) - set(levels)
+        if missing_method == "convert" and not add_category_for_nan:
+            unseen_categories = set(data.unique()) - set(levels)
+        else:
+            unseen_categories = set(data.dropna().unique()) - set(levels)
+
         if unseen_categories:
             raise ValueError(
                 f"Column {data.name} contains unseen categories: {unseen_categories}."
@@ -734,14 +739,16 @@ def encode_contrasts(
 
     cat = pandas.Categorical(data._values, categories=levels)
     _state["categories"] = cat.categories
-    _state["force_convert"] = missing_method == "convert" and cat.isna().any()
+    _state["add_category_for_nan"] = add_category_for_nan or (
+        missing_method == "convert" and cat.isna().any()
+    )
 
     return _InteractableCategoricalVector.from_categorical(
         cat,
         reduced_rank=reduced_rank,
         missing_method=missing_method,
         missing_name=missing_name,
-        force_convert=force_convert,
+        add_category_for_nan=add_category_for_nan,
     )
 
 
