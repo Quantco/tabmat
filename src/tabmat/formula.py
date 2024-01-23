@@ -443,7 +443,7 @@ class _InteractableCategoricalVector(_InteractableVector):
         if missing_method == "fail" and -1 in codes:
             raise ValueError(
                 "Categorical data can't have missing values "
-                "if [cat_]missing_method='fail'."
+                "if cat_missing_method='fail'."
             )
 
         if missing_method == "convert" and (-1 in codes or force_convert):
