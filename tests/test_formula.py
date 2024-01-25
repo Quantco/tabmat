@@ -746,6 +746,61 @@ def test_cat_missing_interactions():
     assert tm.from_formula(formula, df).column_names == expected_names
 
 
+@pytest.mark.parametrize(
+    "cat_missing_method", ["zero", "convert", "fail"], ids=["zero", "convert", "fail"]
+)
+def test_unseen_category(cat_missing_method):
+    df = pd.DataFrame(
+        {
+            "cat_1": pd.Categorical(["a", "b"]),
+        }
+    )
+    df_unseen = pd.DataFrame(
+        {
+            "cat_1": pd.Categorical(["a", "b", "c"]),
+        }
+    )
+    result_seen = tm.from_formula(
+        "cat_1 - 1", df, cat_missing_method=cat_missing_method
+    )
+
+    with pytest.raises(ValueError, match="contains unseen categories"):
+        result_seen.model_spec.get_model_matrix(df_unseen)
+
+
+@pytest.mark.parametrize("cat_missing_method", ["zero", "convert", "fail"])
+def test_unseen_missing(cat_missing_method):
+    df = pd.DataFrame(
+        {
+            "cat_1": pd.Categorical(["a", "b"]),
+        }
+    )
+    df_unseen = pd.DataFrame(
+        {
+            "cat_1": pd.Categorical(["a", "b", pd.NA]),
+        }
+    )
+    result_seen = tm.from_formula(
+        "cat_1 - 1", df, cat_missing_method=cat_missing_method
+    )
+
+    if cat_missing_method == "convert":
+        with pytest.raises(ValueError, match="contains unseen categories"):
+            result_seen.model_spec.get_model_matrix(df_unseen)
+    elif cat_missing_method == "fail":
+        with pytest.raises(
+            ValueError, match="Categorical data can't have missing values"
+        ):
+            result_seen.model_spec.get_model_matrix(df_unseen)
+    elif cat_missing_method == "zero":
+        result_unseen = result_seen.model_spec.get_model_matrix(df_unseen)
+        assert result_unseen.A.shape == (3, 2)
+        np.testing.assert_array_equal(
+            result_unseen.A, np.array([[1, 0], [0, 1], [0, 0]])
+        )
+        assert result_unseen.column_names == ["cat_1[a]", "cat_1[b]"]
+
+
 # Tests from formulaic's test suite
 # ---------------------------------
 
