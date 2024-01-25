@@ -728,6 +728,9 @@ def encode_contrasts(
     # Check for unseen categories when levels are specified
     if levels is not None:
         if missing_method == "convert" and not add_missing_category:
+            # We only need to include NAs in the check in this case because:
+            #  - missing_method == "fail" raises a more appropriate error later
+            #  - missings are no problem in the other cases
             unseen_categories = set(data.unique()) - set(levels)
         else:
             unseen_categories = set(data.dropna().unique()) - set(levels)
