@@ -765,7 +765,7 @@ class CategoricalMatrix(MatrixBase):
             Whether to get column names or term names. The main difference is that
             a categorical submatrix is counted as a single term, whereas it is
             counted as multiple columns. Furthermore, matrices created from formulas
-            have a difference between a column and term (c.f. ``formulaic`` docs).
+            distinguish between a column and term (c.f. ``formulaic`` docs).
         missing_prefix: Optional[str], default None
             Prefix to use for columns that do not have a name. If None, then no
             default name is created.
@@ -811,7 +811,7 @@ class CategoricalMatrix(MatrixBase):
             Whether to set column names or term names. The main difference is that
             a categorical submatrix is counted as a single term, whereas it is
             counted as multiple columns. Furthermore, matrices created from formulas
-            have a difference between a column and term (c.f. ``formulaic`` docs).
+            distinguish between a column and term (c.f. ``formulaic`` docs).
         """
         if isinstance(names, str):
             names = [names]
