@@ -342,7 +342,7 @@ class SparseMatrix(MatrixBase):
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
-        followig pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
+        following pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
         the index of the column.
 
         Parameters
