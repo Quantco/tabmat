@@ -10,6 +10,10 @@ Changelog
 Unreleased
 ----------
 
+**Breaking changes**:
+
+- To unify the API, :class:`DenseMatrix` does not inherit from :class:`np.ndarray` anymore. Similarly, :class:`SparseMatrix` does not inherit from :class:`sps.csc_matrix` anymore. To convert a :class:`DenseMatrix` to a :class:`np.ndarray`, use the `.unpack()` method (same for :class:`SparseMatrix` and :class:`sps.csc_matrix`).
+
 **New features:**
 
 - Added column name and term name metadata to ``MatrixBase`` objects. These are automatically populated when initializing a ``MatrixBase`` from a ``pandas.DataFrame``. In addition, they can be accessed and modified via the ``column_names`` and ``term_names`` properties.
@@ -20,7 +24,6 @@ Unreleased
 **Bug fix:**
 
 - Added cython compiler directive legacy_implicit_noexcept = True to fix performance regression with cython 3.
-
 
 **Other changes:**
 
