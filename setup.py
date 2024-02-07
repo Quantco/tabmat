@@ -54,7 +54,7 @@ debug_build = os.getenv("TABMAT_DEBUG", "0").lower() in ("true", "1")
 print(f"Debug Build: {debug_build}")
 
 if sys.platform == "win32":
-    allocator_libs = []  # type: ignore
+    allocator_libs = []
     extra_compile_args = ["/openmp", "/O2"]
     extra_link_args = ["/openmp"]
     # make sure we can find xsimd headers

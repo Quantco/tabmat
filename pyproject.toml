@@ -33,7 +33,6 @@ python_version = '3.9'
 
 [tool.cibuildwheel]
 skip = [
-  "cp36-*",
   "*-win32",
   "*-manylinux_i686",
   "pp*", 
