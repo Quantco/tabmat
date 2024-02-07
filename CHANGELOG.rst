@@ -12,7 +12,8 @@ Unreleased
 
 **Breaking changes**:
 
-- To unify the API, :class:`DenseMatrix` does not inherit from :class:`np.ndarray` anymore. Similarly, :class:`SparseMatrix` does not inherit from :class:`sps.csc_matrix` anymore. To convert a :class:`DenseMatrix` to a :class:`np.ndarray`, use the `.unpack()` method (same for :class:`SparseMatrix` and :class:`sps.csc_matrix`).
+- To unify the API, :class:`DenseMatrix` does not inherit from :class:`np.ndarray` anymore. To convert a :class:`DenseMatrix` to a :class:`np.ndarray`, use :meth:`DenseMatrix.unpack`.
+- Similarly, :class:`SparseMatrix` does not inherit from :class:`sps.csc_matrix` anymore. To convert a :class:`SparseMatrix` to a :class:`sps.csc_matrix`, use :meth:`SparseMatrix.unpack`.
 
 **New features:**
 
