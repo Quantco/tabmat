@@ -30,7 +30,6 @@ void _transpose_matvec_${dropfirst}(
 	#pragma omp for
 	for (Py_ssize_t i = 0; i < res_size; ++i) {
 	    for (int tid = 0; tid < num_threads; ++tid) {
-		#pragma omp atomic
 	        res[i] += all_res[tid * res_size + i];	    
 	    }
 	}	
