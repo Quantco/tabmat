@@ -23,7 +23,7 @@ jobs:
           platforms: all
 
       - name: Set up micromamba
-        uses: mamba-org/setup-micromamba@8767fb704bd78032e9392f0386bf46950bdd1194
+        uses: mamba-org/setup-micromamba@422500192359a097648154e8db4e39bdb6c6eed7
       
       - name: Build wheels
         if: github.event_name != 'release'
