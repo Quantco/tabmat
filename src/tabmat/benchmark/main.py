@@ -307,21 +307,21 @@ def run_all_benchmarks(
         if dense:
             for params in dense:
                 n_rows, n_cols = (int(float(x)) for x in params)
-                benchmark_matrices[
-                    f"dense, #rows:{n_rows}, #cols:{n_cols}"
-                ] = make_dense_matrices(n_rows, n_cols)
+                benchmark_matrices[f"dense, #rows:{n_rows}, #cols:{n_cols}"] = (
+                    make_dense_matrices(n_rows, n_cols)
+                )
         if sparse:
             for params in sparse:
                 n_rows, n_cols = (int(float(x)) for x in params)
-                benchmark_matrices[
-                    f"sparse, #rows:{n_rows}, #cols:{n_cols}"
-                ] = make_sparse_matrices(n_rows, n_cols)
+                benchmark_matrices[f"sparse, #rows:{n_rows}, #cols:{n_cols}"] = (
+                    make_sparse_matrices(n_rows, n_cols)
+                )
         if one_cat:
             for params in one_cat:
                 n_rows, n_cats = (int(float(x)) for x in params)
-                benchmark_matrices[
-                    f"one_cat, #rows:{n_rows}, #cats:{n_cats}"
-                ] = make_cat_matrix_all_formats(n_rows, n_cats)
+                benchmark_matrices[f"one_cat, #rows:{n_rows}, #cats:{n_cats}"] = (
+                    make_cat_matrix_all_formats(n_rows, n_cats)
+                )
         if two_cat:
             for params in two_cat:
                 n_rows, n_cat_cols_1, n_cat_cols_2 = (int(float(x)) for x in params)
