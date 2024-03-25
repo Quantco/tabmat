@@ -1,5 +1,5 @@
 #include <vector>
-
+#include <omp.h>
 
 <%def name="transpose_matvec(type)">
 template <typename Int, typename F>
@@ -13,24 +13,29 @@ void _transpose_matvec_${type}(
         , bool drop_first
     % endif
 ) {
-    #pragma omp parallel
+    int num_threads = omp_get_max_threads();
+    std::vector<F> all_res(num_threads * res_size, 0.0);
+    #pragma omp parallel shared(all_res)
     {
-        std::vector<F> restemp(res_size, 0.0);
-        #pragma omp for
+	int tid = omp_get_thread_num();
+	F* res_slice = &all_res[tid * res_size];
+	#pragma omp for
         for (Py_ssize_t i = 0; i < n_rows; i++) {
             % if type == 'all_rows_complex':
                 Py_ssize_t col_idx = indices[i] - drop_first;
                 if (col_idx >= 0) {
-                    restemp[col_idx] += other[i];
+                    res_slice[col_idx] += other[i];
                 }
             % else:
-                restemp[indices[i]] += other[i];
+  	        res_slice[indices[i]] += other[i];
             % endif
         }
-        for (Py_ssize_t i = 0; i < res_size; i++) {
-            # pragma omp atomic
-            res[i] += restemp[i];
-        }
+	#pragma omp for
+	for (Py_ssize_t i = 0; i < res_size; ++i) {
+	    for (int tid = 0; tid < num_threads; ++tid) {
+	        res[i] += all_res[tid * res_size + i];
+	    }
+	}
     }
 }
 </%def>

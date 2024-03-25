@@ -22,7 +22,7 @@ jobs:
     steps:
       - name: Checkout branch
         uses: actions/checkout@v4
-      - uses: mamba-org/setup-micromamba@e820223f89c8720d6c740ca154a7adf32fcd278a
+      - uses: mamba-org/setup-micromamba@422500192359a097648154e8db4e39bdb6c6eed7
         with:
           environment-file: environment.yml
           create-args: >-

@@ -23,11 +23,11 @@ jobs:
           platforms: all
 
       - name: Set up micromamba
-        uses: mamba-org/setup-micromamba@e820223f89c8720d6c740ca154a7adf32fcd278a
+        uses: mamba-org/setup-micromamba@422500192359a097648154e8db4e39bdb6c6eed7
       
       - name: Build wheels
         if: github.event_name != 'release'
-        uses: pypa/cibuildwheel@v2.16.2
+        uses: pypa/cibuildwheel@v2.17.0
         env:
           CIBW_ARCHS_LINUX: auto
           CIBW_ARCHS_MACOS: x86_64 arm64
@@ -35,13 +35,14 @@ jobs:
       
       - name: Build wheels (release)
         if: github.event_name == 'release' && github.event.action == 'published'
-        uses: pypa/cibuildwheel@v2.16.2
+        uses: pypa/cibuildwheel@v2.17.0
         env:
           CIBW_ARCHS_LINUX: x86_64 aarch64
           CIBW_ARCHS_MACOS: x86_64 arm64
           CIBW_TEST_SKIP: '*-macosx_arm64'
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
+          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
 
   build_sdist:
@@ -61,7 +62,7 @@ jobs:
       - name: Build sdist
         run: python setup.py sdist
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           path: dist/*.tar.gz
 
@@ -75,12 +76,12 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
-          name: artifact
+          merge-multiple: true
           path: dist
 
-      - uses: pypa/gh-action-pypi-publish@v1.8.11
+      - uses: pypa/gh-action-pypi-publish@v1.8.14
         with:
           repository-url: https://test.pypi.org/legacy/
 
@@ -94,9 +95,9 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
-          name: artifact
+          merge-multiple: true
           path: dist
 
-      - uses: pypa/gh-action-pypi-publish@v1.8.11
+      - uses: pypa/gh-action-pypi-publish@v1.8.14

@@ -29,6 +29,7 @@ Unreleased
 **Other changes:**
 
 - Refactored the pre-commit hooks to use ruff.
+- Refactored CategoricalMatrix's transpose_matvec to be deterministic when using OpenMP.
 
 3.1.13 - 2023-10-17
 -------------------
