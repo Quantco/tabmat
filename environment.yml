@@ -4,6 +4,7 @@ channels:
   - nodefaults
 dependencies:
   - pandas
+  - formulaic>=0.6
 
   # development tools
   - click

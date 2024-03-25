@@ -11,11 +11,11 @@ from libcpp cimport bool
 
 
 cdef extern from "cat_split_helpers.cpp":
-    void _transpose_matvec_all_rows[Int, F](Int, Int*, F*, F*, Int)
-    void _transpose_matvec_all_rows_drop_first[Int, F](Int, Int*, F*, F*, Int)
+    void _transpose_matvec_all_rows_fast[Int, F](Int, Int*, F*, F*, Int)
+    void _transpose_matvec_all_rows_complex[Int, F](Int, Int*, F*, F*, Int, bool)
 
 
-def transpose_matvec(
+def transpose_matvec_fast(
     int[:] indices,
     floating[:] other,
     int n_cols,
@@ -34,7 +34,7 @@ def transpose_matvec(
 
     # Case 1: No row or col restrictions
     if no_row_restrictions and no_col_restrictions:
-        _transpose_matvec_all_rows(n_rows, &indices[0], &other[0], &out[0], out_size)
+        _transpose_matvec_all_rows_fast(n_rows, &indices[0], &other[0], &out[0], out_size)
     # Case 2: row restrictions but no col restrictions
     elif no_col_restrictions:
         rows_view = rows
@@ -62,14 +62,15 @@ def transpose_matvec(
                     out[col] += other[row]
 
 
-def transpose_matvec_drop_first(
+def transpose_matvec_complex(
     int[:] indices,
     floating[:] other,
     int n_cols,
     dtype,
     rows,
     cols,
-    floating[:] out
+    floating[:] out,
+    bint drop_first
 ):
     cdef int row, row_idx, n_keep_rows, col_idx
     cdef int n_rows = len(indices)
@@ -81,15 +82,15 @@ def transpose_matvec_drop_first(
 
     # Case 1: No row or col restrictions
     if no_row_restrictions and no_col_restrictions:
-        _transpose_matvec_all_rows_drop_first(n_rows, &indices[0], &other[0], &out[0], out_size)
+        _transpose_matvec_all_rows_complex(n_rows, &indices[0], &other[0], &out[0], out_size, drop_first)
     # Case 2: row restrictions but no col restrictions
     elif no_col_restrictions:
         rows_view = rows
         n_keep_rows = len(rows_view)
         for row_idx in range(n_keep_rows):
             row = rows_view[row_idx]
-            col_idx = indices[row] - 1
-            if col_idx != -1:
+            col_idx = indices[row] - drop_first
+            if col_idx >= 0:
                 out[col_idx] += other[row]
     # Cases 3 and 4: col restrictions
     else:
@@ -97,8 +98,8 @@ def transpose_matvec_drop_first(
         # Case 3: Col restrictions but no row restrictions
         if no_row_restrictions:
             for row_idx in range(n_rows):
-                col_idx = indices[row_idx] - 1
-                if (col_idx != -1) and (cols_included[col_idx]):
+                col_idx = indices[row_idx] - drop_first
+                if (col_idx >= 0) and (cols_included[col_idx]):
                     out[col_idx] += other[row_idx]
         # Case 4: Both col restrictions and row restrictions
         else:
@@ -106,8 +107,8 @@ def transpose_matvec_drop_first(
             n_keep_rows = len(rows_view)
             for row_idx in range(n_keep_rows):
                 row = rows_view[row_idx]
-                col_idx = indices[row] - 1
-                if (col_idx != -1) and (cols_included[col_idx]):
+                col_idx = indices[row] - drop_first
+                if (col_idx >= 0) and (cols_included[col_idx]):
                     out[col_idx] += other[row]
 
 
@@ -119,7 +120,7 @@ def get_col_included(int[:] cols, int n_cols):
     return col_included
 
 
-def matvec(
+def matvec_fast(
     const int[:] indices,
     floating[:] other,
     int n_rows,
@@ -145,13 +146,14 @@ def matvec(
     return
 
 
-def matvec_drop_first(
+def matvec_complex(
     const int[:] indices, 
     floating[:] other, 
     int n_rows, 
     int[:] cols,
     int n_cols, 
-    floating[:] out_vec
+    floating[:] out_vec,
+    bint drop_first
 ):
     """See `matvec`. Here we drop the first category of the
     CategoricalMatrix so the indices refer to the column index + 1.
@@ -161,19 +163,19 @@ def matvec_drop_first(
 
     if cols is None:
         for i in prange(n_rows, nogil=True):
-            col_idx = indices[i] - 1  # reference category is always 0.
-            if col_idx != -1:
+            col_idx = indices[i] - drop_first  # reference category is always 0.
+            if col_idx >= 0:
                 out_vec[i] += other[col_idx]
     else:
         col_included = get_col_included(cols, n_cols)
         for i in prange(n_rows, nogil=True):
-            col_idx = indices[i] - 1
-            if (col_idx != -1) and (col_included[col_idx] == 1):
+            col_idx = indices[i] - drop_first
+            if (col_idx >= 0) and (col_included[col_idx] == 1):
                 out_vec[i] += other[col_idx]
     return
 
 
-def sandwich_categorical(
+def sandwich_categorical_fast(
     const int[:] indices,
     floating[:] d,
     int[:] rows,
@@ -191,12 +193,13 @@ def sandwich_categorical(
     return np.asarray(res)
 
 
-def sandwich_categorical_drop_first(
+def sandwich_categorical_complex(
     const int[:] indices,
     floating[:] d,
     int[:] rows,
     dtype,
-    int n_cols
+    int n_cols,
+    bint drop_first
 ):
     cdef floating[:] res = np.zeros(n_cols, dtype=dtype)
     cdef int col_idx, k, k_idx
@@ -204,25 +207,23 @@ def sandwich_categorical_drop_first(
 
     for k_idx in range(n_rows):
         k = rows[k_idx]
-        col_idx = indices[k] - 1  # reference category is always 0.
-        if col_idx != -1:
+        col_idx = indices[k] - drop_first  # reference category is always 0.
+        if col_idx >= 0:
             res[col_idx] += d[k]
     return np.asarray(res)
 
 
-def multiply_drop_first(
+def multiply_complex(
     int[:] indices,
     numeric[:] d,
     int ncols,
     dtype,
+    bint drop_first,
 ):
     """Multiply a CategoricalMatrix by a vector d.
 
     The output cannot be a CategoricalMatrix anymore. Here
     we return the inputs to transform to a csr_matrix.
-
-    Note that *_drop_first function assume the CategoricalMatrix
-    has its first category dropped.
 
     Parameters
     ----------
@@ -255,9 +256,9 @@ def multiply_drop_first(
 
     for i in range(nrows):
         vnew_indptr[i] = nonref_cnt
-        if indices[i] != 0:
+        if indices[i] >= drop_first:
             vnew_data[nonref_cnt] = d[i]
-            vnew_indices[nonref_cnt] = indices[i] - 1
+            vnew_indices[nonref_cnt] = indices[i] - drop_first
             nonref_cnt += 1
 
     vnew_indptr[i+1] = nonref_cnt
@@ -265,9 +266,10 @@ def multiply_drop_first(
     return new_data[:nonref_cnt], new_indices[:nonref_cnt], new_indptr
 
 
-def subset_categorical_drop_first(
+def subset_categorical_complex(
     int[:] indices,
     int ncols,
+    bint drop_first
 ):
     """Construct the inputs to transform a CategoricalMatrix into a csr_matrix.
 
@@ -299,8 +301,8 @@ def subset_categorical_drop_first(
 
     for i in range(nrows):
         vnew_indptr[i] = nonzero_cnt
-        if indices[i] != 0:
-            vnew_indices[nonzero_cnt] = indices[i] - 1
+        if indices[i] >= drop_first:
+            vnew_indices[nonzero_cnt] = indices[i] - drop_first
             nonzero_cnt += 1
 
     vnew_indptr[i+1] = nonzero_cnt
