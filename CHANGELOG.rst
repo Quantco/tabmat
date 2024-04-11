@@ -18,6 +18,7 @@ Unreleased
 
 - Refactored the pre-commit hooks to use ruff.
 - Refactored CategoricalMatrix's transpose_matvec to be deterministic when using OpenMP.
+- Adjusted transformation to sparse format in :func:`tabmat.from_pandas` to future changes in pandas.
 
 3.1.13 - 2023-10-17
 -------------------

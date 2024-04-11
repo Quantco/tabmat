@@ -3,7 +3,7 @@ from typing import Union
 
 import numpy as np
 import pandas as pd
-from pandas.api.types import is_numeric_dtype
+from pandas.api.types import is_bool_dtype, is_numeric_dtype
 from scipy import sparse as sps
 
 from .categorical_matrix import CategoricalMatrix
@@ -108,7 +108,8 @@ def from_pandas(
             # check if we want to store as sparse
             if (coldata != 0).mean() <= sparse_threshold:
                 if not isinstance(coldata.dtype, pd.SparseDtype):
-                    sparse_dtype = pd.SparseDtype(coldata.dtype, fill_value=0)
+                    fill_value = False if is_bool_dtype(coldata) else 0  # type: ignore
+                    sparse_dtype = pd.SparseDtype(coldata.dtype, fill_value=fill_value)
                     sparse_dfcols.append(coldata.astype(sparse_dtype))
                 else:
                     sparse_dfcols.append(coldata)
