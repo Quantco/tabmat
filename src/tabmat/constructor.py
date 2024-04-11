@@ -138,7 +138,8 @@ def from_pandas(
             # check if we want to store as sparse
             if (coldata != 0).mean() <= sparse_threshold:
                 if not isinstance(coldata.dtype, pd.SparseDtype):
-                    sparse_dtype = pd.SparseDtype(coldata.dtype, fill_value=0)
+                    fill_value = False if is_bool_dtype(coldata) else 0  # type: ignore
+                    sparse_dtype = pd.SparseDtype(coldata.dtype, fill_value=fill_value)
                     sparse_dfcols.append(coldata.astype(sparse_dtype))
                 else:
                     sparse_dfcols.append(coldata)
