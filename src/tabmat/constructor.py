@@ -111,7 +111,7 @@ def from_pandas(
                     if is_bool_dtype(coldata):
                         fill_value = False
                     else:
-                        fill_value = 0
+                        fill_value = 0  # type: ignore
                     sparse_dtype = pd.SparseDtype(coldata.dtype, fill_value=fill_value)
                     sparse_dfcols.append(coldata.astype(sparse_dtype))
                 else:
