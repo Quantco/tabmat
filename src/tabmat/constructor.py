@@ -9,7 +9,7 @@ from formulaic import Formula, ModelSpec
 from formulaic.materializers.types import NAAction
 from formulaic.parser import DefaultFormulaParser
 from formulaic.utils.layered_mapping import LayeredMapping
-from pandas.api.types import is_numeric_dtype
+from pandas.api.types import is_bool_dtype, is_numeric_dtype
 from scipy import sparse as sps
 
 from .categorical_matrix import CategoricalMatrix
