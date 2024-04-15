@@ -489,6 +489,7 @@ def test_names_against_pandas(df, formula, ensure_full_rank):
         df,
         ensure_full_rank=ensure_full_rank,
         categorical_format="{name}[T.{category}]",
+        context=0,
     )
     assert model_tabmat.model_spec.column_names == model_df.model_spec.column_names
     assert model_tabmat.model_spec.column_names == tuple(model_df.columns)
