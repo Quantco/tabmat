@@ -226,7 +226,7 @@ def from_formula(
     intercept_name: str = "Intercept",
     include_intercept: bool = False,
     add_column_for_intercept: bool = True,
-    context: Optional[Union[int, Mapping[str, Any]]] = 0,
+    context: Optional[Union[int, Mapping[str, Any]]] = None,
 ) -> SplitMatrix:
     """
     Transform a pandas data frame to a SplitMatrix using a Wilkinson formula.
@@ -269,11 +269,13 @@ def from_formula(
     add_column_for_intercept: bool, default = True
         Whether to add a column of ones for the intercept, or just
         have a term without a corresponding column. For advanced use only.
-    context: Union[int, Mapping[str, Any]], default 0
-        The context to use for evaluating the formula. If an integer, the
-        context is taken from the stack frame of the caller at the given
-        depth. If None, the context is taken from the stack frame of the
-        caller at depth 1. If a dict, it is used as the context directly.
+    context: Optional[Union[int, Mapping[str, Any]]], default = None
+        The context to add to the evaluation context of the formula with,
+        e.g., custom transforms. If an integer, the context is taken from
+        the stack frame of the caller at the given depth. Otherwise, a
+        mapping from variable names to values is expected. By default,
+        no context is added. Set ``context=0`` to make the calling scope
+        available.
     """
     if isinstance(context, int):
         if hasattr(sys, "_getframe"):

@@ -305,7 +305,11 @@ def test_matrix_against_pandas(df, formula, ensure_full_rank):
     num_in_scope = 2  # noqa
     model_df = formulaic.model_matrix(formula, df, ensure_full_rank=ensure_full_rank)
     model_tabmat = tm.from_formula(
-        formula, df, ensure_full_rank=ensure_full_rank, include_intercept=True
+        formula,
+        df,
+        ensure_full_rank=ensure_full_rank,
+        include_intercept=True,
+        context=0,
     )
     np.testing.assert_array_equal(model_df.to_numpy(), model_tabmat.A)
 
