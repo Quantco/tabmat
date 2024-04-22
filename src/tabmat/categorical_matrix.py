@@ -239,7 +239,7 @@ class CategoricalMatrix(MatrixBase):
         to be used in an unregularized setting.
 
     cat_missing_method: str {'fail'|'zero'|'convert'}, default 'fail'
-        - if 'fail', raise an error if there are missing values.
+        - if 'fail', raise an error if there are missing values..
         - if 'zero', missing values will represent all-zero indicator columns.
         - if 'convert', missing values will be converted to the ``cat_missing_name``
           category.
@@ -763,9 +763,9 @@ class CategoricalMatrix(MatrixBase):
         ----------
         type: str {'column'|'term'}
             Whether to get column names or term names. The main difference is that
-            a categorical submatrix is counted as a single term, whereas it is
-            counted as multiple columns. Furthermore, matrices created from formulas
-            distinguish between a column and term (c.f. ``formulaic`` docs).
+            a categorical submatrix counts as one term, but can count as
+            multiple columns. Furthermore, matrices created from formulas
+            distinguish between column and term (c.f. ``formulaic`` docs).
         missing_prefix: Optional[str], default None
             Prefix to use for columns that do not have a name. If None, then no
             default name is created.
@@ -809,9 +809,9 @@ class CategoricalMatrix(MatrixBase):
             Names to set.
         type: str {'column'|'term'}
             Whether to set column names or term names. The main difference is that
-            a categorical submatrix is counted as a single term, whereas it is
-            counted as multiple columns. Furthermore, matrices created from formulas
-            distinguish between a column and term (c.f. ``formulaic`` docs).
+            a categorical submatrix counts as one term, but can count as
+            multiple columns. Furthermore, matrices created from formulas
+            distinguish between column and term (c.f. ``formulaic`` docs).
         """
         if isinstance(names, str):
             names = [names]

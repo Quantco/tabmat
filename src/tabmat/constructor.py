@@ -63,7 +63,7 @@ def from_pandas(
         unregularized model. If False, all categories are included.
     cat_missing_method: str {'fail'|'zero'|'convert'}, default 'fail'
         How to handle missing values in categorical columns:
-        - if 'fail', raise an error if there are missing values
+        - if 'fail', raise an error if there are missing values.
         - if 'zero', missing values will represent all-zero indicator columns.
         - if 'convert', missing values will be converted to the '(MISSING)' category.
     cat_missing_name: str, default '(MISSING)'
@@ -255,7 +255,7 @@ def from_formula(
         Has to include the placeholders ``{name}`` and ``{category}``.
     cat_missing_method: str {'fail'|'zero'|'convert'}, default 'fail'
         How to handle missing values in categorical columns:
-        - if 'fail', raise an error if there are missing values
+        - if 'fail', raise an error if there are missing values.
         - if 'zero', missing values will represent all-zero indicator columns.
         - if 'convert', missing values will be converted to the '(MISSING)' category.
     cat_missing_name: str, default '(MISSING)'
