@@ -181,10 +181,10 @@ class MatrixBase(ABC):
         Parameters
         ----------
         type: str {'column'|'term'}
-            Whether to get column names or term names. The main difference is that
-            a categorical submatrix counts as one term, but can count as
+            Whether to get column names or term names. The main difference is
+            that a categorical submatrix counts as one term, but can count as
             multiple columns. Furthermore, matrices created from formulas
-            distinguish between column and term (c.f. ``formulaic`` docs).
+            distinguish between columns and terms (c.f. ``formulaic`` docs).
         missing_prefix: Optional[str], default None
             Prefix to use for columns that do not have a name. If None, then no
             default name is created.
@@ -207,10 +207,10 @@ class MatrixBase(ABC):
         names: list[Optional[str]]
             Names to set.
         type: str {'column'|'term'}
-            Whether to set column names or term names. The main difference is that
-            a categorical submatrix counts as one term, but can count as
+            Whether to get column names or term names. The main difference is
+            that a categorical submatrix counts as one term, but can count as
             multiple columns. Furthermore, matrices created from formulas
-            distinguish between column and term (c.f. ``formulaic`` docs).
+            distinguish between columns and terms (c.f. ``formulaic`` docs).
         """
         pass
 
