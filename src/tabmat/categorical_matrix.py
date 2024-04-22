@@ -239,7 +239,7 @@ class CategoricalMatrix(MatrixBase):
         to be used in an unregularized setting.
 
     cat_missing_method: str {'fail'|'zero'|'convert'}, default 'fail'
-        - if 'fail', raise an error if there are missing values..
+        - if 'fail', raise an error if there are missing values.
         - if 'zero', missing values will represent all-zero indicator columns.
         - if 'convert', missing values will be converted to the ``cat_missing_name``
           category.
