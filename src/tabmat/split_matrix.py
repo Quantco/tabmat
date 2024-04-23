@@ -1,10 +1,10 @@
 import warnings
-from typing import Any, Optional, Union
+from collections.abc import Sequence
+from typing import Optional, Union
 
 import numpy as np
 from scipy import sparse as sps
 
-from .categorical_matrix import CategoricalMatrix
 from .dense_matrix import DenseMatrix
 from .ext.split import is_sorted, split_col_subsets
 from .matrix_base import MatrixBase
@@ -17,7 +17,7 @@ from .util import (
 )
 
 
-def as_mx(a: Any):
+def as_tabmat(a: Union[MatrixBase, StandardizedMatrix, np.ndarray, sps.spmatrix]):
     """Convert an array to a corresponding MatrixBase type.
 
     If the input is already a MatrixBase, return untouched.
@@ -28,11 +28,35 @@ def as_mx(a: Any):
     if isinstance(a, (MatrixBase, StandardizedMatrix)):
         return a
     elif sps.issparse(a):
-        return SparseMatrix(a)
+        return SparseMatrix(a.tocsc(copy=False))
     elif isinstance(a, np.ndarray):
         return DenseMatrix(a)
     else:
         raise ValueError(f"Cannot convert type {type(a)} to Matrix.")
+
+
+def hstack(tup: Sequence[Union[MatrixBase, np.ndarray, sps.spmatrix]]) -> MatrixBase:
+    """Stack arrays in sequence horizontally (column wise).
+
+    This is equivalent to concatenation along the second axis,
+    except for 1-D arrays where it concatenates along the first axis.
+
+    Parameters
+    ----------
+    tup: sequence of arrays
+        The arrays must have the same shape along all but the second axis.
+    """
+    matrices = [as_tabmat(a) for a in tup]
+
+    if len(matrices) == 0:
+        raise ValueError("Need at least one array to concatenate.")
+
+    if all(isinstance(mat, SparseMatrix) for mat in matrices):
+        return SparseMatrix(sps.hstack([mat._array for mat in matrices]))
+    elif all(isinstance(mat, DenseMatrix) for mat in matrices):
+        return DenseMatrix(np.hstack([mat._array for mat in matrices]))
+    else:
+        return SplitMatrix(matrices)
 
 
 def _prepare_out_array(out: Optional[np.ndarray], out_shape, out_dtype):
@@ -76,8 +100,14 @@ def _combine_matrices(matrices, indices):
     n_row = matrices[0].shape[0]
 
     for mat_type_, stack_fn in [
-        (DenseMatrix, np.hstack),
-        (SparseMatrix, sps.hstack),
+        (
+            DenseMatrix,
+            lambda matrices: np.hstack([mat._array for mat in matrices]),
+        ),
+        (
+            SparseMatrix,
+            lambda matrices: sps.hstack([mat._array for mat in matrices]),
+        ),
     ]:
         this_type_matrices = [
             i for i, mat in enumerate(matrices) if isinstance(mat, mat_type_)
@@ -85,8 +115,16 @@ def _combine_matrices(matrices, indices):
         if len(this_type_matrices) > 1:
             new_matrix = mat_type_(stack_fn([matrices[i] for i in this_type_matrices]))
             new_indices = np.concatenate([indices[i] for i in this_type_matrices])
+            new_colnames = np.concatenate(
+                [np.array(matrices[i]._colnames) for i in this_type_matrices]
+            )
+            new_terms = np.concatenate(
+                [np.array(matrices[i]._terms) for i in this_type_matrices]
+            )
             sorter = np.argsort(new_indices)
             sorted_matrix = new_matrix[:, sorter]
+            sorted_matrix._colnames = list(new_colnames[sorter])
+            sorted_matrix._terms = list(new_terms[sorter])
             sorted_indices = new_indices[sorter]
 
             assert sorted_matrix.shape[0] == n_row
@@ -130,7 +168,7 @@ class SplitMatrix(MatrixBase):
 
     def __init__(
         self,
-        matrices: list[Union[DenseMatrix, SparseMatrix, CategoricalMatrix]],
+        matrices: Sequence[MatrixBase],
         indices: Optional[list[np.ndarray]] = None,
     ):
         flatten_matrices = []
@@ -144,7 +182,7 @@ class SplitMatrix(MatrixBase):
             if isinstance(mat, SplitMatrix):
                 # Flatten out the SplitMatrix
                 current_idx = 0
-                for iind, imat in zip(mat.indices, mat.matrices):
+                for iind, imat in zip(mat.indices, mat.matrices):  # type: ignore
                     flatten_matrices.append(imat)
                     index_corrections.append(
                         iind - np.arange(len(iind), dtype=np.int64) - current_idx
@@ -449,3 +487,60 @@ class SplitMatrix(MatrixBase):
         return out
 
     __array_priority__ = 13
+
+    def get_names(
+        self,
+        type: str = "column",
+        missing_prefix: Optional[str] = None,
+        indices: Optional[list[int]] = None,
+    ) -> list[Optional[str]]:
+        """Get column names.
+
+        For columns that do not have a name, a default name is created using the
+        following pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
+        the index of the column.
+
+        Parameters
+        ----------
+        type: str {'column'|'term'}
+            Whether to get column names or term names. The main difference is
+            that a categorical submatrix counts as one term, but can count as
+            multiple columns. Furthermore, matrices created from formulas
+            distinguish between columns and terms (c.f. ``formulaic`` docs).
+        missing_prefix: Optional[str], default None
+            Prefix to use for columns that do not have a name. If None, then no
+            default name is created.
+        indices
+            The indices used for columns that do not have a name. If ``None``,
+            then the indices are ``list(range(self.shape[1]))``.
+
+        Returns
+        -------
+        list[Optional[str]]
+            Column names.
+        """
+        names = np.empty(self.shape[1], dtype=object)
+        for idx, mat in zip(self.indices, self.matrices):
+            names[idx] = mat.get_names(type, missing_prefix, idx)
+        return list(names)
+
+    def set_names(self, names: Union[str, list[Optional[str]]], type: str = "column"):
+        """Set column names.
+
+        Parameters
+        ----------
+        names: list[Optional[str]]
+            Names to set.
+        type: str {'column'|'term'}
+            Whether to get column names or term names. The main difference is
+            that a categorical submatrix counts as one term, but can count as
+            multiple columns. Furthermore, matrices created from formulas
+            distinguish between columns and terms (c.f. ``formulaic`` docs).
+        """
+        names_array = np.array(names)
+
+        if len(names) != self.shape[1]:
+            raise ValueError(f"Length of names must be {self.shape[1]}")
+
+        for idx, mat in zip(self.indices, self.matrices):
+            mat.set_names(list(names_array[idx]), type)

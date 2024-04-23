@@ -7,17 +7,29 @@
 Changelog
 =========
 
-Unreleased
-----------
+4.0.0 - 2024-04-23
+------------------
+
+**Breaking changes**:
+
+- To unify the API, :class:`DenseMatrix` does not inherit from :class:`np.ndarray` anymore. To convert a :class:`DenseMatrix` to a :class:`np.ndarray`, use :meth:`DenseMatrix.unpack`.
+- Similarly, :class:`SparseMatrix` does not inherit from :class:`sps.csc_matrix` anymore. To convert a :class:`SparseMatrix` to a :class:`sps.csc_matrix`, use :meth:`SparseMatrix.unpack`.
+
+**New features:**
+
+- Added column name and term name metadata to :class:`MatrixBase` objects. These are automatically populated when initializing a :class:`MatrixBase` from a :class:`pandas.DataFrame`. In addition, they can be accessed and modified via the :attr:`MatrixBase.column_names` and :attr:`MatrixBase.term_names` properties.
+- Added a formula interface for creating tabmat matrices from pandas data frames. See :func:`tabmat.from_formula` for details.
+- Added support for missing values in :class:`CategoricalMatrix` by either creating a separate category for them or treating them as all-zero rows.
+- Added support for handling missing categorical values in pandas data frames.
 
 **Bug fix:**
 
-- Added cython compiler directive legacy_implicit_noexcept = True to fix performance regression with cython 3.
+- Added cython compiler directive ``legacy_implicit_noexcept = True`` to fix performance regression with cython 3.
 
 **Other changes:**
 
 - Refactored the pre-commit hooks to use ruff.
-- Refactored CategoricalMatrix's transpose_matvec to be deterministic when using OpenMP.
+- Refactored :meth:`CategoricalMatrix.transpose_matvec` to be deterministic when using OpenMP.
 - Adjusted transformation to sparse format in :func:`tabmat.from_pandas` to future changes in pandas.
 
 3.1.13 - 2023-10-17

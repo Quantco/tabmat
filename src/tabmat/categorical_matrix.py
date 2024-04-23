@@ -162,26 +162,28 @@ This is `ext/split/sandwich_cat_dense`
 
 """
 
-from typing import Any, Optional, Union
+import re
+from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
 from scipy import sparse as sps
 
 from .ext.categorical import (
-    matvec,
-    matvec_drop_first,
-    multiply_drop_first,
-    sandwich_categorical,
-    sandwich_categorical_drop_first,
-    subset_categorical_drop_first,
-    transpose_matvec,
-    transpose_matvec_drop_first,
+    matvec_complex,
+    matvec_fast,
+    multiply_complex,
+    sandwich_categorical_complex,
+    sandwich_categorical_fast,
+    subset_categorical_complex,
+    transpose_matvec_complex,
+    transpose_matvec_fast,
 )
 from .ext.split import sandwich_cat_cat, sandwich_cat_dense
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .util import (
+    _check_indexer,
     check_matvec_dimensions,
     check_matvec_out_shape,
     check_transpose_matvec_out_shape,
@@ -190,21 +192,15 @@ from .util import (
 )
 
 
-def _is_indexer_full_length(full_length: int, indexer: Any):
-    if isinstance(indexer, int):
-        return full_length == 1
-    elif isinstance(indexer, list):
-        if (np.asarray(indexer) > full_length - 1).any():
-            raise IndexError("Index out-of-range.")
-        return len(set(indexer)) == full_length
-    elif isinstance(indexer, np.ndarray):
+def _is_indexer_full_length(full_length: int, indexer: Union[slice, np.ndarray]):
+    if isinstance(indexer, np.ndarray):
         if (indexer > full_length - 1).any():
             raise IndexError("Index out-of-range.")
-        return len(np.unique(indexer)) == full_length
+        # Order is important in indexing. Could achieve similar results
+        # by rearranging categories.
+        return np.array_equal(indexer.ravel(), np.arange(full_length))
     elif isinstance(indexer, slice):
         return len(range(*indexer.indices(full_length))) == full_length
-    else:
-        raise ValueError(f"Indexing with {type(indexer)} is not allowed.")
 
 
 def _row_col_indexing(
@@ -242,6 +238,17 @@ class CategoricalMatrix(MatrixBase):
         drop the first level of the dummy encoding. This allows a CategoricalMatrix
         to be used in an unregularized setting.
 
+    cat_missing_method: str {'fail'|'zero'|'convert'}, default 'fail'
+        - if 'fail', raise an error if there are missing values.
+        - if 'zero', missing values will represent all-zero indicator columns.
+        - if 'convert', missing values will be converted to the ``cat_missing_name``
+          category.
+
+    cat_missing_name: str, default '(MISSING)'
+        Name of the category to which missing values will be converted if
+        ``cat_missing_method='convert'``. If this category already exists, an error
+        will be raised.
+
     dtype:
         data type
     """
@@ -251,14 +258,48 @@ class CategoricalMatrix(MatrixBase):
         cat_vec: Union[list, np.ndarray, pd.Categorical],
         drop_first: bool = False,
         dtype: np.dtype = np.float64,
+        column_name: Optional[str] = None,
+        term_name: Optional[str] = None,
+        column_name_format: str = "{name}[{category}]",
+        cat_missing_method: str = "fail",
+        cat_missing_name: str = "(MISSING)",
     ):
-        if pd.isnull(cat_vec).any():
-            raise ValueError("Categorical data can't have missing values.")
+        if cat_missing_method not in ["fail", "zero", "convert"]:
+            raise ValueError(
+                "cat_missing_method must be one of 'fail' 'zero' or 'convert', "
+                f" got {cat_missing_method}"
+            )
+        self._missing_method = cat_missing_method
+        self._missing_category = cat_missing_name
 
         if isinstance(cat_vec, pd.Categorical):
             self.cat = cat_vec
         else:
             self.cat = pd.Categorical(cat_vec)
+
+        if pd.isnull(self.cat).any():
+            if self._missing_method == "fail":
+                raise ValueError(
+                    "Categorical data can't have missing values "
+                    "if cat_missing_method='fail'."
+                )
+
+            elif self._missing_method == "convert":
+                if self._missing_category in self.cat.categories:
+                    raise ValueError(
+                        f"Missing category {self._missing_category} already exists."
+                    )
+
+                self.cat = self.cat.add_categories([self._missing_category])
+
+                self.cat[pd.isnull(self.cat)] = self._missing_category
+                self._has_missings = False
+
+            else:
+                self._has_missings = True
+
+        else:
+            self._has_missings = False
 
         self.drop_first = drop_first
         self.shape = (len(self.cat), len(self.cat.categories) - int(drop_first))
@@ -266,13 +307,35 @@ class CategoricalMatrix(MatrixBase):
         self.x_csc: Optional[tuple[Optional[np.ndarray], np.ndarray, np.ndarray]] = None
         self.dtype = np.dtype(dtype)
 
+        self._colname = column_name
+        if term_name is None:
+            self._term = self._colname
+        else:
+            self._term = term_name
+        self._colname_format = column_name_format
+
+    __array_ufunc__ = None
+
     def recover_orig(self) -> np.ndarray:
         """
         Return 1d numpy array with same data as what was initially fed to __init__.
 
         Test: matrix/test_categorical_matrix::test_recover_orig
         """
-        return self.cat.categories[self.cat.codes]
+        orig = self.cat.categories[self.cat.codes].to_numpy()
+
+        if self._has_missings:
+            orig = orig.view(np.ma.MaskedArray)
+            orig.mask = self.cat.codes == -1
+        elif (
+            self._missing_method == "convert"
+            and self._missing_category in self.cat.categories
+        ):
+            orig = orig.view(np.ma.MaskedArray)
+            missing_code = self.cat.categories.get_loc(self._missing_category)
+            orig.mask = self.cat.codes == missing_code
+
+        return orig
 
     def _matvec_setup(
         self,
@@ -328,12 +391,18 @@ class CategoricalMatrix(MatrixBase):
         if out is None:
             out = np.zeros(self.shape[0], dtype=other_m.dtype)
 
-        if self.drop_first:
-            matvec_drop_first(
-                self.indices, other_m, self.shape[0], cols, self.shape[1], out
+        if self.drop_first or self._has_missings:
+            matvec_complex(
+                self.indices,
+                other_m,
+                self.shape[0],
+                cols,
+                self.shape[1],
+                out,
+                self.drop_first,
             )
         else:
-            matvec(self.indices, other_m, self.shape[0], cols, self.shape[1], out)
+            matvec_fast(self.indices, other_m, self.shape[0], cols, self.shape[1], out)
 
         if is_int:
             return out.astype(int)
@@ -395,12 +464,19 @@ class CategoricalMatrix(MatrixBase):
         if cols is not None:
             cols = set_up_rows_or_cols(cols, self.shape[1])
 
-        if self.drop_first:
-            transpose_matvec_drop_first(
-                self.indices, vec, self.shape[1], vec.dtype, rows, cols, out
+        if self.drop_first or self._has_missings:
+            transpose_matvec_complex(
+                self.indices,
+                vec,
+                self.shape[1],
+                vec.dtype,
+                rows,
+                cols,
+                out,
+                self.drop_first,
             )
         else:
-            transpose_matvec(
+            transpose_matvec_fast(
                 self.indices, vec, self.shape[1], vec.dtype, rows, cols, out
             )
 
@@ -431,12 +507,12 @@ class CategoricalMatrix(MatrixBase):
         """
         d = np.asarray(d)
         rows = set_up_rows_or_cols(rows, self.shape[0])
-        if self.drop_first:
-            res_diag = sandwich_categorical_drop_first(
-                self.indices, d, rows, d.dtype, self.shape[1]
+        if self.drop_first or self._has_missings:
+            res_diag = sandwich_categorical_complex(
+                self.indices, d, rows, d.dtype, self.shape[1], self.drop_first
             )
         else:
-            res_diag = sandwich_categorical(
+            res_diag = sandwich_categorical_fast(
                 self.indices, d, rows, d.dtype, self.shape[1]
             )
 
@@ -453,31 +529,39 @@ class CategoricalMatrix(MatrixBase):
         R_cols: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ Y."""
-        if isinstance(other, np.ndarray):
-            return self._cross_dense(other, d, rows, L_cols, R_cols)
-        if isinstance(other, sps.csc_matrix):
-            return self._cross_sparse(other, d, rows, L_cols, R_cols)
+        from .dense_matrix import DenseMatrix
+
+        if isinstance(other, DenseMatrix):
+            return self._cross_dense(other._array, d, rows, L_cols, R_cols)
+        if isinstance(other, SparseMatrix):
+            return self._cross_sparse(other.array_csc, d, rows, L_cols, R_cols)
         if isinstance(other, CategoricalMatrix):
             return self._cross_categorical(other, d, rows, L_cols, R_cols)
         raise TypeError
 
     # TODO: best way to return this depends on the use case. See what that is
     # See how csr getcol works
-    def getcol(self, i: int) -> sps.csc_matrix:
+    def getcol(self, i: int) -> SparseMatrix:
         """Return matrix column at specified index."""
         i %= self.shape[1]  # wrap-around indexing
 
         if self.drop_first:
-            i += 1
+            i_corr = i + 1
+        else:
+            i_corr = i
 
-        col_i = sps.csc_matrix((self.indices == i).astype(int)[:, None])
-        return col_i
+        col_i = sps.csc_matrix((self.indices == i_corr).astype(int)[:, None])
+        return SparseMatrix(
+            col_i,
+            column_names=[self.column_names[i]],
+            term_names=[self.term_names[i]],
+        )
 
     def tocsr(self) -> sps.csr_matrix:
         """Return scipy csr representation of matrix."""
-        if self.drop_first:
-            nnz, indices, indptr = subset_categorical_drop_first(
-                self.indices, self.shape[1]
+        if self.drop_first or self._has_missings:
+            nnz, indices, indptr = subset_categorical_complex(
+                self.indices, self.shape[1], self.drop_first
             )
             return sps.csr_matrix(
                 (np.ones(nnz, dtype=int), indices, indptr), shape=self.shape
@@ -490,9 +574,23 @@ class CategoricalMatrix(MatrixBase):
             shape=self.shape,
         )
 
+    def to_sparse_matrix(self):
+        """Return a tabmat.SparseMatrix representation."""
+        from .sparse_matrix import SparseMatrix
+
+        return SparseMatrix(
+            self.tocsr(),
+            column_names=self.column_names,
+            term_names=self.term_names,
+        )
+
     def toarray(self) -> np.ndarray:
         """Return array representation of matrix."""
         return self.tocsr().A
+
+    def unpack(self):
+        """Return the underlying pandas.Categorical."""
+        return self.cat
 
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
         """Return CategoricalMatrix cast to new type."""
@@ -509,25 +607,23 @@ class CategoricalMatrix(MatrixBase):
         return np.sqrt(mean - col_means**2)
 
     def __getitem__(self, item):
-        if isinstance(item, tuple):
-            row, col = item
-            if _is_indexer_full_length(self.shape[1], col):
-                if isinstance(row, int):
-                    row = [row]
-                return CategoricalMatrix(
-                    self.cat[row], drop_first=self.drop_first, dtype=self.dtype
-                )
-            else:
-                # return a SparseMatrix if we subset columns
-                # TODO: this is inefficient. See issue #101.
-                return SparseMatrix(self.tocsr()[row, col], dtype=self.dtype)
+        row, col = _check_indexer(item)
+
+        if _is_indexer_full_length(self.shape[1], col):
+            if isinstance(row, np.ndarray):
+                row = row.ravel()
+            return CategoricalMatrix(
+                self.cat[row],
+                drop_first=self.drop_first,
+                dtype=self.dtype,
+                column_name=self._colname,
+                column_name_format=self._colname_format,
+                cat_missing_method=self._missing_method,
+            )
         else:
-            row = item
-        if isinstance(row, int):
-            row = [row]
-        return CategoricalMatrix(
-            self.cat[row], drop_first=self.drop_first, dtype=self.dtype
-        )
+            # return a SparseMatrix if we subset columns
+            # TODO: this is inefficient. See issue #101.
+            return self.to_sparse_matrix()[row, col]
 
     def _cross_dense(
         self,
@@ -550,15 +646,17 @@ class CategoricalMatrix(MatrixBase):
 
         res = sandwich_cat_dense(
             self.indices,
-            self.shape[1] + self.drop_first,
+            self.shape[1],
             d,
             other,
             rows,
             R_cols,
             is_c_contiguous,
+            has_missings=self._has_missings,
+            drop_first=self.drop_first,
         )
 
-        res = _row_col_indexing(res[self.drop_first :], L_cols, None)
+        res = _row_col_indexing(res, L_cols, None)
         return res
 
     def _cross_categorical(
@@ -586,6 +684,8 @@ class CategoricalMatrix(MatrixBase):
             d.dtype,
             self.drop_first,
             other.drop_first,
+            self._has_missings,
+            other._has_missings,
         )
 
         res = _row_col_indexing(res, L_cols, R_cols)
@@ -617,14 +717,15 @@ class CategoricalMatrix(MatrixBase):
                 f"{len(other)}."
             )
 
-        if self.drop_first:
+        if self.drop_first or self._has_missings:
             return SparseMatrix(
                 sps.csr_matrix(
-                    multiply_drop_first(
+                    multiply_complex(
                         indices=self.indices,
                         d=np.squeeze(other),
                         ncols=self.shape[1],
                         dtype=other.dtype,
+                        drop_first=self.drop_first,
                     ),
                     shape=self.shape,
                 )
@@ -638,8 +739,111 @@ class CategoricalMatrix(MatrixBase):
                     np.arange(self.shape[0] + 1, dtype=int),
                 ),
                 shape=self.shape,
-            )
+            ),
+            column_names=self.column_names,
+            term_names=self.term_names,
         )
 
     def __repr__(self):
         return str(self.cat)
+
+    def get_names(
+        self,
+        type: str = "column",
+        missing_prefix: Optional[str] = None,
+        indices: Optional[list[int]] = None,
+    ) -> list[Optional[str]]:
+        """Get column names.
+
+        For columns that do not have a name, a default name is created using the
+        following pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
+        the index of the column.
+
+        Parameters
+        ----------
+        type: str {'column'|'term'}
+            Whether to get column names or term names. The main difference is
+            that a categorical submatrix counts as one term, but can count as
+            multiple columns. Furthermore, matrices created from formulas
+            distinguish between columns and terms (c.f. ``formulaic`` docs).
+        missing_prefix: Optional[str], default None
+            Prefix to use for columns that do not have a name. If None, then no
+            default name is created.
+        indices
+            The indices used for columns that do not have a name. If ``None``,
+            then the indices are ``list(range(self.shape[1]))``.
+
+        Returns
+        -------
+        list[Optional[str]]
+            Column names.
+        """
+        if type == "column":
+            name = self._colname
+        elif type == "term":
+            name = self._term
+        else:
+            raise ValueError(f"Type must be 'column' or 'term', got {type}")
+
+        if indices is None:
+            indices = list(range(len(self.cat.categories) - self.drop_first))
+        if name is None and missing_prefix is None:
+            return [None] * (len(self.cat.categories) - self.drop_first)
+        elif name is None:
+            name = f"{missing_prefix}{indices[0]}-{indices[-1]}"
+
+        if type == "column":
+            return [
+                self._colname_format.format(name=name, category=cat)
+                for cat in self.cat.categories[self.drop_first :]
+            ]
+        else:
+            return [name] * (len(self.cat.categories) - self.drop_first)
+
+    def set_names(self, names: Union[str, list[Optional[str]]], type: str = "column"):
+        """Set column names.
+
+        Parameters
+        ----------
+        names: list[Optional[str]]
+            Names to set.
+        type: str {'column'|'term'}
+            Whether to get column names or term names. The main difference is
+            that a categorical submatrix counts as one term, but can count as
+            multiple columns. Furthermore, matrices created from formulas
+            distinguish between columns and terms (c.f. ``formulaic`` docs).
+        """
+        if isinstance(names, str):
+            names = [names]
+
+        if len(names) != 1:
+            if type == "column":
+                # Try finding the column name
+                base_names = []
+                for name, cat in zip(names, self.cat.categories[self.drop_first :]):
+                    partial_name = self._colname_format.format(
+                        name="__CAPTURE__", category=cat
+                    )
+                    pattern = re.escape(partial_name).replace("__CAPTURE__", "(.*)")
+                    if name is not None:
+                        match = re.search(pattern, name)
+                    else:
+                        match = None
+                    if match is not None:
+                        base_names.append(match.group(1))
+                    else:
+                        base_names.append(name)
+                names = base_names
+
+            if len(names) == self.shape[1] and all(name == names[0] for name in names):
+                names = [names[0]]
+
+        if len(names) != 1:
+            raise ValueError("A categorical matrix has only one name")
+
+        if type == "column":
+            self._colname = names[0]
+        elif type == "term":
+            self._term = names[0]
+        else:
+            raise ValueError(f"Type must be 'column' or 'term', got {type}")

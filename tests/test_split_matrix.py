@@ -7,7 +7,7 @@ import scipy.sparse as sps
 
 import tabmat as tm
 from tabmat import from_pandas
-from tabmat.constructor import _split_sparse_and_dense_parts
+from tabmat.constructor_util import _split_sparse_and_dense_parts
 from tabmat.dense_matrix import DenseMatrix
 from tabmat.ext.sparse import csr_dense_sandwich
 from tabmat.split_matrix import SplitMatrix
@@ -61,27 +61,32 @@ def split_mat() -> SplitMatrix:
     return mat
 
 
-def get_split_with_cat_components() -> (
-    list[Union[tm.SparseMatrix, tm.DenseMatrix, tm.CategoricalMatrix]]
-):
+def get_split_with_cat_components(
+    missing,
+) -> list[Union[tm.SparseMatrix, tm.DenseMatrix, tm.CategoricalMatrix]]:
     n_rows = 10
     np.random.seed(0)
     dense_1 = tm.DenseMatrix(np.random.random((n_rows, 3)))
     sparse_1 = tm.SparseMatrix(sps.random(n_rows, 3).tocsc())
-    cat = tm.CategoricalMatrix(np.random.choice(range(3), n_rows))
+    if missing:
+        cat = tm.CategoricalMatrix(
+            np.random.choice([0, 1, 2, None], n_rows), cat_missing_method="zero"
+        )
+    else:
+        cat = tm.CategoricalMatrix(np.random.choice(range(3), n_rows))
     dense_2 = tm.DenseMatrix(np.random.random((n_rows, 3)))
     sparse_2 = tm.SparseMatrix(sps.random(n_rows, 3, density=0.5).tocsc())
     cat_2 = tm.CategoricalMatrix(np.random.choice(range(3), n_rows), drop_first=True)
     return [dense_1, sparse_1, cat, dense_2, sparse_2, cat_2]
 
 
-def split_with_cat() -> SplitMatrix:
+def split_with_cat(missing) -> SplitMatrix:
     """Initialized with multiple sparse and dense parts and no indices."""
-    return tm.SplitMatrix(get_split_with_cat_components())
+    return tm.SplitMatrix(get_split_with_cat_components(missing))
 
 
-def split_with_cat_64() -> SplitMatrix:
-    mat = tm.SplitMatrix(get_split_with_cat_components())
+def split_with_cat_64(missing) -> SplitMatrix:
+    mat = tm.SplitMatrix(get_split_with_cat_components(missing))
     matrices = mat.matrices
 
     for i, mat_ in enumerate(mat.matrices):
@@ -99,7 +104,15 @@ def split_with_cat_64() -> SplitMatrix:
     return tm.SplitMatrix(matrices, mat.indices)
 
 
-@pytest.mark.parametrize("mat", [split_with_cat(), split_with_cat_64()])
+@pytest.mark.parametrize(
+    "mat",
+    [
+        split_with_cat(False),
+        split_with_cat_64(False),
+        split_with_cat(True),
+        split_with_cat_64(True),
+    ],
+)
 def test_init(mat: SplitMatrix):
     assert len(mat.indices) == 4
     assert len(mat.matrices) == 4
@@ -109,7 +122,15 @@ def test_init(mat: SplitMatrix):
     assert mat.matrices[2].shape == (10, 3)
 
 
-@pytest.mark.parametrize("mat", [split_mat(), split_with_cat(), split_with_cat_64()])
+@pytest.mark.parametrize(
+    "mat",
+    [
+        split_with_cat(False),
+        split_with_cat_64(False),
+        split_with_cat(True),
+        split_with_cat_64(True),
+    ],
+)
 def test_init_from_split(mat):
     np.testing.assert_array_equal(mat.A, tm.SplitMatrix([mat]).A)
     np.testing.assert_array_equal(
@@ -146,7 +167,15 @@ def test_sandwich_sparse_dense(X: np.ndarray, Acols, Bcols):
 
 
 # TODO: ensure cols are in order
-@pytest.mark.parametrize("mat", [split_mat(), split_with_cat(), split_with_cat_64()])
+@pytest.mark.parametrize(
+    "mat",
+    [
+        split_with_cat(False),
+        split_with_cat_64(False),
+        split_with_cat(True),
+        split_with_cat_64(True),
+    ],
+)
 @pytest.mark.parametrize(
     "cols",
     [None, [0], [1, 2, 3], [1, 5]],
@@ -160,7 +189,15 @@ def test_sandwich(mat: tm.SplitMatrix, cols):
         np.testing.assert_allclose(y1, y2, atol=1e-12)
 
 
-@pytest.mark.parametrize("mat", [split_mat(), split_with_cat(), split_with_cat_64()])
+@pytest.mark.parametrize(
+    "mat",
+    [
+        split_with_cat(False),
+        split_with_cat_64(False),
+        split_with_cat(True),
+        split_with_cat_64(True),
+    ],
+)
 @pytest.mark.parametrize("cols", [None, [0], [1, 2, 3], [1, 5]])
 def test_split_col_subsets(mat: tm.SplitMatrix, cols):
     subset_cols_indices, subset_cols, n_cols = mat._split_col_subsets(cols)
@@ -189,56 +226,66 @@ def test_split_col_subsets(mat: tm.SplitMatrix, cols):
             assert (mat.indices[i] == subset_cols_indices[i]).all()
 
 
-def random_split_matrix(seed=0, n_rows=10, n_cols_per=3):
+def random_split_matrix(seed=0, n_rows=10, n_cols_per=3, missing=False):
     if seed is not None:
         np.random.seed(seed)
     dense_1 = tm.DenseMatrix(np.random.random((n_rows, n_cols_per)))
     sparse = tm.SparseMatrix(sps.random(n_rows, n_cols_per).tocsc())
-    cat = tm.CategoricalMatrix(np.random.choice(range(n_cols_per), n_rows))
+    if missing:
+        cat = tm.CategoricalMatrix(
+            np.random.choice(list(range(n_cols_per)) + [None], n_rows),
+            cat_missing_method="zero",
+        )
+    else:
+        cat = tm.CategoricalMatrix(np.random.choice(range(n_cols_per), n_rows))
     dense_2 = tm.DenseMatrix(np.random.random((n_rows, n_cols_per)))
     cat_2 = tm.CategoricalMatrix(np.random.choice(range(n_cols_per), n_rows))
     mat = tm.SplitMatrix([dense_1, sparse, cat, dense_2, cat_2])
     return mat
 
 
-def many_random_tests(checker):
+def many_random_tests(checker, missing):
     for i in range(10):
         mat = random_split_matrix(
             seed=(1 if i == 0 else None),
             n_rows=np.random.randint(130),
             n_cols_per=1 + np.random.randint(10),
+            missing=missing,
         )
         checker(mat)
 
 
-def test_sandwich_many_types():
+@pytest.mark.parametrize("missing", [False, True], ids=["no_missing", "missing"])
+def test_sandwich_many_types(missing):
     def check(mat):
         d = np.random.random(mat.shape[0])
         res = mat.sandwich(d)
         expected = (mat.A.T * d[None, :]) @ mat.A
         np.testing.assert_allclose(res, expected)
 
-    many_random_tests(check)
+    many_random_tests(check, missing)
 
 
-def test_transpose_matvec_many_types():
+@pytest.mark.parametrize("missing", [False, True], ids=["no_missing", "missing"])
+def test_transpose_matvec_many_types(missing):
     def check(mat):
         d = np.random.random(mat.shape[0])
         res = mat.transpose_matvec(d)
         expected = mat.A.T.dot(d)
         np.testing.assert_almost_equal(res, expected)
 
-    many_random_tests(check)
+    many_random_tests(check, missing)
 
 
-def test_matvec_many_types():
+@pytest.mark.parametrize("missing", [False, True], ids=["no_missing", "missing"])
+def test_matvec_many_types(missing):
     def check(mat):
         d = np.random.random(mat.shape[1])
         res = mat.matvec(d)
         expected = mat.A.dot(d)
         np.testing.assert_almost_equal(res, expected)
 
-    many_random_tests(check)
+    many_random_tests(check, missing)
 
 
 def test_init_from_1d():
@@ -259,3 +306,17 @@ def test_matvec(n_rows):
     )
     mat = from_pandas(X, cat_threshold=0)
     np.testing.assert_allclose(mat.matvec(np.array(mat.shape[1] * [1])), n_cols)
+
+
+@pytest.mark.parametrize("cat_missing_method", ["fail", "zero", "convert"])
+def test_from_pandas_missing(cat_missing_method):
+    df = pd.DataFrame({"cat": pd.Categorical([1, 2, pd.NA, 1, 2, pd.NA])})
+    if cat_missing_method == "fail":
+        with pytest.raises(
+            ValueError, match="Categorical data can't have missing values"
+        ):
+            from_pandas(df, cat_missing_method=cat_missing_method)
+    elif cat_missing_method == "zero":
+        assert from_pandas(df, cat_missing_method=cat_missing_method).shape == (6, 2)
+    elif cat_missing_method == "convert":
+        assert from_pandas(df, cat_missing_method=cat_missing_method).shape == (6, 3)

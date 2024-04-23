@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Optional, Union
 
 import numpy as np
 from scipy import sparse as sps
@@ -147,7 +147,7 @@ class StandardizedMatrix:
 
         limited_shift = self.shift[cols] if cols is not None else self.shift
         limited_d = d[rows] if rows is not None else d
-        term3_and_4 = np.outer(limited_shift, d_mat + limited_shift * limited_d.sum())
+        term3_and_4 = np.outer(limited_shift, d_mat + limited_shift * np.sum(limited_d))
         res = term2 + term3_and_4
         if isinstance(term1, sps.dia_matrix):
             idx = np.arange(res.shape[0])
@@ -298,3 +298,72 @@ class StandardizedMatrix:
         Mult: {self.mult}
         """
         return out
+
+    def get_names(
+        self,
+        type: str = "column",
+        missing_prefix: Optional[str] = None,
+        indices: Optional[list[int]] = None,
+    ) -> list[Optional[str]]:
+        """Get column names.
+
+        For columns that do not have a name, a default name is created using the
+        following pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
+        the index of the column.
+
+        Parameters
+        ----------
+        type: str {'column'|'term'}
+            Whether to get column names or term names. The main difference is
+            that a categorical submatrix counts as one term, but can count as
+            multiple columns. Furthermore, matrices created from formulas
+            distinguish between columns and terms (c.f. ``formulaic`` docs).
+        missing_prefix: Optional[str], default None
+            Prefix to use for columns that do not have a name. If None, then no
+            default name is created.
+        indices
+            The indices used for columns that do not have a name. If ``None``,
+            then the indices are ``list(range(self.shape[1]))``.
+
+        Returns
+        -------
+        list[Optional[str]]
+            Column names.
+        """
+        return self.mat.get_names(type, missing_prefix, indices)
+
+    def set_names(self, names: Union[str, list[Optional[str]]], type: str = "column"):
+        """Set column names.
+
+        Parameters
+        ----------
+        names: list[Optional[str]]
+            Names to set.
+        type: str {'column'|'term'}
+            Whether to get column names or term names. The main difference is
+            that a categorical submatrix counts as one term, but can count as
+            multiple columns. Furthermore, matrices created from formulas
+            distinguish between columns and terms (c.f. ``formulaic`` docs).
+        """
+        self.mat.set_names(names, type)
+
+    @property
+    def column_names(self):
+        """Column names of the matrix."""
+        return self.get_names(type="column")
+
+    @column_names.setter
+    def column_names(self, names: list[Optional[str]]):
+        self.set_names(names, type="column")
+
+    @property
+    def term_names(self):
+        """Term names of the matrix.
+
+        For differences between column names and term names, see ``get_names``.
+        """
+        return self.get_names(type="term")
+
+    @term_names.setter
+    def term_names(self, names: list[Optional[str]]):
+        self.set_names(names, type="term")

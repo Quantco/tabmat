@@ -5,6 +5,7 @@ channels:
 dependencies:
   - libblas>=0=*mkl
   - pandas
+  - formulaic>=0.6
 
   # development tools
   - click
