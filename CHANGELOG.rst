@@ -7,8 +7,8 @@
 Changelog
 =========
 
-Unreleased
-----------
+4.0.0 - 2024-04-23
+------------------
 
 **Breaking changes**:
 
@@ -17,19 +17,19 @@ Unreleased
 
 **New features:**
 
-- Added column name and term name metadata to ``MatrixBase`` objects. These are automatically populated when initializing a ``MatrixBase`` from a ``pandas.DataFrame``. In addition, they can be accessed and modified via the ``column_names`` and ``term_names`` properties.
+- Added column name and term name metadata to :class:`MatrixBase` objects. These are automatically populated when initializing a :class:`MatrixBase` from a :class:`pandas.DataFrame`. In addition, they can be accessed and modified via the :attr:`MatrixBase.column_names` and :attr:`MatrixBase.term_names` properties.
 - Added a formula interface for creating tabmat matrices from pandas data frames. See :func:`tabmat.from_formula` for details.
-- Added support for missing values in ``CategoricalMatrix`` by either creating a separate category for them or treating them as all-zero rows.
+- Added support for missing values in :class:`CategoricalMatrix` by either creating a separate category for them or treating them as all-zero rows.
 - Added support for handling missing categorical values in pandas data frames.
 
 **Bug fix:**
 
-- Added cython compiler directive legacy_implicit_noexcept = True to fix performance regression with cython 3.
+- Added cython compiler directive ``legacy_implicit_noexcept = True`` to fix performance regression with cython 3.
 
 **Other changes:**
 
 - Refactored the pre-commit hooks to use ruff.
-- Refactored CategoricalMatrix's transpose_matvec to be deterministic when using OpenMP.
+- Refactored :meth:`CategoricalMatrix.transpose_matvec` to be deterministic when using OpenMP.
 - Adjusted transformation to sparse format in :func:`tabmat.from_pandas` to future changes in pandas.
 
 3.1.13 - 2023-10-17
