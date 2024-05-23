@@ -29,7 +29,7 @@ class TabmatMaterializer(FormulaMaterializer):
     """Materializer for pandas input and tabmat output."""
 
     REGISTER_NAME = "tabmat"
-    REGISTER_INPUTS = ("pandas.core.frame.DataFrame",)
+    REGISTER_INPUTS = ("pandas.core.frame.DataFrame", "pandas.DataFrame")
     REGISTER_OUTPUTS = "tabmat"
 
     @override
