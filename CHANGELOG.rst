@@ -7,6 +7,13 @@
 Changelog
 =========
 
+Unreleased
+----------
+
+**Other changes:**
+
+- Removed reference to the ``.A`` attribute and replaced it with ``.toarray()``.
+
 4.0.0 - 2024-04-23
 ------------------
 
