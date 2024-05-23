@@ -132,9 +132,9 @@ def test_init(mat: SplitMatrix):
     ],
 )
 def test_init_from_split(mat):
-    np.testing.assert_array_equal(mat.A, tm.SplitMatrix([mat]).A)
+    np.testing.assert_array_equal(mat.toarray(), tm.SplitMatrix([mat]).toarray())
     np.testing.assert_array_equal(
-        np.hstack([mat.A, mat.A]), tm.SplitMatrix([mat, mat]).A
+        np.hstack([mat.toarray(), mat.toarray()]), tm.SplitMatrix([mat, mat]).toarray()
     )
 
 
@@ -162,7 +162,7 @@ def test_sandwich_sparse_dense(X: np.ndarray, Acols, Bcols):
     A = sps.random(n, 2).tocsr()
     rows = np.arange(d.shape[0], dtype=np.int32)
     result = csr_dense_sandwich(A, X, d, rows, Acols, Bcols)
-    expected = A.T.A[Acols, :] @ np.diag(d) @ X[:, Bcols]
+    expected = A.T.toarray()[Acols, :] @ np.diag(d) @ X[:, Bcols]
     np.testing.assert_allclose(result, expected)
 
 
@@ -184,7 +184,7 @@ def test_sandwich(mat: tm.SplitMatrix, cols):
     for _ in range(10):
         v = np.random.rand(mat.shape[0])
         y1 = mat.sandwich(v, cols=cols)
-        mat_limited = mat.A if cols is None else mat.A[:, cols]
+        mat_limited = mat.toarray() if cols is None else mat.toarray()[:, cols]
         y2 = (mat_limited.T * v[None, :]) @ mat_limited
         np.testing.assert_allclose(y1, y2, atol=1e-12)
 
@@ -260,7 +260,7 @@ def test_sandwich_many_types(missing):
     def check(mat):
         d = np.random.random(mat.shape[0])
         res = mat.sandwich(d)
-        expected = (mat.A.T * d[None, :]) @ mat.A
+        expected = (mat.toarray().T * d[None, :]) @ mat.toarray()
         np.testing.assert_allclose(res, expected)
 
     many_random_tests(check, missing)
@@ -271,7 +271,7 @@ def test_transpose_matvec_many_types(missing):
     def check(mat):
         d = np.random.random(mat.shape[0])
         res = mat.transpose_matvec(d)
-        expected = mat.A.T.dot(d)
+        expected = mat.toarray().T.dot(d)
         np.testing.assert_almost_equal(res, expected)
 
     many_random_tests(check, missing)
@@ -282,7 +282,7 @@ def test_matvec_many_types(missing):
     def check(mat):
         d = np.random.random(mat.shape[1])
         res = mat.matvec(d)
-        expected = mat.A.dot(d)
+        expected = mat.toarray().dot(d)
         np.testing.assert_almost_equal(res, expected)
 
     many_random_tests(check, missing)

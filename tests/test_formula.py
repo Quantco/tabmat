@@ -159,7 +159,7 @@ def test_matrix_against_expectation(df, formula, expected):
     for res, exp in zip(model_df.matrices, expected.matrices):
         assert type(res) == type(exp)
         if isinstance(res, (tm.DenseMatrix, tm.SparseMatrix)):
-            np.testing.assert_array_equal(res.A, res.A)
+            np.testing.assert_array_equal(res.toarray(), res.toarray())
         elif isinstance(res, tm.CategoricalMatrix):
             assert (exp.cat == res.cat).all()
             assert exp.drop_first == res.drop_first
@@ -268,7 +268,7 @@ def test_matrix_against_expectation_qcl(df, formula, expected):
     for res, exp in zip(model_df.matrices, expected.matrices):
         assert type(res) == type(exp)
         if isinstance(res, (tm.DenseMatrix, tm.SparseMatrix)):
-            np.testing.assert_array_equal(res.A, res.A)
+            np.testing.assert_array_equal(res.toarray(), res.toarray())
         elif isinstance(res, tm.CategoricalMatrix):
             assert (exp.cat == res.cat).all()
             assert exp.drop_first == res.drop_first
@@ -311,7 +311,7 @@ def test_matrix_against_pandas(df, formula, ensure_full_rank):
         include_intercept=True,
         context=0,
     )
-    np.testing.assert_array_equal(model_df.to_numpy(), model_tabmat.A)
+    np.testing.assert_array_equal(model_df.to_numpy(), model_tabmat.toarray())
 
 
 @pytest.mark.parametrize(
@@ -524,7 +524,9 @@ def test_include_intercept(
         include_intercept=True,
         ensure_full_rank=ensure_full_rank,
     )
-    np.testing.assert_array_equal(model_no_include.A, model_no_intercept.A)
+    np.testing.assert_array_equal(
+        model_no_include.toarray(), model_no_intercept.toarray()
+    )
     assert (
         model_no_include.model_spec.column_names
         == model_no_intercept.model_spec.column_names
@@ -539,7 +541,7 @@ def test_include_intercept(
         include_intercept=False,
         ensure_full_rank=ensure_full_rank,
     )
-    np.testing.assert_array_equal(model_include.A, model_intercept.A)
+    np.testing.assert_array_equal(model_include.toarray(), model_intercept.toarray())
     assert (
         model_no_include.model_spec.column_names
         == model_no_intercept.model_spec.column_names
@@ -561,7 +563,9 @@ def test_C_state(df, formula, ensure_full_rank):
         "str_1 : cat_1 + 1", df, cat_threshold=0, ensure_full_rank=ensure_full_rank
     )
     model_tabmat_2 = model_tabmat.model_spec.get_model_matrix(df[:2])
-    np.testing.assert_array_equal(model_tabmat.A[:2, :], model_tabmat_2.A)
+    np.testing.assert_array_equal(
+        model_tabmat.toarray()[:2, :], model_tabmat_2.toarray()
+    )
     np.testing.assert_array_equal(
         model_tabmat.matrices[1].cat.categories,
         model_tabmat_2.matrices[1].cat.categories,
@@ -593,8 +597,8 @@ VECTORS = [
 @pytest.mark.parametrize("reverse", [False, True], ids=["not_reversed", "reversed"])
 def test_interactable_vectors(left, right, reverse):
     n = left.to_tabmat().shape[0]
-    left_np = left.to_tabmat().A.reshape((n, -1))
-    right_np = right.to_tabmat().A.reshape((n, -1))
+    left_np = left.to_tabmat().toarray().reshape((n, -1))
+    right_np = right.to_tabmat().toarray().reshape((n, -1))
 
     if reverse:
         left_np, right_np = right_np, left_np
@@ -625,7 +629,7 @@ def test_interactable_vectors(left, right, reverse):
 
     # Test values
     np.testing.assert_array_equal(
-        result_vec.to_tabmat().A.squeeze(), result_np.squeeze()
+        result_vec.to_tabmat().toarray().squeeze(), result_np.squeeze()
     )
 
     # Test names
@@ -664,12 +668,14 @@ def test_cat_missing_handling(cat_missing_method, cat_missing_name):
 
     assert mat_from_pandas.column_names == mat_from_formula.column_names
     assert mat_from_pandas.term_names == mat_from_formula.term_names
-    np.testing.assert_array_equal(mat_from_pandas.A, mat_from_formula.A)
+    np.testing.assert_array_equal(mat_from_pandas.toarray(), mat_from_formula.toarray())
 
     mat_from_formula_new = mat_from_formula.model_spec.get_model_matrix(df)
     assert mat_from_pandas.column_names == mat_from_formula_new.column_names
     assert mat_from_pandas.term_names == mat_from_formula_new.term_names
-    np.testing.assert_array_equal(mat_from_pandas.A, mat_from_formula_new.A)
+    np.testing.assert_array_equal(
+        mat_from_pandas.toarray(), mat_from_formula_new.toarray()
+    )
 
 
 def test_cat_missing_C():
@@ -695,9 +701,11 @@ def test_cat_missing_C():
 
     assert result.column_names == expected_names
     assert result.model_spec.get_model_matrix(df).column_names == expected_names
-    np.testing.assert_equal(result.model_spec.get_model_matrix(df).A, result.A)
     np.testing.assert_equal(
-        result.model_spec.get_model_matrix(df[:2]).A, result.A[:2, :]
+        result.model_spec.get_model_matrix(df).toarray(), result.toarray()
+    )
+    np.testing.assert_equal(
+        result.model_spec.get_model_matrix(df[:2]).toarray(), result.toarray()[:2, :]
     )
 
 
@@ -726,7 +734,7 @@ def test_cat_missing_unseen(cat_missing_method):
     elif cat_missing_method == "zero":
         expected_array = np.array([[1, 0], [0, 0]], dtype=np.float64)
 
-    np.testing.assert_array_equal(result_unseen.A, expected_array)
+    np.testing.assert_array_equal(result_unseen.toarray(), expected_array)
 
 
 def test_cat_missing_interactions():
@@ -799,9 +807,9 @@ def test_unseen_missing(cat_missing_method):
             result_seen.model_spec.get_model_matrix(df_unseen)
     elif cat_missing_method == "zero":
         result_unseen = result_seen.model_spec.get_model_matrix(df_unseen)
-        assert result_unseen.A.shape == (3, 2)
+        assert result_unseen.toarray().shape == (3, 2)
         np.testing.assert_array_equal(
-            result_unseen.A, np.array([[1, 0], [0, 1], [0, 0]])
+            result_unseen.toarray(), np.array([[1, 0], [0, 1], [0, 0]])
         )
         assert result_unseen.column_names == ["cat_1[a]", "cat_1[b]"]
 

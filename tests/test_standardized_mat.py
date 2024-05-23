@@ -12,13 +12,13 @@ n_cols = 5
 sp_mat = tm.SparseMatrix(sps.random(n_rows, n_cols, density=0.8))
 col_shift = np.random.uniform(0, 1, n_cols)
 col_mult = np.random.uniform(0.5, 1.5, n_cols)
-expected_mat = col_mult[None, :] * sp_mat.A + col_shift[None, :]
+expected_mat = col_mult[None, :] * sp_mat.toarray() + col_shift[None, :]
 standardized_mat = tm.StandardizedMatrix(sp_mat, col_shift, col_mult)
 
 
 def test_setup_and_densify_col():
-    assert standardized_mat.A.shape == (n_rows, n_cols)
-    np.testing.assert_almost_equal(standardized_mat.A, expected_mat)
+    assert standardized_mat.toarray().shape == (n_rows, n_cols)
+    np.testing.assert_almost_equal(standardized_mat.toarray(), expected_mat)
 
 
 def test_standardized_matvec():

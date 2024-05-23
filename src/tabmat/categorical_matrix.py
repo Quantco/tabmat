@@ -586,7 +586,7 @@ class CategoricalMatrix(MatrixBase):
 
     def toarray(self) -> np.ndarray:
         """Return array representation of matrix."""
-        return self.tocsr().A
+        return self.tocsr().toarray()
 
     def unpack(self):
         """Return the underlying pandas.Categorical."""
@@ -703,7 +703,7 @@ class CategoricalMatrix(MatrixBase):
 
         term_1 = _row_col_indexing(term_1, rows, L_cols)
 
-        res = term_1.T.dot(_row_col_indexing(other, rows, R_cols)).A
+        res = term_1.T.dot(_row_col_indexing(other, rows, R_cols)).toarray()
         return res
 
     def multiply(self, other) -> SparseMatrix:

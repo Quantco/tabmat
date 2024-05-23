@@ -159,7 +159,7 @@ def test_transpose_matvec_out_parameter(mat, cols, rows):
 
     col_idx = np.arange(mat.shape[1], dtype=int) if cols is None else cols
     row_idx = np.arange(mat.shape[0], dtype=int) if rows is None else rows
-    matvec_part = mat.A[row_idx, :][:, col_idx].T.dot(v[row_idx])
+    matvec_part = mat.toarray()[row_idx, :][:, col_idx].T.dot(v[row_idx])
 
     if cols is None:
         correct = out_copy + matvec_part
@@ -200,22 +200,22 @@ def test_getcol(mat: Union[tm.MatrixBase, tm.StandardizedMatrix], i):
     col = mat.getcol(i)
 
     if not isinstance(col, np.ndarray):
-        col = col.A
-    np.testing.assert_almost_equal(col, mat.A[:, [i]])
+        col = col.toarray()
+    np.testing.assert_almost_equal(col, mat.toarray()[:, [i]])
 
 
 @pytest.mark.parametrize("mat", get_all_matrix_base_subclass_mats())
 def test_to_array_matrix_base(mat: tm.MatrixBase):
-    assert isinstance(mat.A, np.ndarray)
+    assert isinstance(mat.toarray(), np.ndarray)
     if isinstance(mat, tm.CategoricalMatrix) and not mat.drop_first:
         expected = np.array([[0, 1], [1, 0], [0, 1]])
     elif isinstance(mat, tm.CategoricalMatrix) and mat.drop_first:
         expected = np.array([[0, 0], [1, 0], [0, 1]])
     elif isinstance(mat, tm.SplitMatrix):
-        expected = np.hstack([elt.A for elt in mat.matrices])
+        expected = np.hstack([elt.toarray() for elt in mat.matrices])
     else:
         expected = base_array()
-    np.testing.assert_allclose(mat.A, expected)
+    np.testing.assert_allclose(mat.toarray(), expected)
 
 
 @pytest.mark.parametrize(
@@ -223,11 +223,11 @@ def test_to_array_matrix_base(mat: tm.MatrixBase):
     get_standardized_shifted_matrices() + get_standardized_shifted_scaled_matrices(),
 )
 def test_to_array_standardized_mat(mat: tm.StandardizedMatrix):
-    assert isinstance(mat.A, np.ndarray)
-    true_mat_part = mat.mat.A
+    assert isinstance(mat.toarray(), np.ndarray)
+    true_mat_part = mat.mat.toarray()
     if mat.mult is not None:
-        true_mat_part = mat.mult[None, :] * mat.mat.A
-    np.testing.assert_allclose(mat.A, true_mat_part + mat.shift)
+        true_mat_part = mat.mult[None, :] * mat.mat.toarray()
+    np.testing.assert_allclose(mat.toarray(), true_mat_part + mat.shift)
 
 
 @pytest.mark.parametrize("mat", get_matrices())
@@ -289,7 +289,7 @@ def test_matvec(
 
 
 def process_mat_vec_subsets(mat, vec, mat_rows, mat_cols, vec_idxs):
-    mat_subset = mat.A
+    mat_subset = mat.toarray()
     vec_subset = vec
     if mat_rows is not None:
         mat_subset = mat_subset[mat_rows, :]
@@ -387,7 +387,7 @@ def test_self_sandwich(
     mat_subset, vec_subset = process_mat_vec_subsets(mat, vec_as_list, rows, cols, rows)
     expected = mat_subset.T @ np.diag(vec_subset) @ mat_subset
     if sps.issparse(res):
-        res = res.A
+        res = res.toarray()
     np.testing.assert_allclose(res, expected)
 
 
@@ -398,7 +398,7 @@ def test_split_sandwich(rows: Optional[np.ndarray], cols: Optional[np.ndarray]):
     d = np.random.random(mat.shape[0])
     result = mat.sandwich(d, rows=rows, cols=cols)
 
-    mat_as_dense = mat.A
+    mat_as_dense = mat.toarray()
     d_rows = d
     if rows is not None:
         mat_as_dense = mat_as_dense[rows, :]
@@ -421,8 +421,8 @@ def test_split_sandwich(rows: Optional[np.ndarray], cols: Optional[np.ndarray]):
     ],
 )
 def test_transpose(mat):
-    res = mat.T.A
-    expected = mat.A.T
+    res = mat.T.toarray()
+    expected = mat.toarray().T
     assert res.shape == (mat.shape[1], mat.shape[0])
     np.testing.assert_allclose(res, expected)
 
@@ -437,7 +437,7 @@ def test_rmatmul(mat: Union[tm.MatrixBase, tm.StandardizedMatrix], vec_type):
     vec = vec_type(vec_as_list)
     res = mat.__rmatmul__(vec)
     res2 = vec @ mat
-    expected = vec_as_list @ mat.A
+    expected = vec_as_list @ mat.toarray()
     np.testing.assert_allclose(res, expected)
     np.testing.assert_allclose(res2, expected)
     assert isinstance(res, (np.ndarray, tm.DenseMatrix))
@@ -465,7 +465,7 @@ def test_get_col_means(mat: tm.MatrixBase):
     # TODO: make weights sum to 1 within functions
     weights /= weights.sum()
     means = mat._get_col_means(weights)
-    expected = mat.A.T.dot(weights)
+    expected = mat.toarray().T.dot(weights)
     np.testing.assert_allclose(means, expected)
 
 
@@ -475,7 +475,7 @@ def test_get_col_means_unweighted(mat: tm.MatrixBase):
     # TODO: make weights sum to 1 within functions
     weights /= weights.sum()
     means = mat._get_col_means(weights)
-    expected = mat.A.mean(0)
+    expected = mat.toarray().mean(0)
     np.testing.assert_allclose(means, expected)
 
 
@@ -485,7 +485,7 @@ def test_get_col_stds(mat: tm.MatrixBase):
     # TODO: make weights sum to 1
     weights /= weights.sum()
     means = mat._get_col_means(weights)
-    expected = np.sqrt((mat.A**2).T.dot(weights) - means**2)
+    expected = np.sqrt((mat.toarray() ** 2).T.dot(weights) - means**2)
     stds = mat._get_col_stds(weights, means)
     np.testing.assert_allclose(stds, expected)
 
@@ -496,7 +496,7 @@ def test_get_col_stds_unweighted(mat: tm.MatrixBase):
     # TODO: make weights sum to 1
     weights /= weights.sum()
     means = mat._get_col_means(weights)
-    expected = mat.A.std(0)
+    expected = mat.toarray().std(0)
     stds = mat._get_col_stds(weights, means)
     np.testing.assert_allclose(stds, expected)
 
@@ -507,7 +507,7 @@ def test_get_col_stds_unweighted(mat: tm.MatrixBase):
 def test_standardize(
     mat: tm.MatrixBase, center_predictors: bool, scale_predictors: bool
 ):
-    asarray = mat.A.copy()
+    asarray = mat.toarray().copy()
     weights = np.random.rand(mat.shape[0])
     weights /= weights.sum()
 
@@ -540,19 +540,19 @@ def test_standardize(
     expected_mat = asarray * one_over_sds
     if center_predictors:
         expected_mat -= true_means * one_over_sds
-    np.testing.assert_allclose(standardized.A, expected_mat)
+    np.testing.assert_allclose(standardized.toarray(), expected_mat)
 
     unstandardized = standardized.unstandardize()
     assert isinstance(unstandardized, type(mat))
-    np.testing.assert_allclose(unstandardized.A, asarray)
+    np.testing.assert_allclose(unstandardized.toarray(), asarray)
 
 
 @pytest.mark.parametrize("mat", get_matrices())
 def test_indexing_int_row(mat: Union[tm.MatrixBase, tm.StandardizedMatrix]):
     res = mat[0, :]
     if not isinstance(res, np.ndarray):
-        res = res.A
-    expected = mat.A[[0], :]
+        res = res.toarray()
+    expected = mat.toarray()[[0], :]
     np.testing.assert_allclose(res, expected)
 
 
@@ -561,8 +561,8 @@ def test_indexing_range_row(mat: Union[tm.MatrixBase, tm.StandardizedMatrix]):
     res = mat[0:2, :]
     assert res.ndim == 2
     if not isinstance(res, np.ndarray):
-        res = res.A
-    expected = mat.A[0:2, :]
+        res = res.toarray()
+    expected = mat.toarray()[0:2, :]
     np.testing.assert_array_equal(res, expected)
 
 
@@ -570,9 +570,9 @@ def test_indexing_range_row(mat: Union[tm.MatrixBase, tm.StandardizedMatrix]):
 def test_indexing_int_col(mat):
     res = mat[:, 0]
     if not isinstance(res, np.ndarray):
-        res = res.A
+        res = res.toarray()
     assert res.shape == (mat.shape[0], 1)
-    expected = mat.A[:, [0]]
+    expected = mat.toarray()[:, [0]]
     np.testing.assert_array_equal(res, expected)
 
 
@@ -580,9 +580,9 @@ def test_indexing_int_col(mat):
 def test_indexing_range_col(mat):
     res = mat[:, 0:2]
     if not isinstance(res, np.ndarray):
-        res = res.A
+        res = res.toarray()
     assert res.shape == (mat.shape[0], 2)
-    expected = mat.A[:, 0:2]
+    expected = mat.toarray()[:, 0:2]
     np.testing.assert_array_equal(res, expected)
 
 
@@ -590,9 +590,9 @@ def test_indexing_range_col(mat):
 def test_indexing_int_both(mat):
     res = mat[0, 0]
     if not isinstance(res, np.ndarray):
-        res = res.A
+        res = res.toarray()
     assert res.shape == (1, 1)
-    expected = mat.A[0, 0]
+    expected = mat.toarray()[0, 0]
     np.testing.assert_array_equal(res, expected)
 
 
@@ -600,9 +600,9 @@ def test_indexing_int_both(mat):
 def test_indexing_seq_both(mat):
     res = mat[[0, 1], [0, 1]]
     if not isinstance(res, np.ndarray):
-        res = res.A
+        res = res.toarray()
     assert res.shape == (2, 2)
-    expected = mat.A[np.ix_([0, 1], [0, 1])]
+    expected = mat.toarray()[np.ix_([0, 1], [0, 1])]
     np.testing.assert_array_equal(res, expected)
 
 
@@ -611,9 +611,9 @@ def test_indexing_ix_both(mat):
     indexer = np.ix_([0, 1], [0, 1])
     res = mat[indexer]
     if not isinstance(res, np.ndarray):
-        res = res.A
+        res = res.toarray()
     assert res.shape == (2, 2)
-    expected = mat.A[indexer]
+    expected = mat.toarray()[indexer]
     np.testing.assert_array_equal(res, expected)
 
 
@@ -675,14 +675,14 @@ def test_split_matrix_creation(mat):
 @pytest.mark.parametrize("mat", get_matrices())
 def test_multiply(mat):
     other = np.arange(mat.shape[0])
-    expected = mat.A * other[:, np.newaxis]
+    expected = mat.toarray() * other[:, np.newaxis]
     actual = []
     actual.append(mat.multiply(other))
     actual.append(mat.multiply(other[:, np.newaxis]))
 
     for act in actual:
         assert isinstance(act, MatrixBase)
-        np.testing.assert_allclose(act.A, expected)
+        np.testing.assert_allclose(act.toarray(), expected)
 
 
 @pytest.mark.parametrize(
@@ -709,8 +709,10 @@ def test_hstack(mat_1, mat_2):
         assert isinstance(stacked, tm.SplitMatrix)
 
     np.testing.assert_array_equal(
-        stacked.A,
-        np.hstack([mat.A if not isinstance(mat, np.ndarray) else mat for mat in mats]),
+        stacked.toarray(),
+        np.hstack(
+            [mat.toarray() if not isinstance(mat, np.ndarray) else mat for mat in mats]
+        ),
     )
 
 
