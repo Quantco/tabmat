@@ -48,13 +48,13 @@ jobs:
         if: matrix.os != 'windows-latest'
         shell: bash -el {0}
         run: >-
-          conda-mambabuild
+          conda-build
           -m ".ci_support/${{ matrix.CONDA_BUILD_YML }}.yaml"${{ matrix.conda-build-args }}
           conda.recipe
       - name: Build conda package (windows)
         if: matrix.os == 'windows-latest'
         shell: cmd /C CALL {0}
         run: >-
-          conda-mambabuild
+          conda-build
           -m ".ci_support/${{ matrix.conda_build_yml }}.yaml"${{ matrix.conda-build-args }}
           conda.recipe
