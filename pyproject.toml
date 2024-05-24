@@ -9,8 +9,11 @@ requires = [
 ]
 
 [tool.ruff]
-ignore = ["E731", "N802", "N803", "N806"]
 line-length = 88
+target-version = "py39"
+
+[tool.ruff.lint]
+ignore = ["E731", "N802", "N803", "N806"]
 select = [
   # pyflakes
   "F",
@@ -23,9 +26,8 @@ select = [
   # pyupgrade
   "UP",
 ]
-target-version = "py39"
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 known-first-party = ["tabmat"]
 
 [tool.mypy]

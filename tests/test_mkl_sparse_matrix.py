@@ -14,15 +14,15 @@ def x() -> sps.csc_matrix:
 def test_mkl_sparse_init(x: sps.csc_matrix):
     one = SparseMatrix(x)
     two = SparseMatrix((x.data, x.indices, x.indptr), shape=x.shape)
-    three = SparseMatrix(x.A)
-    np.testing.assert_allclose(one.A, two.A)
-    np.testing.assert_allclose(one.A, three.A)
+    three = SparseMatrix(x.toarray())
+    np.testing.assert_allclose(one.toarray(), two.toarray())
+    np.testing.assert_allclose(one.toarray(), three.toarray())
 
 
 def test_to_csc(x: sps.csc_matrix):
     one = SparseMatrix(x).tocsc()
     two = SparseMatrix((x.data, x.indices, x.indptr), shape=x.shape).tocsc()
-    three = SparseMatrix(x.A).tocsc()
+    three = SparseMatrix(x.toarray()).tocsc()
 
     assert isinstance(one, sps.csc_matrix)
     assert isinstance(two, sps.csc_matrix)

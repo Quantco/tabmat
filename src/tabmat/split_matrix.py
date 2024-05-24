@@ -306,7 +306,7 @@ class SplitMatrix(MatrixBase):
         """Return array representation of matrix."""
         out = np.empty(self.shape)
         for mat, idx in zip(self.matrices, self.indices):
-            out[:, idx] = mat.A
+            out[:, idx] = mat.toarray()
         return out
 
     def getcol(self, i: int) -> Union[np.ndarray, sps.csr_matrix]:

@@ -65,7 +65,7 @@ def test_csr_matvec_categorical(
     )
     vec = np.random.choice(np.arange(4, dtype=vec_dtype), mat.shape[1])
     res = cat_mat.matvec(vec)
-    np.testing.assert_allclose(res, cat_mat.A.dot(vec))
+    np.testing.assert_allclose(res, cat_mat.toarray().dot(vec))
 
 
 @pytest.mark.parametrize("drop_first", [True, False], ids=["drop_first", "no_drop"])
@@ -84,7 +84,7 @@ def test_tocsr(cat_vec, drop_first, missing, cat_missing_method):
     cat_mat = CategoricalMatrix(
         cat_vec, drop_first=drop_first, cat_missing_method=cat_missing_method
     )
-    res = cat_mat.tocsr().A
+    res = cat_mat.tocsr().toarray()
     expected = pd.get_dummies(
         cat_vec,
         drop_first=drop_first,
@@ -148,7 +148,7 @@ def test_multiply(cat_vec, drop_first, missing, cat_missing_method):
         )
         * other
     )
-    np.testing.assert_allclose(actual.A, expected)
+    np.testing.assert_allclose(actual.toarray(), expected)
 
 
 @pytest.mark.parametrize("mi_element", [np.nan, None])
@@ -202,4 +202,4 @@ def test_categorical_indexing(drop_first, missing, cat_missing_method):
         drop_first=drop_first,
         dummy_na=cat_missing_method == "convert" and missing,
     ).to_numpy()[:, [0, 1]]
-    np.testing.assert_allclose(mat[:, [0, 1]].A, expected)
+    np.testing.assert_allclose(mat[:, [0, 1]].toarray(), expected)

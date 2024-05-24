@@ -105,7 +105,7 @@ class StandardizedMatrix:
         >>> col_1 = x.getcol(1)
         >>> isinstance(col_1, StandardizedMatrix)
         True
-        >>> col_1.A
+        >>> col_1.toarray()
         array([[1.],
                [2.],
                [1.]])
@@ -254,7 +254,7 @@ class StandardizedMatrix:
 
     def toarray(self) -> np.ndarray:
         """Return array representation of matrix."""
-        mat_part = self.mat.A
+        mat_part = self.mat.toarray()
         if self.mult is not None:
             mat_part = self.mult[None, :] * mat_part
         return mat_part + self.shift[None, :]
@@ -285,7 +285,7 @@ class StandardizedMatrix:
             mult_part = np.atleast_1d(mult_part[col])
 
         if isinstance(row, int):
-            out = mat_part.A
+            out = mat_part.toarray()
             if mult_part is not None:
                 out = out * mult_part
             return out + shift_part
