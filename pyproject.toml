@@ -59,6 +59,7 @@ CXXFLAGS="-I$CONDA/envs/build/include"
 CXX="/usr/bin/clang++"
 CC="/usr/bin/clang"
 JE_INSTALL_SUFFIX="local"
+MACOSX_DEPLOYMENT_TARGET="10.13"
 
 [tool.cibuildwheel.windows]
 before-all = [
