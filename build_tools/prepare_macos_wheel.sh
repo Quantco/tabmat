@@ -10,4 +10,4 @@ else
     export CONDA_ARGS=" libcxx<17"
 fi
 
-/Users/runner/micromamba-bin/micromamba create -y -p $CONDA/envs/build -c conda-forge jemalloc-local "xsimd<11|>12.1" "llvm-openm=18.1.5" ${CONDA_ARGS:-}
+/Users/runner/micromamba-bin/micromamba create -y -p $CONDA/envs/build -c conda-forge jemalloc-local "xsimd<11|>12.1" "llvm-openmp=18.1.5" ${CONDA_ARGS:-}
