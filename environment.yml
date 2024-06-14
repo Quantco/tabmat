@@ -3,8 +3,11 @@ channels:
   - conda-forge
   - nodefaults
 dependencies:
-  - pandas
   - formulaic>=0.6
+  - numpy
+  - polars
+  - pandas
+  - scipy
 
   # development tools
   - click

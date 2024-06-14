@@ -4,8 +4,11 @@ channels:
   - nodefaults
 dependencies:
   - libblas>=0=*mkl
-  - pandas
   - formulaic>=0.6
+  - numpy
+  - pandas
+  - polars
+  - scipy
 
   # development tools
   - click
