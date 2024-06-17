@@ -9,6 +9,8 @@ ctypedef np.uint8_t uint8
 ctypedef np.int8_t int8
 from libcpp cimport bool
 
+np.import_array()
+
 
 cdef extern from "cat_split_helpers.cpp":
     void _transpose_matvec_all_rows_fast[Int, F](Int, Int*, F*, F*, Int)
