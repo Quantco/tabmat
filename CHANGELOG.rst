@@ -17,7 +17,7 @@ Changelog
 **Other changes:**
 
 - Removed reference to the ``.A`` attribute and replaced it with ``.toarray()``.
-- Add support between formulaic and pandas 3.0
+- Add support between formulaic and pandas 3.0.
 - Support pypi release for numpy 2.0
 
 4.0.0 - 2024-04-23
