@@ -5,8 +5,9 @@ channels:
 dependencies:
   - formulaic>=0.6
   - numpy
-  - polars
   - pandas
+  - polars
+  - pyarrow  # exclusively for polars tests
   - scipy
 
   # development tools

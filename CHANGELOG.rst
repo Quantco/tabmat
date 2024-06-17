@@ -10,7 +10,7 @@ Changelog
 4.0.1 - 2024-06-25
 ------------------
 
-**New features:**
+**New feature:**
 
 - Added a new function, :func:`tabmat.from_polars`, to convert a :class:`polars.DataFrame` into a :class:`tabmat.SplitMatrix`.
 

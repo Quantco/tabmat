@@ -8,6 +8,7 @@ dependencies:
   - numpy
   - pandas
   - polars
+  - pyarrow  # exclusively for polars tests
   - scipy
 
   # development tools
