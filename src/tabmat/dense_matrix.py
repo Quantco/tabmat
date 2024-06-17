@@ -42,7 +42,7 @@ class DenseMatrix(MatrixBase):
         elif input_array.ndim > 2:
             raise ValueError("Input array must be 1- or 2-dimensional")
 
-        self._array = np.asarray(input_array)
+        self._array = input_array
         width = self._array.shape[1]
 
         if column_names is not None:
@@ -102,7 +102,7 @@ class DenseMatrix(MatrixBase):
 
     @property
     def dtype(self):
-        """Data-type of the array’s elements."""  # noqa: D401
+        """Data type of the array's elements."""  # noqa: D401
         return self._array.dtype
 
     def transpose(self):
