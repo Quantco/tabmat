@@ -1,7 +1,7 @@
 import numpy as np
 
 cimport numpy as np
-from cython cimport floating, numeric
+from cython cimport floating
 
 from cython.parallel import prange
 
@@ -217,7 +217,7 @@ def sandwich_categorical_complex(
 
 def multiply_complex(
     int[:] indices,
-    numeric[:] d,
+    floating[:] d,
     int ncols,
     dtype,
     bint drop_first,
@@ -252,7 +252,7 @@ def multiply_complex(
         np.ndarray new_data = np.empty(nrows, dtype=dtype)
         np.ndarray new_indices = np.empty(nrows, dtype=np.int32)
         np.ndarray new_indptr = np.empty(nrows + 1, dtype=np.int32)
-        numeric[:] vnew_data = new_data
+        floating[:] vnew_data = new_data
         int[:] vnew_indices = new_indices
         int[:] vnew_indptr = new_indptr
 
