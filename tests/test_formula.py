@@ -139,8 +139,8 @@ def test_retrieval():
                                 "cat_1[b]:cat_3[1]",
                                 "cat_1[c]:cat_3[1]",
                                 "cat_1[a]:cat_3[2]",
-                                "cat_1[c]:cat_3[2]",
                                 "cat_1[b]:cat_3[2]",
+                                "cat_1[c]:cat_3[2]",
                             ],
                         ),
                         drop_first=False,
@@ -161,7 +161,8 @@ def test_matrix_against_expectation(df, formula, expected):
         if isinstance(res, (tm.DenseMatrix, tm.SparseMatrix)):
             np.testing.assert_array_equal(res.toarray(), res.toarray())
         elif isinstance(res, tm.CategoricalMatrix):
-            assert (exp.cat == res.cat).all()
+            np.testing.assert_array_equal(exp.categories, res.categories)
+            np.testing.assert_array_equal(exp.indices, res.indices)
             assert exp.drop_first == res.drop_first
 
 
@@ -241,8 +242,8 @@ def test_matrix_against_expectation(df, formula, expected):
                                 "cat_1__b__x__cat_3__1",
                                 "cat_1__c__x__cat_3__1",
                                 "cat_1__a__x__cat_3__2",
-                                "cat_1__c__x__cat_3__2",
                                 "cat_1__b__x__cat_3__2",
+                                "cat_1__c__x__cat_3__2",
                             ],
                         ),
                         drop_first=False,
@@ -270,7 +271,8 @@ def test_matrix_against_expectation_qcl(df, formula, expected):
         if isinstance(res, (tm.DenseMatrix, tm.SparseMatrix)):
             np.testing.assert_array_equal(res.toarray(), res.toarray())
         elif isinstance(res, tm.CategoricalMatrix):
-            assert (exp.cat == res.cat).all()
+            np.testing.assert_array_equal(exp.categories, res.categories)
+            np.testing.assert_array_equal(exp.indices, res.indices)
             assert exp.drop_first == res.drop_first
 
 
