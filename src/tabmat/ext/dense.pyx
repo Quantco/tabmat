@@ -5,6 +5,9 @@ from cython cimport floating
 from cython.parallel import prange
 from libc.stdint cimport int64_t
 
+np.import_array()
+
+
 cdef extern from "dense_helpers.cpp":
     void _denseC_sandwich[Int, F](Int*, Int*, F*, F*, F*, Int, Int, Int, Int, Int, Int, Int) nogil
     void _denseF_sandwich[Int, F](Int*, Int*, F*, F*, F*, Int, Int, Int, Int, Int, Int, Int) nogil
