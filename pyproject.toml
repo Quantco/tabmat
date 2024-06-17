@@ -4,7 +4,7 @@ requires = [
   'setuptools-scm', 
   'wheel',
   'mako',
-  'oldest-supported-numpy',
+  'numpy',
   'Cython != 3.0.4',
 ]
 
