@@ -5,93 +5,84 @@ import pytest
 
 import tabmat as tm
 
+N_ROWS = 50
 
-def test_pandas_to_matrix():
-    n_rows = 50
-    dense_column = np.linspace(-10, 10, num=n_rows, dtype=np.float64)
+
+def construct_data(backend):
+    dense_column = np.linspace(-10, 10, num=N_ROWS, dtype=np.float64)
     dense_column_with_lots_of_zeros = dense_column.copy()
     dense_column_with_lots_of_zeros[:44] = 0.0
-    sparse_column = np.zeros(n_rows, dtype=np.float64)
+    sparse_column = np.zeros(N_ROWS, dtype=np.float64)
     sparse_column[0] = 1.0
-    cat_column_lowdim = np.tile(["a", "b"], n_rows // 2)
-    cat_column_highdim = np.arange(n_rows)
+    cat_column_lowdim = np.tile(["a", "b"], N_ROWS // 2)
+    cat_column_highdim = np.arange(N_ROWS)
 
-    dense_ser = pd.Series(dense_column)
-    lowdense_ser = pd.Series(dense_column_with_lots_of_zeros)
-    sparse_ser = pd.Series(sparse_column, dtype=pd.SparseDtype("float", 0.0))
-    cat_ser_lowdim = pd.Categorical(cat_column_lowdim)
-    cat_ser_highdim = pd.Categorical(cat_column_highdim)
+    data = {
+        "d": dense_column,
+        "ds": dense_column_with_lots_of_zeros,
+        "s": sparse_column,
+        "cl": cat_column_lowdim,
+        "ch": cat_column_highdim,
+    }
 
-    df = pd.DataFrame(
-        data={
-            "d": dense_ser,
-            "ds": lowdense_ser,
-            "s": sparse_ser,
-            "cl_obj": cat_ser_lowdim.astype(object),
-            "ch": cat_ser_highdim,
-        }
-    )
+    if backend == "pandas":
+        data["s"] = pd.Series(data["s"], dtype=pd.SparseDtype("float", 0.0))
+        data["cl"] = cat_column_lowdim.astype("object")
+        data["ch"] = pd.Categorical(cat_column_highdim)
+
+        return pd.DataFrame(data)
+
+    if backend == "polars":
+        data["cl"] = pl.Series(cat_column_lowdim, dtype=pl.Categorical)
+        data["ch"] = pl.Series(cat_column_highdim.astype("str"), dtype=pl.Categorical)
+
+        return pl.DataFrame(data)
+
+    raise ValueError
+
+
+def test_pandas_to_matrix():
+    df = construct_data("pandas")
 
     mat = tm.from_pandas(
         df, dtype=np.float64, sparse_threshold=0.3, cat_threshold=4, object_as_cat=True
     )
 
-    assert mat.shape == (n_rows, n_rows + 5)
+    assert mat.shape == (N_ROWS, N_ROWS + 5)
     assert len(mat.matrices) == 3
     assert isinstance(mat, tm.SplitMatrix)
 
     nb_col_by_type = {
         tm.DenseMatrix: 3,  # includes low-dimension categorical
         tm.SparseMatrix: 2,  # sparse column
-        tm.CategoricalMatrix: n_rows,
+        tm.CategoricalMatrix: N_ROWS,
     }
+
     for submat in mat.matrices:
         assert submat.shape[1] == nb_col_by_type[type(submat)]
 
     # Prevent a regression where the column type of sparsified dense columns
     # was being changed in place.
-    assert df["cl_obj"].dtype == object
+    assert df["cl"].dtype == object
     assert df["ds"].dtype == np.float64
 
 
 @pytest.mark.parametrize("categorical_dtype", [pl.Categorical, pl.Enum(["a", "b"])])
 def test_polars_to_matrix(categorical_dtype):
-    n_rows = 50
-    dense_column = np.linspace(-10, 10, num=n_rows, dtype=np.float64)
-    dense_column_with_lots_of_zeros = dense_column.copy()
-    dense_column_with_lots_of_zeros[:44] = 0.0
-    sparse_column = np.zeros(n_rows, dtype=np.float64)
-    sparse_column[0] = 1.0
-    cat_column_lowdim = np.tile(["a", "b"], n_rows // 2)
-    cat_column_highdim = np.arange(n_rows).astype("str")
-
-    dense_ser = pl.Series(dense_column)
-    lowdense_ser = pl.Series(dense_column_with_lots_of_zeros)
-    sparse_ser = pl.Series(sparse_column)
-    cat_ser_lowdim = pl.Series(cat_column_lowdim, dtype=categorical_dtype)
-    cat_ser_highdim = pl.Series(cat_column_highdim, dtype=pl.Categorical)
-
-    df = pl.DataFrame(
-        data={
-            "d": dense_ser,
-            "ds": lowdense_ser,
-            "s": sparse_ser,
-            "cl": cat_ser_lowdim,
-            "ch": cat_ser_highdim,
-        }
-    )
+    df = construct_data("polars").with_columns(cl=pl.col("cl").cast(categorical_dtype))
 
     mat = tm.from_polars(df, dtype=np.float64, sparse_threshold=0.3, cat_threshold=4)
 
-    assert mat.shape == (n_rows, n_rows + 5)
+    assert mat.shape == (N_ROWS, N_ROWS + 5)
     assert len(mat.matrices) == 3
     assert isinstance(mat, tm.SplitMatrix)
 
     nb_col_by_type = {
         tm.DenseMatrix: 3,  # includes low-dimension categorical
         tm.SparseMatrix: 2,  # sparse column
-        tm.CategoricalMatrix: n_rows,
+        tm.CategoricalMatrix: N_ROWS,
     }
+
     for submat in mat.matrices:
         assert submat.shape[1] == nb_col_by_type[type(submat)]
 
@@ -136,32 +127,9 @@ def test_from_polars_missing(cat_missing_method):
 @pytest.mark.parametrize("prefix_sep", ["_", ": "])
 @pytest.mark.parametrize("drop_first", [True, False])
 def test_names_pandas(prefix_sep, drop_first):
-    n_rows = 50
-    dense_column = np.linspace(-10, 10, num=n_rows, dtype=np.float64)
-    dense_column_with_lots_of_zeros = dense_column.copy()
-    dense_column_with_lots_of_zeros[:44] = 0.0
-    sparse_column = np.zeros(n_rows, dtype=np.float64)
-    sparse_column[0] = 1.0
-    cat_column_lowdim = np.tile(["a", "b"], n_rows // 2)
-    cat_column_highdim = np.arange(n_rows)
-
-    dense_ser = pd.Series(dense_column)
-    lowdense_ser = pd.Series(dense_column_with_lots_of_zeros)
-    sparse_ser = pd.Series(sparse_column, dtype=pd.SparseDtype("float", 0.0))
-    cat_ser_lowdim = pd.Categorical(cat_column_lowdim)
-    cat_ser_highdim = pd.Categorical(cat_column_highdim)
-
-    df = pd.DataFrame(
-        data={
-            "d": dense_ser,
-            "cl_obj": cat_ser_lowdim.astype(object),
-            "ch": cat_ser_highdim,
-            "ds": lowdense_ser,
-            "s": sparse_ser,
-        }
-    )
-
+    df = construct_data("pandas")
     categorical_format = "{name}" + prefix_sep + "{category}"
+
     mat_end = tm.from_pandas(
         df,
         dtype=np.float64,
@@ -194,32 +162,9 @@ def test_names_pandas(prefix_sep, drop_first):
 @pytest.mark.parametrize("prefix_sep", ["_", ": "])
 @pytest.mark.parametrize("drop_first", [True, False])
 def test_names_polars(prefix_sep, drop_first):
-    n_rows = 50
-    dense_column = np.linspace(-10, 10, num=n_rows, dtype=np.float64)
-    dense_column_with_lots_of_zeros = dense_column.copy()
-    dense_column_with_lots_of_zeros[:44] = 0.0
-    sparse_column = np.zeros(n_rows, dtype=np.float64)
-    sparse_column[0] = 1.0
-    cat_column_lowdim = np.tile(["a", "b"], n_rows // 2)
-    cat_column_highdim = np.arange(n_rows).astype("str")
-
-    dense_ser = pl.Series(dense_column)
-    lowdense_ser = pl.Series(dense_column_with_lots_of_zeros)
-    sparse_ser = pl.Series(sparse_column)
-    cat_ser_lowdim = pl.Series(cat_column_lowdim, dtype=pl.Categorical)
-    cat_ser_highdim = pl.Series(cat_column_highdim, dtype=pl.Categorical)
-
-    df = pl.DataFrame(
-        data={
-            "d": dense_ser,
-            "ds": lowdense_ser,
-            "s": sparse_ser,
-            "cl": cat_ser_lowdim,
-            "ch": cat_ser_highdim,
-        }
-    )
-
+    df = construct_data("polars")
     categorical_format = "{name}" + prefix_sep + "{category}"
+
     mat_end = tm.from_polars(
         df,
         dtype=np.float64,
