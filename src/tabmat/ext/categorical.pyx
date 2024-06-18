@@ -9,6 +9,11 @@ ctypedef np.uint8_t uint8
 ctypedef np.int8_t int8
 from libcpp cimport bool
 
+np.import_array()
+
+ctypedef fused win_numeric:
+    numeric
+    long long
 
 cdef extern from "cat_split_helpers.cpp":
     void _transpose_matvec_all_rows_fast[Int, F](Int, Int*, F*, F*, Int)
@@ -215,7 +220,7 @@ def sandwich_categorical_complex(
 
 def multiply_complex(
     int[:] indices,
-    numeric[:] d,
+    win_numeric[:] d,
     int ncols,
     dtype,
     bint drop_first,
@@ -250,7 +255,7 @@ def multiply_complex(
         np.ndarray new_data = np.empty(nrows, dtype=dtype)
         np.ndarray new_indices = np.empty(nrows, dtype=np.int32)
         np.ndarray new_indptr = np.empty(nrows + 1, dtype=np.int32)
-        numeric[:] vnew_data = new_data
+        win_numeric[:] vnew_data = new_data
         int[:] vnew_indices = new_indices
         int[:] vnew_indptr = new_indptr
 

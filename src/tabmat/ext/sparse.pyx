@@ -5,6 +5,9 @@ from cython cimport floating, integral
 from cython.parallel import prange
 from libc.stdint cimport int64_t
 
+
+np.import_array()
+
 ctypedef np.uint8_t uint8
 
 ctypedef fused win_integral:
