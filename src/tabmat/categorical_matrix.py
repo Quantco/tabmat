@@ -168,8 +168,6 @@ import warnings
 from typing import Optional, Union
 
 import numpy as np
-import pandas as pd
-import polars as pl
 from scipy import sparse as sps
 
 from .dense_matrix import DenseMatrix
@@ -204,10 +202,10 @@ if importlib.util.find_spec("polars"):
 class _Categorical:
     """This class helps us avoid copies while subsetting."""
 
-    def __init__(self, indices, categories, input_type):
+    def __init__(self, indices, categories, dtype):
         self.indices = indices
         self.categories = categories
-        self.input_type = input_type
+        self.dtype = dtype
 
 
 def _is_indexer_full_length(full_length: int, indexer: Union[slice, np.ndarray]):
@@ -294,23 +292,23 @@ class CategoricalMatrix(MatrixBase):
         cat_missing_method: str = "fail",
         cat_missing_name: str = "(MISSING)",
     ):
-        if cat_missing_method not in ["fail", "zero", "convert"]:
+        if cat_missing_method not in {"fail", "zero", "convert"}:
             raise ValueError(
                 "cat_missing_method must be one of 'fail' 'zero' or 'convert'; "
                 f" got {cat_missing_method}."
             )
 
-        self._input_type = cat_vec.dtype
+        if not hasattr(cat_vec, "dtype"):
+            cat_vec = np.array(cat_vec)  # avoid errors in pd.factorize
+
+        self._input_dtype = cat_vec.dtype
         self._missing_method = cat_missing_method
         self._missing_category = cat_missing_name
-
-        if not isinstance(cat_vec, (pd.Categorical, pl.Series, pd.Series)):
-            cat_vec = np.asanyarray(cat_vec)
 
         if isinstance(cat_vec, _Categorical):
             indices = cat_vec.indices
             self.categories = cat_vec.categories
-            self._input_type = cat_vec.input_type
+            self._input_dtype = cat_vec.dtype
         elif _is_pandas(cat_vec):
             self.categories = cat_vec.categories.to_numpy()
             indices = cat_vec.codes
@@ -379,7 +377,7 @@ class CategoricalMatrix(MatrixBase):
             category=DeprecationWarning,
         )
 
-        if _is_polars(self._input_type):
+        if _is_polars(self._input_dtype):
             out = self.categories[self.indices].astype("object", copy=False)
             out = np.where(self.indices < 0, None, out)
             return pl.Series(out, dtype=pl.Enum(self.categories))
@@ -678,7 +676,7 @@ class CategoricalMatrix(MatrixBase):
             if isinstance(row, np.ndarray):
                 row = row.ravel()
             return CategoricalMatrix(
-                _Categorical(self.indices[row], self.categories, self._input_type),
+                _Categorical(self.indices[row], self.categories, self._input_dtype),
                 drop_first=self.drop_first,
                 dtype=self.dtype,
                 column_name=self._colname,
