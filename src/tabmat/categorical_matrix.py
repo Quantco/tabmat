@@ -162,6 +162,7 @@ This is `ext/split/sandwich_cat_dense`
 
 """
 
+import importlib.util
 import re
 import warnings
 from typing import Optional, Union
@@ -194,6 +195,20 @@ from .util import (
     setup_restrictions,
 )
 
+if importlib.util.find_spec("pandas"):
+    import pandas as pd
+if importlib.util.find_spec("polars"):
+    import polars as pl
+
+
+class _Categorical:
+    """This class helps us avoid copies while subsetting."""
+
+    def __init__(self, indices, categories, input_type):
+        self.indices = indices
+        self.categories = categories
+        self.input_type = input_type
+
 
 def _is_indexer_full_length(full_length: int, indexer: Union[slice, np.ndarray]):
     if isinstance(indexer, np.ndarray):
@@ -204,6 +219,18 @@ def _is_indexer_full_length(full_length: int, indexer: Union[slice, np.ndarray])
         return np.array_equal(indexer.ravel(), np.arange(full_length))
     elif isinstance(indexer, slice):
         return len(range(*indexer.indices(full_length))) == full_length
+
+
+def _is_pandas(x) -> bool:
+    if importlib.util.find_spec("pandas"):
+        return isinstance(x, (pd.Categorical, pd.CategoricalDtype))
+    return False
+
+
+def _is_polars(x) -> bool:
+    if importlib.util.find_spec("polars"):
+        return isinstance(x, (pl.Series, pl.Categorical, pl.Enum))
+    return False
 
 
 def _row_col_indexing(
@@ -258,7 +285,7 @@ class CategoricalMatrix(MatrixBase):
 
     def __init__(
         self,
-        cat_vec: Union[list, np.ndarray, pd.Categorical, pd.Series, pl.Series],
+        cat_vec,
         drop_first: bool = False,
         dtype: np.dtype = np.float64,
         column_name: Optional[str] = None,
@@ -273,20 +300,25 @@ class CategoricalMatrix(MatrixBase):
                 f" got {cat_missing_method}."
             )
 
+        self._input_type = cat_vec.dtype
         self._missing_method = cat_missing_method
         self._missing_category = cat_missing_name
 
         if not isinstance(cat_vec, (pd.Categorical, pl.Series, pd.Series)):
             cat_vec = np.asanyarray(cat_vec)
 
-        if isinstance(cat_vec, pd.Categorical):
+        if isinstance(cat_vec, _Categorical):
+            indices = cat_vec.indices
+            self.categories = cat_vec.categories
+            self._input_type = cat_vec.input_type
+        elif _is_pandas(cat_vec):
             self.categories = cat_vec.categories.to_numpy()
             indices = cat_vec.codes
-        elif isinstance(cat_vec.dtype, pd.CategoricalDtype):
+        elif _is_pandas(cat_vec.dtype):
             self.categories = cat_vec.cat.categories.to_numpy()
             indices = cat_vec.cat.codes.to_numpy()
-        elif isinstance(cat_vec, pl.Series):
-            if not isinstance(cat_vec.dtype, (pl.Categorical, pl.Enum)):
+        elif _is_polars(cat_vec):
+            if not _is_polars(cat_vec.dtype):
                 cat_vec = cat_vec.cast(pl.Categorical)
             self.categories = cat_vec.cat.get_categories().to_numpy()
             indices = cat_vec.to_physical().fill_null(-1).to_numpy()
@@ -321,7 +353,7 @@ class CategoricalMatrix(MatrixBase):
             self._has_missings = False
 
         self.drop_first = drop_first
-        self.indices = indices.astype(np.int32)
+        self.indices = indices.astype(np.int32, copy=False)
         self.shape = (len(self.indices), len(self.categories) - int(drop_first))
         self.x_csc = None
         self.dtype = np.dtype(dtype)
@@ -338,7 +370,7 @@ class CategoricalMatrix(MatrixBase):
 
     @property
     def cat(self):
-        """Return a pandas array with same data as what was initially fed to __init__.
+        """Return a series with same data as what was initially fed to __init__.
 
         This property is available for backward compatibility.
         """
@@ -346,6 +378,12 @@ class CategoricalMatrix(MatrixBase):
             "This property will be removed in the next major release.",
             category=DeprecationWarning,
         )
+
+        if _is_polars(self._input_type):
+            out = self.categories[self.indices].astype("object", copy=False)
+            out = np.where(self.indices < 0, None, out)
+            return pl.Series(out, dtype=pl.Enum(self.categories))
+
         return pd.Categorical.from_codes(self.indices, categories=self.categories)
 
     def recover_orig(self) -> np.ndarray:
@@ -640,9 +678,7 @@ class CategoricalMatrix(MatrixBase):
             if isinstance(row, np.ndarray):
                 row = row.ravel()
             return CategoricalMatrix(
-                pd.Categorical.from_codes(
-                    self.indices[row], categories=self.categories
-                ),
+                _Categorical(self.indices[row], self.categories, self._input_type),
                 drop_first=self.drop_first,
                 dtype=self.dtype,
                 column_name=self._colname,

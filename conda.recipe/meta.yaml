@@ -37,8 +37,6 @@ requirements:
     - python
     - {{ pin_compatible('numpy') }}
     - formulaic>=0.6
-    - pandas
-    - polars
     - scipy
 
 test:

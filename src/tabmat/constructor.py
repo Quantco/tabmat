@@ -4,13 +4,10 @@ from collections.abc import Mapping
 from typing import Any, Optional, Union
 
 import numpy as np
-import pandas as pd
-import polars as pl
 from formulaic import Formula, ModelSpec
 from formulaic.materializers.types import NAAction
 from formulaic.parser import DefaultFormulaParser
 from formulaic.utils.layered_mapping import LayeredMapping
-from pandas.api.types import is_numeric_dtype
 from scipy import sparse as sps
 
 from .categorical_matrix import CategoricalMatrix
@@ -23,7 +20,7 @@ from .split_matrix import SplitMatrix
 
 
 def from_pandas(
-    df: pd.DataFrame,
+    df,
     dtype: np.dtype = np.float64,
     sparse_threshold: float = 0.1,
     cat_threshold: int = 4,
@@ -75,6 +72,8 @@ def from_pandas(
     -------
     SplitMatrix
     """
+    import pandas as pd
+
     matrices: list[Union[DenseMatrix, SparseMatrix, CategoricalMatrix]] = []
     indices: list[list[int]] = []
     is_cat: list[bool] = []
@@ -133,7 +132,7 @@ def from_pandas(
                     mxcolidx += cat.shape[1]
                 elif cat_position == "end":
                     indices.append(np.arange(cat.shape[1]))
-        elif is_numeric_dtype(coldata):
+        elif pd.api.types.is_numeric_dtype(coldata):
             if (coldata != 0).mean() <= sparse_threshold:
                 sparse_columns.append(colname)
                 sparse_indices.append(mxcolidx)
@@ -171,7 +170,7 @@ def from_pandas(
 
 
 def from_polars(
-    df: pl.DataFrame,
+    df,
     dtype: np.dtype = np.float64,
     sparse_threshold: float = 0.1,
     cat_threshold: int = 4,
@@ -219,6 +218,8 @@ def from_polars(
     -------
     SplitMatrix
     """
+    import polars as pl
+
     matrices: list[Union[DenseMatrix, SparseMatrix, CategoricalMatrix]] = []
     indices: list[list[int]] = []
     is_cat: list[bool] = []
@@ -353,7 +354,7 @@ def from_csc(mat: sps.csc_matrix, threshold=0.1, column_names=None, term_names=N
 
 def from_formula(
     formula: Union[str, Formula],
-    data: pd.DataFrame,
+    data,
     ensure_full_rank: bool = False,
     na_action: Union[str, NAAction] = NAAction.IGNORE,
     dtype: np.dtype = np.float64,

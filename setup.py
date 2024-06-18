@@ -157,7 +157,7 @@ setup(
     ],
     package_dir={"": "src"},
     packages=find_packages(where="src"),
-    install_requires=["numpy", "pandas", "polars", "scipy", "formulaic>=0.6"],
+    install_requires=["formulaic>=0.6", "numpy", "pandas", "polars", "scipy"],
     python_requires=">=3.9",
     ext_modules=cythonize(
         ext_modules,
