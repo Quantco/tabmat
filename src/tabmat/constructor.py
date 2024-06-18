@@ -151,36 +151,16 @@ def from_pandas(
             f"Columns {ignored_cols} were ignored. Make sure they have a valid dtype."
         )
     if dense_columns:
-        matrices.append(
-            DenseMatrix(
-                df[dense_columns].astype(dtype),
-                column_names=dense_columns,
-                term_names=dense_columns,
-            )
-        )
+        matrices.append(_dense_matrix(df, dense_columns, dtype))
         indices.append(dense_indices)
         is_cat.append(False)
     if sparse_columns:
-        matrices.append(
-            SparseMatrix(
-                sps.coo_matrix(df[sparse_columns], dtype=dtype),
-                dtype=dtype,
-                column_names=sparse_columns,
-                term_names=sparse_columns,
-            )
-        )
+        matrices.append(_sparse_matrix(df, sparse_columns, dtype))
         indices.append(sparse_indices)
         is_cat.append(False)
 
     if cat_position == "end":
-        new_indices = []
-        for mat_indices, is_cat_ in zip(indices, is_cat):
-            if is_cat_:
-                new_indices.append(np.asarray(mat_indices) + mxcolidx)
-                mxcolidx += len(mat_indices)
-            else:
-                new_indices.append(mat_indices)
-        indices = new_indices
+        indices = _reindex_cat(indices, is_cat, mxcolidx)
 
     if len(matrices) > 1:
         return SplitMatrix(matrices, indices)
@@ -313,36 +293,16 @@ def from_polars(
             f"Columns {ignored_cols} were ignored. Make sure they have a valid dtype."
         )
     if dense_columns:
-        matrices.append(
-            DenseMatrix(
-                df[dense_columns].to_numpy().astype(dtype),
-                column_names=dense_columns,
-                term_names=dense_columns,
-            )
-        )
+        matrices.append(_dense_matrix(df, dense_columns, dtype))
         indices.append(dense_indices)
         is_cat.append(False)
     if sparse_columns:
-        matrices.append(
-            SparseMatrix(
-                sps.coo_matrix(df[sparse_columns], dtype=dtype),
-                dtype=dtype,
-                column_names=sparse_columns,
-                term_names=sparse_columns,
-            )
-        )
+        matrices.append(_sparse_matrix(df, sparse_columns, dtype))
         indices.append(sparse_indices)
         is_cat.append(False)
 
     if cat_position == "end":
-        new_indices = []
-        for mat_indices, is_cat_ in zip(indices, is_cat):
-            if is_cat_:
-                new_indices.append(np.asarray(mat_indices) + mxcolidx)
-                mxcolidx += len(mat_indices)
-            else:
-                new_indices.append(mat_indices)
-        indices = new_indices
+        indices = _reindex_cat(indices, is_cat, mxcolidx)
 
     if len(matrices) > 1:
         return SplitMatrix(matrices, indices)
@@ -350,6 +310,34 @@ def from_polars(
         raise ValueError("DataFrame contained no valid column")
     else:
         return matrices[0]
+
+
+def _dense_matrix(df, dense_columns, dtype):
+    return DenseMatrix(
+        df[dense_columns].to_numpy().astype(dtype),
+        column_names=dense_columns,
+        term_names=dense_columns,
+    )
+
+
+def _reindex_cat(indices, is_cat, mxcolidx):
+    new_indices = []
+    for mat_indices, is_cat_ in zip(indices, is_cat):
+        if is_cat_:
+            new_indices.append(np.asarray(mat_indices) + mxcolidx)
+            mxcolidx = mxcolidx + len(mat_indices)
+        else:
+            new_indices.append(mat_indices)
+    return new_indices
+
+
+def _sparse_matrix(df, sparse_columns, dtype):
+    return SparseMatrix(
+        sps.coo_matrix(df[sparse_columns], dtype=dtype),
+        dtype=dtype,
+        column_names=sparse_columns,
+        term_names=sparse_columns,
+    )
 
 
 def from_csc(mat: sps.csc_matrix, threshold=0.1, column_names=None, term_names=None):
