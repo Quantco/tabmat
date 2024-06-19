@@ -32,13 +32,12 @@ def from_pandas(
     cat_missing_name: str = "(MISSING)",
 ) -> MatrixBase:
     """
-    Transform a pandas.DataFrame into an efficient SplitMatrix. For most users, this
-    will be the primary way to construct tabmat objects from their data.
+    Transform a pandas.DataFrame into an efficient SplitMatrix.
 
     Parameters
     ----------
     df : pd.DataFrame
-        pandas DataFrame to be converted.
+        pandas DataFrame to convert.
     dtype : np.dtype, default np.float64
         dtype of all sub-matrices of the resulting SplitMatrix.
     sparse_threshold : float, default 0.1
@@ -181,13 +180,12 @@ def from_polars(
     cat_missing_name: str = "(MISSING)",
 ) -> MatrixBase:
     """
-    Transform a polars.DataFrame into an efficient SplitMatrix. For most users, this
-    will be the primary way to construct tabmat objects from their data.
+    Transform a polars.DataFrame into an efficient SplitMatrix.
 
     Parameters
     ----------
     df : pl.DataFrame
-        Polars DataFrame to be converted.
+        Polars DataFrame to convert.
     dtype : np.dtype, default np.float64
         dtype of all sub-matrices of the resulting SplitMatrix.
     sparse_threshold : float, default 0.1
