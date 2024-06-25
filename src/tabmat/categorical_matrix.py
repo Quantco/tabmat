@@ -231,6 +231,26 @@ def _is_polars(x) -> bool:
     return False
 
 
+def _extract_codes_and_categories(cat_vec):
+    if isinstance(cat_vec, _Categorical):
+        categories = cat_vec.categories
+        indices = cat_vec.indices
+    elif _is_pandas(cat_vec):
+        categories = cat_vec.categories.to_numpy()
+        indices = cat_vec.codes
+    elif _is_pandas(cat_vec.dtype):
+        categories = cat_vec.cat.categories.to_numpy()
+        indices = cat_vec.cat.codes.to_numpy()
+    elif _is_polars(cat_vec):
+        if not _is_polars(cat_vec.dtype):
+            cat_vec = cat_vec.cast(pl.Categorical)
+        categories = cat_vec.cat.get_categories().to_numpy()
+        indices = cat_vec.to_physical().fill_null(-1).to_numpy()
+    else:
+        indices, categories = pd.factorize(cat_vec, sort=True)
+    return indices, categories
+
+
 def _row_col_indexing(
     arr: np.ndarray, rows: Optional[np.ndarray], cols: Optional[np.ndarray]
 ) -> np.ndarray:
@@ -305,23 +325,7 @@ class CategoricalMatrix(MatrixBase):
         self._missing_method = cat_missing_method
         self._missing_category = cat_missing_name
 
-        if isinstance(cat_vec, _Categorical):
-            indices = cat_vec.indices
-            self.categories = cat_vec.categories
-            self._input_dtype = cat_vec.dtype
-        elif _is_pandas(cat_vec):
-            self.categories = cat_vec.categories.to_numpy()
-            indices = cat_vec.codes
-        elif _is_pandas(cat_vec.dtype):
-            self.categories = cat_vec.cat.categories.to_numpy()
-            indices = cat_vec.cat.codes.to_numpy()
-        elif _is_polars(cat_vec):
-            if not _is_polars(cat_vec.dtype):
-                cat_vec = cat_vec.cast(pl.Categorical)
-            self.categories = cat_vec.cat.get_categories().to_numpy()
-            indices = cat_vec.to_physical().fill_null(-1).to_numpy()
-        else:
-            indices, self.categories = pd.factorize(cat_vec, sort=True)
+        indices, self.categories = _extract_codes_and_categories(cat_vec)
 
         if np.any(indices == -1):
             if self._missing_method == "fail":
