@@ -23,18 +23,19 @@ jobs:
         uses: pre-commit/action@v3.0.1
 
   unit-tests:
-    name: Tests - ${{ matrix.os }} - Py${{ matrix.python-version }}
+    name: Tests - ${{ matrix.os }} - Py${{ matrix.python-version }} - ${{ matrix.note }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
       matrix:
         include:
-          - { os: ubuntu-latest, python-version: '3.9' }
-          - { os: ubuntu-latest, python-version: '3.10' }
-          - { os: ubuntu-latest, python-version: '3.11' }
-          - { os: ubuntu-latest, python-version: '3.12' }
-          - { os: macos-latest, python-version: '3.12' }
-          - { os: windows-latest, python-version: '3.12' }
+          - { os: ubuntu-latest,  python-version: '3.9',  note: 'Default Builds' }
+          - { os: ubuntu-latest,  python-version: '3.10', note: 'Default Builds' }
+          - { os: ubuntu-latest,  python-version: '3.11', note: 'Default Builds' }
+          - { os: ubuntu-latest,  python-version: '3.12', note: 'Default Builds' }
+          - { os: ubuntu-latest,  python-version: '3.12', note: 'Nightly Builds' }
+          - { os: macos-latest,   python-version: '3.12', note: 'Default Builds' }
+          - { os: windows-latest, python-version: '3.12', note: 'Default Builds' }
     steps:
       - name: Checkout branch
         uses: actions/checkout@v4
@@ -46,6 +47,19 @@ jobs:
           cache-environment: true
           create-args: >-
             python=${{ matrix.python-version }}
+      - name: Install nightlies
+        if: matrix.note == 'Nightly Builds'
+        shell: bash -el {0}
+        run: |
+          PRE_WHEELS="https://pypi.anaconda.org/scientific-python-nightly-wheels/simple/"
+          for pkg in numpy pandas scipy; do
+            echo "Installing $pkg nightly"
+            micromamba remove -y --force $pkg
+            pip install --pre --no-deps --only-binary :all: --upgrade --timeout=60 -i $PRE_WHEELS $pkg
+          done
+          micromamba remove -y --force formulaic
+          pip install --no-deps git+https://github.com/matthewwardrop/formulaic
+          micromamba list
       - name: Install repository (unix)
         if: matrix.os != 'windows-latest'
         shell: bash -el {0}
