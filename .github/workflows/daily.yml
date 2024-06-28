@@ -9,16 +9,14 @@ on:
 
 jobs:
   linux-daily-unittests:
-    name: "Linux - daily unit tests - Python ${{ matrix.PYTHON_VERSION }} - ${{ matrix.NOTE }}"
+    name: Daily unit tests - Py${{ matrix.python-version }} - ${{ matrix.note }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         include:
-          - PYTHON_VERSION: '3.9'
-            NOTE: 'Nightly Builds' # run once with nightlies
-          - PYTHON_VERSION: '3.9'
-            NOTE: 'Default Builds' # run once with normal dependencies
+          - { python-version: '3.9',  note: 'Default Builds' }
+          - { python-version: '3.12', note: 'Nightly Builds' }
     steps:
       - name: Checkout branch
         uses: actions/checkout@v4
@@ -26,9 +24,9 @@ jobs:
         with:
           environment-file: environment.yml
           create-args: >-
-            python=${{ matrix.PYTHON_VERSION }}
+            python=${{ matrix.python-version }}
       - name: Install nightlies
-        if: matrix.NOTE == 'Nightly Builds'
+        if: matrix.note == 'Nightly Builds'
         shell: bash -el {0}
         run: |
           PRE_WHEELS="https://pypi.anaconda.org/scientific-python-nightly-wheels/simple/"

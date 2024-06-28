@@ -21,10 +21,8 @@ jobs:
         uses: docker/setup-qemu-action@v3
         with:
           platforms: all
-
       - name: Set up micromamba
         uses: mamba-org/setup-micromamba@f8b8a1e23a26f60a44c853292711bacfd3eac822
-      
       - name: Build wheels
         if: github.event_name != 'release'
         uses: pypa/cibuildwheel@v2.19.1
@@ -32,7 +30,6 @@ jobs:
           CIBW_ARCHS_LINUX: auto
           CIBW_ARCHS_MACOS: x86_64 arm64
           CIBW_TEST_SKIP: '*-macosx_arm64'
-      
       - name: Build wheels (release)
         if: github.event_name == 'release' && github.event.action == 'published'
         uses: pypa/cibuildwheel@v2.19.1
@@ -50,18 +47,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         name: Install Python
         with:
           python-version: '3.10'
-
       - name: Install build dependencies
-        run: python -m pip install setuptools setuptools-scm wheel mako numpy 'Cython!=3.0.4' 
-
+        run: python -m pip install setuptools setuptools-scm wheel mako numpy 'Cython!=3.0.4'
       - name: Build sdist
         run: python setup.py sdist
-
       - uses: actions/upload-artifact@v4
         with:
           path: dist/*.tar.gz
@@ -70,7 +63,7 @@ jobs:
     if: github.event_name == 'release' && github.event.action == 'published'
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
-    environment: 
+    environment:
       name: release
       url: https://test.pypi.org/p/tabmat
     permissions:
@@ -80,7 +73,6 @@ jobs:
         with:
           merge-multiple: true
           path: dist
-
       - uses: pypa/gh-action-pypi-publish@v1.9.0
         with:
           repository-url: https://test.pypi.org/legacy/
@@ -89,7 +81,7 @@ jobs:
     if: github.event_name == 'release' && github.event.action == 'published'
     needs: [build_wheels, build_sdist, upload_testpypi]
     runs-on: ubuntu-latest
-    environment: 
+    environment:
       name: release
       url: https://pypi.org/p/tabmat
     permissions:
@@ -99,5 +91,4 @@ jobs:
         with:
           merge-multiple: true
           path: dist
-
       - uses: pypa/gh-action-pypi-publish@v1.9.0
