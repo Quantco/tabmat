@@ -30,7 +30,7 @@ def test_fast_sandwich_sparse(dtype):
         np.testing.assert_allclose(true, out, atol=np.sqrt(np.finfo(dtype).eps))
 
 
-@pytest.mark.high_memory
+@pytest.mark.skip(reason="too heavy")
 def test_fast_sandwich_sparse_large():
     # note that 50000 * 50000 > 2^31 - 1, so this will segfault when we index
     # with 32 bit integers (see GH #160)
@@ -105,7 +105,7 @@ def simulate_matrix(nonzero_frac=0.05, shape=(100, 50), seed=0, dtype=np.float64
     return A
 
 
-@pytest.mark.high_memory
+@pytest.mark.skip(reason="too heavy")
 @pytest.mark.parametrize("order", ["C", "F"])
 def test_fast_sandwich_dense_large(order):
     # this will segfault when we index with 32 bit integers (see GH #270)

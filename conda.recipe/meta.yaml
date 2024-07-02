@@ -36,9 +36,8 @@ requirements:
   run:
     - python
     - {{ pin_compatible('numpy') }}
-    - pandas
-    - scipy
     - formulaic>=0.6
+    - scipy
 
 test:
   requires:

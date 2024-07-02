@@ -4,8 +4,12 @@ channels:
   - nodefaults
 dependencies:
   - libblas>=0=*mkl
-  - pandas
   - formulaic>=0.6
+  - numpy
+  - pandas
+  - polars
+  - pyarrow  # exclusively for polars tests
+  - scipy
 
   # development tools
   - click

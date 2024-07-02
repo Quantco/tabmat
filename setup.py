@@ -54,7 +54,7 @@ debug_build = os.getenv("TABMAT_DEBUG", "0").lower() in ("true", "1")
 print(f"Debug Build: {debug_build}")
 
 if sys.platform == "win32":
-    allocator_libs = []
+    allocator_libs = []  # type: ignore
     extra_compile_args = ["/openmp", "/O2"]
     extra_link_args = ["/openmp"]
     # make sure we can find xsimd headers
@@ -157,7 +157,7 @@ setup(
     ],
     package_dir={"": "src"},
     packages=find_packages(where="src"),
-    install_requires=["numpy", "pandas", "scipy", "formulaic>=0.6"],
+    install_requires=["formulaic>=0.6", "numpy", "scipy"],
     python_requires=">=3.9",
     ext_modules=cythonize(
         ext_modules,

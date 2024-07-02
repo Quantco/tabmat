@@ -162,13 +162,15 @@ This is `ext/split/sandwich_cat_dense`
 
 """
 
+import importlib.util
 import re
+import warnings
 from typing import Optional, Union
 
 import numpy as np
-import pandas as pd
 from scipy import sparse as sps
 
+from .dense_matrix import DenseMatrix
 from .ext.categorical import (
     matvec_complex,
     matvec_fast,
@@ -191,6 +193,20 @@ from .util import (
     setup_restrictions,
 )
 
+if importlib.util.find_spec("pandas"):
+    import pandas as pd
+if importlib.util.find_spec("polars"):
+    import polars as pl
+
+
+class _Categorical:
+    """This class helps us avoid copies while subsetting."""
+
+    def __init__(self, indices, categories, dtype):
+        self.indices = indices
+        self.categories = categories
+        self.dtype = dtype
+
 
 def _is_indexer_full_length(full_length: int, indexer: Union[slice, np.ndarray]):
     if isinstance(indexer, np.ndarray):
@@ -201,6 +217,38 @@ def _is_indexer_full_length(full_length: int, indexer: Union[slice, np.ndarray])
         return np.array_equal(indexer.ravel(), np.arange(full_length))
     elif isinstance(indexer, slice):
         return len(range(*indexer.indices(full_length))) == full_length
+
+
+def _is_pandas(x) -> bool:
+    if importlib.util.find_spec("pandas"):
+        return isinstance(x, (pd.Categorical, pd.CategoricalDtype))
+    return False
+
+
+def _is_polars(x) -> bool:
+    if importlib.util.find_spec("polars"):
+        return isinstance(x, (pl.Series, pl.Categorical, pl.Enum))
+    return False
+
+
+def _extract_codes_and_categories(cat_vec):
+    if isinstance(cat_vec, _Categorical):
+        categories = cat_vec.categories
+        indices = cat_vec.indices
+    elif _is_pandas(cat_vec):
+        categories = cat_vec.categories.to_numpy()
+        indices = cat_vec.codes
+    elif _is_pandas(cat_vec.dtype):
+        categories = cat_vec.cat.categories.to_numpy()
+        indices = cat_vec.cat.codes.to_numpy()
+    elif _is_polars(cat_vec):
+        if not _is_polars(cat_vec.dtype):
+            cat_vec = cat_vec.cast(pl.Categorical)
+        categories = cat_vec.cat.get_categories().to_numpy()
+        indices = cat_vec.to_physical().fill_null(-1).to_numpy()
+    else:
+        indices, categories = pd.factorize(cat_vec, sort=True)
+    return indices, categories
 
 
 def _row_col_indexing(
@@ -255,7 +303,7 @@ class CategoricalMatrix(MatrixBase):
 
     def __init__(
         self,
-        cat_vec: Union[list, np.ndarray, pd.Categorical],
+        cat_vec,
         drop_first: bool = False,
         dtype: np.dtype = np.float64,
         column_name: Optional[str] = None,
@@ -264,20 +312,22 @@ class CategoricalMatrix(MatrixBase):
         cat_missing_method: str = "fail",
         cat_missing_name: str = "(MISSING)",
     ):
-        if cat_missing_method not in ["fail", "zero", "convert"]:
+        if cat_missing_method not in {"fail", "zero", "convert"}:
             raise ValueError(
-                "cat_missing_method must be one of 'fail' 'zero' or 'convert', "
-                f" got {cat_missing_method}"
+                "cat_missing_method must be one of 'fail' 'zero' or 'convert'; "
+                f" got {cat_missing_method}."
             )
+
+        if not hasattr(cat_vec, "dtype"):
+            cat_vec = np.array(cat_vec)  # avoid errors in pd.factorize
+
+        self._input_dtype = cat_vec.dtype
         self._missing_method = cat_missing_method
         self._missing_category = cat_missing_name
 
-        if isinstance(cat_vec, pd.Categorical):
-            self.cat = cat_vec
-        else:
-            self.cat = pd.Categorical(cat_vec)
+        indices, self.categories = _extract_codes_and_categories(cat_vec)
 
-        if pd.isnull(self.cat).any():
+        if np.any(indices == -1):
             if self._missing_method == "fail":
                 raise ValueError(
                     "Categorical data can't have missing values "
@@ -285,14 +335,17 @@ class CategoricalMatrix(MatrixBase):
                 )
 
             elif self._missing_method == "convert":
-                if self._missing_category in self.cat.categories:
+                if self._missing_category in self.categories:
                     raise ValueError(
                         f"Missing category {self._missing_category} already exists."
                     )
 
-                self.cat = self.cat.add_categories([self._missing_category])
+                self.categories = np.hstack(
+                    [self.categories, self._missing_category], dtype="object"
+                )
 
-                self.cat[pd.isnull(self.cat)] = self._missing_category
+                indices = np.where(indices < 0, len(self.categories) - 1, indices)
+
                 self._has_missings = False
 
             else:
@@ -302,19 +355,38 @@ class CategoricalMatrix(MatrixBase):
             self._has_missings = False
 
         self.drop_first = drop_first
-        self.shape = (len(self.cat), len(self.cat.categories) - int(drop_first))
-        self.indices = self.cat.codes.astype(np.int32)
-        self.x_csc: Optional[tuple[Optional[np.ndarray], np.ndarray, np.ndarray]] = None
+        self.indices = indices.astype(np.int32, copy=False)
+        self.shape = (len(self.indices), len(self.categories) - int(drop_first))
+        self.x_csc = None
         self.dtype = np.dtype(dtype)
 
         self._colname = column_name
+        self._colname_format = column_name_format
+
         if term_name is None:
             self._term = self._colname
         else:
             self._term = term_name
-        self._colname_format = column_name_format
 
     __array_ufunc__ = None
+
+    @property
+    def cat(self):
+        """Return a series with same data as what was initially fed to __init__.
+
+        This property is available for backward compatibility.
+        """
+        warnings.warn(
+            "This property will be removed in the next major release.",
+            category=DeprecationWarning,
+        )
+
+        if _is_polars(self._input_dtype):
+            out = self.categories[self.indices].astype("object", copy=False)
+            out = np.where(self.indices < 0, None, out)
+            return pl.Series(out, dtype=pl.Enum(self.categories))
+
+        return pd.Categorical.from_codes(self.indices, categories=self.categories)
 
     def recover_orig(self) -> np.ndarray:
         """
@@ -322,18 +394,17 @@ class CategoricalMatrix(MatrixBase):
 
         Test: matrix/test_categorical_matrix::test_recover_orig
         """
-        orig = self.cat.categories[self.cat.codes].to_numpy()
+        orig = self.categories[self.indices]
 
         if self._has_missings:
             orig = orig.view(np.ma.MaskedArray)
-            orig.mask = self.cat.codes == -1
+            orig.mask = self.indices == -1
         elif (
             self._missing_method == "convert"
-            and self._missing_category in self.cat.categories
+            and self._missing_category in self.categories
         ):
             orig = orig.view(np.ma.MaskedArray)
-            missing_code = self.cat.categories.get_loc(self._missing_category)
-            orig.mask = self.cat.codes == missing_code
+            orig.mask = self.indices == len(self.categories) - 1
 
         return orig
 
@@ -529,8 +600,6 @@ class CategoricalMatrix(MatrixBase):
         R_cols: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ Y."""
-        from .dense_matrix import DenseMatrix
-
         if isinstance(other, DenseMatrix):
             return self._cross_dense(other._array, d, rows, L_cols, R_cols)
         if isinstance(other, SparseMatrix):
@@ -576,8 +645,6 @@ class CategoricalMatrix(MatrixBase):
 
     def to_sparse_matrix(self):
         """Return a tabmat.SparseMatrix representation."""
-        from .sparse_matrix import SparseMatrix
-
         return SparseMatrix(
             self.tocsr(),
             column_names=self.column_names,
@@ -594,7 +661,7 @@ class CategoricalMatrix(MatrixBase):
 
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
         """Return CategoricalMatrix cast to new type."""
-        self.dtype = dtype
+        self.dtype = np.dtype(dtype)
         return self
 
     def _get_col_stds(self, weights: np.ndarray, col_means: np.ndarray) -> np.ndarray:
@@ -613,7 +680,7 @@ class CategoricalMatrix(MatrixBase):
             if isinstance(row, np.ndarray):
                 row = row.ravel()
             return CategoricalMatrix(
-                self.cat[row],
+                _Categorical(self.indices[row], self.categories, self._input_dtype),
                 drop_first=self.drop_first,
                 dtype=self.dtype,
                 column_name=self._colname,
@@ -745,7 +812,7 @@ class CategoricalMatrix(MatrixBase):
         )
 
     def __repr__(self):
-        return str(self.cat)
+        return f"{self.__class__.__name__}\nCategories: {self.categories}"
 
     def get_names(
         self,
@@ -786,19 +853,19 @@ class CategoricalMatrix(MatrixBase):
             raise ValueError(f"Type must be 'column' or 'term', got {type}")
 
         if indices is None:
-            indices = list(range(len(self.cat.categories) - self.drop_first))
+            indices = list(range(len(self.categories) - self.drop_first))
         if name is None and missing_prefix is None:
-            return [None] * (len(self.cat.categories) - self.drop_first)
+            return [None] * (len(self.categories) - self.drop_first)
         elif name is None:
             name = f"{missing_prefix}{indices[0]}-{indices[-1]}"
 
         if type == "column":
             return [
                 self._colname_format.format(name=name, category=cat)
-                for cat in self.cat.categories[self.drop_first :]
+                for cat in self.categories[self.drop_first :]
             ]
         else:
-            return [name] * (len(self.cat.categories) - self.drop_first)
+            return [name] * (len(self.categories) - self.drop_first)
 
     def set_names(self, names: Union[str, list[Optional[str]]], type: str = "column"):
         """Set column names.
@@ -820,7 +887,7 @@ class CategoricalMatrix(MatrixBase):
             if type == "column":
                 # Try finding the column name
                 base_names = []
-                for name, cat in zip(names, self.cat.categories[self.drop_first :]):
+                for name, cat in zip(names, self.categories[self.drop_first :]):
                     partial_name = self._colname_format.format(
                         name="__CAPTURE__", category=cat
                     )

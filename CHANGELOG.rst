@@ -10,10 +10,14 @@ Changelog
 4.0.1 - 2024-06-25
 ------------------
 
+**New feature:**
+
+- Added a new function, :func:`tabmat.from_polars`, to convert a :class:`polars.DataFrame` into a :class:`tabmat.SplitMatrix`.
+
 **Other changes:**
 
 - Removed reference to the ``.A`` attribute and replaced it with ``.toarray()``.
-- Add support between formulaic and pandas 3.0
+- Add support between formulaic and pandas 3.0.
 - Support pypi release for numpy 2.0
 
 4.0.0 - 2024-04-23

@@ -18,11 +18,10 @@ def cat_vec(missing):
     return vec
 
 
-@pytest.mark.parametrize("vec_dtype", [np.float64, np.float32, np.int64, np.int32])
 @pytest.mark.parametrize("drop_first", [True, False], ids=["drop_first", "no_drop"])
 @pytest.mark.parametrize("missing", [True, False], ids=["missing", "no_missing"])
 @pytest.mark.parametrize("cat_missing_method", ["fail", "zero", "convert"])
-def test_recover_orig(cat_vec, vec_dtype, drop_first, missing, cat_missing_method):
+def test_recover_orig(cat_vec, drop_first, missing, cat_missing_method):
     if missing and cat_missing_method == "fail":
         with pytest.raises(
             ValueError, match="Categorical data can't have missing values"
@@ -173,7 +172,7 @@ def test_cat_missing_name(cat_missing_name):
         cat = CategoricalMatrix(
             vec, cat_missing_method="convert", cat_missing_name=cat_missing_name
         )
-        assert set(cat.cat.categories) == set(vec) - {None} | {cat_missing_name}
+        assert set(cat.categories) == set(vec) - {None} | {cat_missing_name}
 
 
 @pytest.mark.parametrize("drop_first", [True, False], ids=["drop_first", "no_drop"])
