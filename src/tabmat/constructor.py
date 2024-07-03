@@ -77,15 +77,15 @@ def from_pandas(
     indices: list[list[int]] = []
     is_cat: list[bool] = []
 
-    dense_columns = []  # column index in original DataFrame
-    dense_indices = []  # index in the new SplitMatrix
-    sparse_columns = []  # sparse columns to join together
-    sparse_indices = []  # index in the new SplitMatrix
+    dense_dfidx = []  # column index in original DataFrame
+    dense_tmidx = []  # index in the new SplitMatrix
+    sparse_dfidx = []  # sparse columns to join together
+    sparse_tmidx = []  # index in the new SplitMatrix
     ignored_cols = []
 
     mxcolidx = 0
 
-    for colname, coldata in df.items():
+    for dfcolidx, (colname, coldata) in enumerate(df.items()):
         if object_as_cat and coldata.dtype == object:
             coldata = coldata.astype("category")
         if isinstance(coldata.dtype, pd.CategoricalDtype):
@@ -133,12 +133,12 @@ def from_pandas(
                     indices.append(np.arange(cat.shape[1]))
         elif pd.api.types.is_numeric_dtype(coldata):
             if (coldata != 0).mean() <= sparse_threshold:
-                sparse_columns.append(colname)
-                sparse_indices.append(mxcolidx)
+                sparse_dfidx.append(dfcolidx)
+                sparse_tmidx.append(mxcolidx)
                 mxcolidx += 1
             else:
-                dense_columns.append(colname)
-                dense_indices.append(mxcolidx)
+                dense_dfidx.append(dfcolidx)
+                dense_tmidx.append(mxcolidx)
                 mxcolidx += 1
 
         else:
@@ -148,13 +148,17 @@ def from_pandas(
         warnings.warn(
             f"Columns {ignored_cols} were ignored. Make sure they have a valid dtype."
         )
-    if dense_columns:
-        matrices.append(_dense_matrix(df, dense_columns, dtype))
-        indices.append(dense_indices)
+    if dense_dfidx:
+        matrices.append(
+            _dense_matrix(df.iloc[:, dense_dfidx], df.columns[dense_dfidx], dtype)
+        )
+        indices.append(dense_tmidx)
         is_cat.append(False)
-    if sparse_columns:
-        matrices.append(_sparse_matrix(df, sparse_columns, dtype))
-        indices.append(sparse_indices)
+    if sparse_dfidx:
+        matrices.append(
+            _sparse_matrix(df.iloc[:, sparse_dfidx], df.columns[sparse_dfidx], dtype)
+        )
+        indices.append(sparse_tmidx)
         is_cat.append(False)
 
     if cat_position == "end":
@@ -313,7 +317,7 @@ def from_polars(
 
 def _dense_matrix(df, dense_columns, dtype):
     return DenseMatrix(
-        df[dense_columns].to_numpy().astype(dtype),
+        df.to_numpy().astype(dtype),
         column_names=dense_columns,
         term_names=dense_columns,
     )
@@ -332,7 +336,7 @@ def _reindex_cat(indices, is_cat, mxcolidx):
 
 def _sparse_matrix(df, sparse_columns, dtype):
     return SparseMatrix(
-        sps.coo_matrix(df[sparse_columns], dtype=dtype),
+        sps.coo_matrix(df, dtype=dtype),
         dtype=dtype,
         column_names=sparse_columns,
         term_names=sparse_columns,
