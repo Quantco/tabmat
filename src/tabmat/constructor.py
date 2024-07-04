@@ -173,20 +173,21 @@ def _from_dataframe(
         )
     if dense_dfidx:
         matrices.append(
-            _dense_matrix(
-                _select_cols(df, dense_dfidx, engine),
-                np.asarray(df.columns)[dense_dfidx],
-                dtype,
+            DenseMatrix(
+                _select_cols(df, dense_dfidx, engine).to_numpy().astype(dtype),
+                column_names=np.asarray(df.columns)[dense_dfidx],
+                term_names=np.asarray(df.columns)[dense_dfidx],
             )
         )
         indices.append(dense_tmidx)
         is_cat.append(False)
     if sparse_dfidx:
         matrices.append(
-            _sparse_matrix(
-                _select_cols(df, sparse_dfidx, engine),
-                np.asarray(df.columns)[sparse_dfidx],
-                dtype,
+            SparseMatrix(
+                sps.coo_matrix(_select_cols(df, sparse_dfidx, engine), dtype=dtype),
+                dtype=dtype,
+                column_names=np.asarray(df.columns)[sparse_dfidx],
+                term_names=np.asarray(df.columns)[sparse_dfidx],
             )
         )
         indices.append(sparse_tmidx)
@@ -334,14 +335,6 @@ def from_polars(
     )
 
 
-def _dense_matrix(df, dense_columns, dtype):
-    return DenseMatrix(
-        df.to_numpy().astype(dtype),
-        column_names=dense_columns,
-        term_names=dense_columns,
-    )
-
-
 def _reindex_cat(indices, is_cat, mxcolidx):
     new_indices = []
     for mat_indices, is_cat_ in zip(indices, is_cat):
@@ -351,15 +344,6 @@ def _reindex_cat(indices, is_cat, mxcolidx):
         else:
             new_indices.append(mat_indices)
     return new_indices
-
-
-def _sparse_matrix(df, sparse_columns, dtype):
-    return SparseMatrix(
-        sps.coo_matrix(df, dtype=dtype),
-        dtype=dtype,
-        column_names=sparse_columns,
-        term_names=sparse_columns,
-    )
 
 
 def from_csc(mat: sps.csc_matrix, threshold=0.1, column_names=None, term_names=None):
