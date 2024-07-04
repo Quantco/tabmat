@@ -298,6 +298,10 @@ def from_polars(
     cat_threshold : int, default 4
         Number of levels of a categorical column under which the column will be stored
         as sparse one-hot-encoded columns instead of CategoricalMatrix
+    object_as_cat : bool, default False
+        If True, DataFrame columns stored as ``pl.String`` objects will be treated as
+        categorical columns. Note that this is different from pandas, where all object
+        columns are converted to categorical columns.
     cat_position : str {'end'|'expand'}, default 'expand'
         Position of the categorical variable in the index. If "last", all the
         categoricals (including the ones that did not satisfy cat_threshold)
