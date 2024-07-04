@@ -18,6 +18,190 @@ from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .split_matrix import SplitMatrix
 
+try:
+    import polars as pl
+except ImportError:
+    pl = None
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
+
+
+def _is_numeric(series, engine: str):
+    if engine == "pandas":
+        return pd.api.types.is_numeric_dtype(series)
+    elif engine == "polars":
+        return series.dtype.is_numeric()
+    else:
+        raise ValueError(f"Unknown engine: {engine}")
+
+
+def _iter_columns(df, engine: str):
+    if engine == "pandas":
+        return df.items()
+    elif engine == "polars":
+        return ((col.name, col) for col in df.iter_columns())
+    else:
+        raise ValueError(f"Unknown engine: {engine}")
+
+
+def _object_as_cat(series, engine: str):
+    if engine == "pandas":
+        if series.dtype == object:
+            return series.astype("category")
+        return series
+    elif engine == "polars":
+        if series.dtype == pl.String:
+            return series.cast(pl.Categorical)
+        return series
+    else:
+        raise ValueError(f"Unknown engine: {engine}")
+
+
+def _is_categorical(series, engine: str):
+    if engine == "pandas":
+        return isinstance(series.dtype, pd.CategoricalDtype)
+    elif engine == "polars":
+        return isinstance(series.dtype, (pl.Categorical, pl.Enum))
+    else:
+        raise ValueError(f"Unknown engine: {engine}")
+
+
+def _select_cols(df, idx, engine):
+    if engine == "pandas":
+        return df.iloc[:, idx]
+    elif engine == "polars":
+        return df.select(pl.nth(idx))
+    else:
+        raise ValueError(f"Unknown engine: {engine}")
+
+
+def _from_dataframe(
+    df,
+    engine: str,
+    dtype: np.dtype = np.float64,
+    sparse_threshold: float = 0.1,
+    cat_threshold: int = 4,
+    object_as_cat: bool = False,
+    cat_position: str = "expand",
+    drop_first: bool = False,
+    categorical_format: str = "{name}[{category}]",
+    cat_missing_method: str = "fail",
+    cat_missing_name: str = "(MISSING)",
+) -> MatrixBase:
+    """
+    See docstring of from_pandas or from_polars for details.
+
+    engine should be either 'pandas' or 'polars'.
+    """
+
+    matrices: list[Union[DenseMatrix, SparseMatrix, CategoricalMatrix]] = []
+    indices: list[list[int]] = []
+    is_cat: list[bool] = []
+
+    dense_dfidx = []  # column index in original DataFrame
+    dense_tmidx = []  # index in the new SplitMatrix
+    sparse_dfidx = []  # column index in the original DataFrame
+    sparse_tmidx = []  # index in the new SplitMatrix
+    ignored_cols = []
+
+    mxcolidx = 0
+
+    for dfcolidx, (colname, coldata) in enumerate(_iter_columns(df, engine)):
+        if object_as_cat:
+            coldata = _object_as_cat(coldata, engine)
+        if _is_categorical(coldata, engine):
+            cat = CategoricalMatrix(
+                coldata,
+                drop_first=drop_first,
+                dtype=dtype,
+                column_name=colname,
+                term_name=colname,
+                column_name_format=categorical_format,
+                cat_missing_method=cat_missing_method,
+                cat_missing_name=cat_missing_name,
+            )
+            if len(cat.categories) < cat_threshold:
+                (
+                    X_dense_F,
+                    X_sparse,
+                    dense_idx,
+                    sparse_idx,
+                ) = _split_sparse_and_dense_parts(
+                    sps.csc_matrix(cat.tocsr(), dtype=dtype),
+                    threshold=sparse_threshold,
+                    column_names=cat.get_names("column"),
+                    term_names=cat.get_names("term"),
+                )
+                matrices.append(X_dense_F)
+                is_cat.append(True)
+                matrices.append(X_sparse)
+                is_cat.append(True)
+                if cat_position == "expand":
+                    indices.append(mxcolidx + dense_idx)
+                    indices.append(mxcolidx + sparse_idx)
+                    mxcolidx += len(dense_idx) + len(sparse_idx)
+                elif cat_position == "end":
+                    indices.append(dense_idx)
+                    indices.append(sparse_idx)
+
+            else:
+                matrices.append(cat)
+                is_cat.append(True)
+                if cat_position == "expand":
+                    indices.append(mxcolidx + np.arange(cat.shape[1]))
+                    mxcolidx += cat.shape[1]
+                elif cat_position == "end":
+                    indices.append(np.arange(cat.shape[1]))
+        elif _is_numeric(coldata, engine):
+            if (coldata != 0).mean() <= sparse_threshold:
+                sparse_dfidx.append(dfcolidx)
+                sparse_tmidx.append(mxcolidx)
+                mxcolidx += 1
+            else:
+                dense_dfidx.append(dfcolidx)
+                dense_tmidx.append(mxcolidx)
+                mxcolidx += 1
+
+        else:
+            ignored_cols.append(colname)
+
+    if len(ignored_cols) > 0:
+        warnings.warn(
+            f"Columns {ignored_cols} were ignored. Make sure they have a valid dtype."
+        )
+    if dense_dfidx:
+        matrices.append(
+            _dense_matrix(
+                _select_cols(df, dense_dfidx, engine),
+                np.asarray(df.columns)[dense_dfidx],
+                dtype,
+            )
+        )
+        indices.append(dense_tmidx)
+        is_cat.append(False)
+    if sparse_dfidx:
+        matrices.append(
+            _sparse_matrix(
+                _select_cols(df, sparse_dfidx, engine),
+                np.asarray(df.columns)[sparse_dfidx],
+                dtype,
+            )
+        )
+        indices.append(sparse_tmidx)
+        is_cat.append(False)
+
+    if cat_position == "end":
+        indices = _reindex_cat(indices, is_cat, mxcolidx)
+
+    if len(matrices) > 1:
+        return SplitMatrix(matrices, indices)
+    elif len(matrices) == 0:
+        raise ValueError("DataFrame contained no valid column")
+    else:
+        return matrices[0]
+
 
 def from_pandas(
     df,
@@ -71,105 +255,19 @@ def from_pandas(
     -------
     SplitMatrix
     """
-    import pandas as pd
-
-    matrices: list[Union[DenseMatrix, SparseMatrix, CategoricalMatrix]] = []
-    indices: list[list[int]] = []
-    is_cat: list[bool] = []
-
-    dense_dfidx = []  # column index in original DataFrame
-    dense_tmidx = []  # index in the new SplitMatrix
-    sparse_dfidx = []  # sparse columns to join together
-    sparse_tmidx = []  # index in the new SplitMatrix
-    ignored_cols = []
-
-    mxcolidx = 0
-
-    for dfcolidx, (colname, coldata) in enumerate(df.items()):
-        if object_as_cat and coldata.dtype == object:
-            coldata = coldata.astype("category")
-        if isinstance(coldata.dtype, pd.CategoricalDtype):
-            cat = CategoricalMatrix(
-                coldata,
-                drop_first=drop_first,
-                dtype=dtype,
-                column_name=colname,
-                term_name=colname,
-                column_name_format=categorical_format,
-                cat_missing_method=cat_missing_method,
-                cat_missing_name=cat_missing_name,
-            )
-            if len(cat.categories) < cat_threshold:
-                (
-                    X_dense_F,
-                    X_sparse,
-                    dense_idx,
-                    sparse_idx,
-                ) = _split_sparse_and_dense_parts(
-                    sps.csc_matrix(cat.tocsr(), dtype=dtype),
-                    threshold=sparse_threshold,
-                    column_names=cat.get_names("column"),
-                    term_names=cat.get_names("term"),
-                )
-                matrices.append(X_dense_F)
-                is_cat.append(True)
-                matrices.append(X_sparse)
-                is_cat.append(True)
-                if cat_position == "expand":
-                    indices.append(mxcolidx + dense_idx)
-                    indices.append(mxcolidx + sparse_idx)
-                    mxcolidx += len(dense_idx) + len(sparse_idx)
-                elif cat_position == "end":
-                    indices.append(dense_idx)
-                    indices.append(sparse_idx)
-
-            else:
-                matrices.append(cat)
-                is_cat.append(True)
-                if cat_position == "expand":
-                    indices.append(mxcolidx + np.arange(cat.shape[1]))
-                    mxcolidx += cat.shape[1]
-                elif cat_position == "end":
-                    indices.append(np.arange(cat.shape[1]))
-        elif pd.api.types.is_numeric_dtype(coldata):
-            if (coldata != 0).mean() <= sparse_threshold:
-                sparse_dfidx.append(dfcolidx)
-                sparse_tmidx.append(mxcolidx)
-                mxcolidx += 1
-            else:
-                dense_dfidx.append(dfcolidx)
-                dense_tmidx.append(mxcolidx)
-                mxcolidx += 1
-
-        else:
-            ignored_cols.append(colname)
-
-    if len(ignored_cols) > 0:
-        warnings.warn(
-            f"Columns {ignored_cols} were ignored. Make sure they have a valid dtype."
-        )
-    if dense_dfidx:
-        matrices.append(
-            _dense_matrix(df.iloc[:, dense_dfidx], df.columns[dense_dfidx], dtype)
-        )
-        indices.append(dense_tmidx)
-        is_cat.append(False)
-    if sparse_dfidx:
-        matrices.append(
-            _sparse_matrix(df.iloc[:, sparse_dfidx], df.columns[sparse_dfidx], dtype)
-        )
-        indices.append(sparse_tmidx)
-        is_cat.append(False)
-
-    if cat_position == "end":
-        indices = _reindex_cat(indices, is_cat, mxcolidx)
-
-    if len(matrices) > 1:
-        return SplitMatrix(matrices, indices)
-    elif len(matrices) == 0:
-        raise ValueError("DataFrame contained no valid column")
-    else:
-        return matrices[0]
+    return _from_dataframe(
+        df,
+        engine="pandas",
+        dtype=dtype,
+        sparse_threshold=sparse_threshold,
+        cat_threshold=cat_threshold,
+        object_as_cat=object_as_cat,
+        cat_position=cat_position,
+        drop_first=drop_first,
+        categorical_format=categorical_format,
+        cat_missing_method=cat_missing_method,
+        cat_missing_name=cat_missing_name,
+    )
 
 
 def from_polars(
@@ -177,6 +275,7 @@ def from_polars(
     dtype: np.dtype = np.float64,
     sparse_threshold: float = 0.1,
     cat_threshold: int = 4,
+    object_as_cat: bool = False,
     cat_position: str = "expand",
     drop_first: bool = False,
     categorical_format: str = "{name}[{category}]",
@@ -220,99 +319,19 @@ def from_polars(
     -------
     SplitMatrix
     """
-    import polars as pl
-
-    matrices: list[Union[DenseMatrix, SparseMatrix, CategoricalMatrix]] = []
-    indices: list[list[int]] = []
-    is_cat: list[bool] = []
-
-    dense_columns = []  # column index in original DataFrame
-    dense_indices = []  # index in the new SplitMatrix
-    sparse_columns = []  # sparse columns to join together
-    sparse_indices = []  # index in the new SplitMatrix
-    ignored_cols = []
-
-    mxcolidx = 0
-
-    for coldata in df.iter_columns():
-        if isinstance(coldata.dtype, (pl.Categorical, pl.Enum)):
-            cat = CategoricalMatrix(
-                coldata,
-                drop_first=drop_first,
-                dtype=dtype,
-                column_name=coldata.name,
-                term_name=coldata.name,
-                column_name_format=categorical_format,
-                cat_missing_method=cat_missing_method,
-                cat_missing_name=cat_missing_name,
-            )
-            if len(cat.categories) < cat_threshold:
-                (
-                    X_dense_F,
-                    X_sparse,
-                    dense_idx,
-                    sparse_idx,
-                ) = _split_sparse_and_dense_parts(
-                    sps.csc_matrix(cat.tocsr(), dtype=dtype),
-                    threshold=sparse_threshold,
-                    column_names=cat.get_names("column"),
-                    term_names=cat.get_names("term"),
-                )
-                matrices.append(X_dense_F)
-                is_cat.append(True)
-                matrices.append(X_sparse)
-                is_cat.append(True)
-                if cat_position == "expand":
-                    indices.append(mxcolidx + dense_idx)
-                    indices.append(mxcolidx + sparse_idx)
-                    mxcolidx += len(dense_idx) + len(sparse_idx)
-                elif cat_position == "end":
-                    indices.append(dense_idx)
-                    indices.append(sparse_idx)
-
-            else:
-                matrices.append(cat)
-                is_cat.append(True)
-                if cat_position == "expand":
-                    indices.append(mxcolidx + np.arange(cat.shape[1]))
-                    mxcolidx += cat.shape[1]
-                elif cat_position == "end":
-                    indices.append(np.arange(cat.shape[1]))
-        elif coldata.dtype.is_numeric():
-            if (coldata != 0).mean() <= sparse_threshold:
-                sparse_columns.append(coldata.name)
-                sparse_indices.append(mxcolidx)
-                mxcolidx += 1
-            else:
-                dense_columns.append(coldata.name)
-                dense_indices.append(mxcolidx)
-                mxcolidx += 1
-
-        else:
-            ignored_cols.append(coldata.name)
-
-    if len(ignored_cols) > 0:
-        warnings.warn(
-            f"Columns {ignored_cols} were ignored. Make sure they have a valid dtype."
-        )
-    if dense_columns:
-        matrices.append(_dense_matrix(df, dense_columns, dtype))
-        indices.append(dense_indices)
-        is_cat.append(False)
-    if sparse_columns:
-        matrices.append(_sparse_matrix(df, sparse_columns, dtype))
-        indices.append(sparse_indices)
-        is_cat.append(False)
-
-    if cat_position == "end":
-        indices = _reindex_cat(indices, is_cat, mxcolidx)
-
-    if len(matrices) > 1:
-        return SplitMatrix(matrices, indices)
-    elif len(matrices) == 0:
-        raise ValueError("DataFrame contained no valid column")
-    else:
-        return matrices[0]
+    return _from_dataframe(
+        df,
+        engine="polars",
+        dtype=dtype,
+        sparse_threshold=sparse_threshold,
+        cat_threshold=cat_threshold,
+        object_as_cat=object_as_cat,
+        cat_position=cat_position,
+        drop_first=drop_first,
+        categorical_format=categorical_format,
+        cat_missing_method=cat_missing_method,
+        cat_missing_name=cat_missing_name,
+    )
 
 
 def _dense_matrix(df, dense_columns, dtype):
