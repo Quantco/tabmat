@@ -25,14 +25,14 @@ jobs:
         uses: mamba-org/setup-micromamba@f8b8a1e23a26f60a44c853292711bacfd3eac822
       - name: Build wheels
         if: github.event_name != 'release'
-        uses: pypa/cibuildwheel@v2.19.1
+        uses: pypa/cibuildwheel@v2.19.2
         env:
           CIBW_ARCHS_LINUX: auto
           CIBW_ARCHS_MACOS: x86_64 arm64
           CIBW_TEST_SKIP: '*-macosx_arm64'
       - name: Build wheels (release)
         if: github.event_name == 'release' && github.event.action == 'published'
-        uses: pypa/cibuildwheel@v2.19.1
+        uses: pypa/cibuildwheel@v2.19.2
         env:
           CIBW_ARCHS_LINUX: x86_64 aarch64
           CIBW_ARCHS_MACOS: x86_64 arm64
