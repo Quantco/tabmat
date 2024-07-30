@@ -126,7 +126,7 @@ available in CSC format. Pseudocode for this sandwich product is
     res = np.zeros(n_cols)
     for i in range(n_cols):
         for j in range(X.indptr[i], X.indptr[i + 1]):
-            val += d[indices[j]]
+            res[i] += d[indices[j]]
     return np.diag(res)
 
 
