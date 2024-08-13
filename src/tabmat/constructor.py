@@ -28,6 +28,15 @@ except ImportError:
     pd = None
 
 
+def _is_boolean(series, engine: str):
+    if engine == "pandas":
+        return pd.api.types.is_bool_dtype(series)
+    elif engine == "polars":
+        return series.dtype.is_(pl.Boolean)
+    else:
+        raise ValueError(f"Unknown engine: {engine}")
+
+
 def _is_numeric(series, engine: str):
     if engine == "pandas":
         return pd.api.types.is_numeric_dtype(series)
@@ -154,6 +163,15 @@ def _from_dataframe(
                     mxcolidx += cat.shape[1]
                 elif cat_position == "end":
                     indices.append(np.arange(cat.shape[1]))
+        elif _is_boolean(coldata, engine):
+            if (coldata != False).mean() <= sparse_threshold:  # noqa E712
+                sparse_dfidx.append(dfcolidx)
+                sparse_tmidx.append(mxcolidx)
+                mxcolidx += 1
+            else:
+                dense_dfidx.append(dfcolidx)
+                dense_tmidx.append(mxcolidx)
+                mxcolidx += 1
         elif _is_numeric(coldata, engine):
             if (coldata != 0).mean() <= sparse_threshold:
                 sparse_dfidx.append(dfcolidx)
