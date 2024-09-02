@@ -157,7 +157,7 @@ def test_matrix_against_expectation(df, formula, expected):
     )
     assert len(model_df.matrices) == len(expected.matrices)
     for res, exp in zip(model_df.matrices, expected.matrices):
-        assert type(res) == type(exp)
+        assert type(res) is type(exp)
         if isinstance(res, (tm.DenseMatrix, tm.SparseMatrix)):
             np.testing.assert_array_equal(res.toarray(), res.toarray())
         elif isinstance(res, tm.CategoricalMatrix):
@@ -267,7 +267,7 @@ def test_matrix_against_expectation_qcl(df, formula, expected):
     )
     assert len(model_df.matrices) == len(expected.matrices)
     for res, exp in zip(model_df.matrices, expected.matrices):
-        assert type(res) == type(exp)
+        assert type(res) is type(exp)
         if isinstance(res, (tm.DenseMatrix, tm.SparseMatrix)):
             np.testing.assert_array_equal(res.toarray(), res.toarray())
         elif isinstance(res, tm.CategoricalMatrix):
