@@ -6,6 +6,73 @@ platforms = ["linux-64", "osx-arm64", "win-64"]
 [tasks]
 postinstall = "pip install --no-use-pep517 --no-build-isolation --no-deps --disable-pip-version-check -e ."
 
+[tasks.install-nightlies]
+cmd = """
+    PRE_WHEELS="https://pypi.anaconda.org/scientific-python-nightly-wheels/simple/"
+    && pip install --pre --no-deps --only-binary :all: --upgrade --timeout=60 -i $PRE_WHEELS numpy
+    && pip install --pre --no-deps --only-binary :all: --upgrade --timeout=60 -i $PRE_WHEELS pandas
+    && pip install --pre --no-deps --only-binary :all: --upgrade --timeout=60 -i $PRE_WHEELS scipy
+    && pip install --pre --no-deps --only-binary :all: --upgrade --timeout=60 -i https://pypi.fury.io/arrow-nightlies/ pyarrow
+    && pip install --no-deps git+https://github.com/matthewwardrop/formulaic
+"""
+
+[feature.test.tasks]
+test = "pytest tests --doctest-modules src"
+
+[feature.docs.tasks]
+make-docs = "cd docs && make html"
+serve-docs = { cmd = "python -m http.server --directory docs/_build/html", depends_on = ["make-docs"] }
+readthedocs = { cmd = "rm -rf $READTHEDOCS_OUTPUT/html && cp -r docs/_build/html $READTHEDOCS_OUTPUT/html", depends_on = ["make-docs"] }
+
+[feature.benchmark.tasks.benchmark-matrices-generate]
+cmd = "python src/tabmat/benchmark/generate_matrices.py"
+outputs = [
+    "benchmark/data/dense_cat_data.pkl",
+    "benchmark/data/one_cat_data.pkl",
+    "benchmark/data/one_cat_data.pkl,",
+    "benchmark/data/dense_data.pkl",
+    "benchmark/data/sparse_data.pkl",
+    "benchmark/data/two_cat_data.pkl",
+    "benchmark/data/dense_smallcat_data.pkl",
+    "benchmark/data/dense_smallcat_data.pkl",
+]
+[feature.benchmark.tasks.benchmark-run]
+cmd = "python src/tabmat/benchmark/main.py"
+depends_on = ["benchmark-matrices-generate"]
+inputs = [
+    "benchmark/data/dense_cat_data.pkl",
+    "benchmark/data/one_cat_data.pkl",
+    "benchmark/data/one_cat_data.pkl,",
+    "benchmark/data/dense_data.pkl",
+    "benchmark/data/sparse_data.pkl",
+    "benchmark/data/two_cat_data.pkl",
+    "benchmark/data/dense_smallcat_data.pkl",
+    "benchmark/data/dense_smallcat_data.pkl",
+]
+outputs = [
+    "benchmark/data/dense_cat_bench.csv",
+    "benchmark/data/one_cat_bench.csv",
+    "benchmark/data/one_cat_bench.pcsv",
+    "benchmark/data/dense_bench.csv",
+    "benchmark/data/sparse_bench.csv",
+    "benchmark/data/two_cat_bench.csv",
+    "benchmark/data/dense_smallcat_bench.csv",
+    "benchmark/data/dense_smallcat_bench.csv",
+]
+[feature.benchmark.tasks.benchmark-analyze]
+cmd = "python src/tabmat/benchmark/visualize_benchmarks.py"
+depends_on = ["benchmark-run"]
+inputs = [
+    "benchmark/data/dense_cat_bench.csv",
+    "benchmark/data/one_cat_bench.csv",
+    "benchmark/data/one_cat_bench.pcsv",
+    "benchmark/data/dense_bench.csv",
+    "benchmark/data/sparse_bench.csv",
+    "benchmark/data/two_cat_bench.csv",
+    "benchmark/data/dense_smallcat_bench.csv",
+    "benchmark/data/dense_smallcat_bench.csv",
+]
+
 [feature.lint.tasks]
 pre-commit-install = "pre-commit install"
 pre-commit-run = "pre-commit run -a"
@@ -31,11 +98,11 @@ polars = "*"  # TODO: pin version
 scipy = "*"  # TODO: pin version
 
 [feature.dev.dependencies]
-click = "*"
 ipython = "*"
 ipykernel = "*"
 
 [feature.test.dependencies]
+click = "*"
 pytest = "*"
 pytest-xdist = "*"
 pyarrow = "*"  # exclusively for polars tests
@@ -49,6 +116,7 @@ cython-lint = "*"
 [feature.docs.dependencies]
 jupyterlab = "*"
 jupytext = "*"
+make = "*"
 matplotlib-base = "*"
 numpydoc = "*"
 seaborn-base = "*"
@@ -56,6 +124,9 @@ sphinx = "*"
 sphinx-rtd-theme = "*"
 sphinxcontrib-apidoc = "*"
 
+[feature.benchmark.dependencies]
+click = "*"
+seaborn-base = "*"
 [feature.benchmark.target.win-64.dependencies]
 blas = { build = "*mkl" }
 [feature.benchmark.target.linux-64.dependencies]

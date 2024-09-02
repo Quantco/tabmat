@@ -1,5 +1,6 @@
 # Project-specific
 benchmark/*.csv
+benchmark/data/*.csv
 benchmark/data/*.pkl
 
 # Files created by templating
