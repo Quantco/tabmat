@@ -85,6 +85,8 @@ make = "*"
 mako = "*"
 setuptools-scm = ">=8.1"
 xsimd = "<11|>12.1"
+[target.unix.dependencies]
+jemalloc-local = "*"
 
 [host-dependencies]
 python = ">=3.9"
