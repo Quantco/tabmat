@@ -2115,7 +2115,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/cython-3.0.11-py39hf88036b_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/exceptiongroup-1.2.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/execnet-2.1.1-pyhd8ed1ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/formulaic-0.6.6-pyhd8ed1ab_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/formulaic-0.6.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/gcc-12.4.0-h236703b_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/gcc_impl_linux-64-12.4.0-hb2e57f8_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/gcc_linux-64-12.4.0-h6b7512a_1.conda
@@ -2192,7 +2192,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/openssl-3.3.1-hb9d3cd8_3.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/orc-2.0.2-h669347b_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/packaging-24.1-pyhd8ed1ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/pandas-1.2.5-py39hde0f152_0.tar.bz2
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/pandas-1.4.4-py39h1832856_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/pip-24.2-pyh8b19718_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pluggy-1.5.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/polars-1.6.0-py39hd0e0a0c_0.conda
@@ -2209,7 +2209,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/readline-8.2-h8228510_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/s2n-1.5.1-h3400bea_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/scipy-1.7.3-py39hddc5342_1.tar.bz2
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/setuptools-59.8.0-py39hf3d152e_1.tar.bz2
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/setuptools-62.6.0-py39hf3d152e_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools-scm-8.1.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/six-1.16.0-pyh6c4a22f_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/linux-64/snappy-1.2.1-ha2e4443_0.conda
@@ -2267,7 +2267,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/cython-3.0.11-py39hfa9831e_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/exceptiongroup-1.2.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/execnet-2.1.1-pyhd8ed1ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/formulaic-0.6.6-pyhd8ed1ab_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/formulaic-0.6.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/gflags-2.2.2-hc88da5d_1004.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/glog-0.7.1-heb240a5_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/graphlib-backport-1.0.3-pyhd8ed1ab_0.tar.bz2
@@ -2331,7 +2331,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/openssl-3.3.1-h8359307_3.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/orc-2.0.2-h75dedd0_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/packaging-24.1-pyhd8ed1ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/pandas-1.2.5-py39h7f752ed_0.tar.bz2
+      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/pandas-1.4.4-py39he7125aa_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/pip-24.2-pyh8b19718_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pluggy-1.5.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/polars-1.6.0-py39h3e57509_0.conda
@@ -2347,7 +2347,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/re2-2023.09.01-h4cba328_2.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/readline-8.2-h92ec313_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/scipy-1.7.3-py39h18313fe_1.tar.bz2
-      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/setuptools-59.8.0-py39h2804cbe_1.tar.bz2
+      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/setuptools-62.6.0-py39h2804cbe_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools-scm-8.1.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/sigtool-0.1.3-h44b9a77_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/six-1.16.0-pyh6c4a22f_0.tar.bz2
@@ -2390,7 +2390,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/win-64/cython-3.0.11-py39ha51f57c_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/exceptiongroup-1.2.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/execnet-2.1.1-pyhd8ed1ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/formulaic-0.6.6-pyhd8ed1ab_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/formulaic-0.6.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/graphlib-backport-1.0.3-pyhd8ed1ab_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/importlib-metadata-8.4.0-pyha770c72_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/iniconfig-2.0.0-pyhd8ed1ab_0.conda
@@ -2443,7 +2443,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/win-64/openssl-3.3.1-h2466b09_3.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/orc-2.0.2-h784c2ca_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/packaging-24.1-pyhd8ed1ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/win-64/pandas-1.2.5-py39h2e25243_0.tar.bz2
+      - conda: https://conda.anaconda.org/conda-forge/win-64/pandas-1.4.4-py39h80a8885_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/pip-24.2-pyh8b19718_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pluggy-1.5.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/polars-1.6.0-py39h41c7a61_0.conda
@@ -2459,7 +2459,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/pytz-2024.1-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/re2-2023.09.01-hd3b24a8_2.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/scipy-1.7.3-py39hfbf2dce_1.tar.bz2
-      - conda: https://conda.anaconda.org/conda-forge/win-64/setuptools-59.8.0-py39hcbf5309_1.tar.bz2
+      - conda: https://conda.anaconda.org/conda-forge/win-64/setuptools-62.6.0-py39hcbf5309_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools-scm-8.1.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/six-1.16.0-pyh6c4a22f_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/win-64/snappy-1.2.1-h23299a8_0.conda
@@ -5528,6 +5528,7 @@ packages:
   - vc >=14.2,<15
   - vc14_runtime >=14.29.30139
   license: MIT
+  license_family: MIT
   size: 19697
   timestamp: 1725268293988
 - kind: conda
@@ -5546,6 +5547,7 @@ packages:
   - libbrotlienc 1.1.0 hb9d3cd8_2
   - libgcc >=13
   license: MIT
+  license_family: MIT
   size: 19264
   timestamp: 1725267697072
 - kind: conda
@@ -5563,6 +5565,7 @@ packages:
   - libbrotlidec 1.1.0 hd74edd7_2
   - libbrotlienc 1.1.0 hd74edd7_2
   license: MIT
+  license_family: MIT
   size: 19588
   timestamp: 1725268044856
 - kind: conda
@@ -5581,6 +5584,7 @@ packages:
   - vc >=14.2,<15
   - vc14_runtime >=14.29.30139
   license: MIT
+  license_family: MIT
   size: 20837
   timestamp: 1725268270219
 - kind: conda
@@ -5598,6 +5602,7 @@ packages:
   - libbrotlienc 1.1.0 hb9d3cd8_2
   - libgcc >=13
   license: MIT
+  license_family: MIT
   size: 18881
   timestamp: 1725267688731
 - kind: conda
@@ -5614,6 +5619,7 @@ packages:
   - libbrotlidec 1.1.0 hd74edd7_2
   - libbrotlienc 1.1.0 hd74edd7_2
   license: MIT
+  license_family: MIT
   size: 16772
   timestamp: 1725268026061
 - kind: conda
@@ -5634,6 +5640,7 @@ packages:
   constrains:
   - libbrotlicommon 1.1.0 h2466b09_2
   license: MIT
+  license_family: MIT
   size: 321874
   timestamp: 1725268491976
 - kind: conda
@@ -5654,6 +5661,7 @@ packages:
   constrains:
   - libbrotlicommon 1.1.0 hb9d3cd8_2
   license: MIT
+  license_family: MIT
   size: 349867
   timestamp: 1725267732089
 - kind: conda
@@ -5674,6 +5682,7 @@ packages:
   constrains:
   - libbrotlicommon 1.1.0 hd74edd7_2
   license: MIT
+  license_family: MIT
   size: 339360
   timestamp: 1725268143995
 - kind: conda
@@ -6906,13 +6915,13 @@ packages:
   timestamp: 1720359411794
 - kind: conda
   name: formulaic
-  version: 0.6.6
+  version: 0.6.0
   build: pyhd8ed1ab_0
   subdir: noarch
   noarch: python
-  url: https://conda.anaconda.org/conda-forge/noarch/formulaic-0.6.6-pyhd8ed1ab_0.conda
-  sha256: d84f843134acbe4649fc5afcf9e79099a02e856b3ceac363cf24103e2e7fd457
-  md5: ccd375df3e828fd581f45a25a1ad1d81
+  url: https://conda.anaconda.org/conda-forge/noarch/formulaic-0.6.0-pyhd8ed1ab_0.conda
+  sha256: 6f80338eec6d38e0c3c6884161f7ab61761e8c493c11f3aede9aeb2cfc269d54
+  md5: 8fba3ce60f70fb8aa7c452ff8cd5e3b1
   depends:
   - astor >=0.8
   - cached_property
@@ -6925,12 +6934,12 @@ packages:
   - typing-extensions >=4.2
   - wrapt >=1.0
   constrains:
-  - pyarrow >=1
   - sympy >=1.3,!=1.10
+  - pyarrow >=1
   license: MIT
   license_family: MIT
-  size: 71387
-  timestamp: 1696462245091
+  size: 65992
+  timestamp: 1682621249848
 - kind: conda
   name: formulaic
   version: 1.0.2
@@ -8877,6 +8886,7 @@ packages:
   - vc >=14.2,<15
   - vc14_runtime >=14.29.30139
   license: MIT
+  license_family: MIT
   size: 70526
   timestamp: 1725268159739
 - kind: conda
@@ -8892,6 +8902,7 @@ packages:
   - __glibc >=2.17,<3.0.a0
   - libgcc >=13
   license: MIT
+  license_family: MIT
   size: 68851
   timestamp: 1725267660471
 - kind: conda
@@ -8906,6 +8917,7 @@ packages:
   depends:
   - __osx >=11.0
   license: MIT
+  license_family: MIT
   size: 68426
   timestamp: 1725267943211
 - kind: conda
@@ -8923,6 +8935,7 @@ packages:
   - vc >=14.2,<15
   - vc14_runtime >=14.29.30139
   license: MIT
+  license_family: MIT
   size: 32685
   timestamp: 1725268208844
 - kind: conda
@@ -8939,6 +8952,7 @@ packages:
   - libbrotlicommon 1.1.0 hb9d3cd8_2
   - libgcc >=13
   license: MIT
+  license_family: MIT
   size: 32696
   timestamp: 1725267669305
 - kind: conda
@@ -8954,6 +8968,7 @@ packages:
   - __osx >=11.0
   - libbrotlicommon 1.1.0 hd74edd7_2
   license: MIT
+  license_family: MIT
   size: 28378
   timestamp: 1725267980316
 - kind: conda
@@ -8971,6 +8986,7 @@ packages:
   - vc >=14.2,<15
   - vc14_runtime >=14.29.30139
   license: MIT
+  license_family: MIT
   size: 245929
   timestamp: 1725268238259
 - kind: conda
@@ -8987,6 +9003,7 @@ packages:
   - libbrotlicommon 1.1.0 hb9d3cd8_2
   - libgcc >=13
   license: MIT
+  license_family: MIT
   size: 281750
   timestamp: 1725267679782
 - kind: conda
@@ -9002,6 +9019,7 @@ packages:
   - __osx >=11.0
   - libbrotlicommon 1.1.0 hd74edd7_2
   license: MIT
+  license_family: MIT
   size: 279644
   timestamp: 1725268003553
 - kind: conda
@@ -12900,66 +12918,64 @@ packages:
   timestamp: 1718189540074
 - kind: conda
   name: pandas
-  version: 1.2.5
-  build: py39h2e25243_0
-  subdir: win-64
-  url: https://conda.anaconda.org/conda-forge/win-64/pandas-1.2.5-py39h2e25243_0.tar.bz2
-  sha256: 8f1176d78b32362b3da9409b630a3fb90bbb9ea08062321aa5ac5660c34fd83d
-  md5: c4240e4a4019e57927e4df01cf7c6eab
-  depends:
-  - numpy >=1.19.5,<2.0a0
-  - python >=3.9,<3.10.0a0
-  - python-dateutil >=2.7.3
-  - python_abi 3.9.* *_cp39
-  - pytz >=2017.2
-  - vc >=14.1,<15.0a0
-  - vs2015_runtime >=14.16.27012
-  - setuptools <60.0.0
-  license: BSD-3-Clause
-  license_family: BSD
-  size: 10696174
-  timestamp: 1624391985589
-- kind: conda
-  name: pandas
-  version: 1.2.5
-  build: py39h7f752ed_0
-  subdir: osx-arm64
-  url: https://conda.anaconda.org/conda-forge/osx-arm64/pandas-1.2.5-py39h7f752ed_0.tar.bz2
-  sha256: b806f5eb4596b629c77a0c793bfd5b99f6bc12e3fa472f71909b89b9c379bba9
-  md5: 4977200d2cd94132bb65aedca5f73d71
-  depends:
-  - libcxx >=11.1.0
-  - numpy >=1.19.5,<2.0a0
-  - python >=3.9,<3.10.0a0
-  - python-dateutil >=2.7.3
-  - python_abi 3.9.* *_cp39
-  - pytz >=2017.2
-  - setuptools <60.0.0
-  license: BSD-3-Clause
-  license_family: BSD
-  size: 11135664
-  timestamp: 1624391707785
-- kind: conda
-  name: pandas
-  version: 1.2.5
-  build: py39hde0f152_0
+  version: 1.4.4
+  build: py39h1832856_0
   subdir: linux-64
-  url: https://conda.anaconda.org/conda-forge/linux-64/pandas-1.2.5-py39hde0f152_0.tar.bz2
-  sha256: 2998ce958a78129cc574ce2c19393dabe06b5b3582b8806f066d00a81c20dd9c
-  md5: 6a0b9c53c7840b9ac468e46102157090
+  url: https://conda.anaconda.org/conda-forge/linux-64/pandas-1.4.4-py39h1832856_0.tar.bz2
+  sha256: 5573b21c0828fba2347f24968ece062a0ddae238c77615dc6434073a4b3e39c4
+  md5: 6ef85649798519bd47dfc24e399b8dcd
   depends:
-  - libgcc-ng >=9.3.0
-  - libstdcxx-ng >=9.3.0
+  - libgcc-ng >=12
+  - libstdcxx-ng >=12
   - numpy >=1.19.5,<2.0a0
   - python >=3.9,<3.10.0a0
-  - python-dateutil >=2.7.3
+  - python-dateutil >=2.8.1
   - python_abi 3.9.* *_cp39
-  - pytz >=2017.2
-  - setuptools <60.0.0
+  - pytz >=2020.1
   license: BSD-3-Clause
   license_family: BSD
-  size: 12649327
-  timestamp: 1624391504087
+  size: 13128730
+  timestamp: 1661961399483
+- kind: conda
+  name: pandas
+  version: 1.4.4
+  build: py39h80a8885_0
+  subdir: win-64
+  url: https://conda.anaconda.org/conda-forge/win-64/pandas-1.4.4-py39h80a8885_0.tar.bz2
+  sha256: 6cb37f1077cea7834e683880d66da66a4c4297411f50b490b5f8ce54e2136cd1
+  md5: 016fe75e09ed049bd8dc7a526ea26793
+  depends:
+  - numpy >=1.19.5,<2.0a0
+  - python >=3.9,<3.10.0a0
+  - python-dateutil >=2.8.1
+  - python_abi 3.9.* *_cp39
+  - pytz >=2020.1
+  - vc >=14.2,<15
+  - vs2015_runtime >=14.29.30037
+  license: BSD-3-Clause
+  license_family: BSD
+  size: 11744226
+  timestamp: 1661961796437
+- kind: conda
+  name: pandas
+  version: 1.4.4
+  build: py39he7125aa_0
+  subdir: osx-arm64
+  url: https://conda.anaconda.org/conda-forge/osx-arm64/pandas-1.4.4-py39he7125aa_0.tar.bz2
+  sha256: 171d65a7f8e27d6932f5d8ea73fe6802a60be48472446828edd55dba928f0910
+  md5: a93af959a281c15451ccf223f90501f3
+  depends:
+  - libcxx >=14.0.4
+  - numpy >=1.19.5,<2.0a0
+  - python >=3.9,<3.10.0a0
+  - python >=3.9,<3.10.0a0 *_cpython
+  - python-dateutil >=2.8.1
+  - python_abi 3.9.* *_cp39
+  - pytz >=2020.1
+  license: BSD-3-Clause
+  license_family: BSD
+  size: 12146050
+  timestamp: 1661961677226
 - kind: conda
   name: pandas
   version: 2.2.2
@@ -16275,53 +16291,50 @@ packages:
   timestamp: 1712585816346
 - kind: conda
   name: setuptools
-  version: 59.8.0
-  build: py39h2804cbe_1
-  build_number: 1
+  version: 62.6.0
+  build: py39h2804cbe_0
   subdir: osx-arm64
-  url: https://conda.anaconda.org/conda-forge/osx-arm64/setuptools-59.8.0-py39h2804cbe_1.tar.bz2
-  sha256: 7c02e55039e0514184cb4debd2fadedf5223bf0ac9a5eae2ff49bf6e1e314285
-  md5: 27c3effc9a6ae935378b603157461239
+  url: https://conda.anaconda.org/conda-forge/osx-arm64/setuptools-62.6.0-py39h2804cbe_0.tar.bz2
+  sha256: fe5d1d016e443c0de43c255949e49e8d69abeefca30a41ba276fc219b845f6a9
+  md5: 581dc50a6e8fdd609a5da7f3850b3840
   depends:
   - python >=3.9,<3.10.0a0
   - python >=3.9,<3.10.0a0 *_cpython
   - python_abi 3.9.* *_cp39
   license: MIT
   license_family: MIT
-  size: 1042646
-  timestamp: 1648692212113
+  size: 1410823
+  timestamp: 1655717186538
 - kind: conda
   name: setuptools
-  version: 59.8.0
-  build: py39hcbf5309_1
-  build_number: 1
+  version: 62.6.0
+  build: py39hcbf5309_0
   subdir: win-64
-  url: https://conda.anaconda.org/conda-forge/win-64/setuptools-59.8.0-py39hcbf5309_1.tar.bz2
-  sha256: b2b313ae0aefc404cf3288562b2bf0eb90548865de3a3d4253adfc056bbf61e9
-  md5: 47c36361b12024db7cbd86e28435bc3c
+  url: https://conda.anaconda.org/conda-forge/win-64/setuptools-62.6.0-py39hcbf5309_0.tar.bz2
+  sha256: 09130899b668ebf317acfae51185349e069db8520f56e41439515a6d8ea478ad
+  md5: ca0960ebfec18f2b8e7a345a50775cf4
   depends:
   - python >=3.9,<3.10.0a0
   - python_abi 3.9.* *_cp39
   license: MIT
   license_family: MIT
-  size: 1046653
-  timestamp: 1648692663198
+  size: 1406808
+  timestamp: 1655717332239
 - kind: conda
   name: setuptools
-  version: 59.8.0
-  build: py39hf3d152e_1
-  build_number: 1
+  version: 62.6.0
+  build: py39hf3d152e_0
   subdir: linux-64
-  url: https://conda.anaconda.org/conda-forge/linux-64/setuptools-59.8.0-py39hf3d152e_1.tar.bz2
-  sha256: ec8146799fabb0edfd0b2622fdd05413c9a2fcd13dfa846958214f9909ab3435
-  md5: 4252d0c211566a9f65149ba7f6e87aa4
+  url: https://conda.anaconda.org/conda-forge/linux-64/setuptools-62.6.0-py39hf3d152e_0.tar.bz2
+  sha256: d7091381fd4b40615b07e4f18910f6d121e7e045cc44d41979d43c42ea821782
+  md5: ddfb37b6e91b8c41be3976d19af47ade
   depends:
   - python >=3.9,<3.10.0a0
   - python_abi 3.9.* *_cp39
   license: MIT
   license_family: MIT
-  size: 1047880
-  timestamp: 1648692025516
+  size: 1411592
+  timestamp: 1655716997718
 - kind: conda
   name: setuptools
   version: 72.2.0

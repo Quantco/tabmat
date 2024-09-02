@@ -83,6 +83,7 @@ cxx-compiler = "*"
 cython = "*"
 make = "*"
 mako = "*"
+setuptools = ">=62.0"
 setuptools-scm = ">=8.1"
 xsimd = "<11|>12.1"
 [target.unix.dependencies]
@@ -93,11 +94,11 @@ python = ">=3.9"
 pip = "*"
 
 [dependencies]
-formulaic = ">=0.6"
-numpy = "*"  # TODO: pin version
-pandas = "*"  # TODO: pin version
+formulaic = ">=0.6.0"
+numpy = ">=1.22.4"  # TODO: pin version
+pandas = ">=1.4.4"  # TODO: pin version
 polars = "*"  # TODO: pin version
-scipy = "*"  # TODO: pin version
+scipy = ">=1.7.3"  # TODO: pin version
 
 [feature.dev.dependencies]
 ipython = "*"
@@ -144,10 +145,12 @@ python = "3.11.*"
 python = "3.12.*"
 
 [feature.oldies.dependencies]
-python = "3.9.*"
-pandas = "1.2.*"
-scipy = "1.7.*"
-formulaic = "0.6.*"
+setuptools = "62.*"
+python = "3.9.19"
+numpy = "1.22.4"
+pandas = "1.4.4"
+scipy = "1.7.3"
+formulaic = "0.6.0"
 
 [environments]
 default = ["dev", "test"]
