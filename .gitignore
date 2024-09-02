@@ -147,3 +147,6 @@ pkgs/*
 *.c
 *.cpp
 !*tmpl.cpp
+# pixi environments
+.pixi
+*.egg-info
