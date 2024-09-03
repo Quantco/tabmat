@@ -22,8 +22,17 @@ sns.set(style="whitegrid", font_scale=1.5)
 # %config InlineBackend.figure_format='retina'
 
 # %%
-data_dir = "../../../benchmark/data/"
-docs_dir = "../../../docs/_static/"
+import os
+import subprocess
+
+root_path_b, _ = subprocess.Popen(
+    "git rev-parse --show-toplevel", shell=True, stdout=subprocess.PIPE
+).communicate()
+root_path = root_path_b.decode("utf-8").strip()
+
+# %%
+data_dir = os.path.join(root_path, "benchmark/data/")
+docs_dir = os.path.join(root_path, "docs/_static/")
 
 
 def data_path(name):  # noqa

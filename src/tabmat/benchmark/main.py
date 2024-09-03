@@ -42,7 +42,7 @@ def _transpose_matvec(
 
 def _matvec(mat, vec: np.ndarray) -> np.ndarray:
     if isinstance(mat, (tm.MatrixBase, tm.StandardizedMatrix)):
-        return mat.matvec(vec)
+        return mat.matvec(vec)  # type: ignore
     else:
         return mat.dot(vec)
 

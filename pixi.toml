@@ -24,8 +24,9 @@ make-docs = "cd docs && make html"
 serve-docs = { cmd = "python -m http.server --directory docs/_build/html", depends_on = ["make-docs"] }
 readthedocs = { cmd = "rm -rf $READTHEDOCS_OUTPUT/html && cp -r docs/_build/html $READTHEDOCS_OUTPUT/html", depends_on = ["make-docs"] }
 
-[feature.benchmark.tasks.benchmark-matrices-generate]
+[feature.benchmark.tasks.benchmark-generate-matrices]
 cmd = "python src/tabmat/benchmark/generate_matrices.py"
+inputs = ["src/tabmat/benchmark/generate_matrices.py"]
 outputs = [
     "benchmark/data/dense_cat_data.pkl",
     "benchmark/data/one_cat_data.pkl",
@@ -37,9 +38,10 @@ outputs = [
     "benchmark/data/dense_smallcat_data.pkl",
 ]
 [feature.benchmark.tasks.benchmark-run]
-cmd = "python src/tabmat/benchmark/main.py"
-depends_on = ["benchmark-matrices-generate"]
+cmd = "python src/tabmat/benchmark/main.py --include_baseline --bench_memory"
+depends_on = ["benchmark-generate-matrices"]
 inputs = [
+    "src/tabmat/benchmark/main.py",
     "benchmark/data/dense_cat_data.pkl",
     "benchmark/data/one_cat_data.pkl",
     "benchmark/data/one_cat_data.pkl,",
@@ -59,10 +61,11 @@ outputs = [
     "benchmark/data/dense_smallcat_bench.csv",
     "benchmark/data/dense_smallcat_bench.csv",
 ]
-[feature.benchmark.tasks.benchmark-analyze]
+[feature.benchmark.tasks.benchmark-visualize]
 cmd = "python src/tabmat/benchmark/visualize_benchmarks.py"
 depends_on = ["benchmark-run"]
 inputs = [
+    "src/tabmat/benchmark/visualize_benchmarks.py",
     "benchmark/data/dense_cat_bench.csv",
     "benchmark/data/one_cat_bench.csv",
     "benchmark/data/one_cat_bench.pcsv",
