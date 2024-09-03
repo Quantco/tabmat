@@ -95,7 +95,7 @@ pip = "*"
 
 [dependencies]
 formulaic = ">=0.6.4"
-numpy = ">=1.22.4"  # TODO: pin version
+numpy = ">=1.24.0"  # TODO: pin version
 pandas = ">=1.4.4"  # TODO: pin version
 polars = "*"  # TODO: pin version
 scipy = ">=1.7.3"  # TODO: pin version
@@ -147,7 +147,7 @@ python = "3.12.*"
 [feature.oldies.dependencies]
 setuptools = "62.*"
 python = "3.9.19"
-numpy = "1.22.4"
+numpy = "1.24.0"
 pandas = "1.4.4"
 scipy = "1.7.3"
 formulaic = "0.6.4"
