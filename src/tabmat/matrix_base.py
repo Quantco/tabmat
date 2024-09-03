@@ -12,7 +12,9 @@ class MatrixBase(ABC):
     dtype: np.dtype
 
     @abstractmethod
-    def matvec(self, other, cols: np.ndarray = None, out: np.ndarray = None):
+    def matvec(
+        self, other, cols: Optional[np.ndarray] = None, out: Optional[np.ndarray] = None
+    ):
         """
         Perform: self[:, cols] @ other[cols], so result[i] = sum_j self[i, j] other[j].
 
@@ -32,9 +34,9 @@ class MatrixBase(ABC):
     def transpose_matvec(
         self,
         vec: Union[np.ndarray, list],
-        rows: np.ndarray = None,
-        cols: np.ndarray = None,
-        out: np.ndarray = None,
+        rows: Optional[np.ndarray] = None,
+        cols: Optional[np.ndarray] = None,
+        out: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """
         Perform: self[rows, cols].T @ vec[rows], so result[i] = sum_j self[j, i] vec[j].
@@ -61,7 +63,10 @@ class MatrixBase(ABC):
 
     @abstractmethod
     def sandwich(
-        self, d: np.ndarray, rows: np.ndarray = None, cols: np.ndarray = None
+        self,
+        d: np.ndarray,
+        rows: Optional[np.ndarray] = None,
+        cols: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """
         Perform a sandwich product: (self[rows, cols].T * d[rows]) @ self[rows, cols].

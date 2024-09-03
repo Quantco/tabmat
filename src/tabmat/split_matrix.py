@@ -28,7 +28,7 @@ def as_tabmat(a: Union[MatrixBase, StandardizedMatrix, np.ndarray, sps.spmatrix]
     if isinstance(a, (MatrixBase, StandardizedMatrix)):
         return a
     elif sps.issparse(a):
-        return SparseMatrix(a.tocsc(copy=False))
+        return SparseMatrix(a.tocsc(copy=False))  # type: ignore
     elif isinstance(a, np.ndarray):
         return DenseMatrix(a)
     else:
@@ -59,7 +59,7 @@ def hstack(tup: Sequence[Union[MatrixBase, np.ndarray, sps.spmatrix]]) -> Matrix
         return SplitMatrix(matrices)
 
 
-def _prepare_out_array(out: Optional[np.ndarray], out_shape, out_dtype):
+def _prepare_out_array(out: Optional[np.ndarray], out_shape, out_dtype) -> np.ndarray:
     if out is None:
         out = np.zeros(out_shape, out_dtype)
     else:
@@ -266,7 +266,7 @@ class SplitMatrix(MatrixBase):
 
     def _split_col_subsets(
         self, cols: Optional[np.ndarray]
-    ) -> tuple[list[np.ndarray], list[Optional[np.ndarray]], int]:
+    ) -> tuple[list[np.ndarray], Union[list[np.ndarray], list[None]], int]:
         """
         Return tuple of things helpful for applying column restrictions to sub-matrices.
 
@@ -322,8 +322,8 @@ class SplitMatrix(MatrixBase):
     def sandwich(
         self,
         d: Union[np.ndarray, list],
-        rows: np.ndarray = None,
-        cols: np.ndarray = None,
+        rows: Optional[np.ndarray] = None,
+        cols: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
         if np.shape(d) != (self.shape[0],):
@@ -370,7 +370,10 @@ class SplitMatrix(MatrixBase):
         return col_stds
 
     def matvec(
-        self, v: np.ndarray, cols: np.ndarray = None, out: np.ndarray = None
+        self,
+        v: np.ndarray,
+        cols: Optional[np.ndarray] = None,
+        out: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """Perform self[:, cols] @ other[cols]."""
         assert not isinstance(v, sps.spmatrix)
@@ -393,6 +396,7 @@ class SplitMatrix(MatrixBase):
         # as the target for storing the final output. This reduces the number
         # of output arrays allocated from 2 to 1.
         is_matrix_dense = [isinstance(m, DenseMatrix) for m in self.matrices]
+        dense_matrix_idx: Union[int, np.intp]
         if np.any(is_matrix_dense):
             dense_matrix_idx = np.argmax(is_matrix_dense)
             sub_cols = subset_cols[dense_matrix_idx]
@@ -411,14 +415,14 @@ class SplitMatrix(MatrixBase):
                 continue
             in_vec = v[idx, ...]
             mat.matvec(in_vec, sub_cols, out=out)
-        return out
+        return out  # type: ignore
 
     def transpose_matvec(
         self,
         v: Union[np.ndarray, list],
-        rows: np.ndarray = None,
-        cols: np.ndarray = None,
-        out: np.ndarray = None,
+        rows: Optional[np.ndarray] = None,
+        cols: Optional[np.ndarray] = None,
+        out: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """
         Perform: self[rows, cols].T @ vec[rows].

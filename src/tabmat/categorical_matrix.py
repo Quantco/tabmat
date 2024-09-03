@@ -252,7 +252,9 @@ def _extract_codes_and_categories(cat_vec):
 
 
 def _row_col_indexing(
-    arr: np.ndarray, rows: Optional[np.ndarray], cols: Optional[np.ndarray]
+    arr: Union[np.ndarray, sps.spmatrix],
+    rows: Optional[np.ndarray],
+    cols: Optional[np.ndarray],
 ) -> np.ndarray:
     if isinstance(rows, slice) and rows == slice(None, None, None):
         rows = None
@@ -411,7 +413,7 @@ class CategoricalMatrix(MatrixBase):
     def _matvec_setup(
         self,
         other: Union[list, np.ndarray],
-        cols: np.ndarray = None,
+        cols: Optional[np.ndarray] = None,
     ) -> tuple[np.ndarray, Optional[np.ndarray]]:
         other = np.asarray(other)
         if other.ndim > 1:
@@ -434,8 +436,8 @@ class CategoricalMatrix(MatrixBase):
     def matvec(
         self,
         other: Union[list, np.ndarray],
-        cols: np.ndarray = None,
-        out: np.ndarray = None,
+        cols: Optional[np.ndarray] = None,
+        out: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """
         Multiply self with vector 'other', and add vector 'out' if it is present.
@@ -524,8 +526,7 @@ class CategoricalMatrix(MatrixBase):
                 "CategoricalMatrix.transpose_matvec is only implemented for 1d arrays."
             )
 
-        out_is_none = out is None
-        if out_is_none:
+        if out_is_none := out is None:
             out = np.zeros(self.shape[1], dtype=self.dtype)
         else:
             check_transpose_matvec_out_shape(self, out)
@@ -558,8 +559,8 @@ class CategoricalMatrix(MatrixBase):
     def sandwich(
         self,
         d: Union[np.ndarray, list],
-        rows: np.ndarray = None,
-        cols: np.ndarray = None,
+        rows: Optional[np.ndarray] = None,
+        cols: Optional[np.ndarray] = None,
     ) -> sps.dia_matrix:
         """
         Perform a sandwich product: X.T @ diag(d) @ X.
@@ -594,7 +595,7 @@ class CategoricalMatrix(MatrixBase):
     def _cross_sandwich(
         self,
         other: MatrixBase,
-        d: Union[np.ndarray, list],
+        d: np.ndarray,
         rows: Optional[np.ndarray] = None,
         L_cols: Optional[np.ndarray] = None,
         R_cols: Optional[np.ndarray] = None,
