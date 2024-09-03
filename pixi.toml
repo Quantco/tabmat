@@ -38,7 +38,7 @@ outputs = [
     "benchmark/data/dense_smallcat_data.pkl",
 ]
 [feature.benchmark.tasks.benchmark-run]
-cmd = "python src/tabmat/benchmark/main.py --include_baseline --bench_memory"
+cmd = "python src/tabmat/benchmark/main.py --include_baseline --bench_memory --n_iterations 100"
 depends_on = ["benchmark-generate-matrices"]
 inputs = [
     "src/tabmat/benchmark/main.py",

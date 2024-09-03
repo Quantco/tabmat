@@ -28,51 +28,51 @@ Releases
 
 Development installation
 ------------------------
-For development, you should do an editable installation: 
+We use [pixi](https://prefix.dev/) for setting up the project dependencies. [Install it](https://pixi.sh/latest/#installation) first if you do not have it already. The following commands will set up the project for development:
 
 ```bash
-# First, make sure you have conda-forge as your primary conda channel:
-conda config --add channels conda-forge
-# And install pre-commit
-conda install -y pre-commit
-
 git clone git@github.com:Quantco/tabmat.git
 cd tabmat
 
 # Set up our pre-commit hooks for ruff, mypy, and cython-lint.
-pre-commit install
+pixi run pre-commit-install
 
-# Set up a conda environment with name "tabmat"
-conda env create
+# Set up a pixi environment with the dependencies and install the package in editable mode.
+pixi run postinstall
 
-# Install this package in editable mode. 
-conda activate tabmat
-pip install --no-use-pep517 --disable-pip-version-check -e .
+# If you want to install the dependencies necessary for benchmarking against other GLM packages:
+pixi run -e benchmark postinstall
+
+# If you want to work on the documentation:
+pixi run -e docs postinstall
+
+# You can run any command in the pixi environment with `pixi run <command>`. For example:
+pixi run [-e ENVIRONMENT] ipython
+
+# Alternatively, you can create a shell with the pixi environment activated:
+pixi shell
+
+# A number of pixi tasks are available for commonly used commands.
+# You can run them with `pixi run <task>`.
+# To get a list of available tasks, run:
+pixi task list
 ```
 
 Testing and continuous integration
 --------------------------------------------------
-The test suite is in ``tests/`` and can be run using ``pytest``.
+The test suite is in ``tests/`` and can be run using ``pixi run test``.
 
 Developing the documentation
 ----------------------------------------
 
-The documentation is built with Sphinx. To develop the documentation:
-
-::
-
-   cd docs
-   make html
-   python -m http.server --directory _build/html
-
-Then, navigate to `<http://localhost:8000>`_ to view the documentation.
+The documentation is built with Sphinx. To develop the documentation: ``pixi run serve-docs``. Then, navigate to `<http://localhost:8000>`_ to view the documentation.
 
 Alternatively, if you install `entr <http://eradman.com/entrproject/>`_, then you can auto-rebuild the documentation any time a file changes with:
 
-:: 
-
+```bash
    cd docs
    ./dev
+```
 
 Conda-forge packaging
 ---------------------
