@@ -97,7 +97,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/pandas-2.2.2-py312h1d6d2e6_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/pillow-10.4.0-py312h287a98d_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pip-24.2-pyh8b19718_1.conda
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/polars-1.6.0-py312h1b14708_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/pthread-stubs-0.4-h36c2ea0_1001.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/pyparsing-3.1.4-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/python-3.12.5-h2ad013b_0_cpython.conda
@@ -206,7 +205,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/pandas-2.2.2-py312h8ae5369_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/pillow-10.4.0-py312h39b1d8d_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pip-24.2-pyh8b19718_1.conda
-      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/polars-1.6.0-py312h672d452_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/pthread-stubs-0.4-h27ca646_1001.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/pyparsing-3.1.4-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/python-3.12.5-h30c5eda_0_cpython.conda
@@ -304,7 +302,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/win-64/pandas-2.2.2-py312h72972c8_1.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/pillow-10.4.0-py312h381445a_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pip-24.2-pyh8b19718_1.conda
-      - conda: https://conda.anaconda.org/conda-forge/win-64/polars-1.6.0-py312hcd8180c_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/pthread-stubs-0.4-hcd874cb_1001.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/win-64/pthreads-win32-2.9.1-hfa6e2cd_3.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/pyparsing-3.1.4-pyhd8ed1ab_0.conda
@@ -1000,7 +997,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/pip-24.2-pyh8b19718_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pkgutil-resolve-name-1.3.10-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/platformdirs-4.2.2-pyhd8ed1ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/polars-1.6.0-py312h1b14708_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/prometheus_client-0.20.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/prompt-toolkit-3.0.47-pyha770c72_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/psutil-6.0.0-py312h9a8786e_0.conda
@@ -1234,7 +1230,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/pip-24.2-pyh8b19718_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pkgutil-resolve-name-1.3.10-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/platformdirs-4.2.2-pyhd8ed1ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/polars-1.6.0-py312h672d452_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/prometheus_client-0.20.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/prompt-toolkit-3.0.47-pyha770c72_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/psutil-6.0.0-py312h7e5086c_0.conda
@@ -1451,7 +1446,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/pip-24.2-pyh8b19718_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pkgutil-resolve-name-1.3.10-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/platformdirs-4.2.2-pyhd8ed1ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/win-64/polars-1.6.0-py312hcd8180c_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/prometheus_client-0.20.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/prompt-toolkit-3.0.47-pyha770c72_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/psutil-6.0.0-py312h4389bb4_0.conda
