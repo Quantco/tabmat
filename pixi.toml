@@ -94,7 +94,7 @@ python = ">=3.9"
 pip = "*"
 
 [dependencies]
-formulaic = ">=0.6.0"
+formulaic = ">=0.6.4"
 numpy = ">=1.22.4"  # TODO: pin version
 pandas = ">=1.4.4"  # TODO: pin version
 polars = "*"  # TODO: pin version
@@ -150,7 +150,7 @@ python = "3.9.19"
 numpy = "1.22.4"
 pandas = "1.4.4"
 scipy = "1.7.3"
-formulaic = "0.6.0"
+formulaic = "0.6.4"
 
 [environments]
 default = ["dev", "test"]
