@@ -14,16 +14,15 @@
 # ---
 
 # %%
+import os
+import subprocess
+
 import pandas as pd
 import seaborn as sns
 from matplotlib import pyplot as plt
 
 sns.set(style="whitegrid", font_scale=1.5)
 # %config InlineBackend.figure_format='retina'
-
-# %%
-import os
-import subprocess
 
 root_path_b, _ = subprocess.Popen(
     "git rev-parse --show-toplevel", shell=True, stdout=subprocess.PIPE
