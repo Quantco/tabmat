@@ -46,7 +46,7 @@ jobs:
         run: pytest -nauto tests -m "not high_memory" --doctest-modules src/
       - name: Issue on failure
         uses: actions/github-script@v7
-        if: ${{ failure() }}
+        if: ${{ failure() && github.ref == 'refs/heads/main' }}
         with:
           script: |
             github.rest.issues.listForRepo({
