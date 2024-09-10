@@ -6,8 +6,6 @@ jobs:
     name: Linux - pre-commit checks
     timeout-minutes: 30
     runs-on: ubuntu-latest
-    env:
-      PRE_COMMIT_USE_MICROMAMBA: 1
     steps:
       - name: Checkout branch
         uses: actions/checkout@v4
