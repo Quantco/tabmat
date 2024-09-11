@@ -36,7 +36,7 @@ class StandardizedMatrix:
         self,
         mat: MatrixBase,
         shift: Union[np.ndarray, list],
-        mult: Union[np.ndarray, list] = None,
+        mult: Optional[Union[np.ndarray, list]] = None,
     ):
         shift_arr = np.atleast_1d(np.squeeze(shift))
         expected_shape = (mat.shape[1],)
@@ -48,14 +48,15 @@ class StandardizedMatrix:
             but it has shape {np.asarray(shift).shape}"""
             )
 
-        mult_arr = mult
-        if mult_arr is not None:
-            mult_arr = np.atleast_1d(np.squeeze(mult_arr))
+        if mult is not None:
+            mult_arr = np.atleast_1d(np.squeeze(mult))
             if not mult_arr.shape == expected_shape:
                 raise ValueError(
                     f"""Expected mult to be able to conform to shape {expected_shape},
                 but it has shape {np.asarray(mult).shape}"""
                 )
+        else:
+            mult_arr = None
 
         self.shift = shift_arr
         self.mult = mult_arr
@@ -67,8 +68,8 @@ class StandardizedMatrix:
     def matvec(
         self,
         other_mat: Union[np.ndarray, list],
-        cols: np.ndarray = None,
-        out: np.ndarray = None,
+        cols: Optional[np.ndarray] = None,
+        out: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """
         Perform self[:, cols] @ other[cols].
@@ -119,7 +120,10 @@ class StandardizedMatrix:
         return StandardizedMatrix(col, [self.shift[i]], mult)
 
     def sandwich(
-        self, d: np.ndarray, rows: np.ndarray = None, cols: np.ndarray = None
+        self,
+        d: np.ndarray,
+        rows: Optional[np.ndarray] = None,
+        cols: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
         if not hasattr(d, "dtype"):
@@ -169,9 +173,9 @@ class StandardizedMatrix:
     def transpose_matvec(
         self,
         other: Union[np.ndarray, list],
-        rows: np.ndarray = None,
-        cols: np.ndarray = None,
-        out: np.ndarray = None,
+        rows: Optional[np.ndarray] = None,
+        cols: Optional[np.ndarray] = None,
+        out: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """
         Perform: self[rows, cols].T @ vec[rows].

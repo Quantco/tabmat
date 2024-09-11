@@ -1,5 +1,6 @@
 # Project-specific
 benchmark/*.csv
+benchmark/data/*.csv
 benchmark/data/*.pkl
 
 # Files created by templating
@@ -147,3 +148,6 @@ pkgs/*
 *.c
 *.cpp
 !*tmpl.cpp
+# pixi environments
+.pixi
+*.egg-info

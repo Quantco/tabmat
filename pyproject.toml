@@ -32,6 +32,13 @@ known-first-party = ["tabmat"]
 
 [tool.mypy]
 python_version = '3.9'
+exclude = [
+  "tests/",
+]
+no_implicit_optional = false
+check_untyped_defs = true
+namespace_packages = true
+ignore_missing_imports = true
 
 [tool.cibuildwheel]
 skip = [

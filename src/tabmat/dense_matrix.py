@@ -136,7 +136,10 @@ class DenseMatrix(MatrixBase):
         return self._array
 
     def sandwich(
-        self, d: np.ndarray, rows: np.ndarray = None, cols: np.ndarray = None
+        self,
+        d: np.ndarray,
+        rows: Optional[np.ndarray] = None,
+        cols: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
         d = np.asarray(d)
@@ -219,9 +222,9 @@ class DenseMatrix(MatrixBase):
     def transpose_matvec(
         self,
         vec: Union[np.ndarray, list],
-        rows: np.ndarray = None,
-        cols: np.ndarray = None,
-        out: np.ndarray = None,
+        rows: Optional[np.ndarray] = None,
+        cols: Optional[np.ndarray] = None,
+        out: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """Perform: self[rows, cols].T @ vec[rows]."""
         check_transpose_matvec_out_shape(self, out)
@@ -230,8 +233,8 @@ class DenseMatrix(MatrixBase):
     def matvec(
         self,
         vec: Union[np.ndarray, list],
-        cols: np.ndarray = None,
-        out: np.ndarray = None,
+        cols: Optional[np.ndarray] = None,
+        out: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """Perform self[:, cols] @ other[cols]."""
         check_matvec_out_shape(self, out)

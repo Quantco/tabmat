@@ -1,9 +1,9 @@
 Benchmarks
 ==========
     
-To generate the data to run all the benchmarks: ``python src/tabmat/benchmark/generate_matrices.py``. Then, to run all the benchmarks: ``python src/tabmat/benchmark/main.py``. To produce or update these figures, open ``src/tabmat/benchmark/visualize_benchmarks.py`` as a notebook via ``jupytext``. 
+To generate the data to run all the benchmarks: ``pixi run benchmark-generate-matrices``. Then, to run all the benchmarks with default settings: ``python src/tabmat/benchmark/benchmark-run``. To produce or update these figures, open ``src/tabmat/benchmark/visualize_benchmarks.py`` as a notebook via ``jupytext``. 
 
-For more info on the benchmark CLI: ``python src/tabmat/benchmark/main.py --help``.
+For more info on the benchmark CLI: ``pixi run python src/tabmat/benchmark/main.py --help``.
 
 Performance
 ^^^^^^^^^^^

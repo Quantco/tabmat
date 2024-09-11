@@ -21,11 +21,11 @@ from .split_matrix import SplitMatrix
 try:
     import polars as pl
 except ImportError:
-    pl = None
+    pl = None  # type: ignore
 try:
     import pandas as pd
 except ImportError:
-    pd = None
+    pd = None  # type: ignore
 
 
 def _is_boolean(series, engine: str):
@@ -106,7 +106,7 @@ def _from_dataframe(
     """
 
     matrices: list[Union[DenseMatrix, SparseMatrix, CategoricalMatrix]] = []
-    indices: list[list[int]] = []
+    indices: list[np.ndarray] = []
     is_cat: list[bool] = []
 
     dense_dfidx = []  # column index in original DataFrame
@@ -197,7 +197,7 @@ def _from_dataframe(
                 term_names=np.asarray(df.columns)[dense_dfidx],
             )
         )
-        indices.append(dense_tmidx)
+        indices.append(np.asarray(dense_tmidx))
         is_cat.append(False)
     if sparse_dfidx:
         matrices.append(
@@ -208,7 +208,7 @@ def _from_dataframe(
                 term_names=np.asarray(df.columns)[sparse_dfidx],
             )
         )
-        indices.append(sparse_tmidx)
+        indices.append(np.asarray(sparse_tmidx))
         is_cat.append(False)
 
     if cat_position == "end":
@@ -357,7 +357,7 @@ def from_polars(
     )
 
 
-def _reindex_cat(indices, is_cat, mxcolidx):
+def _reindex_cat(indices: list[np.ndarray], is_cat: list[bool], mxcolidx: int):
     new_indices = []
     for mat_indices, is_cat_ in zip(indices, is_cat):
         if is_cat_:

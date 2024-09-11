@@ -172,7 +172,10 @@ class SparseMatrix(MatrixBase):
         return self._array.dot(other)
 
     def sandwich(
-        self, d: np.ndarray, rows: np.ndarray = None, cols: np.ndarray = None
+        self,
+        d: np.ndarray,
+        rows: Optional[np.ndarray] = None,
+        cols: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
         d = np.asarray(d)
@@ -190,7 +193,7 @@ class SparseMatrix(MatrixBase):
         self,
         other: MatrixBase,
         d: np.ndarray,
-        rows: np.ndarray,
+        rows: Optional[np.ndarray],
         L_cols: Optional[np.ndarray] = None,
         R_cols: Optional[np.ndarray] = None,
     ):
@@ -209,9 +212,9 @@ class SparseMatrix(MatrixBase):
         self,
         B: np.ndarray,
         d: np.ndarray,
-        rows: np.ndarray,
-        L_cols: np.ndarray,
-        R_cols: np.ndarray,
+        rows: Optional[np.ndarray],
+        L_cols: Optional[np.ndarray],
+        R_cols: Optional[np.ndarray],
     ) -> np.ndarray:
         """Perform a sandwich product: self.T @ diag(d) @ B."""
         if not hasattr(d, "dtype"):
@@ -276,7 +279,9 @@ class SparseMatrix(MatrixBase):
             out[rows] += res
         return out
 
-    def matvec(self, vec, cols: np.ndarray = None, out: np.ndarray = None):
+    def matvec(
+        self, vec, cols: Optional[np.ndarray] = None, out: Optional[np.ndarray] = None
+    ):
         """Perform self[:, cols] @ other[cols]."""
         check_matvec_out_shape(self, out)
         return self._matvec_helper(vec, None, cols, out, False)
@@ -284,9 +289,9 @@ class SparseMatrix(MatrixBase):
     def transpose_matvec(
         self,
         vec: Union[np.ndarray, list],
-        rows: np.ndarray = None,
-        cols: np.ndarray = None,
-        out: np.ndarray = None,
+        rows: Optional[np.ndarray] = None,
+        cols: Optional[np.ndarray] = None,
+        out: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """Perform: self[rows, cols].T @ vec[rows]."""
         check_transpose_matvec_out_shape(self, out)
