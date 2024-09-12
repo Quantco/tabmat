@@ -14,6 +14,10 @@ Changelog
 
 - Added a new function, :func:`tabmat.from_polars`, to convert a :class:`polars.DataFrame` into a :class:`tabmat.SplitMatrix`.
 
+**Other changes:**
+
+- Allow :class:`CategoricalMatrix` to be initialized directly with indices and categories.
+
 4.0.1 - 2024-06-25
 ------------------
 
