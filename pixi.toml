@@ -101,7 +101,7 @@ formulaic = ">=0.6.4"
 numpy = ">=1.24.0"
 pandas = ">=1.4.4"
 scipy = ">=1.7.3"
-narwhals = ">=1.0.0"
+narwhals = ">=1.4.0"
 
 [feature.dev.dependencies]
 ipython = "*"
@@ -155,7 +155,7 @@ numpy = "1.24.0"
 pandas = "1.4.4"
 scipy = "1.7.3"
 formulaic = "0.6.4"
-narwhals = "1.0.0"
+narwhals = "1.4.0"
 
 [environments]
 default = ["dev", "test"]
