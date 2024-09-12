@@ -2,9 +2,10 @@ import re
 
 import numpy as np
 import pandas as pd
+import polars as pl
 import pytest
 
-from tabmat.categorical_matrix import CategoricalMatrix
+from tabmat.categorical_matrix import CategoricalMatrix, _extract_codes_and_categories
 
 
 @pytest.fixture
@@ -202,3 +203,13 @@ def test_categorical_indexing(drop_first, missing, cat_missing_method):
         dummy_na=cat_missing_method == "convert" and missing,
     ).to_numpy()[:, [0, 1]]
     np.testing.assert_allclose(mat[:, [0, 1]].toarray(), expected)
+
+
+def test_polars_non_contiguous_codes():
+    str_series = ["labrador", "boxer", "beagle"]
+    with pl.StringCache():
+        _ = pl.Series(["beagle", "poodle", "labrador"], dtype=pl.Categorical)
+        cat_series = pl.Series(str_series, dtype=pl.Categorical)
+
+    indices, categories = _extract_codes_and_categories(cat_series)
+    np.testing.assert_array_equal(str_series, categories[indices].tolist())
