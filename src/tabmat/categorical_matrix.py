@@ -244,11 +244,8 @@ def _extract_codes_and_categories(cat_vec):
     elif _is_polars(cat_vec):
         if not _is_polars(cat_vec.dtype):
             cat_vec = cat_vec.cast(pl.Categorical)
-        categories = cat_vec.cat.get_categories().to_numpy()
-        codes = cat_vec.to_physical().to_numpy()
-        # Remap the indices in case they don't start from zero or contain gaps
-        _, indices = np.unique(codes, return_inverse=True)
-        indices = np.where(cat_vec.is_null(), -1, indices)
+        categories = cat_vec.cat.to_local().cat.get_categories().to_numpy()
+        indices = cat_vec.cat.to_local().to_physical().fill_null(-1).to_numpy()
     else:
         indices, categories = pd.factorize(cat_vec, sort=True)
     return indices, categories
