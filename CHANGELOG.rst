@@ -12,7 +12,7 @@ Changelog
 
 **New feature:**
 
-- Added a new function, :func:`tabmat.from_polars`, to convert a :class:`polars.DataFrame` into a :class:`tabmat.SplitMatrix`.
+- Added a new function, :func:`tabmat.from_df`, to convert any dataframe supported by narwhals into a :class:`tabmat.SplitMatrix`.
 
 4.0.1 - 2024-06-25
 ------------------
