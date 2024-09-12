@@ -247,7 +247,7 @@ def _extract_codes_and_categories(cat_vec):
         categories = cat_vec.cat.get_categories().to_numpy()
         indices = cat_vec.to_physical().fill_null(-1).to_numpy()
     else:
-        indices, categories = pd.factorize(cat_vec, sort=True)
+        indices, categories = pd.factorize(cat_vec, sort=False)
     return indices, categories
 
 
