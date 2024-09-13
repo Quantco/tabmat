@@ -261,8 +261,8 @@ def _extract_codes_and_categories(
             indices = pd_vec.cat.codes.to_numpy()
         elif namespace.__name__ == "polars":
             pl_vec: pl.Series = nw.to_native(cat_vec)
-            categories = pl_vec.cat.get_categories().to_numpy()
-            indices = pl_vec.to_physical().fill_null(-1).to_numpy()
+            categories = pl_vec.cat.to_local().cat.get_categories().to_numpy()
+            indices = pl_vec.cat.to_local().to_physical().fill_null(-1).to_numpy()
 
     return indices, categories, namespace
 
