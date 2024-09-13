@@ -20,10 +20,6 @@ from .sparse_matrix import SparseMatrix
 from .split_matrix import SplitMatrix
 
 try:
-    import polars as pl
-except ImportError:
-    pl = None  # type: ignore
-try:
     import pandas as pd
 except ImportError:
     pd = None  # type: ignore
