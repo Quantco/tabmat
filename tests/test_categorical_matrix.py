@@ -263,3 +263,13 @@ def test_cat_property(input_type):
         np.testing.assert_array_equal(
             cat_out["categories"], cat_vec.categories.to_numpy()
         )
+
+
+def test_polars_non_contiguous_codes():
+    str_series = ["labrador", "boxer", "beagle"]
+    with pl.StringCache():
+        _ = pl.Series(["beagle", "poodle", "labrador"], dtype=pl.Categorical)
+        cat_series = pl.Series(str_series, dtype=pl.Categorical)
+
+    indices, categories = _extract_codes_and_categories(cat_series)
+    np.testing.assert_array_equal(str_series, categories[indices].tolist())
