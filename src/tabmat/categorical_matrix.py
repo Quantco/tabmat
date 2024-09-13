@@ -222,10 +222,8 @@ def _is_indexer_full_length(full_length: int, indexer: Union[slice, np.ndarray])
 
 
 def _factorize_np_array(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    if x.dtype.kind == "f":
-        na_mask = np.isnan(x)
-    else:
-        na_mask = x == None  # noqa: E711
+    # This is a dumber version of pandas.factorize
+    na_mask = (x == None) | (x != x)  # noqa: E711 # The second part is for NaNs
     categories, indices_nona = np.unique(x[~na_mask], return_inverse=True)
     indices = np.full(x.shape, -1, dtype=np.int32)
     indices[~na_mask] = indices_nona
@@ -398,7 +396,15 @@ class CategoricalMatrix(MatrixBase):
             category=DeprecationWarning,
         )
 
+        if self._input_namespace is None:
+            return {
+                "indices": self.indices,
+                "categories": self.categories,
+            }
+
         if self._input_namespace.__name__ == "pandas":
+            # For backwards compatibility, we return a pandas.Categorical instead of
+            # a series with a categorical dtype.
             return pd.Categorical.from_codes(self.indices, categories=self.categories)
         else:
             out = self.categories[self.indices].astype("object", copy=False)

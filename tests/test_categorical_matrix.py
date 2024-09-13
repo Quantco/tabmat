@@ -224,7 +224,9 @@ def test_extract_codes_and_categories(input_type):
     assert namespace.__name__ == input_type
 
 
-@pytest.mark.parametrize("input_type", ["pandas_vec", "pandas", "polars", "pyarrow"])
+@pytest.mark.parametrize(
+    "input_type", ["pandas_vec", "pandas", "polars", "pyarrow", "numpy"]
+)
 def test_cat_property(input_type):
     cat_vec = pd.Categorical(["a", "b", "c", pd.NA, "b", "a", "d"])
     if input_type == "pandas_vec":
@@ -235,6 +237,8 @@ def test_cat_property(input_type):
         cat_in = pl.Series(pd.Series(cat_vec))
     elif input_type == "pyarrow":
         cat_in = pyarrow.chunked_array([pd.Series(cat_vec)])
+    elif input_type == "numpy":
+        cat_in = cat_vec.to_numpy()
 
     cat_out = CategoricalMatrix(cat_in, cat_missing_method="zero").cat
 
@@ -252,4 +256,10 @@ def test_cat_property(input_type):
         np.testing.assert_array_equal(
             cat_out.cast(pyarrow.string()).to_numpy(),
             cat_out.cast(pyarrow.string()).to_numpy(),
+        )
+    elif input_type == "numpy":
+        assert isinstance(cat_out, dict)
+        np.testing.assert_array_equal(cat_out["indices"], cat_vec.codes)
+        np.testing.assert_array_equal(
+            cat_out["categories"], cat_vec.categories.to_numpy()
         )
