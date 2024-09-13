@@ -165,8 +165,10 @@ This is `ext/split/sandwich_cat_dense`
 import importlib.util
 import re
 import warnings
+from types import ModuleType
 from typing import Optional, Union
 
+import narwhals as nw
 import numpy as np
 from scipy import sparse as sps
 
@@ -202,10 +204,10 @@ if importlib.util.find_spec("polars"):
 class _Categorical:
     """This class helps us avoid copies while subsetting."""
 
-    def __init__(self, indices, categories, dtype):
+    def __init__(self, indices, categories, namespace):
         self.indices = indices
         self.categories = categories
-        self.dtype = dtype
+        self.namespace = namespace
 
 
 def _is_indexer_full_length(full_length: int, indexer: Union[slice, np.ndarray]):
@@ -219,36 +221,52 @@ def _is_indexer_full_length(full_length: int, indexer: Union[slice, np.ndarray])
         return len(range(*indexer.indices(full_length))) == full_length
 
 
-def _is_pandas(x) -> bool:
-    if importlib.util.find_spec("pandas"):
-        return isinstance(x, (pd.Categorical, pd.CategoricalDtype))
-    return False
-
-
-def _is_polars(x) -> bool:
-    if importlib.util.find_spec("polars"):
-        return isinstance(x, (pl.Series, pl.Categorical, pl.Enum))
-    return False
-
-
-def _extract_codes_and_categories(cat_vec):
-    if isinstance(cat_vec, _Categorical):
-        categories = cat_vec.categories
-        indices = cat_vec.indices
-    elif _is_pandas(cat_vec):
-        categories = cat_vec.categories.to_numpy()
-        indices = cat_vec.codes
-    elif _is_pandas(cat_vec.dtype):
-        categories = cat_vec.cat.categories.to_numpy()
-        indices = cat_vec.cat.codes.to_numpy()
-    elif _is_polars(cat_vec):
-        if not _is_polars(cat_vec.dtype):
-            cat_vec = cat_vec.cast(pl.Categorical)
-        categories = cat_vec.cat.get_categories().to_numpy()
-        indices = cat_vec.to_physical().fill_null(-1).to_numpy()
+def _factorize_np_array(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    if x.dtype.kind == "f":
+        na_mask = np.isnan(x)
     else:
-        indices, categories = pd.factorize(cat_vec, sort=True)
+        na_mask = x == None  # noqa: E711
+    categories, indices_nona = np.unique(x[~na_mask], return_inverse=True)
+    indices = np.full(x.shape, -1, dtype=np.int32)
+    indices[~na_mask] = indices_nona
     return indices, categories
+
+
+def _extract_codes_and_categories(
+    cat_vec,
+) -> tuple[np.ndarray, np.ndarray, ModuleType]:
+    if isinstance(cat_vec, _Categorical):
+        return cat_vec.indices, cat_vec.categories, cat_vec.namespace
+
+    # Narwhals can only handle series, not bare Categoricals
+    if importlib.util.find_spec("pandas") and isinstance(cat_vec, pd.Categorical):
+        cat_vec = pd.Series(cat_vec, copy=False)
+
+    cat_vec = nw.from_native(cat_vec, series_only=True, strict=False)
+    if isinstance(cat_vec, nw.Series):
+        namespace = nw.get_native_namespace(cat_vec)
+    else:
+        namespace = None
+
+    if namespace is None or namespace.__name__ not in ["pandas", "polars"]:
+        if isinstance(cat_vec, nw.Series):
+            np_vec = cat_vec.cast(nw.String).to_numpy()
+        else:
+            np_vec = np.asarray(cat_vec)
+        indices, categories = _factorize_np_array(np_vec)
+
+    else:
+        cat_vec = cat_vec.cast(nw.Categorical)
+        if namespace.__name__ == "pandas":
+            pd_vec: pd.Series = nw.to_native(cat_vec)
+            categories = pd_vec.cat.categories.to_numpy()
+            indices = pd_vec.cat.codes.to_numpy()
+        elif namespace.__name__ == "polars":
+            pl_vec: pl.Series = nw.to_native(cat_vec)
+            categories = pl_vec.cat.get_categories().to_numpy()
+            indices = pl_vec.to_physical().fill_null(-1).to_numpy()
+
+    return indices, categories, namespace
 
 
 def _row_col_indexing(
@@ -320,14 +338,11 @@ class CategoricalMatrix(MatrixBase):
                 f" got {cat_missing_method}."
             )
 
-        if not hasattr(cat_vec, "dtype"):
-            cat_vec = np.array(cat_vec)  # avoid errors in pd.factorize
-
-        self._input_dtype = cat_vec.dtype
         self._missing_method = cat_missing_method
         self._missing_category = cat_missing_name
-
-        indices, self.categories = _extract_codes_and_categories(cat_vec)
+        indices, self.categories, self._input_namespace = _extract_codes_and_categories(
+            cat_vec
+        )
 
         if np.any(indices == -1):
             if self._missing_method == "fail":
@@ -383,12 +398,17 @@ class CategoricalMatrix(MatrixBase):
             category=DeprecationWarning,
         )
 
-        if _is_polars(self._input_dtype):
+        if self._input_namespace.__name__ == "pandas":
+            return pd.Categorical.from_codes(self.indices, categories=self.categories)
+        else:
             out = self.categories[self.indices].astype("object", copy=False)
             out = np.where(self.indices < 0, None, out)
-            return pl.Series(out, dtype=pl.Enum(self.categories))
-
-        return pd.Categorical.from_codes(self.indices, categories=self.categories)
+            cat_series = nw.new_series(
+                name=self._colname or "",
+                values=out,
+                native_namespace=self._input_namespace,
+            ).cast(nw.Categorical)
+            return nw.to_native(cat_series)
 
     def recover_orig(self) -> np.ndarray:
         """
@@ -681,7 +701,7 @@ class CategoricalMatrix(MatrixBase):
             if isinstance(row, np.ndarray):
                 row = row.ravel()
             return CategoricalMatrix(
-                _Categorical(self.indices[row], self.categories, self._input_dtype),
+                _Categorical(self.indices[row], self.categories, self._input_namespace),
                 drop_first=self.drop_first,
                 dtype=self.dtype,
                 column_name=self._colname,

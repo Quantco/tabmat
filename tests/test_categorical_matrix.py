@@ -1,10 +1,14 @@
 import re
 
+import narwhals as nw
 import numpy as np
 import pandas as pd
+import polars as pl
+import polars.testing
+import pyarrow
 import pytest
 
-from tabmat.categorical_matrix import CategoricalMatrix
+from tabmat.categorical_matrix import CategoricalMatrix, _extract_codes_and_categories
 
 
 @pytest.fixture
@@ -202,3 +206,50 @@ def test_categorical_indexing(drop_first, missing, cat_missing_method):
         dummy_na=cat_missing_method == "convert" and missing,
     ).to_numpy()[:, [0, 1]]
     np.testing.assert_allclose(mat[:, [0, 1]].toarray(), expected)
+
+
+@pytest.mark.parametrize("input_type", ["pandas", "polars", "pyarrow"])
+def test_extract_codes_and_categories(input_type):
+    cat_vec = pd.Series(["a", "b", "c", pd.NA, "b", "a", "d"], dtype="category")
+    if input_type == "polars":
+        cat_vec = pl.Series(cat_vec)
+    elif input_type == "pyarrow":
+        cat_vec = pyarrow.chunked_array([cat_vec])
+
+    nw_vec = nw.from_native(cat_vec, series_only=True)
+
+    indices, categories, namespace = _extract_codes_and_categories(nw_vec)
+    np.testing.assert_array_equal(indices, np.array([0, 1, 2, -1, 1, 0, 3]))
+    np.testing.assert_array_equal(categories, np.array(["a", "b", "c", "d"]))
+    assert namespace.__name__ == input_type
+
+
+@pytest.mark.parametrize("input_type", ["pandas_vec", "pandas", "polars", "pyarrow"])
+def test_cat_property(input_type):
+    cat_vec = pd.Categorical(["a", "b", "c", pd.NA, "b", "a", "d"])
+    if input_type == "pandas_vec":
+        cat_in = cat_vec
+    elif input_type == "pandas":
+        cat_in = pd.Series(cat_vec)
+    elif input_type == "polars":
+        cat_in = pl.Series(pd.Series(cat_vec))
+    elif input_type == "pyarrow":
+        cat_in = pyarrow.chunked_array([pd.Series(cat_vec)])
+
+    cat_out = CategoricalMatrix(cat_in, cat_missing_method="zero").cat
+
+    if input_type == "pandas" or input_type == "pandas_vec":
+        assert isinstance(cat_out, pd.Categorical)
+        np.testing.assert_array_equal(cat_out.codes, cat_vec.codes)
+        np.testing.assert_array_equal(cat_out.categories, cat_vec.categories)
+    elif input_type == "polars":
+        assert isinstance(cat_out, pl.Series)
+        assert isinstance(cat_out.dtype, pl.Categorical)
+        polars.testing.assert_series_equal(cat_in, cat_out)
+    elif input_type == "pyarrow":
+        assert isinstance(cat_out, pyarrow.ChunkedArray)
+        assert isinstance(cat_out.type, pyarrow.DictionaryType)
+        np.testing.assert_array_equal(
+            cat_out.cast(pyarrow.string()).to_numpy(),
+            cat_out.cast(pyarrow.string()).to_numpy(),
+        )

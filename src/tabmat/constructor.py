@@ -110,7 +110,7 @@ def from_df(
 
         if isinstance(coldata.dtype, (nw.Categorical, nw.Enum)):
             cat = CategoricalMatrix(
-                nw.to_native(coldata),
+                coldata,
                 drop_first=drop_first,
                 dtype=dtype,
                 column_name=colname,
