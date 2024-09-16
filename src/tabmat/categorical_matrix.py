@@ -324,6 +324,8 @@ class CategoricalMatrix(MatrixBase):
             indices = np.nan_to_num(cat_vec, nan=-1)
             if max(indices) >= len(categories):
                 raise ValueError("Indices exceed length of categories.")
+            if min(indices) < -1:
+                raise ValueError("Indices must be non-negative (or -1 for missing).")
         else:
             indices, self.categories = _extract_codes_and_categories(cat_vec)
 
@@ -380,13 +382,13 @@ class CategoricalMatrix(MatrixBase):
             "This property will be removed in the next major release.",
             category=DeprecationWarning,
         )
-
-        if _is_polars(self._input_dtype):
-            out = self.categories[self.indices].astype("object", copy=False)
-            out = np.where(self.indices < 0, None, out)
-            return pl.Series(out, dtype=pl.Enum(self.categories))
-
-        return pd.Categorical.from_codes(self.indices, categories=self.categories)
+        try:
+            return pd.Categorical.from_codes(self.indices, categories=self.categories)
+        except NameError:
+            raise ModuleNotFoundError(
+                "The `cat` property is provided for backward compatibility and "
+                "requires pandas to be installed."
+            )
 
     def recover_orig(self) -> np.ndarray:
         """
