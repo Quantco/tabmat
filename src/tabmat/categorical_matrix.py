@@ -357,7 +357,13 @@ class CategoricalMatrix(MatrixBase):
             self._has_missings = False
 
         self.drop_first = drop_first
-        self.indices = indices.astype(np.int32, copy=False)
+        try:
+            self.indices = indices.astype(np.int32, copy=False)
+        except ValueError:
+            raise ValueError(
+                "When creating a CategoricalMatrix with indices and categories, "
+                "indices must be castable to a numpy int32 dtype."
+            )
         self.shape = (len(self.indices), len(self.categories) - int(drop_first))
         self.x_csc = None
         self.dtype = np.dtype(dtype)
