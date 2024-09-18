@@ -674,8 +674,7 @@ class CategoricalMatrix(MatrixBase):
         mean = self.transpose_matvec(weights)
         vars = mean - col_means**2
         # If using float32, we can get negative values due to precision errors
-        vars[vars < 0] = 0
-        return np.sqrt(vars)
+        return np.sqrt(np.maximum(vars, 0))
 
     def __getitem__(self, item):
         row, col = _check_indexer(item)
