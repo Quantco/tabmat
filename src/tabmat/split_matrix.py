@@ -11,7 +11,7 @@ from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .standardized_mat import StandardizedMatrix
 from .util import (
-    check_matvec_compatible,
+    check_matvec_dimensions,
     check_matvec_out_shape,
     check_sandwich_compatible,
     check_transpose_matvec_out_shape,
@@ -378,10 +378,10 @@ class SplitMatrix(MatrixBase):
     ) -> np.ndarray:
         """Perform self[:, cols] @ other[cols]."""
         assert not isinstance(v, sps.spmatrix)
-        check_matvec_compatible(self, v, transpose=False)
+        v = np.asarray(v)
+        check_matvec_dimensions(self, v, transpose=False)
         check_matvec_out_shape(self, out)
 
-        v = np.asarray(v)
         if v.shape[0] != self.shape[1]:
             raise ValueError(f"shapes {self.shape} and {v.shape} not aligned")
 
@@ -437,10 +437,10 @@ class SplitMatrix(MatrixBase):
                 = sum_{j in rows} sum_{mat in self.matrices} 1(cols[i] in mat)
                                                             self[j, cols[i]] v[j]
         """
-        check_transpose_matvec_out_shape(self, out)
 
         v = np.asarray(v)
-        check_matvec_compatible(self, v, transpose=True)
+        check_matvec_dimensions(self, v, transpose=True)
+        check_transpose_matvec_out_shape(self, out)
 
         subset_cols_indices, subset_cols, n_cols = self._split_col_subsets(cols)
 

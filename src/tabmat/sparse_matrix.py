@@ -15,7 +15,7 @@ from .ext.sparse import (
 from .matrix_base import MatrixBase
 from .util import (
     _check_indexer,
-    check_matvec_compatible,
+    check_matvec_dimensions,
     check_matvec_out_shape,
     check_sandwich_compatible,
     check_transpose_matvec_out_shape,
@@ -237,7 +237,7 @@ class SparseMatrix(MatrixBase):
         transpose: bool,
     ):
         vec = np.asarray(vec)
-        check_matvec_compatible(self, vec, transpose)
+        check_matvec_dimensions(self, vec, transpose)
 
         unrestricted_rows = rows is None or len(rows) == self.shape[0]
         unrestricted_cols = cols is None or len(cols) == self.shape[1]

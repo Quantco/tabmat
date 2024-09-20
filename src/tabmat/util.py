@@ -42,19 +42,13 @@ def check_matvec_out_shape(mat, out: Optional[np.ndarray]) -> None:
     _check_out_shape(out, mat.shape[0])
 
 
-def check_matvec_compatible(mat, vec: np.ndarray, transpose: bool) -> None:
+def check_matvec_dimensions(mat, vec: np.ndarray, transpose: bool) -> None:
     """Assert that the dimensions for the matvec operation are compatible."""
     match_dim = 0 if transpose else 1
     if mat.shape[match_dim] != vec.shape[0]:
         raise ValueError(
             f"shapes {mat.shape} and {vec.shape} not aligned: "
             f"{mat.shape[match_dim]} (dim {match_dim}) != {vec.shape[0]} (dim 0)"
-        )
-    if not mat.dtype == vec.dtype:
-        raise TypeError(
-            f"""mat and vec need to be of same dtype, either np.float64
-            or np.float32. mat is of type {mat.dtype}, while vec is of type
-            {vec.dtype}."""
         )
 
 

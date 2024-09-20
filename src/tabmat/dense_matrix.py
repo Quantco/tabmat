@@ -12,7 +12,7 @@ from .ext.dense import (
 from .matrix_base import MatrixBase
 from .util import (
     _check_indexer,
-    check_matvec_compatible,
+    check_matvec_dimensions,
     check_matvec_out_shape,
     check_sandwich_compatible,
     check_transpose_matvec_out_shape,
@@ -188,7 +188,7 @@ class DenseMatrix(MatrixBase):
         # filters rows and a version that only filters columns. How do we do
         # this without an explosion of code?
         vec = np.asarray(vec)
-        check_matvec_compatible(self, vec, transpose=transpose)
+        check_matvec_dimensions(self, vec, transpose=transpose)
         X = self._array.T if transpose else self._array
 
         # NOTE: We assume that rows and cols are unique

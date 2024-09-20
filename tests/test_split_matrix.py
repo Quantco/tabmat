@@ -305,4 +305,4 @@ def test_matvec(n_rows):
         "category"
     )
     mat = from_pandas(X, cat_threshold=0)
-    np.testing.assert_allclose(mat.matvec(np.array(mat.shape[1] * [1])), n_cols)
+    np.testing.assert_allclose(mat.matvec(np.ones(mat.shape[1])), n_cols)

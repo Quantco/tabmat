@@ -7,7 +7,7 @@ from .dense_matrix import DenseMatrix
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .util import (
-    check_matvec_compatible,
+    check_matvec_dimensions,
     check_sandwich_compatible,
     check_transpose_matvec_out_shape,
     set_up_rows_or_cols,
@@ -81,7 +81,7 @@ class StandardizedMatrix:
         cols = set_up_rows_or_cols(cols, self.shape[1])
 
         other_mat = np.asarray(other_mat)
-        check_matvec_compatible(self, other_mat, transpose=False)
+        check_matvec_dimensions(self, other_mat, transpose=False)
         mult_other = other_mat
         if self.mult is not None:
             mult = self.mult
@@ -196,7 +196,7 @@ class StandardizedMatrix:
         """
         check_transpose_matvec_out_shape(self, out)
         other = np.asarray(other)
-        check_matvec_compatible(self, other, transpose=True)
+        check_matvec_dimensions(self, other, transpose=True)
         res = self.mat.transpose_matvec(other, rows, cols)
 
         rows, cols = setup_restrictions(self.shape, rows, cols)
