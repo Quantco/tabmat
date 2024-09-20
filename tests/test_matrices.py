@@ -195,6 +195,36 @@ def test_matvec_dimension_mismatch_raises(mat, rows, cols):
 
 
 @pytest.mark.parametrize("mat", get_matrices())
+def test_matvec_dtype_mismatch_raises(mat):
+    with pytest.raises(TypeError, match="same dtype"):
+        mat.astype(np.float64).matvec(np.ones(mat.shape[1], dtype=np.float32))
+    with pytest.raises(TypeError, match="same dtype"):
+        mat.astype(np.float32).matvec(np.ones(mat.shape[1], dtype=np.float64))
+
+
+@pytest.mark.parametrize("mat", get_matrices())
+@pytest.mark.parametrize("cols", [None, [], [1], np.array([0, 1])])
+@pytest.mark.parametrize("rows", [None, [], [1], np.array([0, 2])])
+def test_sandwich_dimension_mismatch_raises(mat, rows, cols):
+    too_short = np.ones(mat.shape[0] - 1, dtype=mat.dtype)
+    just_right = np.ones(mat.shape[0], dtype=mat.dtype)
+    too_long = np.ones(mat.shape[0] + 1, dtype=mat.dtype)
+    mat.sandwich(just_right, cols=cols)
+    with pytest.raises(ValueError, match="not aligned"):
+        mat.sandwich(too_short, cols=cols)
+    with pytest.raises(ValueError, match="not aligned"):
+        mat.sandwich(too_long, cols=cols)
+
+
+@pytest.mark.parametrize("mat", get_matrices())
+def test_sandwich_dtype_mismatch_raises(mat):
+    with pytest.raises(TypeError, match="same dtype"):
+        mat.astype(np.float64).sandwich(np.ones(mat.shape[0], dtype=np.float32))
+    with pytest.raises(TypeError, match="same dtype"):
+        mat.astype(np.float32).sandwich(np.ones(mat.shape[0], dtype=np.float64))
+
+
+@pytest.mark.parametrize("mat", get_matrices())
 @pytest.mark.parametrize("i", [1, -2])
 def test_getcol(mat: Union[tm.MatrixBase, tm.StandardizedMatrix], i):
     col = mat.getcol(i)
