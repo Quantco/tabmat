@@ -678,7 +678,9 @@ class CategoricalMatrix(MatrixBase):
         # but because X_ij is either {0, 1}
         # we don't actually need to square.
         mean = self.transpose_matvec(weights)
-        return np.sqrt(mean - col_means**2)
+        vars = mean - col_means**2
+        # If using float32, we can get negative values due to precision errors
+        return np.sqrt(np.maximum(vars, 0))
 
     def __getitem__(self, item):
         row, col = _check_indexer(item)

@@ -18,6 +18,11 @@ Changelog
 
 - Allow :class:`CategoricalMatrix` to be initialized directly with indices and categories.
 
+**Bug fix:**
+
+- Fixed a bug in :meth:`tabmat.CategoricalMatrix.standardize` that sometimes returned ``nan`` values for the standard deviation due to numerical instability if using ``np.float32`` precision.
+
+
 4.0.1 - 2024-06-25
 ------------------
 
