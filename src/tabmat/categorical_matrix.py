@@ -426,9 +426,9 @@ class CategoricalMatrix(MatrixBase):
             "This property will be removed in the next major release.",
             category=DeprecationWarning,
         )
-        try:
+        if pd:
             return pd.Categorical.from_codes(self.indices, categories=self.categories)
-        except NameError:
+        else:
             raise ModuleNotFoundError(
                 "The `cat` property is provided for backward compatibility and "
                 "requires pandas to be installed."
