@@ -233,7 +233,7 @@ def _extract_codes_and_categories_pandas(cat_vec) -> tuple[np.ndarray, np.ndarra
         categories = cat_vec.cat.categories
         indices = cat_vec.cat.codes.to_numpy()
     else:
-        indices, categories = pd.factorize(cat_vec, sort=True, use_na_sentinel=True)
+        indices, categories = pd.factorize(cat_vec, sort=True)
     return indices, categories.to_numpy()
 
 
@@ -246,8 +246,8 @@ def _extract_codes_and_categories_polars(cat_vec) -> tuple[np.ndarray, np.ndarra
 
 
 def _extract_codes_and_categories_numpy(cat_vec) -> tuple[np.ndarray, np.ndarray]:
-    if pd:
-        indices, categories = pd.factorize(cat_vec, sort=True, use_na_sentinel=True)
+    if pd and pd.__version__ >= "1.5.0":
+        indices, categories = pd.factorize(cat_vec, sort=True)
     else:
         indices, categories = _factorize(cat_vec)
     return indices, categories
