@@ -14,6 +14,10 @@ Changelog
 
 - Added a new function, :func:`tabmat.from_polars`, to convert a :class:`polars.DataFrame` into a :class:`tabmat.SplitMatrix`.
 
+**Other changes:**
+
+- Added checks for dimension and ``dtype`` mismatch in :meth:`MatrixBasesandwich.sandwich`.
+
 **Bug fix:**
 
 - Fixed a bug in :meth:`tabmat.CategoricalMatrix.standardize` that sometimes returned ``nan`` values for the standard deviation due to numerical instability if using ``np.float32`` precision.
