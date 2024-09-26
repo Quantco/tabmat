@@ -188,6 +188,7 @@ from .util import (
     _check_indexer,
     check_matvec_dimensions,
     check_matvec_out_shape,
+    check_sandwich_compatible,
     check_transpose_matvec_out_shape,
     set_up_rows_or_cols,
     setup_restrictions,
@@ -584,6 +585,7 @@ class CategoricalMatrix(MatrixBase):
         matrix without making a copy.
         """
         d = np.asarray(d)
+        check_sandwich_compatible(self, d)
         rows = set_up_rows_or_cols(rows, self.shape[0])
         if self.drop_first or self._has_missings:
             res_diag = sandwich_categorical_complex(

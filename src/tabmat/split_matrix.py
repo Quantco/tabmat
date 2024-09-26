@@ -11,7 +11,9 @@ from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .standardized_mat import StandardizedMatrix
 from .util import (
+    check_matvec_dimensions,
     check_matvec_out_shape,
+    check_sandwich_compatible,
     check_transpose_matvec_out_shape,
     set_up_rows_or_cols,
 )
@@ -326,9 +328,8 @@ class SplitMatrix(MatrixBase):
         cols: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
-        if np.shape(d) != (self.shape[0],):
-            raise ValueError
         d = np.asarray(d)
+        check_sandwich_compatible(self, d)
 
         subset_cols_indices, subset_cols, n_cols = self._split_col_subsets(cols)
 
@@ -377,9 +378,10 @@ class SplitMatrix(MatrixBase):
     ) -> np.ndarray:
         """Perform self[:, cols] @ other[cols]."""
         assert not isinstance(v, sps.spmatrix)
+        v = np.asarray(v)
+        check_matvec_dimensions(self, v, transpose=False)
         check_matvec_out_shape(self, out)
 
-        v = np.asarray(v)
         if v.shape[0] != self.shape[1]:
             raise ValueError(f"shapes {self.shape} and {v.shape} not aligned")
 
@@ -435,9 +437,11 @@ class SplitMatrix(MatrixBase):
                 = sum_{j in rows} sum_{mat in self.matrices} 1(cols[i] in mat)
                                                             self[j, cols[i]] v[j]
         """
-        check_transpose_matvec_out_shape(self, out)
 
         v = np.asarray(v)
+        check_matvec_dimensions(self, v, transpose=True)
+        check_transpose_matvec_out_shape(self, out)
+
         subset_cols_indices, subset_cols, n_cols = self._split_col_subsets(cols)
 
         out_shape = [n_cols] + list(v.shape[1:])

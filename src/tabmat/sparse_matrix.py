@@ -17,6 +17,7 @@ from .util import (
     _check_indexer,
     check_matvec_dimensions,
     check_matvec_out_shape,
+    check_sandwich_compatible,
     check_transpose_matvec_out_shape,
     set_up_rows_or_cols,
     setup_restrictions,
@@ -179,13 +180,7 @@ class SparseMatrix(MatrixBase):
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
         d = np.asarray(d)
-        if not self.dtype == d.dtype:
-            raise TypeError(
-                f"""self and d need to be of same dtype, either np.float64
-                or np.float32. self is of type {self.dtype}, while d is of type
-                {d.dtype}."""
-            )
-
+        check_sandwich_compatible(self, d)
         rows, cols = setup_restrictions(self.shape, rows, cols, dtype=self.idx_dtype)
         return sparse_sandwich(self, self.array_csr, d, rows, cols)
 

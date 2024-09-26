@@ -8,6 +8,7 @@ from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .util import (
     check_matvec_dimensions,
+    check_sandwich_compatible,
     check_transpose_matvec_out_shape,
     set_up_rows_or_cols,
     setup_restrictions,
@@ -128,12 +129,7 @@ class StandardizedMatrix:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
         if not hasattr(d, "dtype"):
             d = np.asarray(d)
-        if not self.mat.dtype == d.dtype:
-            raise TypeError(
-                f"""self.mat and d need to be of same dtype, either
-                np.float64 or np.float32. This matrix is of type {self.mat.dtype},
-                while d is of type {d.dtype}."""
-            )
+        check_sandwich_compatible(self, d)
 
         if rows is not None or cols is not None:
             setup_rows, setup_cols = setup_restrictions(self.shape, rows, cols)

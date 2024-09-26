@@ -52,6 +52,21 @@ def check_matvec_dimensions(mat, vec: np.ndarray, transpose: bool) -> None:
         )
 
 
+def check_sandwich_compatible(mat, d: np.ndarray):
+    """Assert that the dimensions and dtypes for the sandwich product are compatible."""
+    if mat.shape[0] != d.shape[0]:
+        raise ValueError(
+            f"shapes {mat.shape} and {d.shape} not aligned: "
+            f"{mat.shape[0]} (dim 0) != {d.shape[0]} (dim 0)"
+        )
+    if not mat.dtype == d.dtype:
+        raise TypeError(
+            f"""self and d need to be of same dtype, either np.float64
+            or np.float32. self is of type {mat.dtype}, while d is of type
+            {d.dtype}."""
+        )
+
+
 def _check_indexer(indexer):
     """Check that the indexer is valid, and transform it to a canonical format."""
     if not isinstance(indexer, tuple):

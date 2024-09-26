@@ -17,6 +17,7 @@ Changelog
 **Other changes:**
 
 - Allow :class:`CategoricalMatrix` to be initialized directly with indices and categories.
+- Added checks for dimension and ``dtype`` mismatch in :meth:`MatrixBasesandwich.sandwich`.
 
 **Bug fix:**
 

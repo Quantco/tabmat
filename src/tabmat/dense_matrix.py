@@ -14,6 +14,7 @@ from .util import (
     _check_indexer,
     check_matvec_dimensions,
     check_matvec_out_shape,
+    check_sandwich_compatible,
     check_transpose_matvec_out_shape,
     setup_restrictions,
 )
@@ -143,6 +144,7 @@ class DenseMatrix(MatrixBase):
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
         d = np.asarray(d)
+        check_sandwich_compatible(self, d)
         rows, cols = setup_restrictions(self.shape, rows, cols)
         return dense_sandwich(self._array, d, rows, cols)
 
