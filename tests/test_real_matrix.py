@@ -8,7 +8,7 @@ import tabmat as tm
 @pytest.fixture()
 def X():
     df = pd.read_pickle("tests/real_matrix.pkl")
-    X_split = tm.from_pandas(df, np.float64)
+    X_split = tm.from_df(df, np.float64)
     wts = np.ones(df.shape[0]) / df.shape[0]
     X_std = X_split.standardize(wts, True, True)[0]
     return X_std
