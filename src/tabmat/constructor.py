@@ -3,7 +3,7 @@ import warnings
 from collections.abc import Mapping
 from typing import Any, Optional, Union
 
-import narwhals as nw
+import narwhals.stable.v1 as nw
 import numpy as np
 from formulaic import Formula, ModelSpec
 from formulaic.materializers.types import NAAction
@@ -156,7 +156,7 @@ def from_df(
                 dense_dfidx.append(dfcolidx)
                 dense_tmidx.append(mxcolidx)
                 mxcolidx += 1
-        elif isinstance(coldata.dtype, nw.dtypes.NumericType):
+        elif coldata.dtype.is_numeric():
             if (coldata != 0).mean() <= sparse_threshold:
                 sparse_dfidx.append(dfcolidx)
                 sparse_tmidx.append(mxcolidx)

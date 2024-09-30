@@ -167,7 +167,7 @@ import re
 import warnings
 from typing import Optional, Union
 
-import narwhals as nw
+import narwhals.stable.v1 as nw
 import numpy as np
 from scipy import sparse as sps
 
