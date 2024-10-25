@@ -443,7 +443,7 @@ def test_term_names_against_expectation(df, formula, expected_names):
     ids=["brackets", "double_underscore", "custom"],
 )
 def test_all_names_against_from_pandas(df, categorical_format):
-    mat_from_pandas = tm.from_pandas(
+    mat_from_pandas = tm.from_df(
         df, drop_first=False, object_as_cat=True, categorical_format=categorical_format
     )
     mat_from_formula = tm.from_formula(
@@ -653,7 +653,7 @@ def test_cat_missing_handling(cat_missing_method, cat_missing_name):
         }
     )
 
-    mat_from_pandas = tm.from_pandas(
+    mat_from_pandas = tm.from_df(
         df,
         cat_threshold=0,
         cat_missing_method=cat_missing_method,

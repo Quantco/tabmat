@@ -3,6 +3,7 @@ import warnings
 from collections.abc import Mapping
 from typing import Any, Optional, Union
 
+import narwhals.stable.v1 as nw
 import numpy as np
 from formulaic import Formula, ModelSpec
 from formulaic.materializers.types import NAAction
@@ -19,76 +20,14 @@ from .sparse_matrix import SparseMatrix
 from .split_matrix import SplitMatrix
 
 try:
-    import polars as pl
-except ImportError:
-    pl = None  # type: ignore
-try:
     import pandas as pd
 except ImportError:
     pd = None  # type: ignore
 
 
-def _is_boolean(series, engine: str):
-    if engine == "pandas":
-        return pd.api.types.is_bool_dtype(series)
-    elif engine == "polars":
-        return series.dtype.is_(pl.Boolean)
-    else:
-        raise ValueError(f"Unknown engine: {engine}")
-
-
-def _is_numeric(series, engine: str):
-    if engine == "pandas":
-        return pd.api.types.is_numeric_dtype(series)
-    elif engine == "polars":
-        return series.dtype.is_numeric()
-    else:
-        raise ValueError(f"Unknown engine: {engine}")
-
-
-def _iter_columns(df, engine: str):
-    if engine == "pandas":
-        return df.items()
-    elif engine == "polars":
-        return ((col.name, col) for col in df.iter_columns())
-    else:
-        raise ValueError(f"Unknown engine: {engine}")
-
-
-def _object_as_cat(series, engine: str):
-    if engine == "pandas":
-        if series.dtype == object:
-            return series.astype("category")
-        return series
-    elif engine == "polars":
-        if series.dtype == pl.String:
-            return series.cast(pl.Categorical)
-        return series
-    else:
-        raise ValueError(f"Unknown engine: {engine}")
-
-
-def _is_categorical(series, engine: str):
-    if engine == "pandas":
-        return isinstance(series.dtype, pd.CategoricalDtype)
-    elif engine == "polars":
-        return isinstance(series.dtype, (pl.Categorical, pl.Enum))
-    else:
-        raise ValueError(f"Unknown engine: {engine}")
-
-
-def _select_cols(df, idx, engine):
-    if engine == "pandas":
-        return df.iloc[:, idx]
-    elif engine == "polars":
-        return df.select(pl.nth(idx))
-    else:
-        raise ValueError(f"Unknown engine: {engine}")
-
-
-def _from_dataframe(
+@nw.narwhalify(eager_only=True)
+def from_df(
     df,
-    engine: str,
     dtype: np.dtype = np.float64,
     sparse_threshold: float = 0.1,
     cat_threshold: int = 4,
@@ -100,11 +39,45 @@ def _from_dataframe(
     cat_missing_name: str = "(MISSING)",
 ) -> MatrixBase:
     """
-    See docstring of from_pandas or from_polars for details.
+    Transform a DataFrame into an efficient SplitMatrix.
 
-    engine should be either 'pandas' or 'polars'.
+    Parameters
+    ----------
+    df : DataFrame
+        This can be any dataframes supported by narwhals (pandas, polars, etc.).
+    dtype : np.dtype, default np.float64
+        dtype of all sub-matrices of the resulting SplitMatrix.
+    sparse_threshold : float, default 0.1
+        Density threshold below which numerical columns will be stored in a sparse
+        format.
+    cat_threshold : int, default 4
+        Number of levels of a categorical column under which the column will be stored
+        as sparse one-hot-encoded columns instead of CategoricalMatrix
+    object_as_cat : bool, default False
+        If True, DataFrame columns stored as python objects will be treated as
+        categorical columns.
+    cat_position : str {'end'|'expand'}, default 'expand'
+        Position of the categorical variable in the index. If "last", all the
+        categoricals (including the ones that did not satisfy cat_threshold)
+        will be placed at the end of the index list. If "expand", all the variables
+        will remain in the same order.
+    drop_first : bool, default False
+        If true, categoricals variables will have their first category dropped.
+        This allows multiple categorical variables to be included in an
+        unregularized model. If False, all categories are included.
+    cat_missing_method: str {'fail'|'zero'|'convert'}, default 'fail'
+        How to handle missing values in categorical columns:
+        - if 'fail', raise an error if there are missing values.
+        - if 'zero', missing values will represent all-zero indicator columns.
+        - if 'convert', missing values will be converted to the '(MISSING)' category.
+    cat_missing_name: str, default '(MISSING)'
+        Name of the category to which missing values will be converted if
+        ``cat_missing_method='convert'``.
+
+    Returns
+    -------
+    SplitMatrix
     """
-
     matrices: list[Union[DenseMatrix, SparseMatrix, CategoricalMatrix]] = []
     indices: list[np.ndarray] = []
     is_cat: list[bool] = []
@@ -117,10 +90,21 @@ def _from_dataframe(
 
     mxcolidx = 0
 
-    for dfcolidx, (colname, coldata) in enumerate(_iter_columns(df, engine)):
+    for dfcolidx, colname in enumerate(df.columns):
+        coldata = df[:, dfcolidx]
         if object_as_cat:
-            coldata = _object_as_cat(coldata, engine)
-        if _is_categorical(coldata, engine):
+            if isinstance(coldata.dtype, (nw.String, nw.Object)):
+                coldata = coldata.cast(nw.Categorical)
+
+        # deal with Pandas sparse dtype (not supported by narwhals)
+        if pd is not None:
+            if isinstance(nw.to_native(coldata).dtype, pd.SparseDtype):
+                sparse_dfidx.append(dfcolidx)
+                sparse_tmidx.append(mxcolidx)
+                mxcolidx += 1
+                continue
+
+        if isinstance(coldata.dtype, (nw.Categorical, nw.Enum)):
             cat = CategoricalMatrix(
                 coldata,
                 drop_first=drop_first,
@@ -163,7 +147,7 @@ def _from_dataframe(
                     mxcolidx += cat.shape[1]
                 elif cat_position == "end":
                     indices.append(np.arange(cat.shape[1]))
-        elif _is_boolean(coldata, engine):
+        elif isinstance(coldata.dtype, nw.Boolean):
             if (coldata != False).mean() <= sparse_threshold:  # noqa E712
                 sparse_dfidx.append(dfcolidx)
                 sparse_tmidx.append(mxcolidx)
@@ -172,7 +156,7 @@ def _from_dataframe(
                 dense_dfidx.append(dfcolidx)
                 dense_tmidx.append(mxcolidx)
                 mxcolidx += 1
-        elif _is_numeric(coldata, engine):
+        elif coldata.dtype.is_numeric():
             if (coldata != 0).mean() <= sparse_threshold:
                 sparse_dfidx.append(dfcolidx)
                 sparse_tmidx.append(mxcolidx)
@@ -181,7 +165,6 @@ def _from_dataframe(
                 dense_dfidx.append(dfcolidx)
                 dense_tmidx.append(mxcolidx)
                 mxcolidx += 1
-
         else:
             ignored_cols.append(colname)
 
@@ -192,7 +175,7 @@ def _from_dataframe(
     if dense_dfidx:
         matrices.append(
             DenseMatrix(
-                _select_cols(df, dense_dfidx, engine).to_numpy().astype(dtype),
+                df[:, dense_dfidx].to_numpy().astype(dtype),
                 column_names=np.asarray(df.columns)[dense_dfidx],
                 term_names=np.asarray(df.columns)[dense_dfidx],
             )
@@ -202,7 +185,7 @@ def _from_dataframe(
     if sparse_dfidx:
         matrices.append(
             SparseMatrix(
-                sps.coo_matrix(_select_cols(df, sparse_dfidx, engine), dtype=dtype),
+                sps.coo_matrix(df[:, sparse_dfidx], dtype=dtype),
                 dtype=dtype,
                 column_names=np.asarray(df.columns)[sparse_dfidx],
                 term_names=np.asarray(df.columns)[sparse_dfidx],
@@ -235,6 +218,8 @@ def from_pandas(
     cat_missing_name: str = "(MISSING)",
 ) -> MatrixBase:
     """
+    Deprecated. Please use `from_df` instead.
+
     Transform a pandas.DataFrame into an efficient SplitMatrix.
 
     Parameters
@@ -274,77 +259,8 @@ def from_pandas(
     -------
     SplitMatrix
     """
-    return _from_dataframe(
+    return from_df(
         df,
-        engine="pandas",
-        dtype=dtype,
-        sparse_threshold=sparse_threshold,
-        cat_threshold=cat_threshold,
-        object_as_cat=object_as_cat,
-        cat_position=cat_position,
-        drop_first=drop_first,
-        categorical_format=categorical_format,
-        cat_missing_method=cat_missing_method,
-        cat_missing_name=cat_missing_name,
-    )
-
-
-def from_polars(
-    df,
-    dtype: np.dtype = np.float64,
-    sparse_threshold: float = 0.1,
-    cat_threshold: int = 4,
-    object_as_cat: bool = False,
-    cat_position: str = "expand",
-    drop_first: bool = False,
-    categorical_format: str = "{name}[{category}]",
-    cat_missing_method: str = "fail",
-    cat_missing_name: str = "(MISSING)",
-) -> MatrixBase:
-    """
-    Transform a polars.DataFrame into an efficient SplitMatrix.
-
-    Parameters
-    ----------
-    df : pl.DataFrame
-        Polars DataFrame to convert.
-    dtype : np.dtype, default np.float64
-        dtype of all sub-matrices of the resulting SplitMatrix.
-    sparse_threshold : float, default 0.1
-        Density threshold below which numerical columns will be stored in a sparse
-        format.
-    cat_threshold : int, default 4
-        Number of levels of a categorical column under which the column will be stored
-        as sparse one-hot-encoded columns instead of CategoricalMatrix
-    object_as_cat : bool, default False
-        If True, DataFrame columns stored as ``pl.String`` will be treated as
-        categorical columns. Note that this is different from pandas, where all object
-        columns are converted to categorical columns.
-    cat_position : str {'end'|'expand'}, default 'expand'
-        Position of the categorical variable in the index. If "last", all the
-        categoricals (including the ones that did not satisfy cat_threshold)
-        will be placed at the end of the index list. If "expand", all the variables
-        will remain in the same order.
-    drop_first : bool, default False
-        If true, categoricals variables will have their first category dropped.
-        This allows multiple categorical variables to be included in an
-        unregularized model. If False, all categories are included.
-    cat_missing_method: str {'fail'|'zero'|'convert'}, default 'fail'
-        How to handle missing values in categorical columns:
-        - if 'fail', raise an error if there are missing values.
-        - if 'zero', missing values will represent all-zero indicator columns.
-        - if 'convert', missing values will be converted to the '(MISSING)' category.
-    cat_missing_name: str, default '(MISSING)'
-        Name of the category to which missing values will be converted if
-        ``cat_missing_method='convert'``.
-
-    Returns
-    -------
-    SplitMatrix
-    """
-    return _from_dataframe(
-        df,
-        engine="polars",
         dtype=dtype,
         sparse_threshold=sparse_threshold,
         cat_threshold=cat_threshold,

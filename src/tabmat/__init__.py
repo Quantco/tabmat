@@ -1,7 +1,7 @@
 import importlib.metadata
 
 from .categorical_matrix import CategoricalMatrix
-from .constructor import from_csc, from_formula, from_pandas, from_polars
+from .constructor import from_csc, from_df, from_formula, from_pandas
 from .dense_matrix import DenseMatrix
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
@@ -23,7 +23,7 @@ __all__ = [
     "from_csc",
     "from_formula",
     "from_pandas",
-    "from_polars",
+    "from_df",
     "as_tabmat",
     "hstack",
 ]

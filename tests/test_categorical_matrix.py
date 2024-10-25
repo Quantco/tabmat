@@ -1,8 +1,11 @@
 import re
 
+import narwhals.stable.v1 as nw
 import numpy as np
 import pandas as pd
 import polars as pl
+import polars.testing
+import pyarrow
 import pytest
 
 from tabmat.categorical_matrix import CategoricalMatrix, _extract_codes_and_categories
@@ -203,6 +206,31 @@ def test_categorical_indexing(drop_first, missing, cat_missing_method):
         dummy_na=cat_missing_method == "convert" and missing,
     ).to_numpy()[:, [0, 1]]
     np.testing.assert_allclose(mat[:, [0, 1]].toarray(), expected)
+
+
+@pytest.mark.parametrize(
+    "input_type", ["pandas.Categorical", "pandas", "polars", "pyarrow", "list"]
+)
+@pytest.mark.parametrize("narwhals_input", [True, False])
+def test_extract_codes_and_categories(input_type, narwhals_input):
+    cat_vec = pd.Series(["a", "b", "c", pd.NA, "b", "a", "d"], dtype="category")
+    if input_type == "pandas.Categorical":
+        cat_vec = pd.Categorical(cat_vec)
+    elif input_type == "polars":
+        cat_vec = pl.Series(cat_vec)
+    elif input_type == "pyarrow":
+        cat_vec = pyarrow.chunked_array([cat_vec])
+    elif input_type == "list":
+        cat_vec = cat_vec.astype("object")
+
+    if narwhals_input:
+        if input_type in ["list", "pandas.Categorical"]:
+            pytest.skip("Narwhals doesn't support list or pandas.Categorical inputs")
+        cat_vec = nw.from_native(cat_vec, series_only=True)
+
+    indices, categories = _extract_codes_and_categories(cat_vec)
+    np.testing.assert_array_equal(indices, np.array([0, 1, 2, -1, 1, 0, 3]))
+    np.testing.assert_array_equal(categories, np.array(["a", "b", "c", "d"]))
 
 
 def test_polars_non_contiguous_codes():

@@ -44,7 +44,7 @@ def construct_data(backend):
 def test_pandas_to_matrix():
     df = construct_data("pandas")
 
-    mat = tm.from_pandas(
+    mat = tm.from_df(
         df, dtype=np.float64, sparse_threshold=0.3, cat_threshold=4, object_as_cat=True
     )
 
@@ -71,7 +71,7 @@ def test_pandas_to_matrix():
 def test_polars_to_matrix(categorical_dtype):
     df = construct_data("polars").with_columns(cl=pl.col("cl").cast(categorical_dtype))
 
-    mat = tm.from_polars(df, dtype=np.float64, sparse_threshold=0.3, cat_threshold=4)
+    mat = tm.from_df(df, dtype=np.float64, sparse_threshold=0.3, cat_threshold=4)
 
     assert mat.shape == (N_ROWS, N_ROWS + 5)
     assert len(mat.matrices) == 3
@@ -100,11 +100,11 @@ def test_from_pandas_missing(cat_missing_method):
         with pytest.raises(
             ValueError, match="Categorical data can't have missing values"
         ):
-            tm.from_pandas(df, cat_missing_method=cat_missing_method)
+            tm.from_df(df, cat_missing_method=cat_missing_method)
     elif cat_missing_method == "zero":
-        assert tm.from_pandas(df, cat_missing_method=cat_missing_method).shape == (6, 2)
+        assert tm.from_df(df, cat_missing_method=cat_missing_method).shape == (6, 2)
     elif cat_missing_method == "convert":
-        assert tm.from_pandas(df, cat_missing_method=cat_missing_method).shape == (6, 3)
+        assert tm.from_df(df, cat_missing_method=cat_missing_method).shape == (6, 3)
 
 
 @pytest.mark.parametrize("cat_missing_method", ["fail", "zero", "convert"])
@@ -117,11 +117,11 @@ def test_from_polars_missing(cat_missing_method):
         with pytest.raises(
             ValueError, match="Categorical data can't have missing values"
         ):
-            tm.from_polars(df, cat_missing_method=cat_missing_method)
+            tm.from_df(df, cat_missing_method=cat_missing_method)
     elif cat_missing_method == "zero":
-        assert tm.from_polars(df, cat_missing_method=cat_missing_method).shape == (6, 2)
+        assert tm.from_df(df, cat_missing_method=cat_missing_method).shape == (6, 2)
     elif cat_missing_method == "convert":
-        assert tm.from_polars(df, cat_missing_method=cat_missing_method).shape == (6, 3)
+        assert tm.from_df(df, cat_missing_method=cat_missing_method).shape == (6, 3)
 
 
 @pytest.mark.parametrize("prefix_sep", ["_", ": "])
@@ -130,7 +130,7 @@ def test_names_pandas(prefix_sep, drop_first):
     df = construct_data("pandas")
     categorical_format = "{name}" + prefix_sep + "{category}"
 
-    mat_end = tm.from_pandas(
+    mat_end = tm.from_df(
         df,
         dtype=np.float64,
         sparse_threshold=0.3,
@@ -144,7 +144,7 @@ def test_names_pandas(prefix_sep, drop_first):
     expanded_df = pd.get_dummies(df, prefix_sep=prefix_sep, drop_first=drop_first)
     assert mat_end.column_names == expanded_df.columns.tolist()
 
-    mat_expand = tm.from_pandas(
+    mat_expand = tm.from_df(
         df,
         dtype=np.float64,
         sparse_threshold=0.3,
@@ -165,7 +165,7 @@ def test_names_polars(prefix_sep, drop_first):
     df = construct_data("polars")
     categorical_format = "{name}" + prefix_sep + "{category}"
 
-    mat_end = tm.from_polars(
+    mat_end = tm.from_df(
         df,
         dtype=np.float64,
         sparse_threshold=0.3,
@@ -180,7 +180,7 @@ def test_names_polars(prefix_sep, drop_first):
     )
     assert mat_end.column_names == list(expanded_df.columns)
 
-    mat_expand = tm.from_polars(
+    mat_expand = tm.from_df(
         df,
         dtype=np.float64,
         sparse_threshold=0.3,
