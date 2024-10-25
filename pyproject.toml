@@ -71,7 +71,7 @@ MACOSX_DEPLOYMENT_TARGET="12.0"
 
 [tool.cibuildwheel.windows]
 before-all = [
-  "C:\\Miniconda\\condabin\\conda install -c conda-forge \"xsimd<11\"",
+  "C:\\Miniconda\\condabin\\conda install -y -c conda-forge \"xsimd<11\"",
 ]
 
 [tool.cibuildwheel.windows.environment]
