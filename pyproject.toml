@@ -72,11 +72,11 @@ MACOSX_DEPLOYMENT_TARGET="12.0"
 [tool.cibuildwheel.windows]
 before-all = [
   "C:\\Users\\runneradmin\\micromamba-bin\\micromamba.exe create -y -p envs\\build -c conda-forge \"xsimd<11|>12.1\"",
-  "dir envs\\build\\Library"
+  "dir envs\\build\\Library\\include"
 ]
 
 [tool.cibuildwheel.windows.environment]
-INCLUDE="C:\\Users\\runneradmin\\micromamba\\envs\\build\\include"
+INCLUDE="D:\\a\\tabmat\\tabmat\\envs\\build\\Library\\include"
 
 [tool.cibuildwheel.linux]
 before-all = [
