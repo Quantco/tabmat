@@ -75,7 +75,7 @@ before-all = [
 ]
 
 [tool.cibuildwheel.windows.environment]
-INCLUDE="C:\\\\Users\\\\runneradmin\\\\micromamba\\\\envs\\\\build\\\\include"
+INCLUDE="C:\\Users\\runneradmin\\micromamba\\envs\\build\\include"
 
 [tool.cibuildwheel.linux]
 before-all = [
