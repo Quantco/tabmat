@@ -76,7 +76,7 @@ before-all = [
 ]
 
 [tool.cibuildwheel.windows.environment]
-INCLUDE="D:\\a\\tabmat\\tabmat\\envs\\build\\Library\\include"
+INCLUDE="D:\\\\a\\\\tabmat\\\\tabmat\\\\envs\\\\build\\\\Library\\\\include"
 
 [tool.cibuildwheel.linux]
 before-all = [
