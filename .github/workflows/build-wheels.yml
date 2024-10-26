@@ -28,7 +28,7 @@ jobs:
           micromamba-version: 1.5.10-0
       - name: see mm content
         if: runner.os == 'Windows'
-        run: ls C:\\Users\\runneradmin\\micromamba\\envs\\build\\include
+        run: ls C:\\Users\\runneradmin\\micromamba\\envs\\build
       - name: Build wheels
         if: github.event_name != 'release'
         uses: pypa/cibuildwheel@v2.21.1
