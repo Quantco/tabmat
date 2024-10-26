@@ -27,6 +27,7 @@ jobs:
         with:
           micromamba-version: 1.5.10-0
       - name: see mm content
+        if: runner.os == 'Windows'
         run: ls C:\\Users\\runneradmin\\micromamba\\envs\\build\\include
       - name: Build wheels
         if: github.event_name != 'release'
