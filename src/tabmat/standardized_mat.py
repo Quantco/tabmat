@@ -147,8 +147,9 @@ class StandardizedMatrix:
 
         limited_shift = self.shift[cols] if cols is not None else self.shift
         limited_d = d[rows] if rows is not None else d
-        term3_and_4 = np.outer(limited_shift, d_mat + limited_shift * np.sum(limited_d))
-        res = term2 + term3_and_4
+        term3 = np.outer(limited_shift, d_mat)
+        term4 = np.outer(limited_shift, limited_shift) * np.sum(limited_d)
+        res = term2 + term3 + term4
         if isinstance(term1, sps.dia_matrix):
             idx = np.arange(res.shape[0])
             to_add = term1.data[0, :]
