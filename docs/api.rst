@@ -1,6 +1,8 @@
 tabmat package
 ========================
 
+.. autofunction:: tabmat.from_df
+
 .. autofunction:: tabmat.from_pandas
 
 .. autofunction:: tabmat.from_csc
