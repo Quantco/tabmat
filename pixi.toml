@@ -94,6 +94,8 @@ jemalloc-local = "*"
 [host-dependencies]
 python = ">=3.9"
 pip = "*"
+setuptools = "*"
+wheel = "*"
 
 [dependencies]
 formulaic = ">=0.6.4"
