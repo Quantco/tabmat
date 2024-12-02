@@ -457,6 +457,7 @@ def test_all_names_against_from_pandas(df, categorical_format):
     assert mat_from_formula.term_names == mat_from_pandas.term_names
 
 
+@pytest.mark.skip(reason="We handle categorical names differently from formulaic")
 @pytest.mark.parametrize(
     "ensure_full_rank", [True, False], ids=["full_rank", "all_levels"]
 )
