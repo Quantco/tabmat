@@ -22,7 +22,7 @@ jobs:
         with:
           platforms: all
       - name: Set up micromamba
-        uses: mamba-org/setup-micromamba@f8b8a1e23a26f60a44c853292711bacfd3eac822
+        uses: mamba-org/setup-micromamba@06375d89d211a1232ef63355742e9e2e564bc7f7
       - name: Build wheels
         if: github.event_name != 'release'
         uses: pypa/cibuildwheel@v2.22.0
