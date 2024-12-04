@@ -10,7 +10,6 @@ import pandas
 from formulaic import ModelMatrix, ModelSpec
 from formulaic.errors import FactorEncodingError
 from formulaic.materializers import FormulaMaterializer
-from formulaic.materializers.base import EncodedTermStructure
 from formulaic.materializers.types import FactorValues, NAAction, ScopedTerm
 from formulaic.parser.types import Term
 from formulaic.transforms import stateful_transform
@@ -23,6 +22,11 @@ from .dense_matrix import DenseMatrix
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .split_matrix import SplitMatrix
+
+try:
+    from formulaic.materializers.base import EncodedTermStructure
+except ImportError:
+    from formulaic.materializers.types.formula_materializer import EncodedTermStructure
 
 
 class TabmatMaterializer(FormulaMaterializer):
