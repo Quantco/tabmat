@@ -12,7 +12,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, windows-2019, macos-12]
+        os: [ubuntu-20.04, windows-2019, macos-13, macos-14]
 
     steps:
       - uses: actions/checkout@v4
@@ -28,15 +28,11 @@ jobs:
         uses: pypa/cibuildwheel@v2.22.0
         env:
           CIBW_ARCHS_LINUX: auto
-          CIBW_ARCHS_MACOS: x86_64 arm64
-          CIBW_TEST_SKIP: '*-macosx_arm64'
       - name: Build wheels (release)
         if: github.event_name == 'release' && github.event.action == 'published'
         uses: pypa/cibuildwheel@v2.22.0
         env:
           CIBW_ARCHS_LINUX: x86_64 aarch64
-          CIBW_ARCHS_MACOS: x86_64 arm64
-          CIBW_TEST_SKIP: '*-macosx_arm64'
       - uses: actions/upload-artifact@v4
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
