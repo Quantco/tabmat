@@ -61,9 +61,9 @@ before-build = [
 ]
 
 [tool.cibuildwheel.macos.environment]
-LDFLAGS="-Wl,-rpath,$CONDA/envs/build/lib -L$CONDA/envs/build/lib -headerpad_max_install_names"
-CFLAGS="-I$CONDA/envs/build/include"
-CXXFLAGS="-I$CONDA/envs/build/include"
+LDFLAGS="-Wl,-rpath,$MAMBA_ROOT_PREFIX/envs/build/lib -L$MAMBA_ROOT_PREFIX/envs/build/lib -headerpad_max_install_names"
+CFLAGS="-I$MAMBA_ROOT_PREFIX/envs/build/include"
+CXXFLAGS="-I$MAMBA_ROOT_PREFIX/envs/build/include"
 CXX="/usr/bin/clang++"
 CC="/usr/bin/clang"
 JE_INSTALL_SUFFIX="local"
