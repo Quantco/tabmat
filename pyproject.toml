@@ -57,7 +57,7 @@ test-command = "pytest {package}/tests/test_matrices.py"
 
 [tool.cibuildwheel.macos]
 before-build = [
-  "bash build_tools/prepare_macos_wheel.sh",
+  "/Users/runner/micromamba-bin/micromamba create -y -p $MAMBA_ROOT_PREFIX/envs/build -c conda-forge jemalloc-local \"xsimd<11|>12.1\" llvm-openmp",
 ]
 
 [tool.cibuildwheel.macos.environment]
