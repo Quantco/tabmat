@@ -10,6 +10,10 @@ Changelog
 Unreleased
 ----------
 
+**Other changes:**
+
+- Build wheel for pypi on python 3.13.
+
 4.1.0 - 2024-11-07
 ------------------
 
