@@ -11,6 +11,11 @@ from formulaic.materializers.types import EvaluatedFactor, FactorValues
 from formulaic.parser.types import Factor
 from scipy import sparse as sps
 
+try:
+    from formulaic.utils.structured import Structured
+except ImportError:
+    from formulaic.parser.types import Structured
+
 import tabmat as tm
 from tabmat.formula import (
     TabmatMaterializer,
@@ -1145,5 +1150,5 @@ class TestFormulaicTests:
         pickle.dump(ms.model_spec, o)
         o.seek(0)
         ms2 = pickle.load(o)
-        assert isinstance(ms, formulaic.parser.types.Structured)
+        assert isinstance(ms, Structured)
         assert ms2.lhs.formula.root == ["a"]
