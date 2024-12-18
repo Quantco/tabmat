@@ -10,6 +10,10 @@ Changelog
 Unreleased
 ----------
 
+**New feature:**
+
+- :func:`tabmat.from_formula` now also supports any dataframe supported by narwhals. 
+
 **Other changes:**
 
 - Build wheel for pypi on python 3.13.
