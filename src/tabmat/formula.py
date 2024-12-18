@@ -10,7 +10,7 @@ import numpy
 import pandas
 from formulaic import ModelMatrix, ModelSpec
 from formulaic.errors import FactorEncodingError
-from formulaic.materializers import NarwhalsMaterializer
+from formulaic.materializers import FormulaMaterializer
 from formulaic.materializers.types import FactorValues, ScopedTerm
 from formulaic.parser.types import Term
 from formulaic.transforms import stateful_transform
@@ -31,7 +31,7 @@ except ImportError:
     from formulaic.materializers.types.formula_materializer import EncodedTermStructure
 
 
-class TabmatMaterializer(NarwhalsMaterializer):
+class TabmatMaterializer(FormulaMaterializer):
     """Materializer for pandas input and tabmat output."""
 
     REGISTER_NAME = "tabmat"
@@ -65,6 +65,13 @@ class TabmatMaterializer(NarwhalsMaterializer):
     @property
     def data_context(self):
         return self.__data_context
+
+    @override
+    def _is_categorical(self, values: Any) -> bool:
+        if nw.dependencies.is_narwhals_series(values):
+            if not values.dtype.is_numeric():
+                return True
+        return super()._is_categorical(values)
 
     @override
     def _encode_constant(self, value, metadata, encoder_state, spec, drop_rows):
