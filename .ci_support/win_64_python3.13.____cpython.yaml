@@ -1,0 +1,10 @@
+c_compiler:
+- vs2019
+cxx_compiler:
+- vs2019
+numpy:
+- '2.1'
+python:
+- 3.13.* *_cpython
+target_platform:
+- win-64
