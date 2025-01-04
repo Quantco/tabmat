@@ -5,6 +5,6 @@ cxx_compiler:
 numpy:
 - '2.1'
 python:
-- 3.13.* *_cpython
+- 3.13.* *_cp313
 target_platform:
 - win-64
