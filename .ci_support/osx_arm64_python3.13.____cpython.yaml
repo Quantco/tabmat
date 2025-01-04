@@ -3,11 +3,11 @@ MACOSX_DEPLOYMENT_TARGET:
 c_compiler:
 - clang
 c_compiler_version:
-- '15'
+- '17'
 cxx_compiler:
 - clangxx
 cxx_compiler_version:
-- '15'
+- '17'
 macos_machine:
 - arm64-apple-darwin20.0.0
 numpy:
