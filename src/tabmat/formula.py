@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from typing import Any, Optional, Union
 
 import numpy as np
+import numpy.typing
 import pandas as pd
 from formulaic import ModelMatrix, ModelSpec
 from formulaic.errors import FactorEncodingError
@@ -305,7 +306,7 @@ class _InteractableVector(ABC):
     @abstractmethod
     def to_tabmat(
         self,
-        dtype: np.typing.DTypeLike,
+        dtype: numpy.typing.DTypeLike,
         sparse_threshold: float,
         cat_threshold: int,
     ) -> MatrixBase:
@@ -358,7 +359,7 @@ class _InteractableDenseVector(_InteractableVector):
 
     def to_tabmat(
         self,
-        dtype: np.typing.DTypeLike = np.float64,
+        dtype: numpy.typing.DTypeLike = np.float64,
         sparse_threshold: float = 0.1,
         cat_threshold: int = 4,
     ) -> Union[SparseMatrix, DenseMatrix]:
@@ -394,7 +395,7 @@ class _InteractableSparseVector(_InteractableVector):
 
     def to_tabmat(
         self,
-        dtype: np.typing.DTypeLike = np.float64,
+        dtype: numpy.typing.DTypeLike = np.float64,
         sparse_threshold: float = 0.1,
         cat_threshold: int = 4,
     ) -> SparseMatrix:
@@ -471,7 +472,7 @@ class _InteractableCategoricalVector(_InteractableVector):
 
     def to_tabmat(
         self,
-        dtype: np.typing.DTypeLike = np.float64,
+        dtype: numpy.typing.DTypeLike = np.float64,
         sparse_threshold: float = 0.1,
         cat_threshold: int = 4,
     ) -> Union[DenseMatrix, CategoricalMatrix, SplitMatrix]:
