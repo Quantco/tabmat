@@ -5,6 +5,7 @@ from typing import Any, Optional, Union
 
 import narwhals.stable.v1 as nw
 import numpy as np
+import numpy.typing
 from formulaic import Formula, ModelSpec
 from formulaic.materializers.types import NAAction
 from formulaic.parser import DefaultFormulaParser
@@ -28,7 +29,7 @@ except ImportError:
 @nw.narwhalify(eager_only=True)
 def from_df(
     df,
-    dtype: np.dtype = np.float64,
+    dtype: numpy.typing.DTypeLike = np.float64,
     sparse_threshold: float = 0.1,
     cat_threshold: int = 4,
     object_as_cat: bool = False,
@@ -207,7 +208,7 @@ def from_df(
 
 def from_pandas(
     df,
-    dtype: np.dtype = np.float64,
+    dtype: numpy.typing.DTypeLike = np.float64,
     sparse_threshold: float = 0.1,
     cat_threshold: int = 4,
     object_as_cat: bool = False,
@@ -300,7 +301,7 @@ def from_formula(
     data,
     ensure_full_rank: bool = False,
     na_action: Union[str, NAAction] = NAAction.IGNORE,
-    dtype: np.dtype = np.float64,
+    dtype: numpy.typing.DTypeLike = np.float64,
     sparse_threshold: float = 0.1,
     cat_threshold: int = 4,
     interaction_separator: str = ":",
