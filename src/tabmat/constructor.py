@@ -28,7 +28,7 @@ except ImportError:
 @nw.narwhalify(eager_only=True)
 def from_df(
     df,
-    dtype: np.dtype = np.float64,
+    dtype: np.typing.DTypeLike = np.float64,
     sparse_threshold: float = 0.1,
     cat_threshold: int = 4,
     object_as_cat: bool = False,
@@ -207,7 +207,7 @@ def from_df(
 
 def from_pandas(
     df,
-    dtype: np.dtype = np.float64,
+    dtype: np.typing.DTypeLike = np.float64,
     sparse_threshold: float = 0.1,
     cat_threshold: int = 4,
     object_as_cat: bool = False,
@@ -300,7 +300,7 @@ def from_formula(
     data,
     ensure_full_rank: bool = False,
     na_action: Union[str, NAAction] = NAAction.IGNORE,
-    dtype: np.dtype = np.float64,
+    dtype: np.typing.DTypeLike = np.float64,
     sparse_threshold: float = 0.1,
     cat_threshold: int = 4,
     interaction_separator: str = ":",

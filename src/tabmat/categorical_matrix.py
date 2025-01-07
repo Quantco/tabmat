@@ -339,7 +339,7 @@ class CategoricalMatrix(MatrixBase):
         cat_vec,
         categories: Optional[np.ndarray] = None,
         drop_first: bool = False,
-        dtype: np.dtype = np.float64,
+        dtype: np.typing.DTypeLike = np.float64,
         column_name: Optional[str] = None,
         term_name: Optional[str] = None,
         column_name_format: str = "{name}[{category}]",
