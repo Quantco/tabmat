@@ -1,0 +1,18 @@
+MACOSX_DEPLOYMENT_TARGET:
+- '11.0'
+c_compiler:
+- clang
+c_compiler_version:
+- '17'
+cxx_compiler:
+- clangxx
+cxx_compiler_version:
+- '17'
+macos_machine:
+- arm64-apple-darwin20.0.0
+numpy:
+- '2.1'
+python:
+- 3.13.* *_cp313
+target_platform:
+- osx-arm64

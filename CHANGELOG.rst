@@ -13,6 +13,7 @@ Unreleased
 **Other changes:**
 
 - Build wheel for pypi on python 3.13.
+- Build and test with python 3.13 in CI.
 
 4.1.0 - 2024-11-07
 ------------------
