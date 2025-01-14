@@ -50,9 +50,9 @@ def categorical_matrix_drop_first():
     return tm.CategoricalMatrix(vec, drop_first=True)
 
 
-def get_unscaled_matrices() -> (
-    list[Union[tm.DenseMatrix, tm.SparseMatrix, tm.CategoricalMatrix]]
-):
+def get_unscaled_matrices() -> list[
+    Union[tm.DenseMatrix, tm.SparseMatrix, tm.CategoricalMatrix]
+]:
     return [
         dense_matrix_F(),
         dense_matrix_C(),

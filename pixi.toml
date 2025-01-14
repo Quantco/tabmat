@@ -20,8 +20,8 @@ test = "pytest tests --doctest-modules src"
 
 [feature.docs.tasks]
 make-docs = "cd docs && make html"
-serve-docs = { cmd = "python -m http.server --directory docs/_build/html", depends_on = ["make-docs"] }
-readthedocs = { cmd = "rm -rf $READTHEDOCS_OUTPUT/html && cp -r docs/_build/html $READTHEDOCS_OUTPUT/html", depends_on = ["make-docs"] }
+serve-docs = { cmd = "python -m http.server --directory docs/_build/html", depends-on = ["make-docs"] }
+readthedocs = { cmd = "rm -rf $READTHEDOCS_OUTPUT/html && cp -r docs/_build/html $READTHEDOCS_OUTPUT/html", depends-on = ["make-docs"] }
 
 [feature.benchmark.tasks.benchmark-generate-matrices]
 cmd = "python src/tabmat/benchmark/generate_matrices.py"
@@ -38,7 +38,7 @@ outputs = [
 ]
 [feature.benchmark.tasks.benchmark-run]
 cmd = "python src/tabmat/benchmark/main.py --include_baseline --bench_memory --n_iterations 100"
-depends_on = ["benchmark-generate-matrices"]
+depends-on = ["benchmark-generate-matrices"]
 inputs = [
     "src/tabmat/benchmark/main.py",
     "benchmark/data/dense_cat_data.pkl",
@@ -62,7 +62,7 @@ outputs = [
 ]
 [feature.benchmark.tasks.benchmark-visualize]
 cmd = "python src/tabmat/benchmark/visualize_benchmarks.py"
-depends_on = ["benchmark-run"]
+depends-on = ["benchmark-run"]
 inputs = [
     "src/tabmat/benchmark/visualize_benchmarks.py",
     "benchmark/data/dense_cat_bench.csv",
@@ -153,12 +153,12 @@ python = "3.13.*"
 
 [feature.oldies.dependencies]
 setuptools = "62.*"
-python = "3.9.19"
-numpy = "1.24.0"
-pandas = "1.4.4"
-scipy = "1.7.3"
-formulaic = "0.6.4"
-narwhals = "1.4.1"
+python = "=3.9.19"
+numpy = "=1.24.0"
+pandas = "=1.4.4"
+scipy = "=1.7.3"
+formulaic = "=0.6.4"
+narwhals = "=1.4.1"
 
 [environments]
 default = ["dev", "test"]
