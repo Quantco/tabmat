@@ -5,12 +5,12 @@ from collections import OrderedDict
 from collections.abc import Iterable
 from typing import Any, Optional, Union
 
-import numpy
-import pandas
+import numpy as np
+import numpy.typing
+import pandas as pd
 from formulaic import ModelMatrix, ModelSpec
 from formulaic.errors import FactorEncodingError
 from formulaic.materializers import FormulaMaterializer
-from formulaic.materializers.base import EncodedTermStructure
 from formulaic.materializers.types import FactorValues, NAAction, ScopedTerm
 from formulaic.parser.types import Term
 from formulaic.transforms import stateful_transform
@@ -23,6 +23,11 @@ from .dense_matrix import DenseMatrix
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .split_matrix import SplitMatrix
+
+try:
+    from formulaic.materializers.base import EncodedTermStructure
+except ImportError:
+    from formulaic.materializers.types.formula_materializer import EncodedTermStructure
 
 
 class TabmatMaterializer(FormulaMaterializer):
@@ -39,7 +44,7 @@ class TabmatMaterializer(FormulaMaterializer):
             "categorical_format", "{name}[{category}]"
         )
         self.intercept_name = self.params.get("intercept_name", "Intercept")
-        self.dtype = self.params.get("dtype", numpy.float64)
+        self.dtype = self.params.get("dtype", np.float64)
         self.sparse_threshold = self.params.get("sparse_threshold", 0.1)
         self.cat_threshold = self.params.get("cat_threshold", 4)
         self.add_column_for_intercept = self.params.get(
@@ -53,9 +58,9 @@ class TabmatMaterializer(FormulaMaterializer):
 
     @override
     def _is_categorical(self, values):
-        if isinstance(values, (pandas.Series, pandas.Categorical)):
+        if isinstance(values, (pd.Series, pd.Categorical)):
             return values.dtype == object or isinstance(
-                values.dtype, pandas.CategoricalDtype
+                values.dtype, pd.CategoricalDtype
             )
         return super()._is_categorical(values)
 
@@ -65,12 +70,12 @@ class TabmatMaterializer(FormulaMaterializer):
             return
 
         if na_action is NAAction.RAISE:
-            if isinstance(values, pandas.Series) and values.isnull().values.any():
+            if isinstance(values, pd.Series) and values.isnull().values.any():
                 raise ValueError(f"`{name}` contains null values after evaluation.")
 
         elif na_action is NAAction.DROP:
-            if isinstance(values, pandas.Series):
-                drop_rows.update(numpy.flatnonzero(values.isnull().values))
+            if isinstance(values, pd.Series):
+                drop_rows.update(np.flatnonzero(values.isnull().values))
 
         else:
             raise ValueError(
@@ -79,17 +84,17 @@ class TabmatMaterializer(FormulaMaterializer):
 
     @override
     def _encode_constant(self, value, metadata, encoder_state, spec, drop_rows):
-        series = value * numpy.ones(self.nrows - len(drop_rows))
+        series = value * np.ones(self.nrows - len(drop_rows))
         return _InteractableDenseVector(series, name=self.intercept_name)
 
     @override
     def _encode_numerical(self, values, metadata, encoder_state, spec, drop_rows):
         if drop_rows:
             values = values.drop(index=values.index[drop_rows])
-        if isinstance(values, pandas.Series):
+        if isinstance(values, pd.Series):
             values = values.to_numpy().astype(self.dtype)
         if (values != 0).mean() <= self.sparse_threshold:
-            return _InteractableSparseVector(sps.csc_matrix(values[:, numpy.newaxis]))
+            return _InteractableSparseVector(sps.csc_matrix(values[:, np.newaxis]))
         else:
             return _InteractableDenseVector(values)
 
@@ -114,7 +119,7 @@ class TabmatMaterializer(FormulaMaterializer):
     def _combine_columns(self, cols, spec, drop_rows):
         # Special case no columns
         if not cols:
-            values = numpy.empty((self.data.shape[0], 0), dtype=self.dtype)
+            values = np.empty((self.data.shape[0], 0), dtype=self.dtype)
             return DenseMatrix(values)
 
         # Otherwise, concatenate columns into SplitMatrix
@@ -301,7 +306,7 @@ class _InteractableVector(ABC):
     @abstractmethod
     def to_tabmat(
         self,
-        dtype: numpy.dtype,
+        dtype: numpy.typing.DTypeLike,
         sparse_threshold: float,
         cat_threshold: int,
     ) -> MatrixBase:
@@ -341,7 +346,7 @@ class _InteractableVector(ABC):
 
 
 class _InteractableDenseVector(_InteractableVector):
-    def __init__(self, values: numpy.ndarray, name: Optional[str] = None):
+    def __init__(self, values: np.ndarray, name: Optional[str] = None):
         self.values = values
         self.name = name
 
@@ -354,7 +359,7 @@ class _InteractableDenseVector(_InteractableVector):
 
     def to_tabmat(
         self,
-        dtype: numpy.dtype = numpy.float64,
+        dtype: numpy.typing.DTypeLike = np.float64,
         sparse_threshold: float = 0.1,
         cat_threshold: int = 4,
     ) -> Union[SparseMatrix, DenseMatrix]:
@@ -363,7 +368,7 @@ class _InteractableDenseVector(_InteractableVector):
         else:
             # Columns can become sparser, but not denser through interactions
             return SparseMatrix(
-                sps.csc_matrix(self.values[:, numpy.newaxis]), column_names=[self.name]
+                sps.csc_matrix(self.values[:, np.newaxis]), column_names=[self.name]
             )
 
     def get_names(self) -> list[str]:
@@ -390,7 +395,7 @@ class _InteractableSparseVector(_InteractableVector):
 
     def to_tabmat(
         self,
-        dtype: numpy.dtype = numpy.float64,
+        dtype: numpy.typing.DTypeLike = np.float64,
         sparse_threshold: float = 0.1,
         cat_threshold: int = 4,
     ) -> SparseMatrix:
@@ -409,9 +414,9 @@ class _InteractableSparseVector(_InteractableVector):
 class _InteractableCategoricalVector(_InteractableVector):
     def __init__(
         self,
-        codes: numpy.ndarray,
+        codes: np.ndarray,
         categories: list[str],
-        multipliers: numpy.ndarray,
+        multipliers: np.ndarray,
         name: Optional[str] = None,
     ):
         # sentinel values for codes:
@@ -425,7 +430,7 @@ class _InteractableCategoricalVector(_InteractableVector):
     @classmethod
     def from_categorical(
         cls,
-        cat: pandas.Categorical,
+        cat: pd.Categorical,
         reduced_rank: bool,
         missing_method: str = "fail",
         missing_name: str = "(MISSING)",
@@ -433,7 +438,7 @@ class _InteractableCategoricalVector(_InteractableVector):
     ) -> "_InteractableCategoricalVector":
         """Create an interactable categorical vector from a pandas categorical."""
         categories = list(cat.categories)
-        codes = cat.codes.copy().astype(numpy.int64)
+        codes = cat.codes.copy().astype(np.int64)
 
         if reduced_rank:
             codes[codes == 0] = -2
@@ -453,7 +458,7 @@ class _InteractableCategoricalVector(_InteractableVector):
         return cls(
             codes=codes,
             categories=categories,
-            multipliers=numpy.ones(len(cat.codes)),
+            multipliers=np.ones(len(cat.codes)),
         )
 
     def __rmul__(self, other):
@@ -467,7 +472,7 @@ class _InteractableCategoricalVector(_InteractableVector):
 
     def to_tabmat(
         self,
-        dtype: numpy.dtype = numpy.float64,
+        dtype: numpy.typing.DTypeLike = np.float64,
         sparse_threshold: float = 0.1,
         cat_threshold: int = 4,
     ) -> Union[DenseMatrix, CategoricalMatrix, SplitMatrix]:
@@ -481,7 +486,7 @@ class _InteractableCategoricalVector(_InteractableVector):
         else:
             drop_first = False
 
-        cat = pandas.Categorical.from_codes(
+        cat = pd.Categorical.from_codes(
             codes=codes,
             categories=categories,
             ordered=False,
@@ -498,12 +503,12 @@ class _InteractableCategoricalVector(_InteractableVector):
 
         if (self.codes == -2).all():
             # All values are dropped
-            return DenseMatrix(numpy.empty((len(codes), 0), dtype=dtype))
+            return DenseMatrix(np.empty((len(codes), 0), dtype=dtype))
         elif (self.multipliers == 1).all() and len(categories) >= cat_threshold:
             return categorical_part
         else:
             sparse_matrix = sps.csc_matrix(
-                categorical_part.tocsr().multiply(self.multipliers[:, numpy.newaxis])
+                categorical_part.tocsr().multiply(self.multipliers[:, np.newaxis])
             )
             (
                 dense_part,
@@ -740,7 +745,7 @@ def encode_contrasts(
                 f"Column {data.name} contains unseen categories: {unseen_categories}."
             )
 
-    cat = pandas.Categorical(data._values, categories=levels)
+    cat = pd.Categorical(data._values, categories=levels)
     _state["categories"] = cat.categories
     _state["add_missing_category"] = add_missing_category or (
         missing_method == "convert" and cat.isna().any()

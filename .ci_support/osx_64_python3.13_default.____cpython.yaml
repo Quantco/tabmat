@@ -1,0 +1,19 @@
+xMACOSX_DEPLOYMENT_TARGET:
+- '10.9'
+c_compiler:
+- clang
+c_compiler_version:
+- '17'
+cxx_compiler:
+- clangxx
+cxx_compiler_version:
+- '17'
+macos_machine:
+- x86_64-apple-darwin13.4.0
+numpy:
+- '2.1'
+python:
+- 3.13.* *_cp313
+target_platform:
+- osx-64
+

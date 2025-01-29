@@ -49,7 +49,6 @@ skip = [
   "cp36*",
   "cp37*",
   "cp38*",
-  "cp313-*",
 ]
 test-requires = ["pytest", "pytest-xdist"]
 test-command = "pytest {package}/tests/test_matrices.py"
@@ -57,13 +56,13 @@ test-command = "pytest {package}/tests/test_matrices.py"
 
 [tool.cibuildwheel.macos]
 before-build = [
-  "bash build_tools/prepare_macos_wheel.sh",
+  "/Users/runner/micromamba-bin/micromamba create -y -p $MAMBA_ROOT_PREFIX/envs/build -c conda-forge jemalloc-local \"xsimd<11|>12.1\" llvm-openmp",
 ]
 
 [tool.cibuildwheel.macos.environment]
-LDFLAGS="-Wl,-rpath,$CONDA/envs/build/lib -L$CONDA/envs/build/lib -headerpad_max_install_names"
-CFLAGS="-I$CONDA/envs/build/include"
-CXXFLAGS="-I$CONDA/envs/build/include"
+LDFLAGS="-Wl,-rpath,$MAMBA_ROOT_PREFIX/envs/build/lib -L$MAMBA_ROOT_PREFIX/envs/build/lib -headerpad_max_install_names"
+CFLAGS="-I$MAMBA_ROOT_PREFIX/envs/build/include"
+CXXFLAGS="-I$MAMBA_ROOT_PREFIX/envs/build/include"
 CXX="/usr/bin/clang++"
 CC="/usr/bin/clang"
 JE_INSTALL_SUFFIX="local"
