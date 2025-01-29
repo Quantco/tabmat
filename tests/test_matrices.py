@@ -816,7 +816,7 @@ def test_combine_names(mat_1, mat_2):
 
 
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
-def test_standardize_constant_cols(dtype):
+def test_dense_matrix_get_col_stds(dtype):
     # https://github.com/Quantco/tabmat/issues/414
     X = np.array(
         [
@@ -828,21 +828,11 @@ def test_standardize_constant_cols(dtype):
         ],
         dtype=dtype,
     )
-    v = np.array(
-        [0.12428328, 0.67062443, 0.6471895, 0.6153851, 0.38367754], dtype=dtype
-    )
     weights = np.full(X.shape[0], 1 / X.shape[0], dtype=dtype)
 
-    standardized_mat, _, _ = tm.DenseMatrix(X).standardize(
+    standardized_mat, _, col_stds = tm.DenseMatrix(X).standardize(
         weights, center_predictors=True, scale_predictors=True
     )
 
-    result = standardized_mat.transpose_matvec(v)
-    expected = standardized_mat.toarray().T @ v
-
-    np.testing.assert_allclose(result, expected)
-
-    result = standardized_mat.sandwich(v)
-    expected = (standardized_mat.toarray().T * v[None, :]) @ standardized_mat.toarray()
-
-    np.testing.assert_allclose(result, expected)
+    np.testing.assert_allclose(col_stds, np.std(X, axis=0, ddof=0))
+    np.testing.assert_allclose(standardized_mat.mult, 1 / np.std(X, axis=0, ddof=0))
