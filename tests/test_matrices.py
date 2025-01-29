@@ -813,3 +813,29 @@ def test_combine_names(mat_1, mat_2):
 
     assert combined.column_names == mat_1.column_names + mat_2.column_names
     assert combined.term_names == mat_1.term_names + mat_2.term_names
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_dense_matrix_get_col_stds(dtype):
+    # https://github.com/Quantco/tabmat/issues/414
+    X = np.array(
+        [
+            [46.231056, 126.05263, 144.46439],
+            [46.231224, 128.66818, 0.7667693],
+            [46.231186, 104.97506, 193.8872],
+            [46.230835, 130.10156, 143.88954],
+            [46.230896, 116.76007, 7.5629334],
+        ],
+        dtype=dtype,
+    )
+    weights = np.full(X.shape[0], 1 / X.shape[0], dtype=dtype)
+
+    standardized_mat, _, col_stds = tm.DenseMatrix(X).standardize(
+        weights, center_predictors=True, scale_predictors=True
+    )
+
+    eps = np.sqrt(np.finfo(dtype).eps)  # sqrt since std = sqrt(var)
+    np.testing.assert_allclose(col_stds, np.std(X, axis=0, ddof=0), rtol=eps)
+    np.testing.assert_allclose(
+        standardized_mat.mult, 1 / np.std(X, axis=0, ddof=0), rtol=eps
+    )

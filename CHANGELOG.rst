@@ -10,6 +10,10 @@ Changelog
 Unreleased
 ----------
 
+**Bug fix:**
+
+- A more robust :meth:`DenseMatrix._get_col_stds` results in more accurate :meth:`StandardizedMatrix.sandwich` results.
+
 **Other changes:**
 
 - Build wheel for pypi on python 3.13.
