@@ -813,3 +813,36 @@ def test_combine_names(mat_1, mat_2):
 
     assert combined.column_names == mat_1.column_names + mat_2.column_names
     assert combined.term_names == mat_1.term_names + mat_2.term_names
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_standardize_constant_cols(dtype):
+    # https://github.com/Quantco/tabmat/issues/414
+    X = np.array(
+        [
+            [46.231056, 126.05263, 144.46439],
+            [46.231224, 128.66818, 0.7667693],
+            [46.231186, 104.97506, 193.8872],
+            [46.230835, 130.10156, 143.88954],
+            [46.230896, 116.76007, 7.5629334],
+        ],
+        dtype=dtype,
+    )
+    v = np.array(
+        [0.12428328, 0.67062443, 0.6471895, 0.6153851, 0.38367754], dtype=dtype
+    )
+    weights = np.full(X.shape[0], 1 / X.shape[0], dtype=dtype)
+
+    standardized_mat, _, _ = tm.DenseMatrix(X).standardize(
+        weights, center_predictors=True, scale_predictors=True
+    )
+
+    result = standardized_mat.transpose_matvec(v)
+    expected = standardized_mat.toarray().T @ v
+
+    np.testing.assert_allclose(result, expected)
+
+    result = standardized_mat.sandwich(v)
+    expected = (standardized_mat.toarray().T * v[None, :]) @ standardized_mat.toarray()
+
+    np.testing.assert_allclose(result, expected)
