@@ -834,5 +834,6 @@ def test_dense_matrix_get_col_stds(dtype):
         weights, center_predictors=True, scale_predictors=True
     )
 
-    np.testing.assert_allclose(col_stds, np.std(X, axis=0, ddof=0))
-    np.testing.assert_allclose(standardized_mat.mult, 1 / np.std(X, axis=0, ddof=0))
+    eps = np.sqrt(np.finfo(dtype).eps)  # sqrt since std = sqrt(var)
+    np.testing.assert_allclose(col_stds, np.std(X, axis=0, ddof=0), rtol=eps)
+    np.testing.assert_allclose(standardized_mat.mult, 1 / np.std(X, axis=0, ddof=0), rtol=eps)
