@@ -169,7 +169,6 @@ from typing import Optional, Union
 
 import narwhals.stable.v1 as nw
 import numpy as np
-import numpy.typing
 from scipy import sparse as sps
 
 from .dense_matrix import DenseMatrix
@@ -340,7 +339,7 @@ class CategoricalMatrix(MatrixBase):
         cat_vec,
         categories: Optional[np.ndarray] = None,
         drop_first: bool = False,
-        dtype: numpy.typing.DTypeLike = np.float64,
+        dtype: np.dtype = np.float64,
         column_name: Optional[str] = None,
         term_name: Optional[str] = None,
         column_name_format: str = "{name}[{category}]",

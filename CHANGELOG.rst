@@ -7,18 +7,8 @@
 Changelog
 =========
 
-4.1.1 - 2025-01-29
-------------------
-
-**Bug fix:**
-
-- A more robust :meth:`DenseMatrix._get_col_stds` results in more accurate :meth:`StandardizedMatrix.sandwich` results.
-
-**Other changes:**
-
-- Build wheel for pypi on python 3.13.
-- Build and test with python 3.13 in CI.
-
+Unreleased
+----------
 
 4.1.0 - 2024-11-07
 ------------------

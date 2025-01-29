@@ -130,15 +130,7 @@ class StandardizedMatrix:
         if not hasattr(d, "dtype"):
             d = np.asarray(d)
         check_sandwich_compatible(self, d)
-        # stat_mat = mat * mult[newaxis, :] + shift[newaxis, :]
-        # stat_mat.T @ d[:, newaxis] * stat_mat
-        # = mult[:, newaxis] * mat.T @ d[:, newaxis] * mat * mult[newaxis, :] +   (1)
-        #   mult[:, newaxis] * mat.T @ d[:, newaxis] * np.outer(ones, shift) +    (2)
-        #   shift[:, newaxis] @ d[:, newaxis] * mat * mult[newaxis, :] +          (3)
-        #   shift[:, newaxis] @ d[:, newaxis] * shift[newaxis, :]                 (4)
-        #
-        # (1) = self.mat.sandwich(d) * np.outer(limited_mult, limited_mult)
-        # (2) = mult * self.transpose_matvec(d) * shift[newaxis, :]
+
         if rows is not None or cols is not None:
             setup_rows, setup_cols = setup_restrictions(self.shape, rows, cols)
             if rows is not None:
