@@ -21,6 +21,7 @@ jobs:
         uses: docker/setup-qemu-action@v3
         with:
           platforms: all
+          image: tonistiigi/binfmt:qemu-v8.1.5-45
       - name: Set up micromamba
         uses: mamba-org/setup-micromamba@0dea6379afdaffa5d528b3d1dabc45da37f443fc
       - name: Build wheels
