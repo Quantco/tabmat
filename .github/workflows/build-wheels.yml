@@ -12,28 +12,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, windows-2019, macos-13, macos-14]
+        os: [ubuntu-22.04, ubuntu-22.04, windows-2019, macos-13, macos-14]
 
     steps:
       - uses: actions/checkout@v4
-      - name: Set up QEMU
-        if: runner.os == 'Linux'
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: all
-          image: tonistiigi/binfmt:qemu-v8.1.5
       - name: Set up micromamba
         uses: mamba-org/setup-micromamba@0dea6379afdaffa5d528b3d1dabc45da37f443fc
       - name: Build wheels
-        if: github.event_name != 'release'
         uses: pypa/cibuildwheel@v2.22.0
-        env:
-          CIBW_ARCHS_LINUX: auto
-      - name: Build wheels (release)
-        if: github.event_name == 'release' && github.event.action == 'published'
-        uses: pypa/cibuildwheel@v2.22.0
-        env:
-          CIBW_ARCHS_LINUX: x86_64 aarch64
       - uses: actions/upload-artifact@v4
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
