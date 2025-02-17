@@ -21,7 +21,7 @@ jobs:
       - name: Checkout branch
         uses: actions/checkout@v4
       - name: Set up pixi
-        uses: prefix-dev/setup-pixi@v0.8.1
+        uses: prefix-dev/setup-pixi@v0.8.2
         with:
           environments: lint default
       - name: pre-commit
@@ -48,7 +48,7 @@ jobs:
       - name: Checkout branch
         uses: actions/checkout@v4
       - name: Set up pixi
-        uses: prefix-dev/setup-pixi@992a3081e2f87829e0fff9fb29f4fe6a5d1e80a2
+        uses: prefix-dev/setup-pixi@0f64e482e3d251f735019b1bc7fb0413ead75b2c
         with:
           environments: ${{ matrix.environment }}
       - name: Update dependencies
