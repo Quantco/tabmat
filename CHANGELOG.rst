@@ -7,6 +7,13 @@
 Changelog
 =========
 
+4.1.2 - UNRELEASED
+------------------
+
+**Bug fix:**
+
+- Fixed a bug which incorrectly raised an error when constructing tabmat matrices from existing ``ModelSpec``s when they contained a categorical column without any levels.
+
 4.1.1 - 2025-01-30
 ------------------
 
