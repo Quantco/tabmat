@@ -835,7 +835,7 @@ def test_unseen_missing(cat_missing_method):
 def test_drop_all_levels():
     df = pd.DataFrame(
         {
-            "cat_1": ["A", "A", "A"],
+            "cat_1": pd.Categorical(["A", "A", "A"], categories=["A", "B"]),
         }
     )
     X = tm.from_formula("C(cat_1) + 1", df, ensure_full_rank=True)
