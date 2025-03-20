@@ -832,6 +832,17 @@ def test_unseen_missing(cat_missing_method):
         assert result_unseen.column_names == ["cat_1[a]", "cat_1[b]"]
 
 
+def test_drop_all_levels():
+    df = pd.DataFrame(
+        {
+            "cat_1": ["A", "A", "A"],
+        }
+    )
+    X = tm.from_formula("C(cat_1) + 1", df, ensure_full_rank=True)
+    X_repl = X.model_spec.get_model_matrix(df)
+    np.testing.assert_array_equal(X.toarray(), X_repl.toarray())
+
+
 # Tests from formulaic's test suite
 # ---------------------------------
 
