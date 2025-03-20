@@ -777,8 +777,9 @@ def _replace_sequence(lst: list[str], sequence: list[str], replacement: "str") -
     """
     try:
         start = lst.index(sequence[0])
-    except ValueError:
-        start = 0  # Will handle this below
+    except (ValueError, KeyError):
+        # If the subsequence does not match, we'll still catch it below
+        start = 0
 
     for elem in sequence:
         if lst[start] != elem:
