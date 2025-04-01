@@ -475,10 +475,21 @@ class _InteractableCategoricalVector(_InteractableVector):
         dtype: numpy.typing.DTypeLike = np.float64,
         sparse_threshold: float = 0.1,
         cat_threshold: int = 4,
-    ) -> Union[DenseMatrix, CategoricalMatrix, SplitMatrix]:
+    ) -> Union[CategoricalMatrix, SparseMatrix, SplitMatrix]:
         codes = self.codes.copy()
         categories = self.categories.copy()
         if -2 in self.codes:
+            if (self.codes == -2).all():
+                # All values are dropped
+                return SparseMatrix(
+                    sps.csc_matrix(
+                        ([], ([], [])),
+                        shape=(len(codes), len(categories)),
+                        dtype=dtype,
+                    ),
+                    dtype=dtype,
+                )
+
             codes[codes >= 0] += 1
             codes[codes == -2] = 0
             categories.insert(0, "__drop__")
@@ -501,10 +512,7 @@ class _InteractableCategoricalVector(_InteractableVector):
             cat_missing_method="zero",  # missing values are already handled
         )
 
-        if (self.codes == -2).all():
-            # All values are dropped
-            return DenseMatrix(np.empty((len(codes), 0), dtype=dtype))
-        elif (self.multipliers == 1).all() and len(categories) >= cat_threshold:
+        if (self.multipliers == 1).all() and len(categories) >= cat_threshold:
             return categorical_part
         else:
             sparse_matrix = sps.csc_matrix(
@@ -777,8 +785,9 @@ def _replace_sequence(lst: list[str], sequence: list[str], replacement: "str") -
     """
     try:
         start = lst.index(sequence[0])
-    except ValueError:
-        start = 0  # Will handle this below
+    except (ValueError, IndexError):
+        # If the subsequence does not match, we'll still catch it below
+        start = 0
 
     for elem in sequence:
         if lst[start] != elem:
