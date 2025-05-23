@@ -3,10 +3,6 @@ name: Build and upload to PyPI
 on:
   pull_request:
   push:
-    branches:
-      - "main"
-    tags:
-      - "*"
   release:
     types:
       - published
