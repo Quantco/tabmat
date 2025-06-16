@@ -3,6 +3,10 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
     reviewers:
       - quantco/ci
+    groups:
+      gh-actions:
+        patterns:
+          - "*"
