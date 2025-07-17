@@ -43,6 +43,7 @@ def construct_data(backend):
 
 def test_pandas_to_matrix():
     df = construct_data("pandas")
+    original_dtypes = df.dtypes.copy()
 
     mat = tm.from_df(
         df, dtype=np.float64, sparse_threshold=0.3, cat_threshold=4, object_as_cat=True
@@ -63,8 +64,8 @@ def test_pandas_to_matrix():
 
     # Prevent a regression where the column type of sparsified dense columns
     # was being changed in place.
-    assert df["cl"].dtype == object
-    assert df["ds"].dtype == np.float64
+    assert df["cl"].dtype == original_dtypes["cl"]
+    assert df["ds"].dtype == original_dtypes["ds"]
 
 
 @pytest.mark.parametrize("categorical_dtype", [pl.Categorical, pl.Enum(["a", "b"])])
