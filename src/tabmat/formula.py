@@ -60,7 +60,7 @@ class TabmatMaterializer(FormulaMaterializer):
     def _is_categorical(self, values):
         if isinstance(values, (pd.Series, pd.Categorical)):
             return values.dtype == object or isinstance(
-                values.dtype, pd.CategoricalDtype | pd.StringDtype
+                values.dtype, (pd.CategoricalDtype, pd.StringDtype)
             )
         return super()._is_categorical(values)
 
