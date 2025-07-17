@@ -13,6 +13,7 @@ Changelog
 **Bug fix:**
 
 - Fixed a bug which caused issues when constructing tabmat matrices from existing ``ModelSpec``\s when they contained categorical columns with all levels dropped.
+- We can now treat dedicated pandas string series - which are the defaults for strings since pandas 2.3 - as categoricals.
 
 
 4.1.1 - 2025-01-30
