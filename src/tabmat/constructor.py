@@ -94,7 +94,13 @@ def from_df(
     for dfcolidx, colname in enumerate(df.columns):
         coldata = df[:, dfcolidx]
         if object_as_cat:
-            if isinstance(coldata.dtype, (nw.String, nw.Object)):
+            if isinstance(coldata.dtype, (nw.String, nw.Object)) or (
+                pd is not None  # until Narwhals handles it natively
+                and isinstance(
+                    nw.to_native(coldata).dtype,
+                    pd.StringDtype,
+                )
+            ):
                 coldata = coldata.cast(nw.Categorical)
 
         # deal with Pandas sparse dtype (not supported by narwhals)
