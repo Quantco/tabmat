@@ -305,7 +305,13 @@ def test_matrix_against_expectation_qcl(df, formula, expected):
             "C(cat_1, spans_intercept=False) * cat_2 * cat_3",
             id="custom_contrasts",
         ),
-        pytest.param("str_1", id="string_as_categorical"),
+        pytest.param(
+            "str_1",
+            id="string_as_categorical",
+            marks=pytest.mark.xfail(
+                reason="Formulaic does not treat new-style strings as categorical yet"
+            ),
+        ),
     ],
 )
 def test_matrix_against_pandas(df, formula, ensure_full_rank):
