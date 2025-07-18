@@ -192,4 +192,4 @@ def test_names_polars(prefix_sep, drop_first):
     )
 
     unique_terms = list(dict.fromkeys(mat_expand.term_names))
-    assert unique_terms == list(df.columns)
+    assert unique_terms == df.columns

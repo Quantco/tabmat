@@ -437,7 +437,7 @@ class _InteractableCategoricalVector(_InteractableVector):
         add_missing_category: bool = False,
     ) -> "_InteractableCategoricalVector":
         """Create an interactable categorical vector from a pandas categorical."""
-        categories = list(cat.categories)
+        categories = cat.categories.tolist()
         codes = cat.codes.copy().astype(np.int64)
 
         if reduced_rank:
