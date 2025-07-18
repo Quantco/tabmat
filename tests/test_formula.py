@@ -517,7 +517,7 @@ def test_names_against_pandas(df, formula, ensure_full_rank):
 
     assert model_tabmat.model_spec.column_names == model_df.model_spec.column_names
     assert model_tabmat.model_spec.column_names == tuple(model_df.columns)
-    assert model_tabmat.column_names == list(model_df.columns)
+    assert model_tabmat.column_names == model_df.columns.tolist()
 
 
 @pytest.mark.parametrize(

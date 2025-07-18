@@ -125,8 +125,8 @@ def _combine_matrices(matrices, indices):
             )
             sorter = np.argsort(new_indices)
             sorted_matrix = new_matrix[:, sorter]
-            sorted_matrix._colnames = list(new_colnames[sorter])
-            sorted_matrix._terms = list(new_terms[sorter])
+            sorted_matrix._colnames = new_colnames[sorter].tolist()
+            sorted_matrix._terms = new_terms[sorter].tolist()
             sorted_indices = new_indices[sorter]
 
             assert sorted_matrix.shape[0] == n_row
@@ -530,7 +530,7 @@ class SplitMatrix(MatrixBase):
         names = np.empty(self.shape[1], dtype=object)
         for idx, mat in zip(self.indices, self.matrices):
             names[idx] = mat.get_names(type, missing_prefix, idx)
-        return list(names)
+        return names.tolist()
 
     def set_names(self, names: Union[str, list[Optional[str]]], type: str = "column"):
         """Set column names.
@@ -551,4 +551,4 @@ class SplitMatrix(MatrixBase):
             raise ValueError(f"Length of names must be {self.shape[1]}")
 
         for idx, mat in zip(self.indices, self.matrices):
-            mat.set_names(list(names_array[idx]), type)
+            mat.set_names(names_array[idx].tolist(), type)

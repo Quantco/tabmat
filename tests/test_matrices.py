@@ -796,8 +796,8 @@ def test_names_indexing(indexer_1, indexer_2, sparse):
     X_indexed = X[indexer_1, indexer_2]
     if not isinstance(X_indexed, tm.MatrixBase):
         pytest.skip("Does not return MatrixBase")
-    assert X_indexed.column_names == list(colnames_array[indexer_2])
-    assert X_indexed.term_names == list(termnames_array[indexer_2])
+    assert X_indexed.column_names == colnames_array[indexer_2].tolist()
+    assert X_indexed.term_names == termnames_array[indexer_2].tolist()
 
 
 @pytest.mark.parametrize("mat_1", get_all_matrix_base_subclass_mats())
