@@ -112,7 +112,6 @@ ipykernel = "*"
 click = "*"
 pytest = "*"
 pytest-xdist = "*"
-polars = "*"  # exclusively for polars tests
 pyarrow = "*"  # exclusively for polars tests
 mypy = "*"
 
@@ -150,6 +149,11 @@ python = "3.11.*"
 python = "3.12.*"
 [feature.py313.dependencies]
 python = "3.13.*"
+polars = "=1.27.1"  # exclusively for polars tests
+
+[feature.nightly.dependencies]
+polars="=1.33"
+python = "3.13.*"
 
 [feature.oldies.dependencies]
 setuptools = "62.*"
@@ -171,4 +175,4 @@ py312 = ["py312", "test"]
 py313 = ["py313", "test"]
 oldies = ["oldies", "test"]
 lint = { features = ["lint"], no-default-feature = true}
-nightly = ["py313", "test"]
+nightly = ["test", "nightly"]
