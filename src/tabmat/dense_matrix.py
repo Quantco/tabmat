@@ -92,17 +92,17 @@ class DenseMatrix(MatrixBase):
         )
 
     @property
-    def shape(self):
+    def shape(self):  # type: ignore
         """Tuple of array dimensions."""
         return self._array.shape
 
     @property
-    def ndim(self):
+    def ndim(self):  # type: ignore
         """Number of array dimensions."""  # noqa: D401
         return self._array.ndim
 
     @property
-    def dtype(self):
+    def dtype(self):  # type: ignore
         """Data type of the array's elements."""  # noqa: D401
         return self._array.dtype
 
