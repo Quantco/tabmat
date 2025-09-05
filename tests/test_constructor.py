@@ -71,7 +71,6 @@ def test_pandas_to_matrix():
 @pytest.mark.parametrize("categorical_dtype", [pl.Categorical, pl.Enum(["a", "b"])])
 def test_polars_to_matrix(categorical_dtype):
     df = construct_data("polars").with_columns(cl=pl.col("cl").cast(categorical_dtype))
-
     mat = tm.from_df(df, dtype=np.float64, sparse_threshold=0.3, cat_threshold=4)
 
     assert mat.shape == (N_ROWS, N_ROWS + 5)
@@ -176,8 +175,13 @@ def test_names_polars(prefix_sep, drop_first):
         drop_first=drop_first,
     )
 
+    # workround for https://github.com/pola-rs/polars/issues/24273#issuecomment-3255212324
+    _df = df.to_pandas()
+    categoricals = _df.select_dtypes("category").columns
     expanded_df = pd.get_dummies(
-        df.to_pandas(), prefix_sep=prefix_sep, drop_first=drop_first
+        _df.astype({x: "object" for x in categoricals}),
+        prefix_sep=prefix_sep,
+        drop_first=drop_first,
     )
     assert mat_end.column_names == list(expanded_df.columns)
 

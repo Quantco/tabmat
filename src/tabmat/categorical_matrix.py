@@ -242,8 +242,12 @@ def _extract_codes_and_categories_pandas(cat_vec) -> tuple[np.ndarray, np.ndarra
 def _extract_codes_and_categories_polars(cat_vec) -> tuple[np.ndarray, np.ndarray]:
     if not isinstance(cat_vec.dtype, (pl.Categorical, pl.Enum)):
         cat_vec = cat_vec.cast(pl.Categorical)
-    categories = cat_vec.cat.to_local().cat.get_categories().to_numpy()
-    indices = cat_vec.cat.to_local().to_physical().fill_null(-1).to_numpy()
+    # as of polars 1.32, `get_categories()` won't yield a useful result as
+    # this is "not per column" anymore.
+    mask = cat_vec.is_null()
+    categories = cat_vec.filter(~mask).unique().sort().to_numpy()
+    indices = np.nan_to_num(cat_vec.rank("dense").to_numpy() - 1, nan=-1)
+
     return indices, categories
 
 
