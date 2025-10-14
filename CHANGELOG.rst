@@ -7,10 +7,18 @@
 Changelog
 =========
 
-4.1.2 - 2025-07-17
+4.1.3 - 2025-10-14
 ------------------
 
 **Bug fix:**
+
+- Fixed incorrectly calculating the shape of a :class:`CategoricalMatrix` when initialized with zero categories and ``drop_first=True``.
+
+
+4.1.2 - 2025-07-17
+------------------
+
+**Bug fixes:**
 
 - Fixed a bug which caused issues when constructing tabmat matrices from existing ``ModelSpec``\s when they contained categorical columns with all levels dropped.
 - We can now treat dedicated pandas string series - which are the defaults for strings since pandas 2.3 - as categoricals.
