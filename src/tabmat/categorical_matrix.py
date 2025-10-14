@@ -408,7 +408,7 @@ class CategoricalMatrix(MatrixBase):
                 "When creating a CategoricalMatrix with indices and categories, "
                 "indices must be castable to a numpy int32 dtype."
             )
-        self.shape = (len(self.indices), len(self.categories) - int(drop_first))
+        self.shape = (len(self.indices), max(len(self.categories) - int(drop_first), 0))
         self.x_csc = None
         self.dtype = np.dtype(dtype)
 
