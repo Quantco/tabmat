@@ -12,7 +12,7 @@ Changelog
 
 **Bug fix:**
 
-- Fixed incorrectly calculating the shape of a :class:`CategoricalMatrix` when initialized with zero categories and ``drop_first=True``.
+- Fixed incorrect calculation of the shape of a :class:`CategoricalMatrix` when initialized with zero categories and ``drop_first=True``.
 
 
 4.1.2 - 2025-07-17
