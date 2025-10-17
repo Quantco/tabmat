@@ -33,7 +33,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Fetch full git history
         run: git fetch --prune --unshallow
-      - uses: mamba-org/setup-micromamba@7f29b8b80078b1b601dfa018b0f7425c587c63bb
+      - uses: mamba-org/setup-micromamba@add3a49764cedee8ee24e82dfde87f5bc2914462
         with:
           init-shell: ${{ matrix.os == 'windows-latest' && 'cmd.exe' || 'bash' }}
           micromamba-version: 1.5.10-0
