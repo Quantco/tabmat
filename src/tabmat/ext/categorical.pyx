@@ -15,13 +15,65 @@ ctypedef fused win_numeric:
     numeric
     long long
 
-cdef extern from "cat_split_helpers.cpp":
-    void _transpose_matvec_all_rows_fast[Int, F](Int, Int*, F*, F*, Int)
-    void _transpose_matvec_all_rows_complex[Int, F](Int, Int*, F*, F*, Int, bool)
+cdef extern from "cat_split_helpers.cpp" nogil:
+    void _transpose_matvec_all_rows_complex_i_f  "_transpose_matvec_all_rows_complex<int, float>"  (int, const int*, float*,  float*,  int, bool) noexcept
+    void _transpose_matvec_all_rows_complex_i_d  "_transpose_matvec_all_rows_complex<int, double>" (int, const int*, double*, double*, int, bool) noexcept
+    void _transpose_matvec_all_rows_fast_i_f     "_transpose_matvec_all_rows_fast<int, float>"     (int, const int*, float*,  float*,  int) noexcept
+    void _transpose_matvec_all_rows_fast_i_d     "_transpose_matvec_all_rows_fast<int, double>"    (int, const int*, double*, double*, int) noexcept
 
+cdef inline void _transpose_all_rows_complex_dispatch(
+    int n_rows,
+    const int[:] indices,
+    floating[:] other,
+    floating[:] out,
+    int out_size,
+    bool drop_first
+) noexcept:
+    if floating is float:
+        _transpose_matvec_all_rows_complex_i_f(
+            n_rows,
+            &indices[0],
+            <float*>&other[0],
+            <float*>&out[0],
+            out_size,
+            drop_first
+        )
+    else:
+        _transpose_matvec_all_rows_complex_i_d(
+            n_rows,
+            &indices[0],
+            <double*>&other[0],
+            <double*>&out[0],
+            out_size,
+            drop_first
+        )
+
+cdef inline void _transpose_all_rows_fast_dispatch(
+    int n_rows,
+    const int[:] indices,
+    floating[:] other,
+    floating[:] out,
+    int out_size
+) noexcept:
+    if floating is float:
+        _transpose_matvec_all_rows_fast_i_f(
+            n_rows,
+            &indices[0],
+            <float*>&other[0],
+            <float*>&out[0],
+            out_size
+        )
+    else:
+        _transpose_matvec_all_rows_fast_i_d(
+            n_rows,
+            &indices[0],
+            <double*>&other[0],
+            <double*>&out[0],
+            out_size
+        )
 
 def transpose_matvec_fast(
-    int[:] indices,
+    const int[:] indices,
     floating[:] other,
     int n_cols,
     dtype,
@@ -39,7 +91,7 @@ def transpose_matvec_fast(
 
     # Case 1: No row or col restrictions
     if no_row_restrictions and no_col_restrictions:
-        _transpose_matvec_all_rows_fast(n_rows, &indices[0], &other[0], &out[0], out_size)
+        _transpose_all_rows_fast_dispatch(n_rows, indices, other, out, out_size)
     # Case 2: row restrictions but no col restrictions
     elif no_col_restrictions:
         rows_view = rows
@@ -68,14 +120,14 @@ def transpose_matvec_fast(
 
 
 def transpose_matvec_complex(
-    int[:] indices,
+    const int[:] indices,
     floating[:] other,
     int n_cols,
     dtype,
     rows,
     cols,
     floating[:] out,
-    bint drop_first
+    bool drop_first
 ):
     cdef int row, row_idx, n_keep_rows, col_idx
     cdef int n_rows = len(indices)
@@ -87,7 +139,9 @@ def transpose_matvec_complex(
 
     # Case 1: No row or col restrictions
     if no_row_restrictions and no_col_restrictions:
-        _transpose_matvec_all_rows_complex(n_rows, &indices[0], &other[0], &out[0], out_size, drop_first)
+        _transpose_all_rows_complex_dispatch(
+            n_rows, indices, other, out, out_size, drop_first
+        )
     # Case 2: row restrictions but no col restrictions
     elif no_col_restrictions:
         rows_view = rows

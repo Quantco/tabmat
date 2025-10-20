@@ -5,7 +5,7 @@
 template <typename Int, typename F>
 void _transpose_matvec_${type}(
     Int n_rows,
-    Int* indices,
+    const Int* indices,
     F* other,
     F* res,
     Int res_size
