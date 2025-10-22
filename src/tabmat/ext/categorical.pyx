@@ -16,12 +16,12 @@ ctypedef fused win_numeric:
     long long
 
 cdef extern from "cat_split_helpers.cpp":
-    void _transpose_matvec_all_rows_fast[Int, F](Int, Int*, F*, F*, Int)
-    void _transpose_matvec_all_rows_complex[Int, F](Int, Int*, F*, F*, Int, bool)
+    void _transpose_matvec_all_rows_fast[Int, F](Int, const int*, F*, F*, Int)
+    void _transpose_matvec_all_rows_complex[Int, F](Int, const int*, F*, F*, Int, bool)
 
 
 def transpose_matvec_fast(
-    int[:] indices,
+    const int[:] indices,
     floating[:] other,
     int n_cols,
     dtype,
@@ -68,7 +68,7 @@ def transpose_matvec_fast(
 
 
 def transpose_matvec_complex(
-    int[:] indices,
+    const int[:] indices,
     floating[:] other,
     int n_cols,
     dtype,
