@@ -7,10 +7,6 @@ on:
   # In addition to pull requests, we want to run CI for pushes
   # to the main branch and tags.
   push:
-    branches:
-      - "main"
-    tags:
-      - "*"
 
 jobs:
   pre-commit-checks:
