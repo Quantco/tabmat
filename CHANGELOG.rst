@@ -7,6 +7,15 @@
 Changelog
 =========
 
+
+4.1.4 - 2025-10-27
+------------------
+
+**Bug fix:**
+
+- Fixed :meth:`CategoricalMatrix.transpose_matvec` to operate on read-only buffers as well.
+
+
 4.1.3 - 2025-10-14
 ------------------
 
