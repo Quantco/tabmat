@@ -21,16 +21,16 @@ ctypedef fused win_integral:
 
 
 cdef extern from "cat_split_helpers.cpp":
-    void _sandwich_cat_denseC_fast[Int, F](F*, Int*, Int*, Int, Int*, Int, F*, Int, F*, Int, Int) nogil
-    void _sandwich_cat_denseF_fast[Int, F](F*, Int*, Int*, Int, Int*, Int, F*, Int, F*, Int, Int) nogil
-    void _sandwich_cat_denseC_complex[Int, F](F*, Int*, Int*, Int, Int*, Int, F*, Int, F*, Int, Int, bool) nogil
-    void _sandwich_cat_denseF_complex[Int, F](F*, Int*, Int*, Int, Int*, Int, F*, Int, F*, Int, Int, bool) nogil
-    void _sandwich_cat_cat_fast[Int, F](F*, const Int*, const Int*, Int*, Int, F*, Int, Int)
-    void _sandwich_cat_cat_complex[Int, F](F*, const Int*, const Int*, Int*, Int, F*, Int, Int, bool, bool)
+    void _sandwich_cat_denseC_fast[Int, F](F*, const int*, Int*, Int, Int*, Int, F*, Int, F*, Int, Int) nogil
+    void _sandwich_cat_denseF_fast[Int, F](F*, const int*, Int*, Int, Int*, Int, F*, Int, F*, Int, Int) nogil
+    void _sandwich_cat_denseC_complex[Int, F](F*, const int*, Int*, Int, Int*, Int, F*, Int, F*, Int, Int, bool) nogil
+    void _sandwich_cat_denseF_complex[Int, F](F*, const int*, Int*, Int, Int*, Int, F*, Int, F*, Int, Int, bool) nogil
+    void _sandwich_cat_cat_fast[Int, F](F*, const int*, const int*, Int*, Int, F*, Int, Int)
+    void _sandwich_cat_cat_complex[Int, F](F*, const int*, const int*, Int*, Int, F*, Int, Int, bool, bool)
 
 
 def sandwich_cat_dense(
-    int[:] i_indices,
+    const int[:] i_indices,
     int i_ncol,
     floating[:] d,
     np.ndarray mat_j,
@@ -52,7 +52,7 @@ def sandwich_cat_dense(
         return np.asarray(res)
 
     cdef floating* d_p = &d[0]
-    cdef int* i_indices_p = &i_indices[0]
+    cdef const int* i_indices_p = &i_indices[0]
     cdef int* rows_p = &rows[0]
     cdef int* j_cols_p = &j_cols[0]
 
@@ -81,8 +81,8 @@ def sandwich_cat_dense(
 
 
 def sandwich_cat_cat(
-    int[:] i_indices,
-    int[:] j_indices,
+    const int[:] i_indices,
+    const int[:] j_indices,
     int i_ncol,
     int j_ncol,
     floating[:] d,
@@ -113,8 +113,8 @@ def sandwich_cat_cat(
 
 # This seems slower, so not using it for now
 def _sandwich_cat_cat_limited_rows_cols(
-    int[:] i_indices,
-    int[:] j_indices,
+    const int[:] i_indices,
+    const int[:] j_indices,
     int i_ncol,
     int j_ncol,
     floating[:] d,

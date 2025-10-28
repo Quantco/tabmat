@@ -219,7 +219,7 @@ def sandwich_categorical_complex(
 
 
 def multiply_complex(
-    int[:] indices,
+    const int[:] indices,
     win_numeric[:] d,
     int ncols,
     dtype,
@@ -272,7 +272,7 @@ def multiply_complex(
 
 
 def subset_categorical_complex(
-    int[:] indices,
+    const int[:] indices,
     int ncols,
     bint drop_first
 ):
