@@ -10,7 +10,7 @@ requires = [
 
 [tool.ruff]
 line-length = 88
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 ignore = ["E731", "N802", "N803", "N806"]
@@ -31,7 +31,7 @@ select = [
 known-first-party = ["tabmat"]
 
 [tool.mypy]
-python_version = '3.9'
+python_version = '3.10'
 exclude = [
   "tests/",
 ]
@@ -49,6 +49,7 @@ skip = [
   "cp36*",
   "cp37*",
   "cp38*",
+  "cp39*",
 ]
 test-requires = ["pytest", "pytest-xdist"]
 test-command = "pytest {package}/tests/test_matrices.py"

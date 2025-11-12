@@ -149,16 +149,16 @@ setup(
     author_email="noreply@quantco.com",
     classifiers=[  # Optional
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
     ],
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     install_requires=["formulaic>=0.6", "narwhals", "numpy", "scipy"],
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     ext_modules=cythonize(
         ext_modules,
         annotate=False,
