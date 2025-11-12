@@ -3,7 +3,7 @@ import itertools
 from abc import ABC, abstractmethod
 from collections import OrderedDict
 from collections.abc import Iterable
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 import numpy.typing
@@ -301,7 +301,7 @@ class _InteractableVector(ABC):
     wrappers over numpy arrays, scipy sparse matrices and pandas categoricals.
     """
 
-    name: Optional[str]
+    name: str | None
 
     @abstractmethod
     def to_tabmat(
@@ -346,7 +346,7 @@ class _InteractableVector(ABC):
 
 
 class _InteractableDenseVector(_InteractableVector):
-    def __init__(self, values: np.ndarray, name: Optional[str] = None):
+    def __init__(self, values: np.ndarray, name: str | None = None):
         self.values = values
         self.name = name
 
@@ -362,7 +362,7 @@ class _InteractableDenseVector(_InteractableVector):
         dtype: numpy.typing.DTypeLike = np.float64,
         sparse_threshold: float = 0.1,
         cat_threshold: int = 4,
-    ) -> Union[SparseMatrix, DenseMatrix]:
+    ) -> SparseMatrix | DenseMatrix:
         if (self.values != 0).mean() > sparse_threshold:
             return DenseMatrix(self.values, column_names=[self.name])
         else:
@@ -382,7 +382,7 @@ class _InteractableDenseVector(_InteractableVector):
 
 
 class _InteractableSparseVector(_InteractableVector):
-    def __init__(self, values: sps.csc_matrix, name: Optional[str] = None):
+    def __init__(self, values: sps.csc_matrix, name: str | None = None):
         self.values = values
         self.name = name
 
@@ -417,7 +417,7 @@ class _InteractableCategoricalVector(_InteractableVector):
         codes: np.ndarray,
         categories: list[str],
         multipliers: np.ndarray,
-        name: Optional[str] = None,
+        name: str | None = None,
     ):
         # sentinel values for codes:
         # -1: missing
@@ -475,7 +475,7 @@ class _InteractableCategoricalVector(_InteractableVector):
         dtype: numpy.typing.DTypeLike = np.float64,
         sparse_threshold: float = 0.1,
         cat_threshold: int = 4,
-    ) -> Union[CategoricalMatrix, SparseMatrix, SplitMatrix]:
+    ) -> CategoricalMatrix | SparseMatrix | SplitMatrix:
         codes = self.codes.copy()
         categories = self.categories.copy()
         if -2 in self.codes:
@@ -673,7 +673,7 @@ def _interact_categoricals(
 def _C(
     data,
     *,
-    levels: Optional[Iterable[str]] = None,
+    levels: Iterable[str] | None = None,
     missing_method: str = "fail",
     missing_name: str = "(MISSING)",
     spans_intercept: bool = True,
@@ -717,7 +717,7 @@ def _C(
 def encode_contrasts(
     data,
     *,
-    levels: Optional[Iterable[str]] = None,
+    levels: Iterable[str] | None = None,
     missing_method: str = "fail",
     missing_name: str = "(MISSING)",
     reduced_rank: bool = False,
