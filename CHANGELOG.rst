@@ -8,19 +8,12 @@ Changelog
 =========
 
 
-4.1.4 - 2025-11-12
+4.1.3 - 2025-11-12
 ------------------
 
-**Bug fix:**
+**Bug fixes:**
 
 - Fixed :meth:`CategoricalMatrix.transpose_matvec` to operate on read-only buffers as well.
-
-
-4.1.3 - 2025-10-14
-------------------
-
-**Bug fix:**
-
 - Fixed incorrect calculation of the shape of a :class:`CategoricalMatrix` when initialized with zero categories and ``drop_first=True``.
 
 
