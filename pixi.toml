@@ -4,7 +4,7 @@ channels = ["conda-forge"]
 platforms = ["linux-64", "osx-arm64", "win-64"]
 
 [tasks]
-postinstall = "pip install --no-use-pep517 --no-build-isolation --no-deps --disable-pip-version-check -e ."
+postinstall = "pip install --no-build-isolation --no-deps --disable-pip-version-check -e ."
 
 [tasks.install-nightlies]
 cmd = """
