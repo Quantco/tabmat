@@ -1,5 +1,3 @@
-from typing import Optional, Union
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -63,7 +61,7 @@ def split_mat() -> SplitMatrix:
 
 def get_split_with_cat_components(
     missing,
-) -> list[Union[tm.SparseMatrix, tm.DenseMatrix, tm.CategoricalMatrix]]:
+) -> list[tm.SparseMatrix | tm.DenseMatrix | tm.CategoricalMatrix]:
     n_rows = 10
     np.random.seed(0)
     dense_1 = tm.DenseMatrix(np.random.random((n_rows, 3)))
@@ -203,7 +201,7 @@ def test_split_col_subsets(mat: tm.SplitMatrix, cols):
     subset_cols_indices, subset_cols, n_cols = mat._split_col_subsets(cols)
     n_cols_correct = mat.shape[1] if cols is None else len(cols)
 
-    def _get_lengths(vec_list: list[Optional[np.ndarray]]):
+    def _get_lengths(vec_list: list[np.ndarray | None]):
         return (
             mat_.shape[1] if v is None else len(v)
             for v, mat_ in zip(vec_list, mat.matrices)

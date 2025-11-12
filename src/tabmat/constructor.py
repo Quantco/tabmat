@@ -1,7 +1,7 @@
 import sys
 import warnings
 from collections.abc import Mapping
-from typing import Any, Optional, Union
+from typing import Any
 
 import narwhals.stable.v1 as nw
 import numpy as np
@@ -79,7 +79,7 @@ def from_df(
     -------
     SplitMatrix
     """
-    matrices: list[Union[DenseMatrix, SparseMatrix, CategoricalMatrix]] = []
+    matrices: list[DenseMatrix | SparseMatrix | CategoricalMatrix] = []
     indices: list[np.ndarray] = []
     is_cat: list[bool] = []
 
@@ -303,10 +303,10 @@ def from_csc(mat: sps.csc_matrix, threshold=0.1, column_names=None, term_names=N
 
 
 def from_formula(
-    formula: Union[str, Formula],
+    formula: str | Formula,
     data,
     ensure_full_rank: bool = False,
-    na_action: Union[str, NAAction] = NAAction.IGNORE,
+    na_action: str | NAAction = NAAction.IGNORE,
     dtype: numpy.typing.DTypeLike = np.float64,
     sparse_threshold: float = 0.1,
     cat_threshold: int = 4,
@@ -317,7 +317,7 @@ def from_formula(
     intercept_name: str = "Intercept",
     include_intercept: bool = False,
     add_column_for_intercept: bool = True,
-    context: Optional[Union[int, Mapping[str, Any]]] = None,
+    context: int | Mapping[str, Any] | None = None,
 ) -> SplitMatrix:
     """
     Transform a pandas data frame to a SplitMatrix using a Wilkinson formula.
