@@ -150,6 +150,8 @@ python = "3.11.*"
 python = "3.12.*"
 [feature.py313.dependencies]
 python = "3.13.*"
+[feature.py314.dependencies]
+python = "3.14.*"
 
 [feature.oldies.dependencies]
 setuptools = "62.*"
@@ -169,6 +171,7 @@ py310 = ["py310", "test"]
 py311 = ["py311", "test"]
 py312 = ["py312", "test"]
 py313 = ["py313", "test"]
+py314 = ["py314", "test"]
 oldies = ["oldies", "test"]
 lint = { features = ["lint"], no-default-feature = true}
-nightly = ["py313", "test"]
+nightly = ["py314", "test"]
