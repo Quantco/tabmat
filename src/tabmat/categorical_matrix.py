@@ -167,7 +167,7 @@ import re
 import warnings
 from typing import Optional, Union
 
-import narwhals.stable.v1 as nw
+import narwhals.stable.v2 as nw
 import numpy as np
 import numpy.typing
 from scipy import sparse as sps
@@ -267,7 +267,7 @@ def _extract_codes_and_categories(cat_vec) -> tuple[np.ndarray, np.ndarray]:
     can be converted to a numpy array. Pandas and polars inputs are special
     cased for performance considerations.
     """
-    cat_vec_native = nw.to_native(cat_vec, strict=False)
+    cat_vec_native = nw.to_native(cat_vec, pass_through=True)
 
     if pd and isinstance(cat_vec_native, (pd.Series, pd.Categorical)):
         return _extract_codes_and_categories_pandas(cat_vec_native)
@@ -275,7 +275,9 @@ def _extract_codes_and_categories(cat_vec) -> tuple[np.ndarray, np.ndarray]:
         return _extract_codes_and_categories_polars(cat_vec_native)
     else:
         if isinstance(
-            cat_vec_narwhals := nw.from_native(cat_vec, series_only=True, strict=False),
+            cat_vec_narwhals := nw.from_native(
+                cat_vec, series_only=True, pass_through=True
+            ),
             nw.Series,
         ):
             cat_vec = cat_vec_narwhals.cast(nw.String).to_numpy()

@@ -3,7 +3,7 @@ import warnings
 from collections.abc import Mapping
 from typing import Any, Optional, Union
 
-import narwhals.stable.v1 as nw
+import narwhals.stable.v2 as nw
 import numpy as np
 import numpy.typing
 from formulaic import Formula, ModelSpec
