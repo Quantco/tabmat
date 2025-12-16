@@ -1,4 +1,5 @@
 import textwrap
+import warnings
 from typing import Optional, Union
 
 import numpy as np
@@ -49,6 +50,11 @@ class DenseMatrix(MatrixBase):
             not input_array.flags["C_CONTIGUOUS"]
             and not input_array.flags["F_CONTIGUOUS"]
         ):
+            warnings.warn(
+                "Input array is not contiguous; making a copy.",
+                UserWarning,
+                stacklevel=2,
+            )
             input_array = np.asfortranarray(input_array)
 
         self._array = input_array
