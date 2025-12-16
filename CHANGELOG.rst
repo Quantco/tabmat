@@ -8,6 +8,14 @@ Changelog
 =========
 
 
+Unreleased
+----------
+
+**Performance improvements:**
+
+- :func:`tabmat.from_df` now avoids unnecessary copies of dense arrays, but still ensures that the results are contiguous (C or F order).
+
+
 4.1.3 - 2025-11-12
 ------------------
 
