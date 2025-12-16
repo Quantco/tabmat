@@ -64,25 +64,30 @@ def test_fast_sandwich_dense():
 
 
 def test_dense_sandwich_on_non_contiguous():
-    """Non-regression test for #208"""
+    """Non-regression test for #208
+
+    DenseMatrix now automatically ensures arrays are contiguous,
+    so non-contiguous inputs are automatically copied and made contiguous.
+    """
     rng = np.random.default_rng(seed=123)
     X = rng.standard_normal(size=(100, 20))
 
-    # Xd wraps a not-contiguous array.
-    Xd = DenseMatrix(X[:, :10])
+    # Column slicing creates a non-contiguous array, but DenseMatrix
+    # automatically makes it contiguous (copying only if necessary).
+    non_contiguous_array = X[:, :10]
+    assert not non_contiguous_array.flags["C_CONTIGUOUS"]
+    assert not non_contiguous_array.flags["F_CONTIGUOUS"]
+
+    Xd = DenseMatrix(non_contiguous_array)
+    # The internal array should now be contiguous
+    assert Xd.A.flags["C_CONTIGUOUS"] or Xd.A.flags["F_CONTIGUOUS"]
+
     Xs = SparseMatrix(csc_matrix(X[:, 10:]))
     Xm = SplitMatrix([Xd, Xs])
 
-    # Making the sandwich product fail.
-    with pytest.raises(Exception, match="The matrix X is not contiguous"):
-        Xm.sandwich(np.ones(X.shape[0]))
-
-    # Xd wraps a copy, which makes the data contiguous.
-    Xd = DenseMatrix(X[:, :10].copy())
-    Xm = SplitMatrix([Xd, Xs])
-
-    # The sandwich product works without problem here.
-    Xm.sandwich(np.ones(X.shape[0]))
+    # The sandwich product should work without problem
+    result = Xm.sandwich(np.ones(X.shape[0]))
+    assert result is not None
 
 
 def check(A, d, cols):

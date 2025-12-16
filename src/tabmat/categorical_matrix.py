@@ -509,7 +509,7 @@ class CategoricalMatrix(MatrixBase):
         is_int = np.issubdtype(other.dtype, np.signedinteger)
 
         if is_int:
-            other_m = other.astype(float)  # type: ignore
+            other_m: np.ndarray = other.astype(float)
         else:
             other_m = other
 

@@ -92,7 +92,7 @@ class TabmatMaterializer(FormulaMaterializer):
         if drop_rows:
             values = values.drop(index=values.index[drop_rows])
         if isinstance(values, pd.Series):
-            values = values.to_numpy().astype(self.dtype)
+            values = values.to_numpy().astype(self.dtype, copy=False)
         if (values != 0).mean() <= self.sparse_threshold:
             return _InteractableSparseVector(sps.csc_matrix(values[:, np.newaxis]))
         else:

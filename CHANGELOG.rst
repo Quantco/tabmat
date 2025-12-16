@@ -8,6 +8,15 @@ Changelog
 =========
 
 
+4.1.4 - 2025-12-16
+------------------
+
+**Other changes:**
+
+- :func:`tabmat.from_df` now avoids unnecessary copies of dense arrays, but still ensures that the results are contiguous (C or F order).
+- We now use `narwhals`' v2 API for data frame handling.
+
+
 4.1.3 - 2025-11-12
 ------------------
 
