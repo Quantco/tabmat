@@ -182,7 +182,7 @@ def from_df(
     if dense_dfidx:
         matrices.append(
             DenseMatrix(
-                df[:, dense_dfidx].to_numpy().astype(dtype),
+                df[:, dense_dfidx].to_numpy().astype(dtype, copy=False),
                 column_names=np.asarray(df.columns)[dense_dfidx],
                 term_names=np.asarray(df.columns)[dense_dfidx],
             )
