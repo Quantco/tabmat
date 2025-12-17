@@ -8,6 +8,14 @@ Changelog
 =========
 
 
+4.1.5 - 2025-12-17
+------------------
+
+**Other changes:**
+
+- Restore building wheels for Intel-based macOS systems.
+
+
 4.1.4 - 2025-12-16
 ------------------
 
