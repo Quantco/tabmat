@@ -2,6 +2,11 @@ name: Build and upload to PyPI
 
 on:
   pull_request:
+  push:
+    branches:
+      - "main"
+    tags:
+      - "*"
   release:
     types:
       - published
@@ -12,28 +17,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, windows-2019, macos-13, macos-14]
+        os: [ubuntu-22.04, ubuntu-22.04-arm, windows-2022, macos-15, macos-15-intel]
 
     steps:
-      - uses: actions/checkout@v4
-      - name: Set up QEMU
-        if: runner.os == 'Linux'
-        uses: docker/setup-qemu-action@v3
-        with:
-          platforms: all
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
       - name: Set up micromamba
-        uses: mamba-org/setup-micromamba@068f1ab4b37ed9b3d9f73da7db90a0cda0a48d29
+        uses: mamba-org/setup-micromamba@add3a49764cedee8ee24e82dfde87f5bc2914462
       - name: Build wheels
-        if: github.event_name != 'release'
-        uses: pypa/cibuildwheel@v2.22.0
-        env:
-          CIBW_ARCHS_LINUX: auto
-      - name: Build wheels (release)
-        if: github.event_name == 'release' && github.event.action == 'published'
-        uses: pypa/cibuildwheel@v2.22.0
-        env:
-          CIBW_ARCHS_LINUX: x86_64 aarch64
-      - uses: actions/upload-artifact@v4
+        uses: pypa/cibuildwheel@63fd63b352a9a8bdcc24791c9dbee952ee9a8abc # v3.3.0
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
@@ -42,8 +34,8 @@ jobs:
     name: Build source distribution
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
+      - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         name: Install Python
         with:
           python-version: '3.10'
@@ -51,7 +43,7 @@ jobs:
         run: python -m pip install setuptools setuptools-scm wheel mako numpy 'Cython!=3.0.4'
       - name: Build sdist
         run: python setup.py sdist
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           path: dist/*.tar.gz
 
@@ -65,11 +57,11 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           merge-multiple: true
           path: dist
-      - uses: pypa/gh-action-pypi-publish@v1.12.3
+      - uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
         with:
           repository-url: https://test.pypi.org/legacy/
 
@@ -83,8 +75,8 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
           merge-multiple: true
           path: dist
-      - uses: pypa/gh-action-pypi-publish@v1.12.3
+      - uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0

@@ -1,6 +1,6 @@
 import re
 
-import narwhals.stable.v1 as nw
+import narwhals.stable.v2 as nw
 import numpy as np
 import pandas as pd
 import polars as pl
@@ -241,3 +241,8 @@ def test_polars_non_contiguous_codes():
 
     indices, categories = _extract_codes_and_categories(cat_series)
     np.testing.assert_array_equal(str_series, categories[indices].tolist())
+
+
+def test_shape_of_empty():
+    cat_mat = CategoricalMatrix([], drop_first=True)
+    assert cat_mat.shape == (0, 0)

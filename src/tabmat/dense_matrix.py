@@ -1,4 +1,5 @@
 import textwrap
+import warnings
 from typing import Optional, Union
 
 import numpy as np
@@ -43,6 +44,19 @@ class DenseMatrix(MatrixBase):
         elif input_array.ndim > 2:
             raise ValueError("Input array must be 1- or 2-dimensional")
 
+        # Ensure array is contiguous (C or F order) for Cython operations
+        # Only copy if necessary
+        if (
+            not input_array.flags["C_CONTIGUOUS"]
+            and not input_array.flags["F_CONTIGUOUS"]
+        ):
+            warnings.warn(
+                "Input array is not contiguous; making a copy.",
+                UserWarning,
+                stacklevel=2,
+            )
+            input_array = np.asfortranarray(input_array)
+
         self._array = input_array
         width = self._array.shape[1]
 
@@ -64,8 +78,8 @@ class DenseMatrix(MatrixBase):
 
     def __getitem__(self, key):
         row, col = _check_indexer(key)
-        colnames = list(np.array(self.column_names)[col].ravel())
-        terms = list(np.array(self.term_names)[col].ravel())
+        colnames = np.array(self.column_names)[col].ravel().tolist()
+        terms = np.array(self.term_names)[col].ravel().tolist()
 
         return type(self)(
             self._array.__getitem__((row, col)), column_names=colnames, term_names=terms
@@ -92,17 +106,17 @@ class DenseMatrix(MatrixBase):
         )
 
     @property
-    def shape(self):
+    def shape(self):  # type: ignore
         """Tuple of array dimensions."""
         return self._array.shape
 
     @property
-    def ndim(self):
+    def ndim(self):  # type: ignore
         """Number of array dimensions."""  # noqa: D401
         return self._array.ndim
 
     @property
-    def dtype(self):
+    def dtype(self):  # type: ignore
         """Data type of the array's elements."""  # noqa: D401
         return self._array.dtype
 
@@ -164,8 +178,8 @@ class DenseMatrix(MatrixBase):
         raise TypeError
 
     def _get_col_stds(self, weights: np.ndarray, col_means: np.ndarray) -> np.ndarray:
-        """Get standard deviations of columns."""
-        sqrt_arg = transpose_square_dot_weights(self._array, weights) - col_means**2
+        """Get standard deviations of columns using weights `weights`."""
+        sqrt_arg = transpose_square_dot_weights(self._array, weights, col_means)
         # Minor floating point errors above can result in a very slightly
         # negative sqrt_arg (e.g. -5e-16). We just set those values equal to
         # zero.
@@ -304,7 +318,7 @@ class DenseMatrix(MatrixBase):
             default_names = np.array([f"{missing_prefix}{i}" for i in indices])
             names[names == None] = default_names[names == None]  # noqa: E711
 
-        return list(names)
+        return names.tolist()
 
     def set_names(self, names: Union[str, list[Optional[str]]], type: str = "column"):
         """Set column names.

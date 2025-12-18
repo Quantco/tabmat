@@ -80,8 +80,8 @@ class SparseMatrix(MatrixBase):
 
     def __getitem__(self, key):
         row, col = _check_indexer(key)
-        colnames = list(np.array(self.column_names)[col].ravel())
-        terms = list(np.array(self.term_names)[col].ravel())
+        colnames = np.array(self.column_names)[col].ravel().tolist()
+        terms = np.array(self.term_names)[col].ravel().tolist()
 
         return type(self)(
             self._array.__getitem__((row, col)), column_names=colnames, term_names=terms
@@ -96,17 +96,17 @@ class SparseMatrix(MatrixBase):
     __array_ufunc__ = None
 
     @property
-    def shape(self):
+    def shape(self):  # type: ignore
         """Tuple of array dimensions."""
         return self._array.shape
 
     @property
-    def ndim(self):
+    def ndim(self):  # type: ignore
         """Number of array dimensions."""  # noqa: D401
         return self._array.ndim
 
     @property
-    def dtype(self):
+    def dtype(self):  # type: ignore
         """Data-type of the array’s elements."""  # noqa: D401
         return self._array.dtype
 
@@ -378,7 +378,7 @@ class SparseMatrix(MatrixBase):
             default_names = np.array([f"{missing_prefix}{i}" for i in indices])
             names[names == None] = default_names[names == None]  # noqa: E711
 
-        return list(names)
+        return names.tolist()
 
     def set_names(self, names: Union[str, list[Optional[str]]], type: str = "column"):
         """Set column names.

@@ -7,8 +7,48 @@
 Changelog
 =========
 
-Unreleased
-----------
+
+4.1.5 - 2025-12-17
+------------------
+
+**Other changes:**
+
+- Restore building wheels for Intel-based macOS systems.
+
+
+4.1.4 - 2025-12-16
+------------------
+
+**Other changes:**
+
+- :func:`tabmat.from_df` now avoids unnecessary copies of dense arrays, but still ensures that the results are contiguous (C or F order).
+- We now use `narwhals`' v2 API for data frame handling.
+
+
+4.1.3 - 2025-11-12
+------------------
+
+**Bug fixes:**
+
+- Fixed :meth:`CategoricalMatrix.transpose_matvec` to operate on read-only buffers as well.
+- Fixed incorrect calculation of the shape of a :class:`CategoricalMatrix` when initialized with zero categories and ``drop_first=True``.
+
+
+4.1.2 - 2025-07-17
+------------------
+
+**Bug fixes:**
+
+- Fixed a bug which caused issues when constructing tabmat matrices from existing ``ModelSpec``\s when they contained categorical columns with all levels dropped.
+- We can now treat dedicated pandas string series - which are the defaults for strings since pandas 2.3 - as categoricals.
+
+
+4.1.1 - 2025-01-30
+------------------
+
+**Bug fix:**
+
+- A more robust :meth:`DenseMatrix._get_col_stds` results in more accurate :meth:`StandardizedMatrix.sandwich` results.
 
 **New feature:**
 
@@ -17,6 +57,8 @@ Unreleased
 **Other changes:**
 
 - Build wheel for pypi on python 3.13.
+- Build and test with python 3.13 in CI.
+
 
 4.1.0 - 2024-11-07
 ------------------

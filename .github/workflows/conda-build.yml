@@ -1,11 +1,15 @@
 name: conda-build
 on:
+  # We would like to trigger for CI for any pull request action -
+  # both from QuantCo's branches as well as forks.
   pull_request:
-    branches:
-      - main
+  # In addition to pull requests, we want to run CI for pushes
+  # to the main branch and tags.
   push:
     branches:
-      - main
+      - "main"
+    tags:
+      - "*"
 
 jobs:
   conda-build:
@@ -15,22 +19,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { conda_build_yml: linux_64_python3.9_default.____cpython,       os: ubuntu-latest,  conda-build-args: '' }
-          - { conda_build_yml: linux_64_python3.12_default.____cpython,      os: ubuntu-latest,  conda-build-args: '' }
-          - { conda_build_yml: linux_aarch64_python3.10_default.____cpython, os: ubuntu-latest,  conda-build-args: ' --no-test' }
-          - { conda_build_yml: linux_ppc64le_python3.10_default.____cpython, os: ubuntu-latest,  conda-build-args: ' --no-test' }
-          - { conda_build_yml: osx_64_python3.11_default.____cpython,        os: macos-latest,   conda-build-args: '' }
-          - { conda_build_yml: osx_arm64_python3.9.____cpython,              os: macos-latest,   conda-build-args: ' --no-test' }
-          - { conda_build_yml: osx_arm64_python3.10.____cpython,             os: macos-latest,   conda-build-args: ' --no-test' }
-          - { conda_build_yml: win_64_python3.9.____cpython,                 os: windows-latest, conda-build-args: '' }
-          - { conda_build_yml: win_64_python3.12.____cpython,                os: windows-latest, conda-build-args: '' }
+          - { conda_build_yml: linux_64_python3.10.____cpython,         os: ubuntu-latest,  conda-build-args: '' }
+          - { conda_build_yml: linux_64_python3.13.____cp313,           os: ubuntu-latest,  conda-build-args: '' }
+          - { conda_build_yml: linux_aarch64_python3.10.____cpython,    os: ubuntu-latest,  conda-build-args: ' --no-test' }
+          - { conda_build_yml: osx_64_python3.11.____cpython,           os: macos-latest,   conda-build-args: ' --no-test' }
+          - { conda_build_yml: osx_arm64_python3.10.____cpython,        os: macos-latest,   conda-build-args: '' }
+          - { conda_build_yml: osx_arm64_python3.13.____cp313,          os: macos-latest,   conda-build-args: '' }
+          - { conda_build_yml: win_64_python3.10.____cpython,           os: windows-latest, conda-build-args: '' }
+          - { conda_build_yml: win_64_python3.13.____cp313,             os: windows-latest, conda-build-args: '' }
 
     steps:
       - name: Checkout branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6.0.0
       - name: Fetch full git history
         run: git fetch --prune --unshallow
-      - uses: mamba-org/setup-micromamba@068f1ab4b37ed9b3d9f73da7db90a0cda0a48d29
+      - uses: mamba-org/setup-micromamba@add3a49764cedee8ee24e82dfde87f5bc2914462
         with:
           init-shell: ${{ matrix.os == 'windows-latest' && 'cmd.exe' || 'bash' }}
           micromamba-version: 1.5.10-0

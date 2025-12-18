@@ -315,7 +315,13 @@ def test_matrix_against_expectation_qcl(df, formula, expected):
             "C(cat_1, spans_intercept=False) * cat_2 * cat_3",
             id="custom_contrasts",
         ),
-        pytest.param("str_1", id="string_as_categorical"),
+        pytest.param(
+            "str_1",
+            id="string_as_categorical",
+            marks=pytest.mark.xfail(
+                reason="Formulaic does not treat new-style strings as categorical yet"
+            ),
+        ),
     ],
 )
 @pytest.mark.parametrize("input", ["pandas", "polars"])
@@ -527,7 +533,7 @@ def test_names_against_native(df, formula, ensure_full_rank):
 
     assert model_tabmat.model_spec.column_names == model_df.model_spec.column_names
     assert model_tabmat.model_spec.column_names == tuple(model_df.columns)
-    assert model_tabmat.column_names == list(model_df.columns)
+    assert model_tabmat.column_names == model_df.columns.tolist()
 
 
 @pytest.mark.parametrize(
@@ -615,11 +621,15 @@ VECTORS = [
     _InteractableSparseVector(
         sps.csc_matrix(np.array([[1, 0, 0, 0, 2]], dtype=np.float64).T)
     ).set_name("sparse"),
-    _InteractableCategoricalVector.from_categorical(
-        pd.Categorical(["a", "b", "c", "b", "a"]), reduced_rank=True
+    _InteractableCategoricalVector.from_codes(
+        np.array([0, 1, 2, 1, 0], dtype=np.int64),
+        categories=["a", "b", "c"],
+        reduced_rank=True,
     ).set_name("cat_reduced"),
-    _InteractableCategoricalVector.from_categorical(
-        pd.Categorical(["a", "b", "c", "b", "a"]), reduced_rank=False
+    _InteractableCategoricalVector.from_codes(
+        np.array([0, 1, 2, 1, 0], dtype=np.int64),
+        categories=["a", "b", "c"],
+        reduced_rank=False,
     ).set_name("cat_full"),
 ]
 
@@ -874,6 +884,17 @@ def test_unseen_missing(cat_missing_method, input):
             result_unseen.toarray(), np.array([[1, 0], [0, 1], [0, 0]])
         )
         assert result_unseen.column_names == ["cat_1[a]", "cat_1[b]"]
+
+
+def test_drop_all_levels():
+    df = pd.DataFrame(
+        {
+            "cat_1": pd.Categorical(["A", "A", "A"], categories=["A", "B"]),
+        }
+    )
+    X = tm.from_formula("C(cat_1) + 1", df, ensure_full_rank=True)
+    X_repl = X.model_spec.get_model_matrix(df)
+    np.testing.assert_array_equal(X.toarray(), X_repl.toarray())
 
 
 # Tests from formulaic's test suite

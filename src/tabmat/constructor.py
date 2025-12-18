@@ -3,8 +3,9 @@ import warnings
 from collections.abc import Mapping
 from typing import Any, Optional, Union
 
-import narwhals.stable.v1 as nw
+import narwhals.stable.v2 as nw
 import numpy as np
+import numpy.typing
 from formulaic import Formula, ModelSpec
 from formulaic.materializers.types import NAAction
 from formulaic.parser import DefaultFormulaParser
@@ -28,7 +29,7 @@ except ImportError:
 @nw.narwhalify(eager_only=True)
 def from_df(
     df,
-    dtype: np.dtype = np.float64,
+    dtype: numpy.typing.DTypeLike = np.float64,
     sparse_threshold: float = 0.1,
     cat_threshold: int = 4,
     object_as_cat: bool = False,
@@ -93,7 +94,13 @@ def from_df(
     for dfcolidx, colname in enumerate(df.columns):
         coldata = df[:, dfcolidx]
         if object_as_cat:
-            if isinstance(coldata.dtype, (nw.String, nw.Object)):
+            if isinstance(coldata.dtype, (nw.String, nw.Object)) or (
+                pd is not None  # until Narwhals handles it natively
+                and isinstance(
+                    nw.to_native(coldata).dtype,
+                    pd.StringDtype,
+                )
+            ):
                 coldata = coldata.cast(nw.Categorical)
 
         # deal with Pandas sparse dtype (not supported by narwhals)
@@ -175,7 +182,7 @@ def from_df(
     if dense_dfidx:
         matrices.append(
             DenseMatrix(
-                df[:, dense_dfidx].to_numpy().astype(dtype),
+                df[:, dense_dfidx].to_numpy().astype(dtype, copy=False),
                 column_names=np.asarray(df.columns)[dense_dfidx],
                 term_names=np.asarray(df.columns)[dense_dfidx],
             )
@@ -207,7 +214,7 @@ def from_df(
 
 def from_pandas(
     df,
-    dtype: np.dtype = np.float64,
+    dtype: numpy.typing.DTypeLike = np.float64,
     sparse_threshold: float = 0.1,
     cat_threshold: int = 4,
     object_as_cat: bool = False,
@@ -300,7 +307,7 @@ def from_formula(
     data,
     ensure_full_rank: bool = False,
     na_action: Union[str, NAAction] = NAAction.IGNORE,
-    dtype: np.dtype = np.float64,
+    dtype: numpy.typing.DTypeLike = np.float64,
     sparse_threshold: float = 0.1,
     cat_threshold: int = 4,
     interaction_separator: str = ":",

@@ -141,7 +141,6 @@ ext_modules = [
 setup(
     name="tabmat",
     use_scm_version={"version_scheme": "post-release"},
-    setup_requires=["setuptools_scm"],
     description="Efficient matrix representations for working with tabular data.",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -154,6 +153,7 @@ setup(
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
     ],
     package_dir={"": "src"},
     packages=find_packages(where="src"),

@@ -167,8 +167,9 @@ import re
 import warnings
 from typing import Optional, Union
 
-import narwhals.stable.v1 as nw
+import narwhals.stable.v2 as nw
 import numpy as np
+import numpy.typing
 from scipy import sparse as sps
 
 from .dense_matrix import DenseMatrix
@@ -241,8 +242,12 @@ def _extract_codes_and_categories_pandas(cat_vec) -> tuple[np.ndarray, np.ndarra
 def _extract_codes_and_categories_polars(cat_vec) -> tuple[np.ndarray, np.ndarray]:
     if not isinstance(cat_vec.dtype, (pl.Categorical, pl.Enum)):
         cat_vec = cat_vec.cast(pl.Categorical)
-    categories = cat_vec.cat.to_local().cat.get_categories().to_numpy()
-    indices = cat_vec.cat.to_local().to_physical().fill_null(-1).to_numpy()
+    # as of polars 1.32, `get_categories()` won't yield a useful result as
+    # this is "not per column" anymore.
+    mask = cat_vec.is_null()
+    categories = cat_vec.filter(~mask).unique().sort().to_numpy()
+    indices = np.nan_to_num(cat_vec.rank("dense").to_numpy() - 1, nan=-1)
+
     return indices, categories
 
 
@@ -262,7 +267,7 @@ def _extract_codes_and_categories(cat_vec) -> tuple[np.ndarray, np.ndarray]:
     can be converted to a numpy array. Pandas and polars inputs are special
     cased for performance considerations.
     """
-    cat_vec_native = nw.to_native(cat_vec, strict=False)
+    cat_vec_native = nw.to_native(cat_vec, pass_through=True)
 
     if pd and isinstance(cat_vec_native, (pd.Series, pd.Categorical)):
         return _extract_codes_and_categories_pandas(cat_vec_native)
@@ -270,7 +275,9 @@ def _extract_codes_and_categories(cat_vec) -> tuple[np.ndarray, np.ndarray]:
         return _extract_codes_and_categories_polars(cat_vec_native)
     else:
         if isinstance(
-            cat_vec_narwhals := nw.from_native(cat_vec, series_only=True, strict=False),
+            cat_vec_narwhals := nw.from_native(
+                cat_vec, series_only=True, pass_through=True
+            ),
             nw.Series,
         ):
             cat_vec = cat_vec_narwhals.cast(nw.String).to_numpy()
@@ -339,7 +346,7 @@ class CategoricalMatrix(MatrixBase):
         cat_vec,
         categories: Optional[np.ndarray] = None,
         drop_first: bool = False,
-        dtype: np.dtype = np.float64,
+        dtype: numpy.typing.DTypeLike = np.float64,
         column_name: Optional[str] = None,
         term_name: Optional[str] = None,
         column_name_format: str = "{name}[{category}]",
@@ -403,7 +410,7 @@ class CategoricalMatrix(MatrixBase):
                 "When creating a CategoricalMatrix with indices and categories, "
                 "indices must be castable to a numpy int32 dtype."
             )
-        self.shape = (len(self.indices), len(self.categories) - int(drop_first))
+        self.shape = (len(self.indices), max(len(self.categories) - int(drop_first), 0))
         self.x_csc = None
         self.dtype = np.dtype(dtype)
 
@@ -502,7 +509,7 @@ class CategoricalMatrix(MatrixBase):
         is_int = np.issubdtype(other.dtype, np.signedinteger)
 
         if is_int:
-            other_m = other.astype(float)
+            other_m: np.ndarray = other.astype(float)
         else:
             other_m = other
 
