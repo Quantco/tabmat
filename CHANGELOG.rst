@@ -8,6 +8,14 @@ Changelog
 =========
 
 
+4.2.0 - UNRELEASED
+------------------
+
+**New feature:**
+
+- :func:`tabmat.from_formula` now also supports any dataframe supported by narwhals. 
+
+
 4.1.5 - 2025-12-17
 ------------------
 
@@ -49,10 +57,6 @@ Changelog
 **Bug fix:**
 
 - A more robust :meth:`DenseMatrix._get_col_stds` results in more accurate :meth:`StandardizedMatrix.sandwich` results.
-
-**New feature:**
-
-- :func:`tabmat.from_formula` now also supports any dataframe supported by narwhals. 
 
 **Other changes:**
 
