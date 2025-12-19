@@ -8,6 +8,18 @@ Changelog
 =========
 
 
+4.2.0 - UNRELEASED
+------------------
+
+**New feature:**
+
+- :func:`tabmat.from_formula` now also supports any dataframe supported by narwhals.
+
+**Other changes:**
+
+- Require Python>=3.10
+
+
 4.1.5 - 2025-12-17
 ------------------
 
