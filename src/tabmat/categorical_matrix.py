@@ -165,7 +165,7 @@ This is `ext/split/sandwich_cat_dense`
 import importlib.util
 import re
 import warnings
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 import narwhals.stable.v2 as nw
 import numpy as np
@@ -196,15 +196,19 @@ from .util import (
     setup_restrictions,
 )
 
-if importlib.util.find_spec("pandas"):
+if TYPE_CHECKING:
     import pandas as pd
-else:
-    pd = None  # type: ignore
-
-if importlib.util.find_spec("polars"):
     import polars as pl
 else:
-    pl = None  # type: ignore
+    if importlib.util.find_spec("pandas"):
+        import pandas as pd
+    else:
+        pd = None  # type: ignore
+
+    if importlib.util.find_spec("polars"):
+        import polars as pl
+    else:
+        pl = None  # type: ignore
 
 
 def _is_indexer_full_length(full_length: int, indexer: Union[slice, np.ndarray]):
@@ -239,8 +243,16 @@ def _extract_codes_and_categories_pandas(cat_vec) -> tuple[np.ndarray, np.ndarra
     return indices, categories.to_numpy()
 
 
-def _extract_codes_and_categories_polars(cat_vec) -> tuple[np.ndarray, np.ndarray]:
-    if not isinstance(cat_vec.dtype, (pl.Categorical, pl.Enum)):
+def _extract_codes_and_categories_polars(
+    cat_vec: pl.Series,
+) -> tuple[np.ndarray, np.ndarray]:
+    dtype = cat_vec.dtype
+    if isinstance(dtype, pl.Enum):
+        categories = cat_vec.cat.get_categories().to_numpy()
+        indices = cat_vec.to_physical().fill_null(-1).to_numpy()
+        return indices, categories
+
+    if not isinstance(cat_vec.dtype, pl.Categorical):
         cat_vec = cat_vec.cast(pl.Categorical)
     # as of polars 1.32, `get_categories()` won't yield a useful result as
     # this is "not per column" anymore.

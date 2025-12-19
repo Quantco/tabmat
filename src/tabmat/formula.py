@@ -732,6 +732,10 @@ def encode_contrasts(
     levels = levels if levels is not None else _state.get("categories")
     add_missing_category = _state.get("add_missing_category", False)
 
+    if data.dtype.is_numeric():
+        # Polars enums only suppport string values
+        data = data.cast(nw.String)
+
     # Check for unseen categories when levels are specified
     if levels is not None:
         if missing_method == "convert" and not add_missing_category:
@@ -746,12 +750,11 @@ def encode_contrasts(
             raise ValueError(
                 f"Column {data.name} contains unseen categories: {unseen_categories}."
             )
+    else:
+        # Not super efficient as we do it again in _extract_codes_and_categories
+        levels = list(data.drop_nulls().unique().sort())
 
-    cat = (
-        data.cast(nw.Enum(levels))
-        if levels is not None
-        else data.cast(nw.Categorical())
-    )
+    cat = data.cast(nw.Enum(levels))
     codes, categories = _extract_codes_and_categories(cat)
     categories = list(categories)
 

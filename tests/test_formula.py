@@ -3,7 +3,7 @@ import re
 from io import BytesIO
 
 import formulaic
-import narwhals.stable.v1 as nw
+import narwhals.stable.v2 as nw
 import numpy as np
 import pandas as pd
 import polars as pl
@@ -1198,9 +1198,11 @@ class TestFormulaicTests:
             {"A": pd.Categorical(["c", "b", "a"], categories=["c", "b", "a"])}
         )
         if input == "polars":
-            data = pl.DataFrame(data)
-            data2 = pl.DataFrame(data2)
-            data3 = pl.DataFrame(data3)
+            data = pl.from_pandas(data)
+            data2 = pl.from_pandas(data2)
+            data3 = pl.from_pandas(data3).with_columns(
+                pl.col("A").cast(pl.Enum(["c", "b", "a"]))
+            )
 
         m = TabmatMaterializer(data).get_model_matrix("A + 0", ensure_full_rank=False)
         assert list(m.model_spec.column_names) == ["A[a]", "A[b]", "A[c]"]
