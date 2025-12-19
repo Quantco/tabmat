@@ -92,13 +92,13 @@ xsimd = "<11|>12.1"
 jemalloc-local = "*"
 
 [host-dependencies]
-python = ">=3.9"
+python = ">=3.10"
 pip = "*"
 setuptools = "*"
 wheel = "*"
 
 [dependencies]
-formulaic = ">=0.6.4"
+formulaic = ">=1.2.0"
 numpy = ">=1.24.0"
 pandas = ">=1.4.4"
 scipy = ">=1.7.3"
@@ -140,8 +140,6 @@ blas = { build = "*mkl" }
 [feature.benchmark.target.linux-64.dependencies]
 blas = { build = "*mkl" }
 
-[feature.py39.dependencies]
-python = "3.9.*"
 [feature.py310.dependencies]
 python = "3.10.*"
 [feature.py311.dependencies]
@@ -153,18 +151,17 @@ python = "3.13.*"
 
 [feature.oldies.dependencies]
 setuptools = "62.*"
-python = "=3.9.19"
+python = "=3.10"
 numpy = "=1.24.0"
 pandas = "=1.4.4"
 scipy = "=1.7.3"
-formulaic = "=0.6.4"
+formulaic = "1.2.*"
 narwhals = "2.0.*"
 
 [environments]
 default = ["dev", "test"]
 docs = ["docs"]
 benchmark = ["benchmark"]
-py39 = ["py39", "test"]
 py310 = ["py310", "test"]
 py311 = ["py311", "test"]
 py312 = ["py312", "test"]
