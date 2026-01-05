@@ -306,7 +306,7 @@ def _row_col_indexing(
     is_col_indexed = not (cols is None or len(cols) == arr.shape[1])
 
     if is_row_indexed and is_col_indexed:
-        return arr[np.ix_(rows, cols)]
+        return arr[np.ix_(rows, cols)]  # type: ignore
     elif is_row_indexed:
         return arr[rows]
     elif is_col_indexed:
