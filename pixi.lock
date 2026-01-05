@@ -2279,8 +2279,8 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/pathspec-0.12.1-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pip-25.2-pyh8b19718_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pluggy-1.6.0-pyhd8ed1ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/polars-1.33.1-default_h755bcc6_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/polars-default-1.33.1-py39hf521cc8_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/polars-1.35.2-pyh6a1acc5_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/polars-runtime-32-1.35.2-py310hffdcd12_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/prometheus-cpp-1.3.0-ha5d0236_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/psutil-7.1.3-py310h139afa4_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/pyarrow-22.0.0-py310hff52083_0.conda
@@ -2434,8 +2434,8 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/pathspec-0.12.1-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pip-25.2-pyh8b19718_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pluggy-1.6.0-pyhd8ed1ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/polars-1.33.1-default_h107b989_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/polars-default-1.33.1-py39h31c57e4_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/polars-1.35.2-pyh6a1acc5_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/polars-runtime-32-1.35.2-py310h34bb384_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/prometheus-cpp-1.3.0-h0967b3e_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/psutil-7.1.3-py310hf151d32_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/pyarrow-22.0.0-py310hb6292c7_0.conda
@@ -2556,8 +2556,8 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/pathspec-0.12.1-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pip-25.2-pyh8b19718_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/pluggy-1.6.0-pyhd8ed1ab_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/win-64/polars-1.33.1-default_hd0420bf_0.conda
-      - conda: https://conda.anaconda.org/conda-forge/win-64/polars-default-1.33.1-py39he906d20_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/noarch/polars-1.35.2-pyh6a1acc5_0.conda
+      - conda: https://conda.anaconda.org/conda-forge/win-64/polars-runtime-32-1.35.2-py310hca7251b_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/psutil-7.1.3-py310h1637853_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/pthreads-win32-2.9.1-h2466b09_4.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/pyarrow-22.0.0-py310h5588dad_0.conda
@@ -13209,15 +13209,6 @@ packages:
   license_family: MIT
   size: 24246
   timestamp: 1747339794916
-- conda: https://conda.anaconda.org/conda-forge/linux-64/polars-1.33.1-default_h755bcc6_0.conda
-  sha256: 1e087571dd53b179e42b7d47acd6031921c9b9de4c341a408fc8bb23096d28c3
-  md5: 1884a1a6acc457c8e4b59b0f6450e140
-  depends:
-  - polars-default ==1.33.1 py39hf521cc8_0
-  license: MIT
-  license_family: MIT
-  size: 5729
-  timestamp: 1757413932841
 - conda: https://conda.anaconda.org/conda-forge/noarch/polars-1.35.2-pyh6a1acc5_0.conda
   sha256: 21619fb41876fb3ad602de2f1a493891fd02bd82f0659d0ccb4d8ddd3271eca7
   md5: 24e8f78d79881b3c035f89f4b83c565c
@@ -13243,113 +13234,6 @@ packages:
   license_family: MIT
   size: 513921
   timestamp: 1763738199817
-- conda: https://conda.anaconda.org/conda-forge/osx-arm64/polars-1.33.1-default_h107b989_0.conda
-  sha256: 396fe6dd7d25ecd05ca1e290465c6aab30388adbb27f6b80c776f44548b9a627
-  md5: 7bb9d21a632ff0e2240c475438591db7
-  depends:
-  - polars-default ==1.33.1 py39h31c57e4_0
-  license: MIT
-  license_family: MIT
-  size: 5754
-  timestamp: 1757413441375
-- conda: https://conda.anaconda.org/conda-forge/win-64/polars-1.33.1-default_hd0420bf_0.conda
-  sha256: 8b2229f96725090d4ef1c23b0082562b048cb2a9c2abfa0c3b8e5cbcf2cf95e5
-  md5: 3cb9d0e5f40305440675a5f094c3b721
-  depends:
-  - polars-default ==1.33.1 py39he906d20_0
-  license: MIT
-  license_family: MIT
-  size: 5753
-  timestamp: 1757413424803
-- conda: https://conda.anaconda.org/conda-forge/linux-64/polars-default-1.33.1-py39hf521cc8_0.conda
-  noarch: python
-  sha256: 789e3a969a1b437c1df80265088ddc656dbb6f69443c0a9724a4b587faf0da42
-  md5: 900f486d119d5c83d14c812068a3ecad
-  depends:
-  - python
-  - libgcc >=14
-  - __glibc >=2.17,<3.0.a0
-  - libstdcxx >=14
-  - libgcc >=14
-  - _python_abi3_support 1.*
-  - cpython >=3.9
-  constrains:
-  - numpy >=1.16.0
-  - pyarrow >=7.0.0
-  - fastexcel >=0.9
-  - openpyxl >=3.0.0
-  - xlsx2csv >=0.8.0
-  - connectorx >=0.3.2
-  - deltalake >=1.0.0
-  - pyiceberg >=0.7.1
-  - altair >=5.4.0
-  - great_tables >=0.8.0
-  - polars-lts-cpu <0.0.0a0
-  - polars-u64-idx <0.0.0a0
-  - __glibc >=2.17
-  license: MIT
-  license_family: MIT
-  size: 32170742
-  timestamp: 1757413932841
-- conda: https://conda.anaconda.org/conda-forge/osx-arm64/polars-default-1.33.1-py39h31c57e4_0.conda
-  noarch: python
-  sha256: 65a0122d2ed894a9f94dcd96bd9de740ceffbf1b34341e8d6e1b1be0aa207a3a
-  md5: 0bac077a11de4673eeb6aa609ab7bd69
-  depends:
-  - python
-  - __osx >=11.0
-  - libcxx >=19
-  - _python_abi3_support 1.*
-  - cpython >=3.9
-  constrains:
-  - numpy >=1.16.0
-  - pyarrow >=7.0.0
-  - fastexcel >=0.9
-  - openpyxl >=3.0.0
-  - xlsx2csv >=0.8.0
-  - connectorx >=0.3.2
-  - deltalake >=1.0.0
-  - pyiceberg >=0.7.1
-  - altair >=5.4.0
-  - great_tables >=0.8.0
-  - polars-lts-cpu <0.0.0a0
-  - polars-u64-idx <0.0.0a0
-  - __osx >=11.0
-  license: MIT
-  license_family: MIT
-  size: 29418459
-  timestamp: 1757413441375
-- conda: https://conda.anaconda.org/conda-forge/win-64/polars-default-1.33.1-py39he906d20_0.conda
-  noarch: python
-  sha256: f30d7e72d445014d63ec907900331b20ddab87c729996dd2c39be1ae2a53854d
-  md5: 5ae3ef1e9e0afb6c5a86100d05890970
-  depends:
-  - python
-  - vc >=14.3,<15
-  - vc14_runtime >=14.44.35208
-  - ucrt >=10.0.20348.0
-  - vc >=14.3,<15
-  - vc14_runtime >=14.44.35208
-  - ucrt >=10.0.20348.0
-  - _python_abi3_support 1.*
-  - cpython >=3.9
-  constrains:
-  - numpy >=1.16.0
-  - pyarrow >=7.0.0
-  - fastexcel >=0.9
-  - openpyxl >=3.0.0
-  - xlsx2csv >=0.8.0
-  - connectorx >=0.3.2
-  - deltalake >=1.0.0
-  - pyiceberg >=0.7.1
-  - altair >=5.4.0
-  - great_tables >=0.8.0
-  - polars-lts-cpu <0.0.0a0
-  - polars-u64-idx <0.0.0a0
-  license: MIT
-  license_family: MIT
-  size: 35019348
-  timestamp: 1757413424802
 - conda: https://conda.anaconda.org/conda-forge/linux-64/polars-runtime-32-1.35.2-py310hffdcd12_0.conda
   noarch: python
   sha256: a2294d8079173544b519e1564ce4897dc176b92dbba9508c75c42e8cba6fe680

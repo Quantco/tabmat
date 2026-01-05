@@ -112,7 +112,7 @@ ipykernel = "*"
 click = "*"
 pytest = "*"
 pytest-xdist = "*"
-polars = "*"  # exclusively for polars tests
+polars = ">=1.35.0"  # exclusively for polars tests
 pyarrow = "*"  # exclusively for polars tests
 mypy = "*"
 
