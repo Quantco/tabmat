@@ -3,7 +3,7 @@ from typing import Optional, Union
 import numpy as np
 from scipy import sparse as sps
 
-from .ext.sparse import (
+from .ext.rust_compat import (
     csc_rmatvec,
     csc_rmatvec_unrestricted,
     csr_dense_sandwich,

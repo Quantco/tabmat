@@ -173,17 +173,18 @@ import numpy.typing
 from scipy import sparse as sps
 
 from .dense_matrix import DenseMatrix
-from .ext.categorical import (
+from .ext.rust_compat import (
     matvec_complex,
     matvec_fast,
     multiply_complex,
+    sandwich_cat_cat,
+    sandwich_cat_dense,
     sandwich_categorical_complex,
     sandwich_categorical_fast,
     subset_categorical_complex,
     transpose_matvec_complex,
     transpose_matvec_fast,
 )
-from .ext.split import sandwich_cat_cat, sandwich_cat_dense
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .util import (

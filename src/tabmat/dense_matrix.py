@@ -4,7 +4,7 @@ from typing import Optional, Union
 
 import numpy as np
 
-from .ext.dense import (
+from .ext.rust_compat import (
     dense_matvec,
     dense_rmatvec,
     dense_sandwich,
@@ -228,6 +228,9 @@ class DenseMatrix(MatrixBase):
                 res = subset.T.dot(vec[rows]) if transpose else subset.dot(vec[cols])
             if out is None:
                 return res
+            # Handle shape mismatch when res is 2D but out is 1D
+            if out.ndim < res.ndim:
+                res = res.ravel()
             if transpose:
                 out[cols] += res
             else:

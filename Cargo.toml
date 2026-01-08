@@ -7,6 +7,7 @@ rust-version = "1.70"
 [lib]
 name = "tabmat_ext"
 crate-type = ["cdylib"]
+path = "rust_src/lib.rs"
 
 [dependencies]
 pyo3 = { version = "0.22", features = ["extension-module", "abi3-py39"] }
