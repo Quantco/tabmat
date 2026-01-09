@@ -1,6 +1,6 @@
 // Complete categorical matrix operations for tabmat
 
-use numpy::{PyArray1, PyArray2, PyReadonlyArray1};
+use numpy::{PyArray1, PyReadonlyArray1};
 use pyo3::prelude::*;
 use rayon::prelude::*;
 
@@ -236,7 +236,7 @@ pub fn subset_categorical_complex<'py>(
     drop_first: bool,
 ) -> (usize, Bound<'py, PyArray1<i32>>, Bound<'py, PyArray1<i32>>) {
     let indices_slice = indices.as_slice().unwrap();
-    let nrows = indices_slice.len();
+    let _nrows = indices_slice.len();
 
     let mut new_indices = Vec::new();
     let mut indptr = vec![0];

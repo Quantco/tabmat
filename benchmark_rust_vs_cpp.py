@@ -386,8 +386,8 @@ def main():
     if args.compare:
         compare_path = Path(args.compare)
         if compare_path.exists():
-            cpp_results = json.loads(compare_path.read_text())
-            compare_results(results, cpp_results)
+            previous_results = json.loads(compare_path.read_text())
+            compare_results(previous_results, results)
         else:
             print(f"\n⚠️  Comparison file not found: {compare_path}")
 

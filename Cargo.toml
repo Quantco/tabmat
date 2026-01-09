@@ -15,11 +15,7 @@ numpy = "0.22"
 ndarray = "0.16"
 rayon = "1.10"
 num-traits = "0.2"
-
-[dependencies.packed_simd]
-version = "0.3"
-optional = true
-package = "packed_simd_2"
+wide = "0.7"
 
 [profile.release]
 opt-level = 3
@@ -31,4 +27,3 @@ opt-level = 0
 
 [features]
 default = []
-simd = ["packed_simd"]

@@ -1,9 +1,10 @@
 use numpy::{PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2};
 use pyo3::prelude::*;
 use rayon::prelude::*;
+use wide::f64x4;
 
 /// Dense matrix sandwich product: X.T @ diag(d) @ X
-/// Optimized with cache blocking, avoiding ndarray indexing overhead
+/// Optimized with 3D cache blocking (i, j, k dimensions)
 #[pyfunction]
 #[pyo3(signature = (x, d, rows, cols))]
 pub fn dense_sandwich<'py>(
@@ -13,7 +14,7 @@ pub fn dense_sandwich<'py>(
     rows: PyReadonlyArray1<i32>,
     cols: PyReadonlyArray1<i32>,
 ) -> Bound<'py, PyArray2<f64>> {
-    let x = x.as_array();
+    let x_arr = x.as_array();
     let d_slice = d.as_slice().unwrap();
     let rows_slice = rows.as_slice().unwrap();
     let cols_slice = cols.as_slice().unwrap();
@@ -26,84 +27,150 @@ pub fn dense_sandwich<'py>(
         return PyArray2::from_vec2_bound(py, &empty_result).unwrap();
     }
     
-    // Check matrix layout
-    let strides = x.strides();
-    let is_fortran = strides[0] == 1;
+    // Get raw slice and determine layout
+    let x_slice = x_arr.as_slice();
+    let (n_total_rows, n_total_cols) = (x_arr.nrows(), x_arr.ncols());
+    let strides = x_arr.strides();
+    let is_c_contiguous = strides[1] == 1;
     
-    //Cache blocking tuned for L2 cache
-    const BLOCK_K: usize = 1024;
+    // Allocate output matrix
+    let mut out_flat = vec![0.0; out_m * out_m];
     
-    // Pre-compute weighted columns: Xw[j][k] = sqrt(d[rows[k]]) * X[rows[k], cols[j]]
-    let xw: Vec<Vec<f64>> = cols_slice
-        .par_iter()
-        .map(|&col_j| {
-            let col_j = col_j as usize;
-            let mut xw_col = Vec::with_capacity(n_rows);
+    // Cache blocking parameters tuned for cache sizes
+    const K_BLOCK: usize = 512;  // Block size for k dimension
+    
+    if let Some(x_slice) = x_slice {
+        // Precompute sqrt(d) for all rows once
+        let d_sqrt: Vec<f64> = rows_slice.iter()
+            .map(|&r| d_slice[r as usize].sqrt())
+            .collect();
+        
+        // Process in blocks of k dimension
+        for k_block_start in (0..n_rows).step_by(K_BLOCK) {
+            let k_block_end = (k_block_start + K_BLOCK).min(n_rows);
+            let k_block_size = k_block_end - k_block_start;
             
-            for &row_k in rows_slice.iter() {
-                let row_k = row_k as usize;
-                let val = d_slice[row_k].sqrt() * x[[row_k, col_j]];
-                xw_col.push(val);
+            // Allocate flat buffer for weighted columns (column-major layout)
+            // This matches C++'s L and R arrays
+            let mut xw_flat = vec![0.0; out_m * k_block_size];
+            
+            // Precompute all weighted columns for this k-block in parallel
+            // Store in column-major order: xw_flat[col * k_block_size + k_offset]
+            xw_flat.par_chunks_mut(k_block_size)
+                .enumerate()
+                .for_each(|(col_idx, col_chunk)| {
+                    let col_j = cols_slice[col_idx] as usize;
+                    
+                    for (k_offset, k_idx) in (k_block_start..k_block_end).enumerate() {
+                        let r = rows_slice[k_idx] as usize;
+                        let d_sqrt_val = d_sqrt[k_idx];
+                        
+                        col_chunk[k_offset] = if is_c_contiguous {
+                            x_slice[r * n_total_cols + col_j] * d_sqrt_val
+                        } else {
+                            x_slice[col_j * n_total_rows + r] * d_sqrt_val
+                        };
+                    }
+                });
+            
+            // Compute contributions using this k-block
+            // Process upper triangle only
+            let block_results: Vec<(usize, usize, f64)> = (0..out_m).into_par_iter()
+                .flat_map(|i| {
+                    let mut local_results = Vec::with_capacity(out_m - i);
+                    let xi_base = i * k_block_size;
+                    
+                    for j in i..out_m {
+                        let xj_base = j * k_block_size;
+                        let mut sum = 0.0;
+                        
+                        // SIMD dot product with 4-way unrolling
+                        let mut k = 0;
+                        let k_simd_end = (k_block_size / 4) * 4;
+                        
+                        while k < k_simd_end {
+                            let xi = f64x4::new([
+                                xw_flat[xi_base + k],
+                                xw_flat[xi_base + k + 1],
+                                xw_flat[xi_base + k + 2],
+                                xw_flat[xi_base + k + 3],
+                            ]);
+                            let xj = f64x4::new([
+                                xw_flat[xj_base + k],
+                                xw_flat[xj_base + k + 1],
+                                xw_flat[xj_base + k + 2],
+                                xw_flat[xj_base + k + 3],
+                            ]);
+                            let prod = xi * xj;
+                            let arr = prod.to_array();
+                            sum += arr[0] + arr[1] + arr[2] + arr[3];
+                            k += 4;
+                        }
+                        
+                        // Handle remainder
+                        while k < k_block_size {
+                            sum += xw_flat[xi_base + k] * xw_flat[xj_base + k];
+                            k += 1;
+                        }
+                        
+                        local_results.push((i, j, sum));
+                    }
+                    local_results
+                })
+                .collect();
+            
+            // Accumulate results into output matrix
+            for (i, j, val) in block_results {
+                out_flat[i * out_m + j] += val;
             }
-            xw_col
-        })
-        .collect();
-    
-    // Compute Xw.T @ Xw in parallel over rows, only upper triangle
-    let out_flat: Vec<f64> = (0..out_m)
-        .into_par_iter()
-        .flat_map(|i| {
-            let mut row = vec![0.0; out_m];
-            
-            // Only compute from i onwards (upper triangle)
-            for j in i..out_m {
-                let mut sum = 0.0;
+        }
+    } else {
+        // Fallback for non-contiguous arrays
+        let d_sqrt: Vec<f64> = rows_slice.iter()
+            .map(|&r| d_slice[r as usize].sqrt())
+            .collect();
+        
+        let results: Vec<(usize, usize, f64)> = (0..out_m).into_par_iter()
+            .flat_map(|i| {
+                let col_i = cols_slice[i] as usize;
+                let mut local_results = Vec::new();
                 
-                // Process in blocks for better cache reuse
-                for k_start in (0..n_rows).step_by(BLOCK_K) {
-                    let k_end = (k_start + BLOCK_K).min(n_rows);
+                for j in i..out_m {
+                    let col_j = cols_slice[j] as usize;
+                    let mut sum = 0.0;
                     
-                    let xw_i = &xw[i][k_start..k_end];
-                    let xw_j = &xw[j][k_start..k_end];
-                    
-                    // Unroll by 8 for ILP and auto-vectorization
-                    let len = xw_i.len();
-                    let len_unroll = (len / 8) * 8;
-                    
-                    let mut k = 0;
-                    while k < len_unroll {
-                        sum += xw_i[k] * xw_j[k];
-                        sum += xw_i[k + 1] * xw_j[k + 1];
-                        sum += xw_i[k + 2] * xw_j[k + 2];
-                        sum += xw_i[k + 3] * xw_j[k + 3];
-                        sum += xw_i[k + 4] * xw_j[k + 4];
-                        sum += xw_i[k + 5] * xw_j[k + 5];
-                        sum += xw_i[k + 6] * xw_j[k + 6];
-                        sum += xw_i[k + 7] * xw_j[k + 7];
-                        k += 8;
+                    for k in 0..n_rows {
+                        let r = rows_slice[k] as usize;
+                        let d_sqrt_k = d_sqrt[k];
+                        let xi_val = x_arr[[r, col_i]] * d_sqrt_k;
+                        let xj_val = x_arr[[r, col_j]] * d_sqrt_k;
+                        sum += xi_val * xj_val;
                     }
                     
-                    while k < len {
-                        sum += xw_i[k] * xw_j[k];
-                        k += 1;
-                    }
+                    local_results.push((i, j, sum));
                 }
-                
-                row[j] = sum;
-            }
-            row
-        })
-        .collect();
-    
-    // Fill symmetric lower triangle
-    let mut out_2d = vec![vec![0.0; out_m]; out_m];
-    for i in 0..out_m {
-        for j in i..out_m {
-            let val = out_flat[i * out_m + j];
-            out_2d[i][j] = val;
-            out_2d[j][i] = val;
+                local_results
+            })
+            .collect();
+        
+        for (i, j, val) in results {
+            out_flat[i * out_m + j] = val;
         }
     }
+    
+    // Fill lower triangle by symmetry
+    for i in 0..out_m {
+        for j in (i + 1)..out_m {
+            out_flat[j * out_m + i] = out_flat[i * out_m + j];
+        }
+    }
+    
+    // Convert flat vector to 2D for return
+    let out_2d: Vec<Vec<f64>> = (0..out_m)
+        .map(|i| {
+            out_flat[i * out_m..(i + 1) * out_m].to_vec()
+        })
+        .collect();
     
     PyArray2::from_vec2_bound(py, &out_2d).unwrap()
 }

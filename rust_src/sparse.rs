@@ -1,11 +1,8 @@
 // Complete sparse matrix operations for tabmat
 
-use ndarray::ArrayView2;
 use numpy::{PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2};
 use pyo3::prelude::*;
-use pyo3::types::PyModule;
 use rayon::prelude::*;
-use std::collections::HashSet;
 
 /// Sparse sandwich product: AT @ diag(d) @ A
 /// A is in CSC format, AT is the transpose (passed as CSR which is CSC transposed)
@@ -54,7 +51,7 @@ pub fn sparse_sandwich<'py>(
     let results: Vec<Vec<f64>> = cols_slice
         .par_iter()
         .enumerate()
-        .map(|(cj, &j)| {
+        .map(|(_cj, &j)| {
             let mut local_out = vec![0.0; m];
             let j_start = a_indptr_slice[j as usize] as usize;
             let j_end = a_indptr_slice[(j + 1) as usize] as usize;
