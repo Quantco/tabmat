@@ -1,12 +1,23 @@
 [build-system]
-requires = [
-  'setuptools',
-  'setuptools-scm',
-  'wheel',
-  'mako',
-  'numpy>=1.25',
-  'Cython != 3.0.4',
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "tabmat"
+dynamic = ["version"]
+requires-python = ">=3.9"
+dependencies = [
+  "numpy>=1.24.0",
+  "pandas>=1.4.4",
+  "scipy>=1.7.3",
+  "formulaic>=0.6.4",
+  "narwhals>=1.4.1",
 ]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+module-name = "tabmat.ext.tabmat_ext"
+python-source = "src"
 
 [tool.ruff]
 line-length = 88

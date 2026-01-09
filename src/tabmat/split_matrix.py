@@ -6,7 +6,7 @@ import numpy as np
 from scipy import sparse as sps
 
 from .dense_matrix import DenseMatrix
-from .ext.split import is_sorted, split_col_subsets
+from .ext.rust_compat import is_sorted, split_col_subsets
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .standardized_mat import StandardizedMatrix
@@ -336,6 +336,8 @@ class SplitMatrix(MatrixBase):
         out = np.zeros((n_cols, n_cols))
         for i in range(len(self.indices)):
             idx_i = subset_cols_indices[i]
+            if len(idx_i) == 0:
+                continue
             mat_i = self.matrices[i]
             res = mat_i.sandwich(d, rows, subset_cols[i])
             if isinstance(res, sps.dia_matrix):
@@ -345,6 +347,8 @@ class SplitMatrix(MatrixBase):
 
             for j in range(i + 1, len(self.indices)):
                 idx_j = subset_cols_indices[j]
+                if len(idx_j) == 0:
+                    continue
                 mat_j = self.matrices[j]
                 res = mat_i._cross_sandwich(
                     mat_j, d, rows, subset_cols[i], subset_cols[j]
@@ -405,7 +409,11 @@ class SplitMatrix(MatrixBase):
             idx = self.indices[dense_matrix_idx]
             mat = self.matrices[dense_matrix_idx]
             in_vec = v[idx, ...]
-            out = np.asarray(mat.matvec(in_vec, sub_cols, out), dtype=out_dtype)
+            result = mat.matvec(in_vec, sub_cols, out)
+            out = np.asarray(result, dtype=out_dtype)
+            # Ensure out has the correct shape (can be 2D if v is 2D or cols is empty)
+            if out.shape != tuple(out_shape):
+                out = out.reshape(out_shape)
         else:
             dense_matrix_idx = -1
             out = _prepare_out_array(out, out_shape, out_dtype)

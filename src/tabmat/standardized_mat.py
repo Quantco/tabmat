@@ -8,6 +8,7 @@ from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .util import (
     check_matvec_dimensions,
+    check_matvec_out_shape,
     check_sandwich_compatible,
     check_transpose_matvec_out_shape,
     set_up_rows_or_cols,
@@ -78,10 +79,12 @@ class StandardizedMatrix:
         This function returns a dense output, so it is best geared for the
         matrix-vector case.
         """
-        cols = set_up_rows_or_cols(cols, self.shape[1])
+        # Don't convert cols to full array yet - pass it through to underlying matrix
+        cols_array = set_up_rows_or_cols(cols, self.shape[1])
 
         other_mat = np.asarray(other_mat)
         check_matvec_dimensions(self, other_mat, transpose=False)
+        check_matvec_out_shape(self, out)
         mult_other = other_mat
         if self.mult is not None:
             mult = self.mult
@@ -92,7 +95,7 @@ class StandardizedMatrix:
         mat_part = self.mat.matvec(mult_other, cols, out=out)
 
         # Add shift part to mat_part
-        shift_part = self.shift[cols].dot(other_mat[cols, ...])  # scalar
+        shift_part = self.shift[cols_array].dot(other_mat[cols_array, ...])  # scalar
         mat_part += shift_part
         return mat_part
 
