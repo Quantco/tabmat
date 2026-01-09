@@ -237,7 +237,13 @@ class DenseMatrix(MatrixBase):
                 res = fast_fnc(self._array, vec_subset, rows, cols)
             elif vec.ndim == 2 and vec.shape[1] == 1:
                 vec_subset = vec[cols, 0] if not transpose else vec[rows, 0]
-                res = fast_fnc(self._array, vec_subset, rows, cols)[:, None]
+                res = fast_fnc(self._array, vec_subset, rows, cols)
+                # Rust functions return 2D arrays, need to reshape properly
+                if res.ndim == 2:
+                    # Result is (1, n_rows), need to transpose
+                    res = res.T  # Now (n_rows, 1)
+                else:
+                    res = res[:, None]
             else:
                 subset = self._array[np.ix_(rows, cols)]
                 res = subset.T.dot(vec[rows]) if transpose else subset.dot(vec[cols])

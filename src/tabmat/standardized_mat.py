@@ -87,11 +87,11 @@ class StandardizedMatrix:
         check_matvec_out_shape(self, out)
         mult_other = other_mat
         if self.mult is not None:
-            mult = self.mult[cols_array]
+            mult = self.mult
             # Avoiding an outer product by matching dimensions.
             for _ in range(len(other_mat.shape) - 1):
                 mult = mult[:, np.newaxis]
-            mult_other = mult * other_mat[cols_array, ...]
+            mult_other = mult * other_mat
         mat_part = self.mat.matvec(mult_other, cols, out=out)
 
         # Add shift part to mat_part

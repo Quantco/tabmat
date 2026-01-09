@@ -336,6 +336,8 @@ class SplitMatrix(MatrixBase):
         out = np.zeros((n_cols, n_cols))
         for i in range(len(self.indices)):
             idx_i = subset_cols_indices[i]
+            if len(idx_i) == 0:
+                continue
             mat_i = self.matrices[i]
             res = mat_i.sandwich(d, rows, subset_cols[i])
             if isinstance(res, sps.dia_matrix):
@@ -345,6 +347,8 @@ class SplitMatrix(MatrixBase):
 
             for j in range(i + 1, len(self.indices)):
                 idx_j = subset_cols_indices[j]
+                if len(idx_j) == 0:
+                    continue
                 mat_j = self.matrices[j]
                 res = mat_i._cross_sandwich(
                     mat_j, d, rows, subset_cols[i], subset_cols[j]

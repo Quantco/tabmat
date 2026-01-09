@@ -35,9 +35,9 @@ pub fn dense_sandwich<'py>(
             let col_j = cols_slice[j] as usize;
             let mut accum = 0.0;
             
-            for (k, &row_idx) in rows_slice.iter().enumerate() {
+            for &row_idx in rows_slice.iter() {
                 let row = row_idx as usize;
-                accum += x[[row, col_i]] * d_slice[k] * x[[row, col_j]];
+                accum += x[[row, col_i]] * d_slice[row] * x[[row, col_j]];
             }
             
             out_row[j] = accum;
