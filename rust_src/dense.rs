@@ -3,6 +3,7 @@ use pyo3::prelude::*;
 use rayon::prelude::*;
 
 /// Dense matrix sandwich product: X.T @ diag(d) @ X
+/// Optimized with cache blocking, avoiding ndarray indexing overhead
 #[pyfunction]
 #[pyo3(signature = (x, d, rows, cols))]
 pub fn dense_sandwich<'py>(
@@ -18,31 +19,91 @@ pub fn dense_sandwich<'py>(
     let cols_slice = cols.as_slice().unwrap();
     
     let out_m = cols_slice.len();
+    let n_rows = rows_slice.len();
     
-    if rows_slice.is_empty() || out_m == 0 {
+    if n_rows == 0 || out_m == 0 {
         let empty_result: Vec<Vec<f64>> = vec![vec![0.0; out_m]; out_m];
         return PyArray2::from_vec2_bound(py, &empty_result).unwrap();
     }
     
-    // Compute X.T @ diag(d) @ X using parallel outer product accumulation
-    let mut out_2d = vec![vec![0.0; out_m]; out_m];
+    // Check matrix layout
+    let strides = x.strides();
+    let is_fortran = strides[0] == 1;
     
-    // Parallel over output rows
-    out_2d.par_iter_mut().enumerate().for_each(|(i, out_row)| {
-        let col_i = cols_slice[i] as usize;
-        
-        for j in 0..out_m {
-            let col_j = cols_slice[j] as usize;
-            let mut accum = 0.0;
+    //Cache blocking tuned for L2 cache
+    const BLOCK_K: usize = 1024;
+    
+    // Pre-compute weighted columns: Xw[j][k] = sqrt(d[rows[k]]) * X[rows[k], cols[j]]
+    let xw: Vec<Vec<f64>> = cols_slice
+        .par_iter()
+        .map(|&col_j| {
+            let col_j = col_j as usize;
+            let mut xw_col = Vec::with_capacity(n_rows);
             
-            for &row_idx in rows_slice.iter() {
-                let row = row_idx as usize;
-                accum += x[[row, col_i]] * d_slice[row] * x[[row, col_j]];
+            for &row_k in rows_slice.iter() {
+                let row_k = row_k as usize;
+                let val = d_slice[row_k].sqrt() * x[[row_k, col_j]];
+                xw_col.push(val);
             }
+            xw_col
+        })
+        .collect();
+    
+    // Compute Xw.T @ Xw in parallel over rows, only upper triangle
+    let out_flat: Vec<f64> = (0..out_m)
+        .into_par_iter()
+        .flat_map(|i| {
+            let mut row = vec![0.0; out_m];
             
-            out_row[j] = accum;
+            // Only compute from i onwards (upper triangle)
+            for j in i..out_m {
+                let mut sum = 0.0;
+                
+                // Process in blocks for better cache reuse
+                for k_start in (0..n_rows).step_by(BLOCK_K) {
+                    let k_end = (k_start + BLOCK_K).min(n_rows);
+                    
+                    let xw_i = &xw[i][k_start..k_end];
+                    let xw_j = &xw[j][k_start..k_end];
+                    
+                    // Unroll by 8 for ILP and auto-vectorization
+                    let len = xw_i.len();
+                    let len_unroll = (len / 8) * 8;
+                    
+                    let mut k = 0;
+                    while k < len_unroll {
+                        sum += xw_i[k] * xw_j[k];
+                        sum += xw_i[k + 1] * xw_j[k + 1];
+                        sum += xw_i[k + 2] * xw_j[k + 2];
+                        sum += xw_i[k + 3] * xw_j[k + 3];
+                        sum += xw_i[k + 4] * xw_j[k + 4];
+                        sum += xw_i[k + 5] * xw_j[k + 5];
+                        sum += xw_i[k + 6] * xw_j[k + 6];
+                        sum += xw_i[k + 7] * xw_j[k + 7];
+                        k += 8;
+                    }
+                    
+                    while k < len {
+                        sum += xw_i[k] * xw_j[k];
+                        k += 1;
+                    }
+                }
+                
+                row[j] = sum;
+            }
+            row
+        })
+        .collect();
+    
+    // Fill symmetric lower triangle
+    let mut out_2d = vec![vec![0.0; out_m]; out_m];
+    for i in 0..out_m {
+        for j in i..out_m {
+            let val = out_flat[i * out_m + j];
+            out_2d[i][j] = val;
+            out_2d[j][i] = val;
         }
-    });
+    }
     
     PyArray2::from_vec2_bound(py, &out_2d).unwrap()
 }

@@ -107,6 +107,9 @@ polars = "*"  # exclusively for polars tests
 pyarrow = "*"  # exclusively for polars tests
 mypy = "*"
 
+[feature.cpp-benchmark.dependencies]
+tabmat = ">=4.1.0"
+
 [feature.lint.dependencies]
 pre-commit = "*"
 ruff = "*"
@@ -155,6 +158,7 @@ narwhals = "2.0.*"
 default = ["dev", "test"]
 docs = ["docs"]
 benchmark = ["benchmark"]
+cpp-benchmark = ["cpp-benchmark"]
 py39 = ["py39", "test"]
 py310 = ["py310", "test"]
 py311 = ["py311", "test"]

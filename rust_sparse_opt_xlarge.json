@@ -1,0 +1,82 @@
+{
+  "implementation": "Rust",
+  "benchmarks": [
+    {
+      "name": "xlarge/dense/sandwich",
+      "mean_time": 0.8110259585082531,
+      "std_time": 0.0365576306738008,
+      "min_time": 0.761650750413537,
+      "max_time": 0.8489897502586246
+    },
+    {
+      "name": "xlarge/dense/matvec",
+      "mean_time": 0.009692360647022724,
+      "std_time": 0.0008060529636049465,
+      "min_time": 0.009027250111103058,
+      "max_time": 0.01082666590809822
+    },
+    {
+      "name": "xlarge/sparse/sandwich",
+      "mean_time": 0.08294262504205108,
+      "std_time": 0.008259651806348033,
+      "min_time": 0.07449775002896786,
+      "max_time": 0.09415404219180346
+    },
+    {
+      "name": "xlarge/sparse/matvec",
+      "mean_time": 0.005050777302434047,
+      "std_time": 0.0004474464124618648,
+      "min_time": 0.004673541057854891,
+      "max_time": 0.005679375026375055
+    },
+    {
+      "name": "xlarge/categorical/sandwich",
+      "mean_time": 0.001849111169576645,
+      "std_time": 5.315766305011213e-05,
+      "min_time": 0.0017912075854837894,
+      "max_time": 0.0019195838831365108
+    },
+    {
+      "name": "xlarge/categorical/matvec",
+      "mean_time": 0.002903930377215147,
+      "std_time": 0.0002880334531305252,
+      "min_time": 0.0025638751685619354,
+      "max_time": 0.0032681659795343876
+    },
+    {
+      "name": "xlarge/split/sandwich",
+      "mean_time": 1.723902583277474,
+      "std_time": 0.06516452402835989,
+      "min_time": 1.649865583050996,
+      "max_time": 1.8084449167363346
+    },
+    {
+      "name": "xlarge/split/matvec",
+      "mean_time": 0.012450083314130703,
+      "std_time": 0.00010563553802409186,
+      "min_time": 0.01230604201555252,
+      "max_time": 0.012556416913866997
+    },
+    {
+      "name": "xlarge/standardized/sandwich",
+      "mean_time": 0.9645156944170594,
+      "std_time": 0.06620533336383957,
+      "min_time": 0.880494125187397,
+      "max_time": 1.0423035831190646
+    },
+    {
+      "name": "xlarge/standardized/matvec",
+      "mean_time": 0.010809208421657482,
+      "std_time": 0.0005251993523905312,
+      "min_time": 0.010090250056236982,
+      "max_time": 0.011330167297273874
+    },
+    {
+      "name": "xlarge/dense/sandwich_rows",
+      "mean_time": 0.4203158753613631,
+      "std_time": 0.012996753257836967,
+      "min_time": 0.4076155419461429,
+      "max_time": 0.4381725420244038
+    }
+  ]
+}

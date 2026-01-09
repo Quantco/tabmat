@@ -1,0 +1,159 @@
+{
+  "implementation": "Rust",
+  "benchmarks": [
+    {
+      "name": "small/dense/sandwich",
+      "mean_time": 0.0005868582054972648,
+      "std_time": 0.00011025263024690997,
+      "min_time": 0.00047383271157741547,
+      "max_time": 0.0008585830219089985
+    },
+    {
+      "name": "small/dense/matvec",
+      "mean_time": 1.4766771346330643e-05,
+      "std_time": 8.91062038833816e-06,
+      "min_time": 1.0124873369932175e-05,
+      "max_time": 3.908388316631317e-05
+    },
+    {
+      "name": "small/sparse/sandwich",
+      "mean_time": 0.000158145884051919,
+      "std_time": 7.220589766382218e-06,
+      "min_time": 0.00014808308333158493,
+      "max_time": 0.00017245905473828316
+    },
+    {
+      "name": "small/sparse/matvec",
+      "mean_time": 5.8837560936808585e-05,
+      "std_time": 8.964823243596598e-06,
+      "min_time": 4.024989902973175e-05,
+      "max_time": 7.104175165295601e-05
+    },
+    {
+      "name": "small/categorical/sandwich",
+      "mean_time": 2.2079236805438997e-05,
+      "std_time": 2.730347305182364e-06,
+      "min_time": 1.979200169444084e-05,
+      "max_time": 2.8834212571382523e-05
+    },
+    {
+      "name": "small/categorical/matvec",
+      "mean_time": 7.758764550089837e-05,
+      "std_time": 0.00010681515276353573,
+      "min_time": 1.4916062355041504e-05,
+      "max_time": 0.0003849160857498646
+    },
+    {
+      "name": "small/split/sandwich",
+      "mean_time": 0.0025310873985290526,
+      "std_time": 0.0003316846221180355,
+      "min_time": 0.00221774959936738,
+      "max_time": 0.00342820817604661
+    },
+    {
+      "name": "small/split/matvec",
+      "mean_time": 0.00016988730058073998,
+      "std_time": 5.5983535110609336e-05,
+      "min_time": 0.00010399986058473587,
+      "max_time": 0.0002704998478293419
+    },
+    {
+      "name": "small/standardized/sandwich",
+      "mean_time": 0.0010729331988841295,
+      "std_time": 0.0002426361125333747,
+      "min_time": 0.0008365423418581486,
+      "max_time": 0.0016759168356657028
+    },
+    {
+      "name": "small/standardized/matvec",
+      "mean_time": 1.5095993876457215e-05,
+      "std_time": 7.517383257954943e-07,
+      "min_time": 1.420825719833374e-05,
+      "max_time": 1.691700890660286e-05
+    },
+    {
+      "name": "small/dense/sandwich_rows",
+      "mean_time": 0.000450433325022459,
+      "std_time": 0.00010557926796955784,
+      "min_time": 0.0003037918359041214,
+      "max_time": 0.0006780410185456276
+    },
+    {
+      "name": "medium/dense/sandwich",
+      "mean_time": 0.02064352510496974,
+      "std_time": 0.0017514901288270095,
+      "min_time": 0.018554124981164932,
+      "max_time": 0.025147334206849337
+    },
+    {
+      "name": "medium/dense/matvec",
+      "mean_time": 0.00015872083604335786,
+      "std_time": 7.574348760294821e-05,
+      "min_time": 9.38749872148037e-05,
+      "max_time": 0.00032283319160342216
+    },
+    {
+      "name": "medium/sparse/sandwich",
+      "mean_time": 0.005347254313528537,
+      "std_time": 0.00022733794403840516,
+      "min_time": 0.004941167309880257,
+      "max_time": 0.005703875329345465
+    },
+    {
+      "name": "medium/sparse/matvec",
+      "mean_time": 0.00015135831199586391,
+      "std_time": 8.111093319702107e-05,
+      "min_time": 8.525000885128975e-05,
+      "max_time": 0.0003764159046113491
+    },
+    {
+      "name": "medium/categorical/sandwich",
+      "mean_time": 3.4683384001255035e-05,
+      "std_time": 2.3729633078448116e-06,
+      "min_time": 3.2582785934209824e-05,
+      "max_time": 4.100007936358452e-05
+    },
+    {
+      "name": "medium/categorical/matvec",
+      "mean_time": 0.0001067248173058033,
+      "std_time": 6.200382247252166e-05,
+      "min_time": 5.77080063521862e-05,
+      "max_time": 0.0002575409598648548
+    },
+    {
+      "name": "medium/split/sandwich",
+      "mean_time": 0.1545553458854556,
+      "std_time": 0.0017421617563798013,
+      "min_time": 0.151421292219311,
+      "max_time": 0.1585026658140123
+    },
+    {
+      "name": "medium/split/matvec",
+      "mean_time": 0.0007438748609274626,
+      "std_time": 0.00011920886195607347,
+      "min_time": 0.0005085831508040428,
+      "max_time": 0.0008915001526474953
+    },
+    {
+      "name": "medium/standardized/sandwich",
+      "mean_time": 0.02225323747843504,
+      "std_time": 0.0013405909296382219,
+      "min_time": 0.020197791047394276,
+      "max_time": 0.024510708171874285
+    },
+    {
+      "name": "medium/standardized/matvec",
+      "mean_time": 0.00028029996901750563,
+      "std_time": 0.00012495426454490807,
+      "min_time": 0.00015462469309568405,
+      "max_time": 0.0005115000531077385
+    },
+    {
+      "name": "medium/dense/sandwich_rows",
+      "mean_time": 0.014536308497190476,
+      "std_time": 0.003875223707331337,
+      "min_time": 0.009378209244459867,
+      "max_time": 0.022028875071555376
+    }
+  ]
+}

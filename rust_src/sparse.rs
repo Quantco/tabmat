@@ -34,52 +34,78 @@ pub fn sparse_sandwich<'py>(
     let cols_slice = cols.as_slice().unwrap();
 
     let m = cols_slice.len();
-    let mut out = vec![vec![0.0; m]; m];
+    // Use flat Vec instead of Vec<Vec> for better cache locality
+    let mut out = vec![0.0; m * m];
 
-    let row_set: HashSet<i32> = rows_slice.iter().copied().collect();
-    let col_map: std::collections::HashMap<i32, usize> = cols_slice
-        .iter()
+    // Use byte array for row_included (more cache-friendly than HashSet)
+    let mut row_included = vec![0u8; d_slice.len()];
+    for &r in rows_slice {
+        row_included[r as usize] = 1;
+    }
+
+    // Build col_map as array (faster than HashMap)
+    let max_col = *cols_slice.iter().max().unwrap_or(&0) as usize;
+    let mut col_map = vec![-1i32; max_col + 1];
+    for (ci, &c) in cols_slice.iter().enumerate() {
+        col_map[c as usize] = ci as i32;
+    }
+
+    // Parallel over columns
+    let results: Vec<Vec<f64>> = cols_slice
+        .par_iter()
         .enumerate()
-        .map(|(i, &c)| (c, i))
+        .map(|(cj, &j)| {
+            let mut local_out = vec![0.0; m];
+            let j_start = a_indptr_slice[j as usize] as usize;
+            let j_end = a_indptr_slice[(j + 1) as usize] as usize;
+
+            for idx in j_start..j_end {
+                let k = a_indices_slice[idx];
+                if row_included[k as usize] == 0 {
+                    continue;
+                }
+
+                let a_val = a_data_slice[idx] * d_slice[k as usize];
+
+                let k_start = at_indptr_slice[k as usize] as usize;
+                let k_end = at_indptr_slice[(k + 1) as usize] as usize;
+
+                for idx2 in k_start..k_end {
+                    let i = at_indices_slice[idx2];
+                    if i > j {
+                        break;
+                    }
+
+                    let ci = col_map[i as usize];
+                    if ci >= 0 {
+                        let at_val = at_data_slice[idx2];
+                        local_out[ci as usize] += at_val * a_val;
+                    }
+                }
+            }
+            local_out
+        })
         .collect();
 
-    for (cj, &j) in cols_slice.iter().enumerate() {
-        let j_start = a_indptr_slice[j as usize] as usize;
-        let j_end = a_indptr_slice[(j + 1) as usize] as usize;
-
-        for idx in j_start..j_end {
-            let k = a_indices_slice[idx];
-            if !row_set.contains(&k) {
-                continue;
-            }
-
-            let a_val = a_data_slice[idx] * d_slice[k as usize];
-
-            let k_start = at_indptr_slice[k as usize] as usize;
-            let k_end = at_indptr_slice[(k + 1) as usize] as usize;
-
-            for idx2 in k_start..k_end {
-                let i = at_indices_slice[idx2];
-                if i > j {
-                    break;
-                }
-
-                if let Some(&ci) = col_map.get(&i) {
-                    let at_val = at_data_slice[idx2];
-                    out[cj][ci] += at_val * a_val;
-                }
-            }
+    // Merge results into output
+    for (cj, local_out) in results.iter().enumerate() {
+        for (ci, &val) in local_out.iter().enumerate() {
+            out[cj * m + ci] = val;
         }
     }
 
     // Symmetrize
     for i in 0..m {
         for j in (i + 1)..m {
-            out[i][j] = out[j][i];
+            out[i * m + j] = out[j * m + i];
         }
     }
 
-    PyArray2::from_vec2_bound(py, &out).unwrap()
+    // Convert flat Vec to Vec<Vec<f64>> for PyArray2
+    let out_2d: Vec<Vec<f64>> = (0..m)
+        .map(|i| out[i * m..(i + 1) * m].to_vec())
+        .collect();
+    PyArray2::from_vec2_bound(py, &out_2d).unwrap()
 }
 
 /// CSR matrix-vector product (unrestricted)
@@ -308,41 +334,57 @@ pub fn csr_dense_sandwich<'py>(
 
     let m = a_cols_slice.len();
     let n = b_cols_slice.len();
-    let mut out = vec![vec![0.0; n]; m];
+    
+    // Use flat array for better cache locality
+    let out: Vec<f64> = (0..m)
+        .into_par_iter()
+        .flat_map(|ca| {
+            let a_col = a_cols_slice[ca];
+            let mut row_vals = vec![0.0; n];
+            
+            // Build map for fast A column lookup
+            let max_col = *a_cols_slice.iter().max().unwrap_or(&0) as usize;
+            let mut col_included = vec![0u8; max_col + 1];
+            for &c in a_cols_slice {
+                col_included[c as usize] = 1;
+            }
 
-    // Build mask for which rows to include
-    let row_set: HashSet<i32> = rows_slice.iter().copied().collect();
+            for (cb, &b_col) in b_cols_slice.iter().enumerate() {
+                let mut accum = 0.0;
 
-    for (ca, &a_col) in a_cols_slice.iter().enumerate() {
-        for (cb, &b_col) in b_cols_slice.iter().enumerate() {
-            let mut accum = 0.0;
+                // Iterate over rows efficiently
+                for &row in rows_slice {
+                    let i = row as usize;
+                    let start = a_indptr_slice[i] as usize;
+                    let end = a_indptr_slice[i + 1] as usize;
 
-            // Iterate over rows
-            for &row in rows_slice {
-                if !row_set.contains(&row) {
-                    continue;
-                }
+                    // Find value at A[i, a_col] using binary search in sorted indices
+                    let mut a_val = 0.0;
+                    for idx in start..end {
+                        let col = a_indices_slice[idx];
+                        if col == a_col {
+                            a_val = a_data_slice[idx];
+                            break;
+                        } else if col > a_col {
+                            break;  // CSC is sorted by column
+                        }
+                    }
 
-                let i = row as usize;
-                let start = a_indptr_slice[i] as usize;
-                let end = a_indptr_slice[i + 1] as usize;
-
-                // Find value at A[i, a_col]
-                let mut a_val = 0.0;
-                for idx in start..end {
-                    if a_indices_slice[idx] == a_col {
-                        a_val = a_data_slice[idx];
-                        break;
+                    if a_val != 0.0 {
+                        let b_val = b_arr[[i, b_col as usize]];
+                        accum += a_val * d_slice[i] * b_val;
                     }
                 }
 
-                let b_val = b_arr[[i, b_col as usize]];
-                accum += a_val * d_slice[i] * b_val;
+                row_vals[cb] = accum;
             }
+            row_vals
+        })
+        .collect();
 
-            out[ca][cb] = accum;
-        }
-    }
-
-    PyArray2::from_vec2_bound(py, &out).unwrap()
+    // Convert flat Vec to Vec<Vec<f64>> for PyArray2
+    let out_2d: Vec<Vec<f64>> = (0..m)
+        .map(|i| out[i * n..(i + 1) * n].to_vec())
+        .collect();
+    PyArray2::from_vec2_bound(py, &out_2d).unwrap()
 }
