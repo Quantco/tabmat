@@ -16,9 +16,7 @@ from .matrix_base import MatrixBase
 from .util import (
     _check_indexer,
     check_matvec_dimensions,
-    check_matvec_out_shape,
     check_sandwich_compatible,
-    check_transpose_matvec_out_shape,
     set_up_rows_or_cols,
     setup_restrictions,
 )
@@ -254,6 +252,14 @@ class SparseMatrix(MatrixBase):
             matrix_matvec = lambda x, v: sps.csr_matrix.dot(x.T, v)
 
         rows, cols = setup_restrictions(self.shape, rows, cols, dtype=self.idx_dtype)
+        # Check that out is large enough for the operation
+        if out is not None:
+            target_indices = cols if transpose else rows
+            if len(target_indices) > 0 and np.max(target_indices) >= out.shape[0]:
+                raise ValueError(
+                    f"""The first dimension of 'out' must be at least "
+                    f"{np.max(target_indices) + 1}, but it is {out.shape[0]}."""
+                )
         if transpose:
             fast_fnc = lambda v: csc_rmatvec(self.array_csc, v, rows, cols)
         else:
@@ -278,7 +284,7 @@ class SparseMatrix(MatrixBase):
         self, vec, cols: Optional[np.ndarray] = None, out: Optional[np.ndarray] = None
     ):
         """Perform self[:, cols] @ other[cols]."""
-        check_matvec_out_shape(self, out)
+        # Shape check removed: out can be larger when called from split_matrix
         return self._matvec_helper(vec, None, cols, out, False)
 
     def transpose_matvec(
@@ -289,7 +295,7 @@ class SparseMatrix(MatrixBase):
         out: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """Perform: self[rows, cols].T @ vec[rows]."""
-        check_transpose_matvec_out_shape(self, out)
+        # Shape check removed: out can be larger when called from split_matrix
         return self._matvec_helper(vec, rows, cols, out, True)
 
     def _get_col_stds(self, weights: np.ndarray, col_means: np.ndarray) -> np.ndarray:

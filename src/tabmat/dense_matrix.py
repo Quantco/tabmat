@@ -14,9 +14,7 @@ from .matrix_base import MatrixBase
 from .util import (
     _check_indexer,
     check_matvec_dimensions,
-    check_matvec_out_shape,
     check_sandwich_compatible,
-    check_transpose_matvec_out_shape,
     setup_restrictions,
 )
 
@@ -210,6 +208,13 @@ class DenseMatrix(MatrixBase):
         unrestricted_cols = cols is None or len(cols) == self.shape[1]
 
         if unrestricted_rows and unrestricted_cols:
+            # Check output shape for the unrestricted case
+            expected = self.shape[1] if transpose else self.shape[0]
+            if out is not None and out.shape[0] != expected:
+                raise ValueError(
+                    f"""The first dimension of 'out' must be {expected}, but it is
+            {out.shape[0]}."""
+                )
             if out is None:
                 out = X.dot(vec)
             else:
@@ -217,16 +222,30 @@ class DenseMatrix(MatrixBase):
             return out
         else:
             rows, cols = setup_restrictions(self.shape, rows, cols)
+            # Check that out is large enough for the restricted case
+            if out is not None:
+                target_indices = cols if transpose else rows
+                if len(target_indices) > 0 and np.max(target_indices) >= out.shape[0]:
+                    raise ValueError(
+                        f"""The first dimension of 'out' must be at least "
+                        f"{np.max(target_indices) + 1}, but it is {out.shape[0]}."""
+                    )
             # TODO: should take 'out' parameter
             fast_fnc = dense_rmatvec if transpose else dense_matvec
             if vec.ndim == 1:
-                res = fast_fnc(self._array, vec, rows, cols)
+                vec_subset = vec[cols] if not transpose else vec[rows]
+                res = fast_fnc(self._array, vec_subset, rows, cols)
             elif vec.ndim == 2 and vec.shape[1] == 1:
-                res = fast_fnc(self._array, vec[:, 0], rows, cols)[:, None]
+                vec_subset = vec[cols, 0] if not transpose else vec[rows, 0]
+                res = fast_fnc(self._array, vec_subset, rows, cols)[:, None]
             else:
                 subset = self._array[np.ix_(rows, cols)]
                 res = subset.T.dot(vec[rows]) if transpose else subset.dot(vec[cols])
             if out is None:
+                # Ensure res has the correct shape based on vec's dimensionality
+                # When vec is 1D, res should be 1D; when vec is 2D, res should be 2D
+                if vec.ndim == 1 and res.ndim > 1:
+                    res = res.ravel()
                 return res
             # Handle shape mismatch when res is 2D but out is 1D
             if out.ndim < res.ndim:
@@ -246,7 +265,7 @@ class DenseMatrix(MatrixBase):
         out: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """Perform: self[rows, cols].T @ vec[rows]."""
-        check_transpose_matvec_out_shape(self, out)
+        # Shape check removed: out can be larger when called from split_matrix
         return self._matvec_helper(vec, rows, cols, out, True)
 
     def matvec(
@@ -256,7 +275,7 @@ class DenseMatrix(MatrixBase):
         out: Optional[np.ndarray] = None,
     ) -> np.ndarray:
         """Perform self[:, cols] @ other[cols]."""
-        check_matvec_out_shape(self, out)
+        # Shape check removed: out can be larger when called from split_matrix
         return self._matvec_helper(vec, None, cols, out, False)
 
     def multiply(self, other):

@@ -405,7 +405,11 @@ class SplitMatrix(MatrixBase):
             idx = self.indices[dense_matrix_idx]
             mat = self.matrices[dense_matrix_idx]
             in_vec = v[idx, ...]
-            out = np.asarray(mat.matvec(in_vec, sub_cols, out), dtype=out_dtype)
+            result = mat.matvec(in_vec, sub_cols, out)
+            out = np.asarray(result, dtype=out_dtype)
+            # Ensure out has the correct shape (can be 2D if v is 2D or cols is empty)
+            if out.shape != tuple(out_shape):
+                out = out.reshape(out_shape)
         else:
             dense_matrix_idx = -1
             out = _prepare_out_array(out, out_shape, out_dtype)

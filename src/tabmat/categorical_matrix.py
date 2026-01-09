@@ -190,9 +190,7 @@ from .sparse_matrix import SparseMatrix
 from .util import (
     _check_indexer,
     check_matvec_dimensions,
-    check_matvec_out_shape,
     check_sandwich_compatible,
-    check_transpose_matvec_out_shape,
     set_up_rows_or_cols,
     setup_restrictions,
 )
@@ -505,8 +503,14 @@ class CategoricalMatrix(MatrixBase):
         Test:
         test_matrices::test_matvec
         """
-        check_matvec_out_shape(self, out)
+        # Shape check removed: out can be larger when called from split_matrix
         other, cols = self._matvec_setup(other, cols)
+        # Check that out is large enough
+        if out is not None and out.shape[0] < self.shape[0]:
+            raise ValueError(
+                f"""The first dimension of 'out' must be at least "
+                f"{self.shape[0]}, but it is {out.shape[0]}."""
+            )
         is_int = np.issubdtype(other.dtype, np.signedinteger)
 
         if is_int:
@@ -581,13 +585,27 @@ class CategoricalMatrix(MatrixBase):
 
         if out_is_none := out is None:
             out = np.zeros(self.shape[1], dtype=self.dtype)
-        else:
-            check_transpose_matvec_out_shape(self, out)
+        # Shape check removed: out can be larger when called from split_matrix
 
         if rows is not None:
             rows = set_up_rows_or_cols(rows, self.shape[0])
         if cols is not None:
             cols = set_up_rows_or_cols(cols, self.shape[1])
+
+        # Check that out is large enough for the operation
+        if out is not None and cols is not None:
+            if len(cols) > 0 and np.max(cols) >= out.shape[0]:
+                raise ValueError(
+                    f"""The first dimension of 'out' must be at least "
+                    f"{np.max(cols) + 1}, but it is {out.shape[0]}."""
+                )
+        elif out is not None and cols is None:
+            # cols is None means all columns
+            if out.shape[0] < self.shape[1]:
+                raise ValueError(
+                    f"""The first dimension of 'out' must be at least "
+                    f"{self.shape[1]}, but it is {out.shape[0]}."""
+                )
 
         if self.drop_first or self._has_missings:
             transpose_matvec_complex(

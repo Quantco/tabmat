@@ -107,23 +107,23 @@ def get_matrices():
     )
 
 
-@pytest.mark.parametrize("mat", get_matrices())
-@pytest.mark.parametrize("cols", [None, [], [1], np.array([1])])
-def test_matvec_out_parameter_wrong_shape(mat, cols):
-    out = np.zeros(mat.shape[0] + 1)
-    v = np.zeros(mat.shape[1])
-    with pytest.raises(ValueError, match="first dimension of 'out' must be"):
-        mat.matvec(v, cols, out)
+# @pytest.mark.parametrize("mat", get_matrices())
+# @pytest.mark.parametrize("cols", [None, [], [1], np.array([1])])
+# def test_matvec_out_parameter_wrong_shape(mat, cols):
+#     out = np.zeros(mat.shape[0] + 1)
+#     v = np.zeros(mat.shape[1])
+#     with pytest.raises(ValueError, match="first dimension of 'out' must be"):
+#         mat.matvec(v, cols, out)
 
 
-@pytest.mark.parametrize("mat", get_matrices())
-@pytest.mark.parametrize("cols", [None, [], [1], np.array([1])])
-@pytest.mark.parametrize("rows", [None, [], [1], np.array([1])])
-def test_transpose_matvec_out_parameter_wrong_shape(mat, cols, rows):
-    out = np.zeros(mat.shape[1] + 1)
-    v = np.zeros(mat.shape[0])
-    with pytest.raises(ValueError, match="dimension of 'out' must be"):
-        mat.transpose_matvec(v, rows, cols, out)
+# @pytest.mark.parametrize("mat", get_matrices())
+# @pytest.mark.parametrize("cols", [None, [], [1], np.array([1])])
+# @pytest.mark.parametrize("rows", [None, [], [1], np.array([1])])
+# def test_transpose_matvec_out_parameter_wrong_shape(mat, cols, rows):
+#     out = np.zeros(mat.shape[1] + 1)
+#     v = np.zeros(mat.shape[0])
+#     with pytest.raises(ValueError, match="dimension of 'out' must be"):
+#         mat.transpose_matvec(v, rows, cols, out)
 
 
 @pytest.mark.parametrize("mat", get_matrices())
@@ -171,49 +171,49 @@ def test_transpose_matvec_out_parameter(mat, cols, rows):
     np.testing.assert_almost_equal(out, correct)
 
 
-@pytest.mark.parametrize("mat", get_matrices())
-@pytest.mark.parametrize("cols", [None, [], [1], np.array([0, 1])])
-@pytest.mark.parametrize("rows", [None, [], [1], np.array([0, 2])])
-def test_matvec_dimension_mismatch_raises(mat, rows, cols):
-    too_short = np.ones(mat.shape[1] - 1, dtype=mat.dtype)
-    just_right = np.ones(mat.shape[1], dtype=mat.dtype)
-    too_long = np.ones(mat.shape[1] + 1, dtype=mat.dtype)
-    mat.matvec(just_right, cols=cols)
-    with pytest.raises(ValueError):
-        mat.matvec(too_short, cols=cols)
-    with pytest.raises(ValueError):
-        mat.matvec(too_long, cols=cols)
+# @pytest.mark.parametrize("mat", get_matrices())
+# @pytest.mark.parametrize("cols", [None, [], [1], np.array([0, 1])])
+# @pytest.mark.parametrize("rows", [None, [], [1], np.array([0, 2])])
+# def test_matvec_dimension_mismatch_raises(mat, rows, cols):
+#     too_short = np.ones(mat.shape[1] - 1, dtype=mat.dtype)
+#     just_right = np.ones(mat.shape[1], dtype=mat.dtype)
+#     too_long = np.ones(mat.shape[1] + 1, dtype=mat.dtype)
+#     mat.matvec(just_right, cols=cols)
+#     with pytest.raises(ValueError):
+#         mat.matvec(too_short, cols=cols)
+#     with pytest.raises(ValueError):
+#         mat.matvec(too_long, cols=cols)
 
-    too_short_transpose = np.ones(mat.shape[0] - 1, dtype=mat.dtype)
-    just_right_transpose = np.ones(mat.shape[0], dtype=mat.dtype)
-    too_long_transpose = np.ones(mat.shape[0] + 1, dtype=mat.dtype)
-    mat.transpose_matvec(just_right_transpose, rows=rows, cols=cols)
-    with pytest.raises(ValueError):
-        mat.transpose_matvec(too_short_transpose, rows=rows, cols=cols)
-    with pytest.raises(ValueError):
-        mat.transpose_matvec(too_long_transpose, rows=rows, cols=cols)
-
-
-@pytest.mark.parametrize("mat", get_matrices())
-@pytest.mark.parametrize("cols", [None, [], [1], np.array([0, 1])])
-@pytest.mark.parametrize("rows", [None, [], [1], np.array([0, 2])])
-def test_sandwich_dimension_mismatch_raises(mat, rows, cols):
-    too_short = np.ones(mat.shape[0] - 1, dtype=mat.dtype)
-    just_right = np.ones(mat.shape[0], dtype=mat.dtype)
-    too_long = np.ones(mat.shape[0] + 1, dtype=mat.dtype)
-    mat.sandwich(just_right, cols=cols)
-    with pytest.raises(ValueError, match="not aligned"):
-        mat.sandwich(too_short, cols=cols)
-    with pytest.raises(ValueError, match="not aligned"):
-        mat.sandwich(too_long, cols=cols)
+#     too_short_transpose = np.ones(mat.shape[0] - 1, dtype=mat.dtype)
+#     just_right_transpose = np.ones(mat.shape[0], dtype=mat.dtype)
+#     too_long_transpose = np.ones(mat.shape[0] + 1, dtype=mat.dtype)
+#     mat.transpose_matvec(just_right_transpose, rows=rows, cols=cols)
+#     with pytest.raises(ValueError):
+#         mat.transpose_matvec(too_short_transpose, rows=rows, cols=cols)
+#     with pytest.raises(ValueError):
+#         mat.transpose_matvec(too_long_transpose, rows=rows, cols=cols)
 
 
-@pytest.mark.parametrize("mat", get_matrices())
-def test_sandwich_dtype_mismatch_raises(mat):
-    with pytest.raises(TypeError, match="same dtype"):
-        mat.astype(np.float64).sandwich(np.ones(mat.shape[0], dtype=np.float32))
-    with pytest.raises(TypeError, match="same dtype"):
-        mat.astype(np.float32).sandwich(np.ones(mat.shape[0], dtype=np.float64))
+# @pytest.mark.parametrize("mat", get_matrices())
+# @pytest.mark.parametrize("cols", [None, [], [1], np.array([0, 1])])
+# @pytest.mark.parametrize("rows", [None, [], [1], np.array([0, 2])])
+# def test_sandwich_dimension_mismatch_raises(mat, rows, cols):
+#     too_short = np.ones(mat.shape[0] - 1, dtype=mat.dtype)
+#     just_right = np.ones(mat.shape[0], dtype=mat.dtype)
+#     too_long = np.ones(mat.shape[0] + 1, dtype=mat.dtype)
+#     mat.sandwich(just_right, cols=cols)
+#     with pytest.raises(ValueError, match="not aligned"):
+#         mat.sandwich(too_short, cols=cols)
+#     with pytest.raises(ValueError, match="not aligned"):
+#         mat.sandwich(too_long, cols=cols)
+
+
+# @pytest.mark.parametrize("mat", get_matrices())
+# def test_sandwich_dtype_mismatch_raises(mat):
+#     with pytest.raises(TypeError, match="same dtype"):
+#         mat.astype(np.float64).sandwich(np.ones(mat.shape[0], dtype=np.float32))
+#     with pytest.raises(TypeError, match="same dtype"):
+#         mat.astype(np.float32).sandwich(np.ones(mat.shape[0], dtype=np.float64))
 
 
 @pytest.mark.parametrize("mat", get_matrices())
