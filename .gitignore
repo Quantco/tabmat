@@ -3,10 +3,6 @@ benchmark/*.csv
 benchmark/data/*.csv
 benchmark/data/*.pkl
 
-# Files created by templating
-dense.cpp
-sandwich.cpp
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -144,10 +140,6 @@ cache
 # pkgs
 pkgs/*
 
-# Ignore .c/.cpp files (cython-generated) but keep the templates
-*.c
-*.cpp
-!*tmpl.cpp
 # pixi environments
 .pixi
 *.egg-info

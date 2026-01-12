@@ -17,28 +17,18 @@ requirements:
   build:
     - python                                 # [build_platform != target_platform]
     - cross-python_{{ target_platform }}     # [build_platform != target_platform]
-    - cython !=3.0.4                         # [build_platform != target_platform]
-    - numpy                                  # [build_platform != target_platform]
-    - {{ compiler("c") }}
-    - {{ compiler("cxx") }}
-    - llvm-openmp  # [osx]
-    - libgomp  # [linux]
+    - {{ compiler("rust") }}
   host:
     - python
-    - cython !=3.0.4
-    - jemalloc-local  # [not win]
-    - llvm-openmp  # [osx]
-    - mako
-    - numpy
     - pip
-    - setuptools_scm
-    - xsimd <11|>12.1
+    - maturin >=1.0,<2.0
   run:
     - python
-    - {{ pin_compatible('numpy') }}
-    - formulaic>=0.6
-    - scipy
-    - narwhals>=2
+    - numpy>=1.24.0
+    - pandas>=1.4.4
+    - scipy>=1.7.3
+    - formulaic>=0.6.4
+    - narwhals>=1.4.1
 
 test:
   requires:

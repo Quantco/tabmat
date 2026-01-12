@@ -34,7 +34,7 @@ We use [pixi](https://prefix.dev/) for setting up the project dependencies. [Ins
 git clone git@github.com:Quantco/tabmat.git
 cd tabmat
 
-# Set up our pre-commit hooks for ruff, mypy, and cython-lint.
+# Set up our pre-commit hooks for ruff and mypy.
 pixi run pre-commit-install
 
 # Set up a pixi environment with the dependencies and install the package in editable mode.

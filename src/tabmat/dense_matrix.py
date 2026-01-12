@@ -42,7 +42,7 @@ class DenseMatrix(MatrixBase):
         elif input_array.ndim > 2:
             raise ValueError("Input array must be 1- or 2-dimensional")
 
-        # Ensure array is contiguous (C or F order) for Cython operations
+        # Ensure array is contiguous (C or F order) for Rust operations
         # Only copy if necessary
         if (
             not input_array.flags["C_CONTIGUOUS"]

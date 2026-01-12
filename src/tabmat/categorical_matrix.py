@@ -477,7 +477,7 @@ class CategoricalMatrix(MatrixBase):
             if len(cols) == self.shape[1]:
                 cols = None
             else:
-                # Needs to be single-precision for compatibility with cython 'int' type
+                # Needs to be single-precision for compatibility with Rust 'i32' type
                 # Since we have the same restriction on self.indices, this is not an
                 # additional restriction (as column numbers can't exceed 2^32 anyway)
                 cols = set_up_rows_or_cols(cols, self.shape[1])
