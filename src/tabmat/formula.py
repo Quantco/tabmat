@@ -735,6 +735,9 @@ def encode_contrasts(
     if data.dtype.is_numeric():
         # Polars enums only suppport string values
         data = data.cast(nw.String)
+        # Convert levels to strings as well to match data type
+        if levels is not None:
+            levels = [str(level) for level in levels]
 
     # Check for unseen categories when levels are specified
     if levels is not None:

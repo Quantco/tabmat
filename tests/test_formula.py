@@ -762,6 +762,51 @@ def test_cat_missing_C(input):
     )
 
 
+@pytest.mark.parametrize("input", ["pandas", "polars"])
+def test_numeric_levels_with_numeric_data(input):
+    """Test that numeric levels work correctly with numeric data.
+
+    This is a regression test for a bug where numeric data was converted to strings
+    but numeric levels were not, causing a type mismatch.
+    """
+    df = pd.DataFrame(
+        {
+            "num_cat": [1, 2, 3, 2, 1],
+        }
+    )
+    if input == "polars":
+        df = pl.DataFrame(df)
+
+    # Specify numeric levels explicitly
+    formula = "C(num_cat, levels=[1, 2, 3]) - 1"
+    result = tm.from_formula(formula, df)
+
+    expected_names = [
+        "C(num_cat, levels=[1, 2, 3])[1]",
+        "C(num_cat, levels=[1, 2, 3])[2]",
+        "C(num_cat, levels=[1, 2, 3])[3]",
+    ]
+    assert result.column_names == expected_names
+
+    # Check that the encoding is correct
+    expected_array = np.array(
+        [
+            [1, 0, 0],  # 1
+            [0, 1, 0],  # 2
+            [0, 0, 1],  # 3
+            [0, 1, 0],  # 2
+            [1, 0, 0],  # 1
+        ],
+        dtype=np.float64,
+    )
+    np.testing.assert_array_equal(result.toarray(), expected_array)
+
+    # Test that model spec works on new data
+    result_repl = result.model_spec.get_model_matrix(df)
+    np.testing.assert_array_equal(result_repl.toarray(), expected_array)
+    assert result_repl.column_names == expected_names
+
+
 @pytest.mark.parametrize(
     "cat_missing_method", ["zero", "convert"], ids=["zero", "convert"]
 )
