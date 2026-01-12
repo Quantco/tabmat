@@ -429,7 +429,11 @@ class _InteractableCategoricalVector(_InteractableVector):
         missing_name: str = "(MISSING)",
         add_missing_category: bool = False,
     ) -> "_InteractableCategoricalVector":
-        """Create an interactable categorical vector from a pandas categorical."""
+        """Create an interactable categorical vector from integer codes and categories.
+
+        The `codes` array is expected to contain integer category codes, using
+        -1 for missing values and -2 for rows that should be dropped.
+        """
         codes = codes.copy().astype(np.int64)
         categories = categories.copy()
 
@@ -733,7 +737,7 @@ def encode_contrasts(
     add_missing_category = _state.get("add_missing_category", False)
 
     if data.dtype.is_numeric():
-        # Polars enums only suppport string values
+        # Polars enums only support string values
         data = data.cast(nw.String)
         # Convert levels to strings as well to match data type
         if levels is not None:
