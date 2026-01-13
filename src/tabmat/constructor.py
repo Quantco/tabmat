@@ -396,7 +396,7 @@ def from_formula(
     )
     result = materializer.get_model_matrix(spec)
 
-    term_names = np.zeros(len(result.term_names), dtype="object")
+    term_names: np.ndarray = np.zeros(len(result.term_names), dtype="object")
     for term, indices in result.model_spec.term_indices.items():
         term_names[indices] = str(term)
     result.term_names = term_names.tolist()
