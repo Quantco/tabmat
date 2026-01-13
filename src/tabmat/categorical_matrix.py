@@ -691,7 +691,7 @@ class CategoricalMatrix(MatrixBase):
             )
 
         # TODO: data should be uint8
-        data = np.ones(self.shape[0], dtype=int)
+        data: np.ndarray = np.ones(self.shape[0], dtype=int)
         return sps.csr_matrix(
             (data, self.indices, np.arange(self.shape[0] + 1, dtype=int)),
             shape=self.shape,
