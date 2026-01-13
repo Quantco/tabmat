@@ -861,6 +861,10 @@ class CategoricalMatrix(MatrixBase):
                 )
             )
 
+        print(np.squeeze(other))
+        print(self.indices)
+        print(np.arange(self.shape[0] + 1, dtype=int))
+
         return SparseMatrix(
             sps.csr_matrix(
                 (
