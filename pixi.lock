@@ -2323,7 +2323,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/readline-8.3-h853b02a_0.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/s2n-1.6.2-he8a4886_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/scipy-1.7.3-py310hea5193d_0.tar.bz2
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/setuptools-62.6.0-py310hff52083_0.tar.bz2
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/setuptools-64.0.3-py310hff52083_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools-scm-9.2.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/six-1.17.0-pyhe01879c_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/snappy-1.2.2-h03e3b7b_1.conda
@@ -2481,7 +2481,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/readline-8.3-h46df422_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/scipy-1.7.3-py310h6ecf4ae_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/sdkroot_env_osx-arm64-26.0-hc6f8731_5.conda
-      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/setuptools-62.6.0-py310hbe9552e_0.tar.bz2
+      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/setuptools-64.0.3-py310hbe9552e_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools-scm-9.2.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/sigtool-codesign-0.1.3-h98dc951_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/six-1.17.0-pyhe01879c_1.conda
@@ -2601,7 +2601,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/pytz-2025.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/re2-2025.11.05-ha104f34_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/scipy-1.7.3-py310h33db832_0.tar.bz2
-      - conda: https://conda.anaconda.org/conda-forge/win-64/setuptools-62.6.0-py310h5588dad_0.tar.bz2
+      - conda: https://conda.anaconda.org/conda-forge/win-64/setuptools-64.0.3-py310h5588dad_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools-scm-9.2.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/six-1.17.0-pyhe01879c_1.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/snappy-1.2.2-h7fa0ca8_1.conda
@@ -14641,16 +14641,16 @@ packages:
   license_family: BSD
   size: 24215
   timestamp: 1767192001650
-- conda: https://conda.anaconda.org/conda-forge/linux-64/setuptools-62.6.0-py310hff52083_0.tar.bz2
-  sha256: 9bccdbb16f293ffd843e5b8ac59366d8787194d3b8d2045079cb5f901fc2f319
-  md5: 7fc5b1d6db9f6a9307330303a3edb04d
+- conda: https://conda.anaconda.org/conda-forge/linux-64/setuptools-64.0.3-py310hff52083_0.tar.bz2
+  sha256: 7cb76a8b6d57e4fc47cd923ab778a95fe3eaf936d9318ee0083b297c91624bd3
+  md5: 44c851111753c9fb1e71e98a0d04c3e3
   depends:
   - python >=3.10,<3.11.0a0
   - python_abi 3.10.* *_cp310
   license: MIT
   license_family: MIT
-  size: 1485139
-  timestamp: 1655717028390
+  size: 1464371
+  timestamp: 1660348086860
 - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools-80.9.0-pyhff2d567_0.conda
   sha256: 972560fcf9657058e3e1f97186cc94389144b46dbdf58c807ce62e83f977e863
   md5: 4de79c071274a53dcaf2a8c749d1499e
@@ -14660,27 +14660,27 @@ packages:
   license_family: MIT
   size: 748788
   timestamp: 1748804951958
-- conda: https://conda.anaconda.org/conda-forge/osx-arm64/setuptools-62.6.0-py310hbe9552e_0.tar.bz2
-  sha256: a9dcd2993e11766c7f0c4340a95c3b24edb0e42076cf1ba6cbdfdeb2350e1f03
-  md5: 7a7cb882e3c60348bc30452ab43a2e12
+- conda: https://conda.anaconda.org/conda-forge/osx-arm64/setuptools-64.0.3-py310hbe9552e_0.tar.bz2
+  sha256: 063e0be888850e9474438b6703bf6f6614a5fcaf8bc0e7e98d17a784eefa04b8
+  md5: 06cded111d01ad2064152bb9a3e76f4e
   depends:
   - python >=3.10,<3.11.0a0
   - python >=3.10,<3.11.0a0 *_cpython
   - python_abi 3.10.* *_cp310
   license: MIT
   license_family: MIT
-  size: 1414235
-  timestamp: 1655717462900
-- conda: https://conda.anaconda.org/conda-forge/win-64/setuptools-62.6.0-py310h5588dad_0.tar.bz2
-  sha256: 19c50854169ef623d9e842de7d3ab40357feba2255259d6cd8d2c1590e7b59b0
-  md5: 7ab5328f9b880ed78175ae59e7b3f9aa
+  size: 1471478
+  timestamp: 1660348418998
+- conda: https://conda.anaconda.org/conda-forge/win-64/setuptools-64.0.3-py310h5588dad_0.tar.bz2
+  sha256: 0d8861c010edfb54d78805159dc2a9c4d5b7d649254097fe329ea17b9506615a
+  md5: d2e8f211766b3796cab25c09eef24089
   depends:
   - python >=3.10,<3.11.0a0
   - python_abi 3.10.* *_cp310
   license: MIT
   license_family: MIT
-  size: 1473136
-  timestamp: 1655717277795
+  size: 1526158
+  timestamp: 1660348304509
 - conda: https://conda.anaconda.org/conda-forge/noarch/setuptools-scm-9.2.2-pyhd8ed1ab_0.conda
   sha256: 2161ac35fc22770b248bab0be2cc3b5bd765f528a9e60e7f3be784fd8d0d605a
   md5: e2e4d7094d0580ccd62e2a41947444f3
