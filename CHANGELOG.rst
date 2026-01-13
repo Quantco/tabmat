@@ -8,7 +8,7 @@ Changelog
 =========
 
 
-4.2.0 - UNRELEASED
+4.2.0 - 2026-01-13
 ------------------
 
 **New feature:**
@@ -17,7 +17,7 @@ Changelog
 
 **Other changes:**
 
-- Require Python>=3.10
+- Require Python>=3.10.
 
 
 4.1.5 - 2025-12-17
