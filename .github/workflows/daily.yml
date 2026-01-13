@@ -19,8 +19,6 @@ jobs:
         include:
           - environment: 'nightly'
             NOTE: 'Nightly Builds' # run once with nightlies
-          - environment: 'py313'
-            NOTE: 'Python 3.13' # run once with normal dependencies
           - environment: 'py314'
             NOTE: 'Python 3.14' # run once with normal dependencies
     steps:
