@@ -3,8 +3,10 @@ import re
 from io import BytesIO
 
 import formulaic
+import narwhals.stable.v2 as nw
 import numpy as np
 import pandas as pd
+import polars as pl
 import pytest
 from formulaic.materializers import FormulaMaterializer
 from formulaic.materializers.types import EvaluatedFactor, FactorValues
@@ -15,6 +17,7 @@ try:
     from formulaic.utils.structured import Structured
 except ImportError:
     from formulaic.parser.types import Structured
+
 
 import tabmat as tm
 from tabmat.formula import (
@@ -27,7 +30,7 @@ from tabmat.formula import (
 
 
 @pytest.fixture
-def df():
+def df(input):
     df = pd.DataFrame(
         {
             "num_1": [1.0, 2.0, 3.0, 4.0, 5.0],
@@ -38,7 +41,12 @@ def df():
             "str_1": ["a", "b", "c", "b", "a"],
         }
     )
-    return df
+    if input == "polars":
+        return pl.DataFrame(df)
+    elif input == "pandas":
+        return df
+    else:
+        raise ValueError(f"Unknown input type: {input}")
 
 
 def test_retrieval():
@@ -156,6 +164,7 @@ def test_retrieval():
         ),
     ],
 )
+@pytest.mark.parametrize("input", ["pandas", "polars"])
 def test_matrix_against_expectation(df, formula, expected):
     model_df = tm.from_formula(
         formula, df, ensure_full_rank=True, cat_threshold=1, sparse_threshold=0.5
@@ -259,6 +268,7 @@ def test_matrix_against_expectation(df, formula, expected):
         ),
     ],
 )
+@pytest.mark.parametrize("input", ["pandas", "polars"])
 def test_matrix_against_expectation_qcl(df, formula, expected):
     model_df = tm.from_formula(
         formula,
@@ -314,7 +324,8 @@ def test_matrix_against_expectation_qcl(df, formula, expected):
         ),
     ],
 )
-def test_matrix_against_pandas(df, formula, ensure_full_rank):
+@pytest.mark.parametrize("input", ["pandas", "polars"])
+def test_matrix_against_native(df, formula, ensure_full_rank):
     num_in_scope = 2  # noqa
     model_df = formulaic.model_matrix(formula, df, ensure_full_rank=ensure_full_rank)
     model_tabmat = tm.from_formula(
@@ -361,6 +372,7 @@ def test_matrix_against_pandas(df, formula, ensure_full_rank):
         ),
     ],
 )
+@pytest.mark.parametrize("input", ["pandas", "polars"])
 def test_names_against_expectation(df, formula, expected_names):
     model_tabmat = tm.from_formula(formula, df, ensure_full_rank=True)
     assert model_tabmat.model_spec.column_names == expected_names
@@ -397,6 +409,7 @@ def test_names_against_expectation(df, formula, expected_names):
         ),
     ],
 )
+@pytest.mark.parametrize("input", ["pandas", "polars"])
 def test_names_against_expectation_qcl(df, formula, expected_names):
     model_tabmat = tm.from_formula(
         formula,
@@ -438,6 +451,7 @@ def test_names_against_expectation_qcl(df, formula, expected_names):
         ),
     ],
 )
+@pytest.mark.parametrize("input", ["pandas", "polars"])
 def test_term_names_against_expectation(df, formula, expected_names):
     model_tabmat = tm.from_formula(
         formula,
@@ -453,7 +467,8 @@ def test_term_names_against_expectation(df, formula, expected_names):
     ["{name}[{category}]", "{name}__{category}", "{name}<<{category}>>"],
     ids=["brackets", "double_underscore", "custom"],
 )
-def test_all_names_against_from_pandas(df, categorical_format):
+@pytest.mark.parametrize("input", ["pandas", "polars"])
+def test_all_names_against_from_pandas(df, categorical_format, input):
     mat_from_pandas = tm.from_df(
         df, drop_first=False, object_as_cat=True, categorical_format=categorical_format
     )
@@ -498,7 +513,8 @@ def test_all_names_against_from_pandas(df, categorical_format):
         ),
     ],
 )
-def test_names_against_pandas(df, formula, ensure_full_rank):
+@pytest.mark.parametrize("input", ["pandas", "polars"])
+def test_names_against_native(df, formula, ensure_full_rank):
     if ensure_full_rank:
         categorical_format = "{name}[T.{category}]"
     else:
@@ -536,6 +552,7 @@ def test_names_against_pandas(df, formula, ensure_full_rank):
     ],
     ids=["numeric", "categorical", "mixed"],
 )
+@pytest.mark.parametrize("input", ["pandas", "polars"])
 def test_include_intercept(
     df, formula, formula_with_intercept, formula_wo_intercept, ensure_full_rank
 ):
@@ -582,6 +599,7 @@ def test_include_intercept(
 @pytest.mark.parametrize(
     "ensure_full_rank", [True, False], ids=["full_rank", "all_levels"]
 )
+@pytest.mark.parametrize("input", ["pandas", "polars"])
 def test_C_state(df, formula, ensure_full_rank):
     model_tabmat = tm.from_formula(
         "str_1 : cat_1 + 1", df, cat_threshold=0, ensure_full_rank=ensure_full_rank
@@ -603,11 +621,15 @@ VECTORS = [
     _InteractableSparseVector(
         sps.csc_matrix(np.array([[1, 0, 0, 0, 2]], dtype=np.float64).T)
     ).set_name("sparse"),
-    _InteractableCategoricalVector.from_categorical(
-        pd.Categorical(["a", "b", "c", "b", "a"]), reduced_rank=True
+    _InteractableCategoricalVector.from_codes(
+        np.array([0, 1, 2, 1, 0], dtype=np.int64),
+        categories=["a", "b", "c"],
+        reduced_rank=True,
     ).set_name("cat_reduced"),
-    _InteractableCategoricalVector.from_categorical(
-        pd.Categorical(["a", "b", "c", "b", "a"]), reduced_rank=False
+    _InteractableCategoricalVector.from_codes(
+        np.array([0, 1, 2, 1, 0], dtype=np.int64),
+        categories=["a", "b", "c"],
+        reduced_rank=False,
     ).set_name("cat_full"),
 ]
 
@@ -668,12 +690,15 @@ def test_interactable_vectors(left, right, reverse):
     "cat_missing_name",
     ["__missing__", "(MISSING)"],
 )
-def test_cat_missing_handling(cat_missing_method, cat_missing_name):
+@pytest.mark.parametrize("input", ["pandas", "polars"])
+def test_cat_missing_handling(cat_missing_method, cat_missing_name, input):
     df = pd.DataFrame(
         {
             "cat_1": pd.Categorical(["a", "b", None, "b", "a"]),
         }
     )
+    if input == "polars":
+        df = pl.DataFrame(df)
 
     mat_from_pandas = tm.from_df(
         df,
@@ -702,13 +727,17 @@ def test_cat_missing_handling(cat_missing_method, cat_missing_name):
     )
 
 
-def test_cat_missing_C():
+@pytest.mark.parametrize("input", ["pandas", "polars"])
+def test_cat_missing_C(input):
     df = pd.DataFrame(
         {
             "cat_1": pd.Categorical(["a", "b", None, "b", "a"]),
             "cat_2": pd.Categorical(["1", "2", None, "1", "2"]),
         }
     )
+    if input == "polars":
+        df = pl.DataFrame(df)
+
     formula = (
         "C(cat_1, missing_method='convert', missing_name='M') "
         "+ C(cat_2, missing_method='zero')"
@@ -733,10 +762,56 @@ def test_cat_missing_C():
     )
 
 
+@pytest.mark.parametrize("input", ["pandas", "polars"])
+def test_numeric_levels_with_numeric_data(input):
+    """Test that numeric levels work correctly with numeric data.
+
+    This is a regression test for a bug where numeric data was converted to strings
+    but numeric levels were not, causing a type mismatch.
+    """
+    df = pd.DataFrame(
+        {
+            "num_cat": [1, 2, 3, 2, 1],
+        }
+    )
+    if input == "polars":
+        df = pl.DataFrame(df)
+
+    # Specify numeric levels explicitly
+    formula = "C(num_cat, levels=[1, 2, 3]) - 1"
+    result = tm.from_formula(formula, df)
+
+    expected_names = [
+        "C(num_cat, levels=[1, 2, 3])[1]",
+        "C(num_cat, levels=[1, 2, 3])[2]",
+        "C(num_cat, levels=[1, 2, 3])[3]",
+    ]
+    assert result.column_names == expected_names
+
+    # Check that the encoding is correct
+    expected_array = np.array(
+        [
+            [1, 0, 0],  # 1
+            [0, 1, 0],  # 2
+            [0, 0, 1],  # 3
+            [0, 1, 0],  # 2
+            [1, 0, 0],  # 1
+        ],
+        dtype=np.float64,
+    )
+    np.testing.assert_array_equal(result.toarray(), expected_array)
+
+    # Test that model spec works on new data
+    result_repl = result.model_spec.get_model_matrix(df)
+    np.testing.assert_array_equal(result_repl.toarray(), expected_array)
+    assert result_repl.column_names == expected_names
+
+
 @pytest.mark.parametrize(
     "cat_missing_method", ["zero", "convert"], ids=["zero", "convert"]
 )
-def test_cat_missing_unseen(cat_missing_method):
+@pytest.mark.parametrize("input", ["pandas", "polars"])
+def test_cat_missing_unseen(cat_missing_method, input):
     df = pd.DataFrame(
         {
             "cat_1": pd.Categorical(["a", "b", None, "b", "a"]),
@@ -747,6 +822,10 @@ def test_cat_missing_unseen(cat_missing_method):
             "cat_1": pd.Categorical(["a", None]),
         }
     )
+    if input == "polars":
+        df = pl.DataFrame(df)
+        df_unseen = pl.DataFrame(df_unseen)
+
     result_seen = tm.from_formula(
         "cat_1 - 1", df, cat_missing_method=cat_missing_method
     )
@@ -761,13 +840,17 @@ def test_cat_missing_unseen(cat_missing_method):
     np.testing.assert_array_equal(result_unseen.toarray(), expected_array)
 
 
-def test_cat_missing_interactions():
+@pytest.mark.parametrize("input", ["pandas", "polars"])
+def test_cat_missing_interactions(input):
     df = pd.DataFrame(
         {
             "cat_1": pd.Categorical(["a", "b", None, "b", "a"]),
             "cat_2": pd.Categorical(["1", "2", None, "1", "2"]),
         }
     )
+    if input == "polars":
+        df = pl.DataFrame(df)
+
     formula = "C(cat_1, missing_method='convert') : C(cat_2, missing_method='zero') - 1"
     expected_names = [
         "C(cat_1, missing_method='convert')[a]:C(cat_2, missing_method='zero')[1]",
@@ -786,7 +869,8 @@ def test_cat_missing_interactions():
 @pytest.mark.parametrize(
     "cat_missing_method", ["zero", "convert", "fail"], ids=["zero", "convert", "fail"]
 )
-def test_unseen_category(cat_missing_method):
+@pytest.mark.parametrize("input", ["pandas", "polars"])
+def test_unseen_category(cat_missing_method, input):
     df = pd.DataFrame(
         {
             "cat_1": pd.Categorical(["a", "b"]),
@@ -797,6 +881,10 @@ def test_unseen_category(cat_missing_method):
             "cat_1": pd.Categorical(["a", "b", "c"]),
         }
     )
+    if input == "polars":
+        df = pl.DataFrame(df)
+        df_unseen = pl.DataFrame(df_unseen)
+
     result_seen = tm.from_formula(
         "cat_1 - 1", df, cat_missing_method=cat_missing_method
     )
@@ -806,7 +894,8 @@ def test_unseen_category(cat_missing_method):
 
 
 @pytest.mark.parametrize("cat_missing_method", ["zero", "convert", "fail"])
-def test_unseen_missing(cat_missing_method):
+@pytest.mark.parametrize("input", ["pandas", "polars"])
+def test_unseen_missing(cat_missing_method, input):
     df = pd.DataFrame(
         {
             "cat_1": pd.Categorical(["a", "b"]),
@@ -817,6 +906,10 @@ def test_unseen_missing(cat_missing_method):
             "cat_1": pd.Categorical(["a", "b", pd.NA]),
         }
     )
+    if input == "polars":
+        df = pl.DataFrame(df)
+        df_unseen = pl.DataFrame(df_unseen)
+
     result_seen = tm.from_formula(
         "cat_1 - 1", df, cat_missing_method=cat_missing_method
     )
@@ -905,21 +998,28 @@ FORMULAIC_TESTS = {
 
 class TestFormulaicTests:
     @pytest.fixture
-    def data(self):
-        return pd.DataFrame(
+    def data(self, input):
+        df = pd.DataFrame(
             {"a": [1, 2, 3], "b": [1, 2, 3], "A": ["a", "b", "c"], "B": ["a", "b", "c"]}
         )
+        if input == "polars":
+            return pl.DataFrame(df)
+        return df
 
     @pytest.fixture
-    def data_with_nulls(self):
-        return pd.DataFrame(
+    def data_with_nulls(self, input):
+        df = pd.DataFrame(
             {"a": [1, 2, None], "A": ["a", None, "c"], "B": ["a", "b", None]}
         )
+        if input == "polars":
+            df = pl.DataFrame(df)
+        return df
 
     @pytest.fixture
     def materializer(self, data):
         return TabmatMaterializer(data)
 
+    @pytest.mark.parametrize("input", ["pandas", "polars"])
     @pytest.mark.parametrize("formula,tests", FORMULAIC_TESTS.items())
     def test_get_model_matrix(self, materializer, formula, tests):
         mm = materializer.get_model_matrix(formula, ensure_full_rank=True)
@@ -932,6 +1032,7 @@ class TestFormulaicTests:
         assert mm.shape == (3, len(tests[1]))
         assert list(mm.model_spec.column_names) == tests[1]
 
+    @pytest.mark.parametrize("input", ["pandas", "polars"])
     def test_get_model_matrix_edge_cases(self, materializer):
         mm = materializer.get_model_matrix(("a",), ensure_full_rank=True)
         assert isinstance(mm, formulaic.ModelMatrices)
@@ -946,6 +1047,7 @@ class TestFormulaicTests:
         assert isinstance(mm, formulaic.ModelMatrices)
         assert isinstance(mm[0], formulaic.ModelMatrices)
 
+    @pytest.mark.parametrize("input", ["pandas", "polars"])
     def test_get_model_matrix_invalid_output(self, materializer):
         with pytest.raises(
             formulaic.errors.FormulaMaterializationError,
@@ -955,22 +1057,26 @@ class TestFormulaicTests:
                 "a", ensure_full_rank=True, output="invalid_output"
             )
 
+    @pytest.mark.parametrize("input", ["pandas", "polars"])
     @pytest.mark.parametrize("formula,tests", FORMULAIC_TESTS.items())
     def test_na_handling(self, data_with_nulls, formula, tests):
-        mm = TabmatMaterializer(data_with_nulls).get_model_matrix(formula)
+        mm = TabmatMaterializer(
+            data_with_nulls, cat_missing_method="zero"
+        ).get_model_matrix(formula)
         assert isinstance(mm, tm.MatrixBase)
         assert mm.shape == (tests[3], len(tests[2]))
         assert list(mm.model_spec.column_names) == tests[2]
 
-        if formula != "a":
-            pytest.skip("Tabmat does not allo NAs in categoricals")
+        if formula == "A:B":
+            return
 
-        mm = TabmatMaterializer(data_with_nulls).get_model_matrix(
-            formula, na_action="ignore"
-        )
+        mm = TabmatMaterializer(
+            data_with_nulls, cat_missing_method="zero"
+        ).get_model_matrix(formula, na_action="ignore")
         assert isinstance(mm, tm.MatrixBase)
         assert mm.shape == (3, len(tests[0]) + (-1 if "A" in formula else 0))
 
+    @pytest.mark.parametrize("input", ["pandas", "polars"])
     def test_state(self, materializer):
         mm = materializer.get_model_matrix("center(a) - 1")
         assert isinstance(mm, tm.MatrixBase)
@@ -989,6 +1095,7 @@ class TestFormulaicTests:
         assert list(mm3.model_spec.column_names) == ["center(a)"]
         assert np.allclose(mm3.getcol(0).unpack().squeeze(), [2, 3, 4])
 
+    @pytest.mark.parametrize("input", ["pandas", "polars"])
     def test_factor_evaluation_edge_cases(self, materializer):
         # Test that categorical kinds are set if type would otherwise be numerical
         ev_factor = materializer._evaluate_factor(
@@ -1031,12 +1138,7 @@ class TestFormulaicTests:
                 drop_rows=set(),
             )
 
-    def test__is_categorical(self, materializer):
-        assert materializer._is_categorical([1, 2, 3]) is False
-        assert materializer._is_categorical(pd.Series(["a", "b", "c"])) is True
-        assert materializer._is_categorical(pd.Categorical(["a", "b", "c"])) is True
-        assert materializer._is_categorical(FactorValues({}, kind="categorical"))
-
+    @pytest.mark.parametrize("input", ["pandas", "polars"])
     def test_encoding_edge_cases(self, materializer):
         # Verify that constant encoding works well
         encoded_factor = materializer._encode_evaled_factor(
@@ -1054,7 +1156,10 @@ class TestFormulaicTests:
             factor=EvaluatedFactor(
                 factor=Factor("a", eval_method="lookup", kind="numerical"),
                 values=FactorValues(
-                    {"a": pd.Series([1, 2, 3]), "b": pd.Series([4, 5, 6])},
+                    {
+                        "a": nw.from_native(pd.Series([1, 2, 3]), allow_series=True),
+                        "b": nw.from_native(pd.Series([4, 5, 6]), allow_series=True),
+                    },
                     kind="numerical",
                     spans_intercept=True,
                     drop_field="a",
@@ -1070,7 +1175,10 @@ class TestFormulaicTests:
             factor=EvaluatedFactor(
                 factor=Factor("a", eval_method="lookup", kind="numerical"),
                 values=FactorValues(
-                    {"a": pd.Series([1, 2, 3]), "b": pd.Series([4, 5, 6])},
+                    {
+                        "a": nw.from_native(pd.Series([1, 2, 3]), allow_series=True),
+                        "b": nw.from_native(pd.Series([4, 5, 6]), allow_series=True),
+                    },
                     kind="numerical",
                     spans_intercept=True,
                     drop_field="a",
@@ -1088,8 +1196,8 @@ class TestFormulaicTests:
                 factor=Factor("A", eval_method="python", kind="numerical"),
                 values=FactorValues(
                     {
-                        "a": pd.Series([1, 2, 3]),
-                        "b": pd.Series([4, 5, 6]),
+                        "a": nw.from_native(pd.Series([1, 2, 3]), allow_series=True),
+                        "b": nw.from_native(pd.Series([4, 5, 6]), allow_series=True),
                         "__metadata__": None,
                     },
                     kind="numerical",
@@ -1104,7 +1212,12 @@ class TestFormulaicTests:
             factor=EvaluatedFactor(
                 factor=Factor("B", eval_method="python", kind="categorical"),
                 values=FactorValues(
-                    {"a": pd.Series(["a", "b", "c"])}, kind="categorical"
+                    {
+                        "a": nw.from_native(
+                            pd.Series(["a", "b", "c"]), allow_series=True
+                        )
+                    },
+                    kind="categorical",
                 ),
             ),
             spec=formulaic.model_spec.ModelSpec(formula=[]),
@@ -1115,18 +1228,26 @@ class TestFormulaicTests:
         )
         assert list(encoded_matrix.cat) == ["B[a][a]", "B[a][b]", "B[a][c]"]
 
+    @pytest.mark.parametrize("input", ["pandas", "polars"])
     def test_empty(self, materializer):
         mm = materializer.get_model_matrix("0", ensure_full_rank=True)
         assert mm.shape[1] == 0
         mm = materializer.get_model_matrix("0", ensure_full_rank=False)
         assert mm.shape[1] == 0
 
-    def test_category_reordering(self):
+    @pytest.mark.parametrize("input", ["pandas", "polars"])
+    def test_category_reordering(self, input):
         data = pd.DataFrame({"A": ["a", "b", "c"]})
         data2 = pd.DataFrame({"A": ["c", "b", "a"]})
         data3 = pd.DataFrame(
             {"A": pd.Categorical(["c", "b", "a"], categories=["c", "b", "a"])}
         )
+        if input == "polars":
+            data = pl.from_pandas(data)
+            data2 = pl.from_pandas(data2)
+            data3 = pl.from_pandas(data3).with_columns(
+                pl.col("A").cast(pl.Enum(["c", "b", "a"]))
+            )
 
         m = TabmatMaterializer(data).get_model_matrix("A + 0", ensure_full_rank=False)
         assert list(m.model_spec.column_names) == ["A[a]", "A[b]", "A[c]"]
@@ -1137,6 +1258,7 @@ class TestFormulaicTests:
         m3 = TabmatMaterializer(data3).get_model_matrix("A + 0", ensure_full_rank=False)
         assert list(m3.model_spec.column_names) == ["A[c]", "A[b]", "A[a]"]
 
+    @pytest.mark.parametrize("input", ["pandas", "polars"])
     def test_term_clustering(self, materializer):
         assert materializer.get_model_matrix(
             "a + b + a:A + b:A"
@@ -1161,6 +1283,7 @@ class TestFormulaicTests:
             "b:A[c]",
         )
 
+    @pytest.mark.parametrize("input", ["pandas", "polars"])
     def test_model_spec_pickleable(self, materializer):
         o = BytesIO()
         ms = materializer.get_model_matrix("a ~ a:A")

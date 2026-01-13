@@ -13,7 +13,7 @@ def make_dense_matrices(n_rows: int, n_cols: int) -> dict:
     dense_matrices = {"numpy_C": np.random.random((n_rows, n_cols))}
     dense_matrices["numpy_F"] = dense_matrices["numpy_C"].copy(order="F")
     assert dense_matrices["numpy_F"].flags["F_CONTIGUOUS"]
-    dense_matrices["tabmat"] = tm.DenseMatrix(dense_matrices["numpy_C"])
+    dense_matrices["tabmat"] = tm.DenseMatrix(dense_matrices["numpy_C"])  # type: ignore
     return dense_matrices
 
 

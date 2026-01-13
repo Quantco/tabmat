@@ -151,3 +151,6 @@ pkgs/*
 # pixi environments
 .pixi
 *.egg-info
+
+# LLM instructions
+.github/copilot-instructions.md
