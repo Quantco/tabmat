@@ -16,6 +16,8 @@ ndarray = "0.16"
 rayon = "1.10"
 num-traits = "0.2"
 wide = "0.7"
+accelerate-src = "0.3"
+cblas-sys = "0.1"
 
 [profile.release]
 opt-level = 3

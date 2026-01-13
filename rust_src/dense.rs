@@ -3,6 +3,26 @@ use pyo3::prelude::*;
 use rayon::prelude::*;
 use wide::f64x4;
 
+// BLAS interface for optimized matrix multiplication
+extern "C" {
+    fn cblas_dgemm(
+        layout: cblas_sys::CBLAS_LAYOUT,
+        transa: cblas_sys::CBLAS_TRANSPOSE,
+        transb: cblas_sys::CBLAS_TRANSPOSE,
+        m: i32,
+        n: i32,
+        k: i32,
+        alpha: f64,
+        a: *const f64,
+        lda: i32,
+        b: *const f64,
+        ldb: i32,
+        beta: f64,
+        c: *mut f64,
+        ldc: i32,
+    );
+}
+
 /// Dense matrix sandwich product: X.T @ diag(d) @ X
 /// Optimized with 3D cache blocking (i, j, k dimensions)
 #[pyfunction]
@@ -25,6 +45,13 @@ pub fn dense_sandwich<'py>(
     if n_rows == 0 || out_m == 0 {
         let empty_result: Vec<Vec<f64>> = vec![vec![0.0; out_m]; out_m];
         return PyArray2::from_vec2_bound(py, &empty_result).unwrap();
+    }
+    
+    // Use BLAS for large matrices, manual SIMD for small ones
+    const BLAS_THRESHOLD: usize = 500;
+    
+    if n_rows >= BLAS_THRESHOLD && out_m >= 10 {
+        return dense_sandwich_blas(py, &x_arr, d_slice, rows_slice, cols_slice);
     }
     
     // Get raw slice and determine layout
@@ -169,6 +196,82 @@ pub fn dense_sandwich<'py>(
     let out_2d: Vec<Vec<f64>> = (0..out_m)
         .map(|i| {
             out_flat[i * out_m..(i + 1) * out_m].to_vec()
+        })
+        .collect();
+    
+    PyArray2::from_vec2_bound(py, &out_2d).unwrap()
+}
+
+/// BLAS-accelerated dense sandwich product for large matrices
+/// Computes: result = X.T @ diag(d) @ X using optimized BLAS operations
+fn dense_sandwich_blas<'py>(
+    py: Python<'py>,
+    x_arr: &ndarray::ArrayView2<f64>,
+    d_slice: &[f64],
+    rows_slice: &[i32],
+    cols_slice: &[i32],
+) -> Bound<'py, PyArray2<f64>> {
+    let n_rows = rows_slice.len();
+    let out_m = cols_slice.len();
+    
+    // Extract submatrix X[rows, cols] into column-major order for BLAS
+    let mut x_sub = vec![0.0; n_rows * out_m];
+    
+    // Fill in column-major order (Fortran style)
+    for j in 0..out_m {
+        let col_j = cols_slice[j] as usize;
+        for i in 0..n_rows {
+            let row_i = rows_slice[i] as usize;
+            x_sub[j * n_rows + i] = x_arr[[row_i, col_j]];
+        }
+    }
+    
+    // Apply sqrt(d) weights - scale each row
+    let d_sqrt: Vec<f64> = rows_slice.iter()
+        .map(|&r| d_slice[r as usize].sqrt())
+        .collect();
+    
+    for j in 0..out_m {
+        for i in 0..n_rows {
+            x_sub[j * n_rows + i] *= d_sqrt[i];
+        }
+    }
+    
+    // Allocate output (column-major, symmetric matrix)
+    let mut result = vec![0.0; out_m * out_m];
+    
+    // Use BLAS syrk (symmetric rank-k update) for optimal performance
+    // result = alpha * X_sub.T @ X_sub + beta * result
+    // syrk is optimized specifically for this pattern (X.T @ X)
+    unsafe {
+        cblas_sys::cblas_dsyrk(
+            cblas_sys::CBLAS_LAYOUT::CblasColMajor,
+            cblas_sys::CBLAS_UPLO::CblasUpper,        // Store upper triangle
+            cblas_sys::CBLAS_TRANSPOSE::CblasTrans,   // Transpose operation
+            out_m as i32,      // N: dimension of result
+            n_rows as i32,     // K: inner dimension
+            1.0,               // alpha
+            x_sub.as_ptr(),    // A matrix
+            n_rows as i32,     // lda (leading dimension)
+            0.0,               // beta
+            result.as_mut_ptr(), // C matrix
+            out_m as i32,      // ldc
+        );
+    }
+    
+    // Fill lower triangle from upper (syrk only fills one triangle)
+    for i in 0..out_m {
+        for j in (i + 1)..out_m {
+            result[i * out_m + j] = result[j * out_m + i];
+        }
+    }
+    
+    // Convert from column-major flat to row-major 2D for Python
+    let out_2d: Vec<Vec<f64>> = (0..out_m)
+        .map(|i| {
+            (0..out_m)
+                .map(|j| result[j * out_m + i])  // Column-major to row-major
+                .collect()
         })
         .collect();
     
