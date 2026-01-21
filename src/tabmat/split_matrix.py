@@ -535,7 +535,7 @@ class SplitMatrix(MatrixBase):
         list[Optional[str]]
             Column names.
         """
-        names = np.empty(self.shape[1], dtype=object)
+        names: np.ndarray = np.empty(self.shape[1], dtype=object)
         for idx, mat in zip(self.indices, self.matrices):
             names[idx] = mat.get_names(type, missing_prefix, idx)
         return names.tolist()

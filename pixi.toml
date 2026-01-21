@@ -1,4 +1,4 @@
-[project]
+[workspace]
 name = "tabmat"
 channels = ["conda-forge"]
 platforms = ["linux-64", "osx-arm64", "win-64"]
@@ -84,12 +84,12 @@ rust = ">=1.70"
 maturin = ">=1.0,<2.0"
 
 [host-dependencies]
-python = ">=3.9"
+python = ">=3.10"
 pip = "*"
 maturin = ">=1.0,<2.0"
 
 [dependencies]
-formulaic = ">=0.6.4"
+formulaic = ">=1.2.0"
 numpy = ">=1.24.0"
 pandas = ">=1.4.4"
 scipy = ">=1.7.3"
@@ -103,7 +103,7 @@ ipykernel = "*"
 click = "*"
 pytest = "*"
 pytest-xdist = "*"
-polars = "*"  # exclusively for polars tests
+polars = ">=1.35.0"  # exclusively for polars tests
 pyarrow = "*"  # exclusively for polars tests
 mypy = "*"
 
@@ -134,8 +134,6 @@ blas = { build = "*mkl" }
 [feature.benchmark.target.linux-64.dependencies]
 blas = { build = "*mkl" }
 
-[feature.py39.dependencies]
-python = "3.9.*"
 [feature.py310.dependencies]
 python = "3.10.*"
 [feature.py311.dependencies]
@@ -144,14 +142,16 @@ python = "3.11.*"
 python = "3.12.*"
 [feature.py313.dependencies]
 python = "3.13.*"
+[feature.py314.dependencies]
+python = "3.14.*"
 
 [feature.oldies.dependencies]
-setuptools = "62.*"
-python = "=3.9.19"
+setuptools = "64.*"
+python = "=3.10"
 numpy = "=1.24.0"
 pandas = "=1.4.4"
 scipy = "=1.7.3"
-formulaic = "=0.6.4"
+formulaic = "1.2.*"
 narwhals = "2.0.*"
 
 [environments]
@@ -159,11 +159,11 @@ default = ["dev", "test"]
 docs = ["docs"]
 benchmark = ["benchmark"]
 cpp-benchmark = ["cpp-benchmark"]
-py39 = ["py39", "test"]
 py310 = ["py310", "test"]
 py311 = ["py311", "test"]
 py312 = ["py312", "test"]
 py313 = ["py313", "test"]
+py314 = ["py314", "test"]
 oldies = ["oldies", "test"]
 lint = { features = ["lint"], no-default-feature = true}
-nightly = ["py313", "test"]
+nightly = ["py314", "test"]

@@ -5,19 +5,21 @@ from collections import OrderedDict
 from collections.abc import Iterable
 from typing import Any, Optional, Union
 
+import narwhals.stable.v2 as nw
 import numpy as np
 import numpy.typing
 import pandas as pd
 from formulaic import ModelMatrix, ModelSpec
 from formulaic.errors import FactorEncodingError
 from formulaic.materializers import FormulaMaterializer
-from formulaic.materializers.types import FactorValues, NAAction, ScopedTerm
+from formulaic.materializers.types import FactorValues, ScopedTerm
 from formulaic.parser.types import Term
 from formulaic.transforms import stateful_transform
+from formulaic.utils.null_handling import drop_rows as drop_nulls
 from interface_meta import override
 from scipy import sparse as sps
 
-from .categorical_matrix import CategoricalMatrix
+from .categorical_matrix import CategoricalMatrix, _extract_codes_and_categories
 from .constructor_util import _split_sparse_and_dense_parts
 from .dense_matrix import DenseMatrix
 from .matrix_base import MatrixBase
@@ -53,34 +55,24 @@ class TabmatMaterializer(FormulaMaterializer):
         self.cat_missing_method = self.params.get("cat_missing_method", "fail")
         self.cat_missing_name = self.params.get("cat_missing_name", "(MISSING)")
 
+        # Always convert input to narwhals DataFrame
+        self.__narwhals_data = nw.from_native(self.data, eager_only=True)
+        self.__data_context = self.__narwhals_data.to_dict()
+
         # We can override formulaic's C() function here
         self.context["C"] = _C
 
+    @override  # type: ignore
+    @property
+    def data_context(self):
+        return self.__data_context
+
     @override
-    def _is_categorical(self, values):
-        if isinstance(values, (pd.Series, pd.Categorical)):
-            return values.dtype == object or isinstance(
-                values.dtype, (pd.CategoricalDtype, pd.StringDtype)
-            )
+    def _is_categorical(self, values: Any) -> bool:
+        if nw.dependencies.is_narwhals_series(values):
+            if not values.dtype.is_numeric():
+                return True
         return super()._is_categorical(values)
-
-    @override
-    def _check_for_nulls(self, name, values, na_action, drop_rows):
-        if na_action is NAAction.IGNORE:
-            return
-
-        if na_action is NAAction.RAISE:
-            if isinstance(values, pd.Series) and values.isnull().values.any():
-                raise ValueError(f"`{name}` contains null values after evaluation.")
-
-        elif na_action is NAAction.DROP:
-            if isinstance(values, pd.Series):
-                drop_rows.update(np.flatnonzero(values.isnull().values))
-
-        else:
-            raise ValueError(
-                f"Do not know how to interpret `na_action` = {repr(na_action)}."
-            )
 
     @override
     def _encode_constant(self, value, metadata, encoder_state, spec, drop_rows):
@@ -90,9 +82,9 @@ class TabmatMaterializer(FormulaMaterializer):
     @override
     def _encode_numerical(self, values, metadata, encoder_state, spec, drop_rows):
         if drop_rows:
-            values = values.drop(index=values.index[drop_rows])
-        if isinstance(values, pd.Series):
-            values = values.to_numpy().astype(self.dtype, copy=False)
+            values = drop_nulls(values, indices=drop_rows)
+        if isinstance(values, nw.Series):
+            values = values.to_numpy().astype(self.dtype)
         if (values != 0).mean() <= self.sparse_threshold:
             return _InteractableSparseVector(sps.csc_matrix(values[:, np.newaxis]))
         else:
@@ -104,7 +96,7 @@ class TabmatMaterializer(FormulaMaterializer):
     ):
         # We do not do any encoding here as it is handled by tabmat
         if drop_rows:
-            values = values.drop(index=values.index[drop_rows])
+            values = drop_nulls(values, indices=drop_rows)
         return encode_contrasts(
             values,
             reduced_rank=reduced_rank,
@@ -428,17 +420,22 @@ class _InteractableCategoricalVector(_InteractableVector):
         self.name = name
 
     @classmethod
-    def from_categorical(
+    def from_codes(
         cls,
-        cat: pd.Categorical,
+        codes: np.ndarray,
+        categories: list,
         reduced_rank: bool,
         missing_method: str = "fail",
         missing_name: str = "(MISSING)",
         add_missing_category: bool = False,
     ) -> "_InteractableCategoricalVector":
-        """Create an interactable categorical vector from a pandas categorical."""
-        categories = cat.categories.tolist()
-        codes = cat.codes.copy().astype(np.int64)
+        """Create an interactable categorical vector from integer codes and categories.
+
+        The `codes` array is expected to contain integer category codes, using
+        -1 for missing values and -2 for rows that should be dropped.
+        """
+        codes = codes.copy().astype(np.int64)
+        categories = categories.copy()
 
         if reduced_rank:
             codes[codes == 0] = -2
@@ -458,7 +455,7 @@ class _InteractableCategoricalVector(_InteractableVector):
         return cls(
             codes=codes,
             categories=categories,
-            multipliers=np.ones(len(cat.codes)),
+            multipliers=np.ones(len(codes)),
         )
 
     def __rmul__(self, other):
@@ -674,7 +671,7 @@ def _C(
     data,
     *,
     levels: Optional[Iterable[str]] = None,
-    missing_method: str = "fail",
+    missing_method: Optional[str] = None,
     missing_name: str = "(MISSING)",
     spans_intercept: bool = True,
 ):
@@ -694,12 +691,13 @@ def _C(
         model_spec: ModelSpec,
     ):
         if drop_rows:
-            values = values.drop(index=values.index[drop_rows])
+            values = drop_nulls(values, indices=drop_rows)
         return encode_contrasts(
             values,
             levels=levels,
             reduced_rank=reduced_rank,
-            missing_method=missing_method,
+            missing_method=missing_method
+            or model_spec.materializer_params.get("cat_missing_method", "fail"),  # type: ignore
             missing_name=missing_name,
             _state=encoder_state,
             _spec=model_spec,
@@ -715,14 +713,14 @@ def _C(
 
 @stateful_transform
 def encode_contrasts(
-    data,
+    data: nw.Series,
     *,
     levels: Optional[Iterable[str]] = None,
     missing_method: str = "fail",
     missing_name: str = "(MISSING)",
     reduced_rank: bool = False,
-    _state=None,
-    _spec=None,
+    _state: dict[str, Any] = {},
+    _spec: Optional[ModelSpec] = None,
 ) -> FactorValues[_InteractableCategoricalVector]:
     """
     Encode a categorical dataset into one an _InteractableCategoricalVector
@@ -738,6 +736,13 @@ def encode_contrasts(
     levels = levels if levels is not None else _state.get("categories")
     add_missing_category = _state.get("add_missing_category", False)
 
+    if data.dtype.is_numeric():
+        # Polars enums only support string values
+        data = data.cast(nw.String)
+        # Convert levels to strings as well to match data type
+        if levels is not None:
+            levels = [str(level) for level in levels]
+
     # Check for unseen categories when levels are specified
     if levels is not None:
         if missing_method == "convert" and not add_missing_category:
@@ -746,21 +751,28 @@ def encode_contrasts(
             #  - missings are no problem in the other cases
             unseen_categories = set(data.unique()) - set(levels)
         else:
-            unseen_categories = set(data.dropna().unique()) - set(levels)
+            unseen_categories = set(data.drop_nulls().unique()) - set(levels)
 
         if unseen_categories:
             raise ValueError(
                 f"Column {data.name} contains unseen categories: {unseen_categories}."
             )
+    else:
+        # Not super efficient as we do it again in _extract_codes_and_categories
+        levels = list(data.drop_nulls().unique().sort())
 
-    cat = pd.Categorical(data._values, categories=levels)
-    _state["categories"] = cat.categories
-    _state["add_missing_category"] = add_missing_category or (
-        missing_method == "convert" and cat.isna().any()
+    cat = data.cast(nw.Enum(levels))
+    codes, categories = _extract_codes_and_categories(cat)
+    categories = list(categories)
+
+    _state["categories"] = categories
+    _state["add_missing_category"] = add_missing_category or bool(
+        missing_method == "convert" and cat.is_null().any()
     )
 
-    return _InteractableCategoricalVector.from_categorical(
-        cat,
+    return _InteractableCategoricalVector.from_codes(
+        codes=codes,
+        categories=categories,
         reduced_rank=reduced_rank,
         missing_method=missing_method,
         missing_name=missing_name,
