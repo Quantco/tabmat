@@ -16,8 +16,17 @@ ndarray = "0.16"
 rayon = "1.10"
 num-traits = "0.2"
 wide = "0.7"
-accelerate-src = "0.3"
 cblas-sys = "0.1"
+
+# Platform-specific BLAS backends
+[target.'cfg(target_os = "macos")'.dependencies]
+accelerate-src = "0.3"
+
+[target.'cfg(target_os = "linux")'.dependencies]
+openblas-src = { version = "0.10", features = ["cblas", "system"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+openblas-src = { version = "0.10", features = ["cblas", "system"] }
 
 [profile.release]
 opt-level = 3

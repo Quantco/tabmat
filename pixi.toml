@@ -83,6 +83,12 @@ pre-commit-run = "pre-commit run -a"
 rust = ">=1.70"
 maturin = ">=1.0,<2.0"
 
+[target.linux-64.build-dependencies]
+openblas = "*"
+
+[target.win-64.build-dependencies]
+openblas = "*"
+
 [host-dependencies]
 python = ">=3.10"
 pip = "*"

@@ -89,7 +89,13 @@ before-build = "rustup target add aarch64-apple-darwin x86_64-apple-darwin"
 MACOSX_DEPLOYMENT_TARGET = "12.0"
 
 [tool.cibuildwheel.linux]
-before-build = "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
+before-build = "yum install -y openblas-devel || apt-get update && apt-get install -y libopenblas-dev; curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
 
 [tool.cibuildwheel.linux.environment]
 PATH = "$HOME/.cargo/bin:$PATH"
+
+[tool.cibuildwheel.windows]
+before-build = "pip install delvewheel"
+
+[tool.cibuildwheel.windows.environment]
+OPENBLAS_NO_AVX512 = "1"

@@ -31,6 +31,12 @@
 #[cfg(target_os = "macos")]
 extern crate accelerate_src;
 
+#[cfg(target_os = "linux")]
+extern crate openblas_src;
+
+#[cfg(target_os = "windows")]
+extern crate openblas_src;
+
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
 
