@@ -1,10 +1,9 @@
 import textwrap
 import warnings
-from typing import Optional, Union
 
 import numpy as np
 
-from .ext.rust_compat import (
+from .ext._ops import (
     dense_matvec,
     dense_rmatvec,
     dense_sandwich,
@@ -42,7 +41,7 @@ class DenseMatrix(MatrixBase):
         elif input_array.ndim > 2:
             raise ValueError("Input array must be 1- or 2-dimensional")
 
-        # Ensure array is contiguous (C or F order) for Cython operations
+        # Ensure array is contiguous (C or F order) for Rust operations
         # Only copy if necessary
         if (
             not input_array.flags["C_CONTIGUOUS"]
@@ -151,8 +150,8 @@ class DenseMatrix(MatrixBase):
     def sandwich(
         self,
         d: np.ndarray,
-        rows: Optional[np.ndarray] = None,
-        cols: Optional[np.ndarray] = None,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
         d = np.asarray(d)
@@ -164,9 +163,9 @@ class DenseMatrix(MatrixBase):
         self,
         other: MatrixBase,
         d: np.ndarray,
-        rows: Optional[np.ndarray] = None,
-        L_cols: Optional[np.ndarray] = None,
-        R_cols: Optional[np.ndarray] = None,
+        rows: np.ndarray | None = None,
+        L_cols: np.ndarray | None = None,
+        R_cols: np.ndarray | None = None,
     ):
         from .categorical_matrix import CategoricalMatrix
         from .sparse_matrix import SparseMatrix
@@ -186,10 +185,10 @@ class DenseMatrix(MatrixBase):
 
     def _matvec_helper(
         self,
-        vec: Union[list, np.ndarray],
-        rows: Optional[np.ndarray],
-        cols: Optional[np.ndarray],
-        out: Optional[np.ndarray],
+        vec: list | np.ndarray,
+        rows: np.ndarray | None,
+        cols: np.ndarray | None,
+        out: np.ndarray | None,
         transpose: bool,
     ):
         # Because the dense_rmatvec takes a row array and col array, it has
@@ -265,10 +264,10 @@ class DenseMatrix(MatrixBase):
 
     def transpose_matvec(
         self,
-        vec: Union[np.ndarray, list],
-        rows: Optional[np.ndarray] = None,
-        cols: Optional[np.ndarray] = None,
-        out: Optional[np.ndarray] = None,
+        vec: np.ndarray | list,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform: self[rows, cols].T @ vec[rows]."""
         # Shape check removed: out can be larger when called from split_matrix
@@ -276,9 +275,9 @@ class DenseMatrix(MatrixBase):
 
     def matvec(
         self,
-        vec: Union[np.ndarray, list],
-        cols: Optional[np.ndarray] = None,
-        out: Optional[np.ndarray] = None,
+        vec: np.ndarray | list,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform self[:, cols] @ other[cols]."""
         # Shape check removed: out can be larger when called from split_matrix
@@ -304,9 +303,9 @@ class DenseMatrix(MatrixBase):
     def get_names(
         self,
         type: str = "column",
-        missing_prefix: Optional[str] = None,
-        indices: Optional[list[int]] = None,
-    ) -> list[Optional[str]]:
+        missing_prefix: str | None = None,
+        indices: list[int] | None = None,
+    ) -> list[str | None]:
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
@@ -348,7 +347,7 @@ class DenseMatrix(MatrixBase):
 
         return names.tolist()
 
-    def set_names(self, names: Union[str, list[Optional[str]]], type: str = "column"):
+    def set_names(self, names: str | list[str | None], type: str = "column"):
         """Set column names.
 
         Parameters

@@ -1,18 +1,11 @@
 [build-system]
-requires = [
-  "setuptools>=68",
-  "wheel",
-  "setuptools-rust>=1.9",
-  "Cython>=0.29.36",
-  "numpy>=1.24.0",
-  "mako",
-]
-build-backend = "setuptools.build_meta"
+requires = ["maturin>=1.4,<2.0"]
+build-backend = "maturin"
 
 [project]
 name = "tabmat"
 dynamic = ["version"]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
   "numpy>=1.24.0",
   "pandas>=1.4.4",
@@ -20,15 +13,32 @@ dependencies = [
   "formulaic>=0.6.4",
   "narwhals>=1.4.1",
 ]
+description = "Efficient matrix representations for working with tabular data."
+readme = "README.md"
+authors = [
+  { name = "QuantCo, Inc.", email = "noreply@quantco.com" }
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Rust",
+]
 
-#[tool.maturin]
-#features = ["pyo3/extension-module"]
-#module-name = "tabmat.ext.tabmat_ext"
-#python-source = "src"
+[project.urls]
+Homepage = "https://github.com/Quantco/tabmat"
+Repository = "https://github.com/Quantco/tabmat"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+module-name = "tabmat.ext.tabmat_ext"
+python-source = "src"
 
 [tool.ruff]
 line-length = 88
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 ignore = ["E731", "N802", "N803", "N806"]
@@ -67,46 +77,19 @@ skip = [
   "cp36*",
   "cp37*",
   "cp38*",
+  "cp39*",
 ]
 test-requires = ["pytest", "pytest-xdist"]
 test-command = "pytest {package}/tests/test_matrices.py"
-# note: ARCHS_LINUX defined in build_wheels.yml file.
 
 [tool.cibuildwheel.macos]
-before-build = [
-  "/Users/runner/micromamba-bin/micromamba create -y -p $MAMBA_ROOT_PREFIX/envs/build -c conda-forge jemalloc-local \"xsimd<11|>12.1\" llvm-openmp",
-]
+before-build = "rustup target add aarch64-apple-darwin x86_64-apple-darwin"
 
 [tool.cibuildwheel.macos.environment]
-LDFLAGS="-Wl,-rpath,$MAMBA_ROOT_PREFIX/envs/build/lib -L$MAMBA_ROOT_PREFIX/envs/build/lib -headerpad_max_install_names"
-CFLAGS="-I$MAMBA_ROOT_PREFIX/envs/build/include"
-CXXFLAGS="-I$MAMBA_ROOT_PREFIX/envs/build/include"
-CXX="/usr/bin/clang++"
-CC="/usr/bin/clang"
-JE_INSTALL_SUFFIX="local"
-MACOSX_DEPLOYMENT_TARGET="12.0"
-
-[tool.cibuildwheel.windows]
-before-all = [
-  "C:\\Users\\runneradmin\\micromamba-bin\\micromamba.exe create -y -p envs\\build -c conda-forge \"xsimd<11|>12.1\""
-]
-
-[tool.cibuildwheel.windows.environment]
-INCLUDE="D:\\\\a\\\\tabmat\\\\tabmat\\\\envs\\\\build\\\\Library\\\\include"
+MACOSX_DEPLOYMENT_TARGET = "12.0"
 
 [tool.cibuildwheel.linux]
-before-all = [
-  "cd ~/",
-  "git clone --branch 5.3.0 https://github.com/jemalloc/jemalloc.git",
-  "cd jemalloc",
-  "./autogen.sh --disable-cxx --with-jemalloc-prefix=local --with-install-suffix=local --disable-tls --disable-initial-exec-tls",
-  "make",
-  "make install_bin install_include install_lib",
-  "cd ~/",
-  "git clone --branch 12.1.1 https://github.com/xtensor-stack/xsimd.git",
-  "cd xsimd",
-  "mkdir build",
-  "cd build",
-  "cmake -DCMAKE_INSTALL_PREFIX=/usr/local ..",
-  "make install"
-]
+before-build = "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
+
+[tool.cibuildwheel.linux.environment]
+PATH = "$HOME/.cargo/bin:$PATH"

@@ -5,7 +5,7 @@ import scipy.sparse
 from scipy.sparse import csc_matrix
 
 from tabmat import DenseMatrix, SparseMatrix, SplitMatrix
-from tabmat.ext.rust_compat import dense_sandwich, sparse_sandwich
+from tabmat.ext._ops import dense_sandwich, sparse_sandwich
 
 
 @pytest.mark.parametrize("dtype", [np.float64, np.float32])
