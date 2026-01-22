@@ -9,6 +9,7 @@ import mako.template
 import numpy as np
 from Cython.Build import cythonize
 from setuptools import Extension, find_packages, setup
+from setuptools_rust import Binding, RustExtension
 
 here = path.abspath(path.dirname(__file__))
 
@@ -171,5 +172,13 @@ setup(
             "legacy_implicit_noexcept": True,
         },
     ),
+    rust_extensions=[
+        RustExtension(
+            "tabmat.ext.tabmat_ext",
+            "Cargo.toml",
+            binding=Binding.PyO3,
+            debug=debug_build,
+        )
+    ],
     zip_safe=False,
 )

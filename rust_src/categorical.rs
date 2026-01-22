@@ -1,10 +1,46 @@
-// Complete categorical matrix operations for tabmat
+//! Categorical matrix operations for tabmat.
+//!
+//! This module provides operations on categorical matrices, which represent
+//! one-hot encoded categorical variables. Instead of storing the full one-hot
+//! matrix (mostly zeros), we store only the column index for each row.
+//!
+//! # Representation
+//!
+//! A categorical matrix with n rows and k categories is stored as:
+//! - `indices`: array of length n where `indices[i]` is the category for row i
+//!
+//! This is equivalent to a sparse matrix where row i has a single 1 in column `indices[i]`.
+//!
+//! # drop_first Option
+//!
+//! When `drop_first=true`, the first category (index 0) is dropped to avoid
+//! multicollinearity in regression models. Rows with category 0 become all-zeros.
+//!
+//! # Key Operations
+//!
+//! - [`categorical_sandwich`] / [`sandwich_categorical_fast`]: Diagonal sum per category
+//! - [`matvec_fast`] / [`matvec_complex`]: Forward matrix-vector products
+//! - [`transpose_matvec_fast`] / [`transpose_matvec_complex`]: Transpose matrix-vector products
+//! - [`multiply_complex`]: Element-wise multiplication returning CSR format
+//! - [`subset_categorical_complex`]: Subset to CSR format
 
 use numpy::{PyArray1, PyReadonlyArray1};
 use pyo3::prelude::*;
 use rayon::prelude::*;
 
-/// Categorical sandwich (already implemented)
+/// Computes the categorical sandwich product (diagonal).
+///
+/// For a one-hot categorical matrix X, the sandwich `X.T @ diag(d) @ X` is diagonal.
+/// This function returns just the diagonal: `out[j] = sum_{i where indices[i]==j} d[i]`
+///
+/// This is equivalent to [`sandwich_categorical_fast`].
+///
+/// # Arguments
+///
+/// * `indices` - Category index for each row
+/// * `d` - Diagonal weight vector
+/// * `rows` - Row indices to include in the computation
+/// * `n_cols` - Number of categories (output length)
 #[pyfunction]
 #[pyo3(signature = (indices, d, rows, n_cols))]
 pub fn categorical_sandwich<'py>(
@@ -28,7 +64,15 @@ pub fn categorical_sandwich<'py>(
     PyArray1::from_vec_bound(py, res)
 }
 
-/// Matrix-vector multiplication for categorical matrices (simple case)
+/// Computes categorical matrix-vector product: `X @ v` (simple case).
+///
+/// For row i, returns `v[indices[i]]` - just a lookup since each row has a single 1.
+///
+/// # Arguments
+///
+/// * `indices` - Category index for each row
+/// * `other` - Input vector v (length = number of categories)
+/// * `nrows` - Number of rows in the output
 #[pyfunction]
 #[pyo3(signature = (indices, other, nrows))]
 pub fn matvec_fast<'py>(
@@ -50,7 +94,16 @@ pub fn matvec_fast<'py>(
     PyArray1::from_vec_bound(py, out)
 }
 
-/// Matrix-vector multiplication for categorical matrices (drop_first case)
+/// Computes categorical matrix-vector product: `X @ v` (with drop_first option).
+///
+/// When `drop_first=true`, rows with category 0 produce output 0 (dropped category).
+///
+/// # Arguments
+///
+/// * `indices` - Category index for each row
+/// * `other` - Input vector v
+/// * `nrows` - Number of rows in the output
+/// * `drop_first` - If true, subtract 1 from indices and skip negative results
 #[pyfunction]
 #[pyo3(signature = (indices, other, nrows, drop_first))]
 pub fn matvec_complex<'py>(
@@ -80,7 +133,15 @@ pub fn matvec_complex<'py>(
     PyArray1::from_vec_bound(py, out)
 }
 
-/// Transpose matrix-vector multiplication (simple case)
+/// Computes categorical transpose-vector product: `X.T @ v` (simple case).
+///
+/// Sums elements of v by category: `out[j] = sum_{i where indices[i]==j} v[i]`
+///
+/// # Arguments
+///
+/// * `indices` - Category index for each row
+/// * `other` - Input vector v
+/// * `n_cols` - Number of categories (output length)
 #[pyfunction]
 #[pyo3(signature = (indices, other, n_cols))]
 pub fn transpose_matvec_fast<'py>(
@@ -102,7 +163,16 @@ pub fn transpose_matvec_fast<'py>(
     PyArray1::from_vec_bound(py, out)
 }
 
-/// Transpose matrix-vector multiplication (drop_first case)
+/// Computes categorical transpose-vector product: `X.T @ v` (with drop_first option).
+///
+/// When `drop_first=true`, rows with category 0 are skipped in the accumulation.
+///
+/// # Arguments
+///
+/// * `indices` - Category index for each row
+/// * `other` - Input vector v
+/// * `n_cols` - Number of categories (output length)
+/// * `drop_first` - If true, subtract 1 from indices and skip negative results
 #[pyfunction]
 #[pyo3(signature = (indices, other, n_cols, drop_first))]
 pub fn transpose_matvec_complex<'py>(
@@ -132,7 +202,17 @@ pub fn transpose_matvec_complex<'py>(
     PyArray1::from_vec_bound(py, out)
 }
 
-/// Sandwich for categorical (simple case)
+/// Computes categorical sandwich product (simple case).
+///
+/// Returns the diagonal of `X.T @ diag(d) @ X`.
+/// Equivalent to [`categorical_sandwich`].
+///
+/// # Arguments
+///
+/// * `indices` - Category index for each row
+/// * `d` - Diagonal weight vector
+/// * `rows` - Row indices to include
+/// * `n_cols` - Number of categories (output length)
 #[pyfunction]
 #[pyo3(signature = (indices, d, rows, n_cols))]
 pub fn sandwich_categorical_fast<'py>(
@@ -156,7 +236,18 @@ pub fn sandwich_categorical_fast<'py>(
     PyArray1::from_vec_bound(py, res)
 }
 
-/// Sandwich for categorical (drop_first case)
+/// Computes categorical sandwich product (with drop_first option).
+///
+/// Returns the diagonal of `X.T @ diag(d) @ X` where rows with category 0
+/// are excluded when `drop_first=true`.
+///
+/// # Arguments
+///
+/// * `indices` - Category index for each row
+/// * `d` - Diagonal weight vector
+/// * `rows` - Row indices to include
+/// * `n_cols` - Number of categories (output length)
+/// * `drop_first` - If true, exclude rows with category 0
 #[pyfunction]
 #[pyo3(signature = (indices, d, rows, n_cols, drop_first))]
 pub fn sandwich_categorical_complex<'py>(
@@ -188,7 +279,20 @@ pub fn sandwich_categorical_complex<'py>(
     PyArray1::from_vec_bound(py, res)
 }
 
-/// Multiply categorical matrix by vector d
+/// Element-wise multiplication of categorical matrix by diagonal vector.
+///
+/// Computes `diag(d) @ X` and returns the result in CSR format.
+/// Since each row of X has at most one non-zero, the result is sparse.
+///
+/// # Arguments
+///
+/// * `indices` - Category index for each row
+/// * `d` - Diagonal values to multiply by
+/// * `drop_first` - If true, exclude rows with category 0
+///
+/// # Returns
+///
+/// Tuple of (data, indices, indptr) arrays representing the CSR result.
 #[pyfunction]
 #[pyo3(signature = (indices, d, drop_first))]
 pub fn multiply_complex<'py>(
@@ -227,7 +331,20 @@ pub fn multiply_complex<'py>(
     )
 }
 
-/// Subset categorical matrix into CSR format
+/// Converts a categorical matrix to CSR format (for subsetting).
+///
+/// Creates an all-ones CSR matrix with the same sparsity pattern as the
+/// categorical matrix. Used when subsetting operations need CSR format.
+///
+/// # Arguments
+///
+/// * `indices` - Category index for each row
+/// * `drop_first` - If true, exclude rows with category 0
+///
+/// # Returns
+///
+/// Tuple of (nnz, indices, indptr) where nnz is the number of non-zeros.
+/// The data array (all ones) is not returned since it can be reconstructed.
 #[pyfunction]
 #[pyo3(signature = (indices, drop_first))]
 pub fn subset_categorical_complex<'py>(
@@ -260,7 +377,18 @@ pub fn subset_categorical_complex<'py>(
     )
 }
 
-/// Get column inclusion mask
+/// Creates a column inclusion mask from column indices.
+///
+/// Returns a binary mask where `mask[i] = 1` if column i is in the `cols` array.
+///
+/// # Arguments
+///
+/// * `cols` - Column indices that should be included
+/// * `n_cols` - Total number of columns (mask length)
+///
+/// # Returns
+///
+/// A binary mask array of length n_cols.
 #[pyfunction]
 #[pyo3(signature = (cols, n_cols))]
 pub fn get_col_included<'py>(

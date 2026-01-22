@@ -1,10 +1,39 @@
-// Split matrix operations for tabmat
+//! Split matrix operations for tabmat.
+//!
+//! This module provides operations for "split" matrices, which are matrices
+//! composed of multiple sub-matrices of potentially different types (dense,
+//! sparse, categorical). Common in regression models with mixed feature types.
+//!
+//! # Key Operations
+//!
+//! - [`sandwich_cat_cat`]: Sandwich product between two categorical matrices
+//! - [`sandwich_cat_dense`]: Sandwich product between categorical and dense matrices
+//! - [`split_col_subsets`]: Maps global column indices to local sub-matrix indices
+//! - [`is_sorted`]: Utility to check if an array is sorted
+//!
+//! # Performance Notes
+//!
+//! The sandwich operations use per-thread accumulation buffers to avoid
+//! atomic operations, following the same strategy as the C++ OpenMP implementation.
+//! This provides near-linear scaling with thread count.
 
 use numpy::{PyArray1, PyArray2, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2};
 use pyo3::prelude::*;
 use pyo3::types::{PyAny, PyList};
+use rayon::prelude::*;
 
-/// Check if an array is sorted
+/// Checks if an array is sorted in non-decreasing order.
+///
+/// Used to verify that column indices are sorted, which is required for
+/// efficient column subsetting operations.
+///
+/// # Arguments
+///
+/// * `a` - Array to check (converted to i64)
+///
+/// # Returns
+///
+/// `true` if the array is sorted, `false` otherwise. Empty arrays return `true`.
 #[pyfunction]
 #[pyo3(signature = (a,))]
 pub fn is_sorted(a: &Bound<'_, PyAny>) -> PyResult<bool> {
@@ -26,7 +55,34 @@ pub fn is_sorted(a: &Bound<'_, PyAny>) -> PyResult<bool> {
     Ok(true)
 }
 
-/// Sandwich product between two categorical matrices
+/// Computes sandwich product between two categorical matrices.
+///
+/// Computes: `Cat_i.T @ diag(d) @ Cat_j`
+///
+/// This is a sparse-sparse product where both matrices are categorical
+/// (one-hot encoded). The result `out[i, j]` is the sum of `d[k]` for all
+/// rows k where `Cat_i[k, i] = 1` and `Cat_j[k, j] = 1`.
+///
+/// # Arguments
+///
+/// * `i_indices` - Category indices for the left matrix (length = n_total_rows)
+/// * `j_indices` - Category indices for the right matrix (length = n_total_rows)
+/// * `d` - Diagonal weight vector
+/// * `rows` - Row indices to include in the computation
+/// * `i_ncol` - Number of categories in left matrix
+/// * `j_ncol` - Number of categories in right matrix
+/// * `i_drop_first` - If true, exclude category 0 from left matrix
+/// * `j_drop_first` - If true, exclude category 0 from right matrix
+///
+/// # Returns
+///
+/// Dense matrix of shape (i_ncol, j_ncol).
+///
+/// # Performance
+///
+/// Uses pre-allocated per-thread accumulation buffers with a final reduction,
+/// avoiding atomic operations. This matches the C++ OpenMP approach and provides
+/// near-linear scaling with thread count.
 #[pyfunction]
 #[pyo3(signature = (i_indices, j_indices, d, rows, i_ncol, j_ncol, i_drop_first, j_drop_first))]
 pub fn sandwich_cat_cat<'py>(
@@ -45,30 +101,117 @@ pub fn sandwich_cat_cat<'py>(
     let d_slice = d.as_slice().unwrap();
     let rows_slice = rows.as_slice().unwrap();
 
-    let mut res = vec![vec![0.0; j_ncol]; i_ncol];
+    let n_rows = rows_slice.len();
+    let res_size = i_ncol * j_ncol;
 
-    for &k in rows_slice {
-        let i_idx = if i_drop_first {
-            i_indices_slice[k as usize] - 1
-        } else {
-            i_indices_slice[k as usize]
-        };
+    // Early return for empty case
+    if n_rows == 0 || i_ncol == 0 || j_ncol == 0 {
+        return PyArray2::zeros_bound(py, [i_ncol, j_ncol], false);
+    }
 
-        let j_idx = if j_drop_first {
-            j_indices_slice[k as usize] - 1
-        } else {
-            j_indices_slice[k as usize]
-        };
+    // Get number of threads for pre-allocation
+    let num_threads = rayon::current_num_threads();
 
-        if i_idx >= 0 && j_idx >= 0 {
-            res[i_idx as usize][j_idx as usize] += d_slice[k as usize];
+    // Pre-allocate all thread buffers in one contiguous allocation
+    let mut all_res = vec![0.0f64; num_threads * res_size];
+
+    // Parallel iteration with thread-local accumulation
+    // Each thread gets a slice of all_res based on thread index
+    {
+        use rayon::iter::IndexedParallelIterator;
+
+        // Process in chunks, one per thread
+        let chunk_size = (n_rows + num_threads - 1) / num_threads;
+
+        all_res
+            .par_chunks_mut(res_size)
+            .enumerate()
+            .for_each(|(tid, res_local)| {
+                let start = tid * chunk_size;
+                let end = (start + chunk_size).min(n_rows);
+
+                if i_drop_first || j_drop_first {
+                    // Complex path with drop_first checks
+                    for k_idx in start..end {
+                        let k = unsafe { *rows_slice.get_unchecked(k_idx) } as usize;
+
+                        let i_raw = unsafe { *i_indices_slice.get_unchecked(k) };
+                        let j_raw = unsafe { *j_indices_slice.get_unchecked(k) };
+
+                        let i_idx = if i_drop_first { i_raw - 1 } else { i_raw };
+                        let j_idx = if j_drop_first { j_raw - 1 } else { j_raw };
+
+                        if i_idx >= 0 && j_idx >= 0 {
+                            let out_idx = i_idx as usize * j_ncol + j_idx as usize;
+                            unsafe {
+                                *res_local.get_unchecked_mut(out_idx) +=
+                                    *d_slice.get_unchecked(k);
+                            }
+                        }
+                    }
+                } else {
+                    // Fast path - no drop_first checks needed
+                    for k_idx in start..end {
+                        let k = unsafe { *rows_slice.get_unchecked(k_idx) } as usize;
+                        let i = unsafe { *i_indices_slice.get_unchecked(k) } as usize;
+                        let j = unsafe { *j_indices_slice.get_unchecked(k) } as usize;
+                        let out_idx = i * j_ncol + j;
+                        unsafe {
+                            *res_local.get_unchecked_mut(out_idx) +=
+                                *d_slice.get_unchecked(k);
+                        }
+                    }
+                }
+            });
+    }
+
+    // Final reduction: sum all thread results into first buffer
+    // This is much faster than atomic operations for small result sizes
+    let (result, rest) = all_res.split_at_mut(res_size);
+    for thread_buf in rest.chunks(res_size) {
+        for (r, &t) in result.iter_mut().zip(thread_buf.iter()) {
+            *r += t;
         }
     }
 
-    PyArray2::from_vec2_bound(py, &res).unwrap()
+    // Create output array directly from flat result
+    let out = PyArray2::zeros_bound(py, [i_ncol, j_ncol], false);
+    {
+        let mut out_rw = unsafe { out.as_array_mut() };
+        for i in 0..i_ncol {
+            for j in 0..j_ncol {
+                out_rw[[i, j]] = result[i * j_ncol + j];
+            }
+        }
+    }
+    out
 }
 
-/// Sandwich product between categorical and dense matrices
+/// Computes sandwich product between categorical and dense matrices.
+///
+/// Computes: `Cat.T @ diag(d) @ Dense`
+///
+/// This is a mixed sparse-dense product where the left matrix is categorical
+/// (one-hot encoded) and the right matrix is dense.
+///
+/// # Arguments
+///
+/// * `i_indices` - Category indices for the categorical matrix
+/// * `d` - Diagonal weight vector
+/// * `mat_j` - Dense matrix (row-major)
+/// * `rows` - Row indices to include
+/// * `j_cols` - Column indices for the dense matrix
+/// * `i_ncol` - Number of categories in categorical matrix
+/// * `drop_first` - If true, exclude category 0 from categorical matrix
+///
+/// # Returns
+///
+/// Dense matrix of shape (i_ncol, len(j_cols)).
+///
+/// # Performance
+///
+/// Uses parallel k-blocks (1024 rows per block) with per-thread accumulation.
+/// Optimized for C-contiguous dense matrices.
 #[pyfunction]
 #[pyo3(signature = (i_indices, d, mat_j, rows, j_cols, i_ncol, drop_first))]
 pub fn sandwich_cat_dense<'py>(
@@ -87,35 +230,111 @@ pub fn sandwich_cat_dense<'py>(
     let rows_slice = rows.as_slice().unwrap();
     let j_cols_slice = j_cols.as_slice().unwrap();
 
+    let n_rows = rows_slice.len();
     let nj_active_cols = j_cols_slice.len();
-    let mut res = vec![vec![0.0; nj_active_cols]; i_ncol];
+    let res_size = i_ncol * nj_active_cols;
 
-    for &k in rows_slice {
-        let i_idx = if drop_first {
-            i_indices_slice[k as usize] - 1
-        } else {
-            i_indices_slice[k as usize]
-        };
-
-        if i_idx >= 0 {
-            let i_idx_usize = i_idx as usize;
-            let k_usize = k as usize;
-            
-            for (cj, &j) in j_cols_slice.iter().enumerate() {
-                let val = mat_j_arr[[k_usize, j as usize]];
-                res[i_idx_usize][cj] += d_slice[k_usize] * val;
-            }
-        }
+    // Early return for empty case
+    if n_rows == 0 || nj_active_cols == 0 || i_ncol == 0 {
+        return PyArray2::zeros_bound(py, [i_ncol, nj_active_cols], false);
     }
 
-    PyArray2::from_vec2_bound(py, &res).unwrap()
+    // Get mat_j dimensions and try to get contiguous slice
+    let mat_j_ncols = mat_j_arr.ncols();
+    let mat_j_slice_opt = mat_j_arr.as_slice();
+
+    // Pre-convert j_cols to usize
+    let j_cols_usize: Vec<usize> = j_cols_slice.iter().map(|&c| c as usize).collect();
+
+    // Blocking for parallelism - process rows in chunks
+    const KBLOCK: usize = 1024;
+    let n_kblocks = (n_rows + KBLOCK - 1) / KBLOCK;
+
+    // Parallel fold over k-blocks with per-thread accumulation
+    let result = (0..n_kblocks)
+        .into_par_iter()
+        .fold(
+            || vec![0.0f64; res_size],
+            |mut res_local, kb| {
+                let k_start = kb * KBLOCK;
+                let k_end = (k_start + KBLOCK).min(n_rows);
+
+                for k_idx in k_start..k_end {
+                    let k = rows_slice[k_idx] as usize;
+
+                    let i_idx = if drop_first {
+                        i_indices_slice[k] - 1
+                    } else {
+                        i_indices_slice[k]
+                    };
+
+                    if i_idx >= 0 {
+                        let i = i_idx as usize;
+                        let d_k = d_slice[k];
+                        let out_row_start = i * nj_active_cols;
+
+                        if let Some(mat_j_slice) = mat_j_slice_opt {
+                            // Fast path: mat_j is C-contiguous
+                            let mat_j_row_start = k * mat_j_ncols;
+                            for (j_local, &j) in j_cols_usize.iter().enumerate() {
+                                res_local[out_row_start + j_local] +=
+                                    d_k * mat_j_slice[mat_j_row_start + j];
+                            }
+                        } else {
+                            // Slow path: use array indexing
+                            for (j_local, &j) in j_cols_usize.iter().enumerate() {
+                                res_local[out_row_start + j_local] +=
+                                    d_k * mat_j_arr[[k, j]];
+                            }
+                        }
+                    }
+                }
+
+                res_local
+            },
+        )
+        .reduce(
+            || vec![0.0f64; res_size],
+            |mut a, b| {
+                for i in 0..res_size {
+                    a[i] += b[i];
+                }
+                a
+            },
+        );
+
+    // Convert flat result to 2D array
+    let out_2d: Vec<Vec<f64>> = (0..i_ncol)
+        .map(|i| result[i * nj_active_cols..(i + 1) * nj_active_cols].to_vec())
+        .collect();
+    PyArray2::from_vec2_bound(py, &out_2d).unwrap()
 }
 
-/// Split column subsets - maps global column indices to local sub-matrix indices
-/// Returns tuple of (subset_cols_indices, subset_cols, n_cols) where:
-/// - subset_cols_indices[i] contains positions in cols array for sub-matrix i
-/// - subset_cols[i] contains corresponding local column indices in sub-matrix i
-/// - n_cols is the total number of requested columns
+/// Maps global column indices to local sub-matrix indices.
+///
+/// For a split matrix composed of multiple sub-matrices, this function takes
+/// a list of global column indices and determines which sub-matrix each column
+/// belongs to, along with its local index within that sub-matrix.
+///
+/// # Arguments
+///
+/// * `indices_list` - List of arrays, where `indices_list[i]` contains the global
+///   column indices that belong to sub-matrix i (must be sorted)
+/// * `cols` - Array of requested global column indices (must be sorted)
+///
+/// # Returns
+///
+/// Tuple of (subset_cols_indices, subset_cols, n_cols) where:
+/// - `subset_cols_indices[i]` - Positions in the `cols` array for sub-matrix i
+/// - `subset_cols[i]` - Corresponding local column indices within sub-matrix i
+/// - `n_cols` - Total number of requested columns
+///
+/// # Example
+///
+/// If a split matrix has sub-matrices with columns [0, 1, 2] and [3, 4, 5],
+/// and we request columns [1, 4], the result tells us that:
+/// - Column at position 0 (global index 1) maps to sub-matrix 0, local index 1
+/// - Column at position 1 (global index 4) maps to sub-matrix 1, local index 1
 #[pyfunction]
 #[pyo3(signature = (indices_list, cols))]
 pub fn split_col_subsets<'py>(
