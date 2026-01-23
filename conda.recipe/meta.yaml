@@ -12,6 +12,7 @@ build:
   number: 0
   script:
     - export OPENSSL_DIR=$BUILD_PREFIX  # [build_platform != target_platform]
+    - export RUSTFLAGS="-L $PREFIX/lib"  # [build_platform != target_platform]
     - {{ PYTHON }} -m pip install . -vv
 
 
