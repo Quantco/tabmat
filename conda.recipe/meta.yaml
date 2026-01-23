@@ -31,7 +31,7 @@ requirements:
     - pkg-config
   host:
     - python
-    - libopenblas  # [not osx]
+    - openblas
     - maturin >=1.4,<2.0
     - numpy
     - openssl
@@ -39,6 +39,7 @@ requirements:
   run:
     - python
     - {{ pin_compatible('numpy') }}
+    - libopenblas  # [not osx]
     - formulaic>=1.2
     - scipy
     - narwhals>=2
