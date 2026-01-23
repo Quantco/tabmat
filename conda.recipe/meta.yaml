@@ -31,7 +31,7 @@ requirements:
     - pkg-config
   host:
     - python
-    - openblas
+    - libopenblas  # [not osx]
     - maturin >=1.4,<2.0
     - numpy
     - openssl
