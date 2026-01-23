@@ -10,32 +10,36 @@ source:
 
 build:
   number: 0
-  script: {{ PYTHON }} -m pip install . -vv
+  script:
+    - export OPENSSL_DIR=$BUILD_PREFIX  # [build_platform != target_platform]
+    - export RUSTFLAGS="-L $PREFIX/lib"  # [build_platform != target_platform]
+    - export MACOSX_DEPLOYMENT_TARGET=11.0  # [osx]
+    - {{ PYTHON }} -m pip install . -vv
 
 
 requirements:
   build:
     - python                                 # [build_platform != target_platform]
     - cross-python_{{ target_platform }}     # [build_platform != target_platform]
-    - cython !=3.0.4                         # [build_platform != target_platform]
     - numpy                                  # [build_platform != target_platform]
+    - maturin >=1.4,<2.0                     # [build_platform != target_platform]
+    - openssl                                # [build_platform != target_platform]
     - {{ compiler("c") }}
-    - {{ compiler("cxx") }}
-    - llvm-openmp  # [osx]
-    - libgomp  # [linux]
+    - {{ stdlib("c") }}
+    - {{ compiler("rust") }}
+    - cargo-bundle-licenses
+    - pkg-config
   host:
     - python
-    - cython !=3.0.4
-    - jemalloc-local  # [not win]
-    - llvm-openmp  # [osx]
-    - mako
+    - openblas
+    - maturin >=1.4,<2.0
     - numpy
+    - openssl
     - pip
-    - setuptools_scm
-    - xsimd <11|>12.1
   run:
     - python
     - {{ pin_compatible('numpy') }}
+    - libopenblas  # [not osx]
     - formulaic>=1.2
     - scipy
     - narwhals>=2

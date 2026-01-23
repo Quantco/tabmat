@@ -1,10 +1,9 @@
 import textwrap
 import warnings
-from typing import Optional, Union
 
 import numpy as np
 
-from .ext.dense import (
+from .ext._ops import (
     dense_matvec,
     dense_rmatvec,
     dense_sandwich,
@@ -44,7 +43,7 @@ class DenseMatrix(MatrixBase):
         elif input_array.ndim > 2:
             raise ValueError("Input array must be 1- or 2-dimensional")
 
-        # Ensure array is contiguous (C or F order) for Cython operations
+        # Ensure array is contiguous (C or F order) for Rust operations
         # Only copy if necessary
         if (
             not input_array.flags["C_CONTIGUOUS"]
@@ -153,8 +152,8 @@ class DenseMatrix(MatrixBase):
     def sandwich(
         self,
         d: np.ndarray,
-        rows: Optional[np.ndarray] = None,
-        cols: Optional[np.ndarray] = None,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
         d = np.asarray(d)
@@ -166,9 +165,9 @@ class DenseMatrix(MatrixBase):
         self,
         other: MatrixBase,
         d: np.ndarray,
-        rows: Optional[np.ndarray] = None,
-        L_cols: Optional[np.ndarray] = None,
-        R_cols: Optional[np.ndarray] = None,
+        rows: np.ndarray | None = None,
+        L_cols: np.ndarray | None = None,
+        R_cols: np.ndarray | None = None,
     ):
         from .categorical_matrix import CategoricalMatrix
         from .sparse_matrix import SparseMatrix
@@ -188,10 +187,10 @@ class DenseMatrix(MatrixBase):
 
     def _matvec_helper(
         self,
-        vec: Union[list, np.ndarray],
-        rows: Optional[np.ndarray],
-        cols: Optional[np.ndarray],
-        out: Optional[np.ndarray],
+        vec: list | np.ndarray,
+        rows: np.ndarray | None,
+        cols: np.ndarray | None,
+        out: np.ndarray | None,
         transpose: bool,
     ):
         # Because the dense_rmatvec takes a row array and col array, it has
@@ -210,6 +209,13 @@ class DenseMatrix(MatrixBase):
         unrestricted_cols = cols is None or len(cols) == self.shape[1]
 
         if unrestricted_rows and unrestricted_cols:
+            # Check output shape for the unrestricted case
+            expected = self.shape[1] if transpose else self.shape[0]
+            if out is not None and out.shape[0] != expected:
+                raise ValueError(
+                    f"""The first dimension of 'out' must be {expected}, but it is
+            {out.shape[0]}."""
+                )
             if out is None:
                 out = X.dot(vec)
             else:
@@ -217,17 +223,40 @@ class DenseMatrix(MatrixBase):
             return out
         else:
             rows, cols = setup_restrictions(self.shape, rows, cols)
+            # Check that out is large enough for the restricted case
+            if out is not None:
+                target_indices = cols if transpose else rows
+                if len(target_indices) > 0 and np.max(target_indices) >= out.shape[0]:
+                    raise ValueError(
+                        f"""The first dimension of 'out' must be at least "
+                        f"{np.max(target_indices) + 1}, but it is {out.shape[0]}."""
+                    )
             # TODO: should take 'out' parameter
             fast_fnc = dense_rmatvec if transpose else dense_matvec
             if vec.ndim == 1:
-                res = fast_fnc(self._array, vec, rows, cols)
+                vec_subset = vec[cols] if not transpose else vec[rows]
+                res = fast_fnc(self._array, vec_subset, rows, cols)
             elif vec.ndim == 2 and vec.shape[1] == 1:
-                res = fast_fnc(self._array, vec[:, 0], rows, cols)[:, None]
+                vec_subset = vec[cols, 0] if not transpose else vec[rows, 0]
+                res = fast_fnc(self._array, vec_subset, rows, cols)
+                # Rust functions return 2D arrays, need to reshape properly
+                if res.ndim == 2:
+                    # Result is (1, n_rows), need to transpose
+                    res = res.T  # Now (n_rows, 1)
+                else:
+                    res = res[:, None]
             else:
                 subset = self._array[np.ix_(rows, cols)]
                 res = subset.T.dot(vec[rows]) if transpose else subset.dot(vec[cols])
             if out is None:
+                # Ensure res has the correct shape based on vec's dimensionality
+                # When vec is 1D, res should be 1D; when vec is 2D, res should be 2D
+                if vec.ndim == 1 and res.ndim > 1:
+                    res = res.ravel()
                 return res
+            # Handle shape mismatch when res is 2D but out is 1D
+            if out.ndim < res.ndim:
+                res = res.ravel()
             if transpose:
                 out[cols] += res
             else:
@@ -237,10 +266,10 @@ class DenseMatrix(MatrixBase):
 
     def transpose_matvec(
         self,
-        vec: Union[np.ndarray, list],
-        rows: Optional[np.ndarray] = None,
-        cols: Optional[np.ndarray] = None,
-        out: Optional[np.ndarray] = None,
+        vec: np.ndarray | list,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform: self[rows, cols].T @ vec[rows]."""
         check_transpose_matvec_out_shape(self, out)
@@ -248,9 +277,9 @@ class DenseMatrix(MatrixBase):
 
     def matvec(
         self,
-        vec: Union[np.ndarray, list],
-        cols: Optional[np.ndarray] = None,
-        out: Optional[np.ndarray] = None,
+        vec: np.ndarray | list,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform self[:, cols] @ other[cols]."""
         check_matvec_out_shape(self, out)
@@ -276,9 +305,9 @@ class DenseMatrix(MatrixBase):
     def get_names(
         self,
         type: str = "column",
-        missing_prefix: Optional[str] = None,
-        indices: Optional[list[int]] = None,
-    ) -> list[Optional[str]]:
+        missing_prefix: str | None = None,
+        indices: list[int] | None = None,
+    ) -> list[str | None]:
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
@@ -320,7 +349,7 @@ class DenseMatrix(MatrixBase):
 
         return names.tolist()
 
-    def set_names(self, names: Union[str, list[Optional[str]]], type: str = "column"):
+    def set_names(self, names: str | list[str | None], type: str = "column"):
         """Set column names.
 
         Parameters

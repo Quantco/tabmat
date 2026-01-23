@@ -1,9 +1,7 @@
-from typing import Optional, Union
-
 import numpy as np
 from scipy import sparse as sps
 
-from .ext.sparse import (
+from .ext._ops import (
     csc_rmatvec,
     csc_rmatvec_unrestricted,
     csr_dense_sandwich,
@@ -175,8 +173,8 @@ class SparseMatrix(MatrixBase):
     def sandwich(
         self,
         d: np.ndarray,
-        rows: Optional[np.ndarray] = None,
-        cols: Optional[np.ndarray] = None,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
         d = np.asarray(d)
@@ -188,9 +186,9 @@ class SparseMatrix(MatrixBase):
         self,
         other: MatrixBase,
         d: np.ndarray,
-        rows: Optional[np.ndarray],
-        L_cols: Optional[np.ndarray] = None,
-        R_cols: Optional[np.ndarray] = None,
+        rows: np.ndarray | None,
+        L_cols: np.ndarray | None = None,
+        R_cols: np.ndarray | None = None,
     ):
         """Perform a sandwich product: X.T @ diag(d) @ Y."""
         from .categorical_matrix import CategoricalMatrix
@@ -207,9 +205,9 @@ class SparseMatrix(MatrixBase):
         self,
         B: np.ndarray,
         d: np.ndarray,
-        rows: Optional[np.ndarray],
-        L_cols: Optional[np.ndarray],
-        R_cols: Optional[np.ndarray],
+        rows: np.ndarray | None,
+        L_cols: np.ndarray | None,
+        R_cols: np.ndarray | None,
     ) -> np.ndarray:
         """Perform a sandwich product: self.T @ diag(d) @ B."""
         if not hasattr(d, "dtype"):
@@ -230,10 +228,10 @@ class SparseMatrix(MatrixBase):
 
     def _matvec_helper(
         self,
-        vec: Union[list, np.ndarray],
-        rows: Optional[np.ndarray],
-        cols: Optional[np.ndarray],
-        out: Optional[np.ndarray],
+        vec: list | np.ndarray,
+        rows: np.ndarray | None,
+        cols: np.ndarray | None,
+        out: np.ndarray | None,
         transpose: bool,
     ):
         vec = np.asarray(vec)
@@ -254,6 +252,14 @@ class SparseMatrix(MatrixBase):
             matrix_matvec = lambda x, v: sps.csr_matrix.dot(x.T, v)
 
         rows, cols = setup_restrictions(self.shape, rows, cols, dtype=self.idx_dtype)
+        # Check that out is large enough for the operation
+        if out is not None:
+            target_indices = cols if transpose else rows
+            if len(target_indices) > 0 and np.max(target_indices) >= out.shape[0]:
+                raise ValueError(
+                    f"""The first dimension of 'out' must be at least "
+                    f"{np.max(target_indices) + 1}, but it is {out.shape[0]}."""
+                )
         if transpose:
             fast_fnc = lambda v: csc_rmatvec(self.array_csc, v, rows, cols)
         else:
@@ -275,7 +281,7 @@ class SparseMatrix(MatrixBase):
         return out
 
     def matvec(
-        self, vec, cols: Optional[np.ndarray] = None, out: Optional[np.ndarray] = None
+        self, vec, cols: np.ndarray | None = None, out: np.ndarray | None = None
     ):
         """Perform self[:, cols] @ other[cols]."""
         check_matvec_out_shape(self, out)
@@ -283,10 +289,10 @@ class SparseMatrix(MatrixBase):
 
     def transpose_matvec(
         self,
-        vec: Union[np.ndarray, list],
-        rows: Optional[np.ndarray] = None,
-        cols: Optional[np.ndarray] = None,
-        out: Optional[np.ndarray] = None,
+        vec: np.ndarray | list,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform: self[rows, cols].T @ vec[rows]."""
         check_transpose_matvec_out_shape(self, out)
@@ -336,9 +342,9 @@ class SparseMatrix(MatrixBase):
     def get_names(
         self,
         type: str = "column",
-        missing_prefix: Optional[str] = None,
-        indices: Optional[list[int]] = None,
-    ) -> list[Optional[str]]:
+        missing_prefix: str | None = None,
+        indices: list[int] | None = None,
+    ) -> list[str | None]:
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
@@ -380,7 +386,7 @@ class SparseMatrix(MatrixBase):
 
         return names.tolist()
 
-    def set_names(self, names: Union[str, list[Optional[str]]], type: str = "column"):
+    def set_names(self, names: str | list[str | None], type: str = "column"):
         """Set column names.
 
         Parameters

@@ -1,12 +1,11 @@
 import warnings
 from collections.abc import Sequence
-from typing import Optional, Union
 
 import numpy as np
 from scipy import sparse as sps
 
 from .dense_matrix import DenseMatrix
-from .ext.split import is_sorted, split_col_subsets
+from .ext._ops import is_sorted, split_col_subsets
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .standardized_mat import StandardizedMatrix
@@ -19,7 +18,7 @@ from .util import (
 )
 
 
-def as_tabmat(a: Union[MatrixBase, StandardizedMatrix, np.ndarray, sps.spmatrix]):
+def as_tabmat(a: MatrixBase | StandardizedMatrix | np.ndarray | sps.spmatrix):
     """Convert an array to a corresponding MatrixBase type.
 
     If the input is already a MatrixBase, return untouched.
@@ -37,7 +36,7 @@ def as_tabmat(a: Union[MatrixBase, StandardizedMatrix, np.ndarray, sps.spmatrix]
         raise ValueError(f"Cannot convert type {type(a)} to Matrix.")
 
 
-def hstack(tup: Sequence[Union[MatrixBase, np.ndarray, sps.spmatrix]]) -> MatrixBase:
+def hstack(tup: Sequence[MatrixBase | np.ndarray | sps.spmatrix]) -> MatrixBase:
     """Stack arrays in sequence horizontally (column wise).
 
     This is equivalent to concatenation along the second axis,
@@ -61,7 +60,7 @@ def hstack(tup: Sequence[Union[MatrixBase, np.ndarray, sps.spmatrix]]) -> Matrix
         return SplitMatrix(matrices)
 
 
-def _prepare_out_array(out: Optional[np.ndarray], out_shape, out_dtype) -> np.ndarray:
+def _prepare_out_array(out: np.ndarray | None, out_shape, out_dtype) -> np.ndarray:
     if out is None:
         out = np.zeros(out_shape, out_dtype)
     else:
@@ -171,7 +170,7 @@ class SplitMatrix(MatrixBase):
     def __init__(
         self,
         matrices: Sequence[MatrixBase],
-        indices: Optional[list[np.ndarray]] = None,
+        indices: list[np.ndarray] | None = None,
     ):
         flatten_matrices = []
         index_corrections = []
@@ -267,8 +266,8 @@ class SplitMatrix(MatrixBase):
         assert self.shape[1] > 0
 
     def _split_col_subsets(
-        self, cols: Optional[np.ndarray]
-    ) -> tuple[list[np.ndarray], Union[list[np.ndarray], list[None]], int]:
+        self, cols: np.ndarray | None
+    ) -> tuple[list[np.ndarray], list[np.ndarray] | list[None], int]:
         """
         Return tuple of things helpful for applying column restrictions to sub-matrices.
 
@@ -311,7 +310,7 @@ class SplitMatrix(MatrixBase):
             out[:, idx] = mat.toarray()
         return out
 
-    def getcol(self, i: int) -> Union[np.ndarray, sps.csr_matrix]:
+    def getcol(self, i: int) -> np.ndarray | sps.csr_matrix:
         """Return matrix column at specified index."""
         # wrap-around indexing
         i %= self.shape[1]
@@ -323,9 +322,9 @@ class SplitMatrix(MatrixBase):
 
     def sandwich(
         self,
-        d: Union[np.ndarray, list],
-        rows: Optional[np.ndarray] = None,
-        cols: Optional[np.ndarray] = None,
+        d: np.ndarray | list,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
         d = np.asarray(d)
@@ -336,6 +335,8 @@ class SplitMatrix(MatrixBase):
         out = np.zeros((n_cols, n_cols))
         for i in range(len(self.indices)):
             idx_i = subset_cols_indices[i]
+            if len(idx_i) == 0:
+                continue
             mat_i = self.matrices[i]
             res = mat_i.sandwich(d, rows, subset_cols[i])
             if isinstance(res, sps.dia_matrix):
@@ -345,6 +346,8 @@ class SplitMatrix(MatrixBase):
 
             for j in range(i + 1, len(self.indices)):
                 idx_j = subset_cols_indices[j]
+                if len(idx_j) == 0:
+                    continue
                 mat_j = self.matrices[j]
                 res = mat_i._cross_sandwich(
                     mat_j, d, rows, subset_cols[i], subset_cols[j]
@@ -373,8 +376,8 @@ class SplitMatrix(MatrixBase):
     def matvec(
         self,
         v: np.ndarray,
-        cols: Optional[np.ndarray] = None,
-        out: Optional[np.ndarray] = None,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform self[:, cols] @ other[cols]."""
         assert not isinstance(v, sps.spmatrix)
@@ -398,14 +401,18 @@ class SplitMatrix(MatrixBase):
         # as the target for storing the final output. This reduces the number
         # of output arrays allocated from 2 to 1.
         is_matrix_dense = [isinstance(m, DenseMatrix) for m in self.matrices]
-        dense_matrix_idx: Union[int, np.intp]
+        dense_matrix_idx: int | np.intp
         if np.any(is_matrix_dense):
             dense_matrix_idx = np.argmax(is_matrix_dense)
             sub_cols = subset_cols[dense_matrix_idx]
             idx = self.indices[dense_matrix_idx]
             mat = self.matrices[dense_matrix_idx]
             in_vec = v[idx, ...]
-            out = np.asarray(mat.matvec(in_vec, sub_cols, out), dtype=out_dtype)
+            result = mat.matvec(in_vec, sub_cols, out)
+            out = np.asarray(result, dtype=out_dtype)
+            # Ensure out has the correct shape (can be 2D if v is 2D or cols is empty)
+            if out.shape != tuple(out_shape):
+                out = out.reshape(out_shape)
         else:
             dense_matrix_idx = -1
             out = _prepare_out_array(out, out_shape, out_dtype)
@@ -421,10 +428,10 @@ class SplitMatrix(MatrixBase):
 
     def transpose_matvec(
         self,
-        v: Union[np.ndarray, list],
-        rows: Optional[np.ndarray] = None,
-        cols: Optional[np.ndarray] = None,
-        out: Optional[np.ndarray] = None,
+        v: np.ndarray | list,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
     ) -> np.ndarray:
         """
         Perform: self[rows, cols].T @ vec[rows].
@@ -499,9 +506,9 @@ class SplitMatrix(MatrixBase):
     def get_names(
         self,
         type: str = "column",
-        missing_prefix: Optional[str] = None,
-        indices: Optional[list[int]] = None,
-    ) -> list[Optional[str]]:
+        missing_prefix: str | None = None,
+        indices: list[int] | None = None,
+    ) -> list[str | None]:
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
@@ -532,7 +539,7 @@ class SplitMatrix(MatrixBase):
             names[idx] = mat.get_names(type, missing_prefix, idx)
         return names.tolist()
 
-    def set_names(self, names: Union[str, list[Optional[str]]], type: str = "column"):
+    def set_names(self, names: str | list[str | None], type: str = "column"):
         """Set column names.
 
         Parameters

@@ -1,6 +1,5 @@
 import pickle
 import time
-from typing import Union
 
 import click
 import numpy as np
@@ -21,7 +20,7 @@ from tabmat.benchmark.generate_matrices import (
 from tabmat.benchmark.memory_tools import track_peak_mem
 
 
-def _sandwich(mat: Union[tm.MatrixBase, np.ndarray, sps.csc_matrix], vec: np.ndarray):
+def _sandwich(mat: tm.MatrixBase | np.ndarray | sps.csc_matrix, vec: np.ndarray):
     if isinstance(mat, (tm.MatrixBase, tm.StandardizedMatrix)):
         mat.sandwich(vec)
     elif isinstance(mat, np.ndarray):
@@ -32,7 +31,7 @@ def _sandwich(mat: Union[tm.MatrixBase, np.ndarray, sps.csc_matrix], vec: np.nda
 
 
 def _transpose_matvec(
-    mat: Union[tm.MatrixBase, np.ndarray, sps.csc_matrix], vec: np.ndarray
+    mat: tm.MatrixBase | np.ndarray | sps.csc_matrix, vec: np.ndarray
 ):
     if isinstance(mat, (tm.MatrixBase, tm.StandardizedMatrix)):
         return mat.transpose_matvec(vec)
@@ -69,7 +68,7 @@ def get_op_names():
 
 def run_one_benchmark_set(
     matrices: dict[
-        str, Union[tm.MatrixBase, tm.StandardizedMatrix, np.ndarray, sps.spmatrix]
+        str, tm.MatrixBase | tm.StandardizedMatrix | np.ndarray | sps.spmatrix
     ],
     include_baseline: bool,
     name: str,
