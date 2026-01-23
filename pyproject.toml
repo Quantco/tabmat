@@ -75,6 +75,7 @@ skip = [
   "*-musllinux_*",
   "cp38*",
   "cp39*",
+  "cp314t-*",  # free-threaded Python not yet supported by PyO3
 ]
 test-requires = ["pytest", "pytest-xdist"]
 test-command = "pytest {package}/tests/test_matrices.py"
