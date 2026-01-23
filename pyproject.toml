@@ -93,7 +93,9 @@ before-build = "yum install -y openblas-devel openssl-devel || apt-get update &&
 PATH = "$HOME/.cargo/bin:$PATH"
 
 [tool.cibuildwheel.windows]
-before-build = "pip install delvewheel"
+before-build = "vcpkg integrate install && vcpkg install openblas:x64-windows && pip install delvewheel"
 
 [tool.cibuildwheel.windows.environment]
 OPENBLAS_NO_AVX512 = "1"
+VCPKG_ROOT = "C:\\vcpkg"
+VCPKG_INSTALLED_DIR = "C:\\vcpkg\\installed"
