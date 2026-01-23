@@ -377,7 +377,17 @@ def sandwich_cat_cat(
 ):
     """Compute cross sandwich for two categorical matrices."""
     return _rust_sandwich_cat_cat(
-        i_indices, j_indices, d, rows, i_ncol, j_ncol, i_drop_first, j_drop_first
+        i_indices,
+        j_indices,
+        i_ncol,
+        j_ncol,
+        d,
+        rows,
+        dtype,
+        i_drop_first,
+        j_drop_first,
+        i_has_missings,
+        j_has_missings,
     )
 
 
@@ -389,12 +399,20 @@ def sandwich_cat_dense(
     rows,
     j_cols,
     is_c_contiguous,
-    has_missings,
-    drop_first,
+    has_missings=False,
+    drop_first=False,
 ):
     """Compute cross sandwich for categorical and dense matrices."""
     return _rust_sandwich_cat_dense(
-        i_indices, d, mat_j, rows, j_cols, i_ncol, drop_first
+        i_indices,
+        i_ncol,
+        d,
+        mat_j,
+        rows,
+        j_cols,
+        is_c_contiguous,
+        has_missings,
+        drop_first,
     )
 
 

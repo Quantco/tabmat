@@ -67,12 +67,15 @@ pub fn is_sorted(a: &Bound<'_, PyAny>) -> PyResult<bool> {
 ///
 /// * `i_indices` - Category indices for the left matrix (length = n_total_rows)
 /// * `j_indices` - Category indices for the right matrix (length = n_total_rows)
-/// * `d` - Diagonal weight vector
-/// * `rows` - Row indices to include in the computation
 /// * `i_ncol` - Number of categories in left matrix
 /// * `j_ncol` - Number of categories in right matrix
+/// * `d` - Diagonal weight vector
+/// * `rows` - Row indices to include in the computation
+/// * `dtype` - Data type (unused, for Python compatibility)
 /// * `i_drop_first` - If true, exclude category 0 from left matrix
 /// * `j_drop_first` - If true, exclude category 0 from right matrix
+/// * `i_has_missings` - If true, left matrix may have missing values (-1 indices)
+/// * `j_has_missings` - If true, right matrix may have missing values (-1 indices)
 ///
 /// # Returns
 ///
@@ -84,17 +87,20 @@ pub fn is_sorted(a: &Bound<'_, PyAny>) -> PyResult<bool> {
 /// avoiding atomic operations. This matches the C++ OpenMP approach and provides
 /// near-linear scaling with thread count.
 #[pyfunction]
-#[pyo3(signature = (i_indices, j_indices, d, rows, i_ncol, j_ncol, i_drop_first, j_drop_first))]
+#[pyo3(signature = (i_indices, j_indices, i_ncol, j_ncol, d, rows, _dtype, i_drop_first, j_drop_first, i_has_missings, j_has_missings))]
 pub fn sandwich_cat_cat<'py>(
     py: Python<'py>,
     i_indices: PyReadonlyArray1<i32>,
     j_indices: PyReadonlyArray1<i32>,
-    d: PyReadonlyArray1<f64>,
-    rows: PyReadonlyArray1<i32>,
     i_ncol: usize,
     j_ncol: usize,
+    d: PyReadonlyArray1<f64>,
+    rows: PyReadonlyArray1<i32>,
+    _dtype: Bound<'py, PyAny>,
     i_drop_first: bool,
     j_drop_first: bool,
+    i_has_missings: bool,
+    j_has_missings: bool,
 ) -> Bound<'py, PyArray2<f64>> {
     let i_indices_slice = i_indices.as_slice().unwrap();
     let j_indices_slice = j_indices.as_slice().unwrap();
@@ -115,6 +121,9 @@ pub fn sandwich_cat_cat<'py>(
     // Pre-allocate all thread buffers in one contiguous allocation
     let mut all_res = vec![0.0f64; num_threads * res_size];
 
+    // Determine if we need the complex path (with bounds checking)
+    let needs_complex = i_drop_first || j_drop_first || i_has_missings || j_has_missings;
+
     // Parallel iteration with thread-local accumulation
     // Each thread gets a slice of all_res based on thread index
     {
@@ -130,8 +139,8 @@ pub fn sandwich_cat_cat<'py>(
                 let start = tid * chunk_size;
                 let end = (start + chunk_size).min(n_rows);
 
-                if i_drop_first || j_drop_first {
-                    // Complex path with drop_first checks
+                if needs_complex {
+                    // Complex path with drop_first and/or missing value checks
                     for k_idx in start..end {
                         let k = unsafe { *rows_slice.get_unchecked(k_idx) } as usize;
 
@@ -141,6 +150,7 @@ pub fn sandwich_cat_cat<'py>(
                         let i_idx = if i_drop_first { i_raw - 1 } else { i_raw };
                         let j_idx = if j_drop_first { j_raw - 1 } else { j_raw };
 
+                        // Skip if either index is negative (missing or dropped first category)
                         if i_idx >= 0 && j_idx >= 0 {
                             let out_idx = i_idx as usize * j_ncol + j_idx as usize;
                             unsafe {
@@ -150,7 +160,7 @@ pub fn sandwich_cat_cat<'py>(
                         }
                     }
                 } else {
-                    // Fast path - no drop_first checks needed
+                    // Fast path - no drop_first or missing checks needed
                     for k_idx in start..end {
                         let k = unsafe { *rows_slice.get_unchecked(k_idx) } as usize;
                         let i = unsafe { *i_indices_slice.get_unchecked(k) } as usize;
@@ -197,11 +207,13 @@ pub fn sandwich_cat_cat<'py>(
 /// # Arguments
 ///
 /// * `i_indices` - Category indices for the categorical matrix
+/// * `i_ncol` - Number of categories in categorical matrix
 /// * `d` - Diagonal weight vector
 /// * `mat_j` - Dense matrix (row-major)
 /// * `rows` - Row indices to include
 /// * `j_cols` - Column indices for the dense matrix
-/// * `i_ncol` - Number of categories in categorical matrix
+/// * `is_c_contiguous` - Whether mat_j is C-contiguous (unused, auto-detected)
+/// * `has_missings` - If true, categorical matrix may have missing values (-1 indices)
 /// * `drop_first` - If true, exclude category 0 from categorical matrix
 ///
 /// # Returns
@@ -213,15 +225,17 @@ pub fn sandwich_cat_cat<'py>(
 /// Uses parallel k-blocks (1024 rows per block) with per-thread accumulation.
 /// Optimized for C-contiguous dense matrices.
 #[pyfunction]
-#[pyo3(signature = (i_indices, d, mat_j, rows, j_cols, i_ncol, drop_first))]
+#[pyo3(signature = (i_indices, i_ncol, d, mat_j, rows, j_cols, _is_c_contiguous, has_missings=false, drop_first=false))]
 pub fn sandwich_cat_dense<'py>(
     py: Python<'py>,
     i_indices: PyReadonlyArray1<i32>,
+    i_ncol: usize,
     d: PyReadonlyArray1<f64>,
     mat_j: PyReadonlyArray2<f64>,
     rows: PyReadonlyArray1<i32>,
     j_cols: PyReadonlyArray1<i32>,
-    i_ncol: usize,
+    _is_c_contiguous: bool,
+    has_missings: bool,
     drop_first: bool,
 ) -> Bound<'py, PyArray2<f64>> {
     let i_indices_slice = i_indices.as_slice().unwrap();
@@ -250,6 +264,9 @@ pub fn sandwich_cat_dense<'py>(
     const KBLOCK: usize = 1024;
     let n_kblocks = (n_rows + KBLOCK - 1) / KBLOCK;
 
+    // Determine if we need bounds checking
+    let needs_bounds_check = drop_first || has_missings;
+
     // Parallel fold over k-blocks with per-thread accumulation
     let result = (0..n_kblocks)
         .into_par_iter()
@@ -268,7 +285,8 @@ pub fn sandwich_cat_dense<'py>(
                         i_indices_slice[k]
                     };
 
-                    if i_idx >= 0 {
+                    // Skip negative indices (dropped first category or missing values)
+                    if !needs_bounds_check || i_idx >= 0 {
                         let i = i_idx as usize;
                         let d_k = d_slice[k];
                         let out_row_start = i * nj_active_cols;

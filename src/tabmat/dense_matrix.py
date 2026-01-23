@@ -13,7 +13,9 @@ from .matrix_base import MatrixBase
 from .util import (
     _check_indexer,
     check_matvec_dimensions,
+    check_matvec_out_shape,
     check_sandwich_compatible,
+    check_transpose_matvec_out_shape,
     setup_restrictions,
 )
 
@@ -270,7 +272,7 @@ class DenseMatrix(MatrixBase):
         out: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform: self[rows, cols].T @ vec[rows]."""
-        # Shape check removed: out can be larger when called from split_matrix
+        check_transpose_matvec_out_shape(self, out)
         return self._matvec_helper(vec, rows, cols, out, True)
 
     def matvec(
@@ -280,7 +282,7 @@ class DenseMatrix(MatrixBase):
         out: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform self[:, cols] @ other[cols]."""
-        # Shape check removed: out can be larger when called from split_matrix
+        check_matvec_out_shape(self, out)
         return self._matvec_helper(vec, None, cols, out, False)
 
     def multiply(self, other):
