@@ -21,12 +21,14 @@ requirements:
     - {{ compiler("c") }}
     - {{ compiler("rust") }}
     - cargo-bundle-licenses
+    - pkg-config
   host:
     - python
     - libblas
     - liblapack
     - maturin >=1.4,<2.0
     - numpy
+    - openssl
     - pip
   run:
     - python
