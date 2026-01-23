@@ -17,22 +17,17 @@ requirements:
   build:
     - python                                 # [build_platform != target_platform]
     - cross-python_{{ target_platform }}     # [build_platform != target_platform]
-    - cython !=3.0.4                         # [build_platform != target_platform]
     - numpy                                  # [build_platform != target_platform]
     - {{ compiler("c") }}
-    - {{ compiler("cxx") }}
-    - llvm-openmp  # [osx]
-    - libgomp  # [linux]
+    - {{ compiler("rust") }}
+    - cargo-bundle-licenses
   host:
     - python
-    - cython !=3.0.4
-    - jemalloc-local  # [not win]
-    - llvm-openmp  # [osx]
-    - mako
+    - libblas
+    - liblapack
+    - maturin >=1.4,<2.0
     - numpy
     - pip
-    - setuptools_scm
-    - xsimd <11|>12.1
   run:
     - python
     - {{ pin_compatible('numpy') }}
