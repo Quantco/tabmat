@@ -97,5 +97,5 @@ before-build = "vcpkg integrate install && vcpkg install openblas:x64-windows &&
 
 [tool.cibuildwheel.windows.environment]
 OPENBLAS_NO_AVX512 = "1"
-VCPKG_ROOT = "C:\\vcpkg"
-VCPKG_INSTALLED_DIR = "C:\\vcpkg\\installed"
+VCPKG_ROOT = "C:/vcpkg"
+VCPKG_INSTALLED_DIR = "C:/vcpkg/installed"
