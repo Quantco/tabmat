@@ -36,15 +36,15 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          # - { os: ubuntu-latest, environment: 'py310' }
-          # - { os: ubuntu-latest, environment: 'py311' }
-          # - { os: ubuntu-latest, environment: 'py312' }
+          - { os: ubuntu-latest, environment: 'py310' }
+          - { os: ubuntu-latest, environment: 'py311' }
+          - { os: ubuntu-latest, environment: 'py312' }
           - { os: ubuntu-latest, environment: 'py313' }
-          # - { os: ubuntu-latest, environment: 'py314' }
-          # - { os: windows-latest, environment: 'py314' }
-          # - { os: macos-latest, environment: 'py314' }
-          # - { os: ubuntu-latest, environment: 'oldies' }
-          # - { os: ubuntu-latest, environment: 'nightly' }
+          - { os: ubuntu-latest, environment: 'py314' }
+          - { os: windows-latest, environment: 'py314' }
+          - { os: macos-latest, environment: 'py314' }
+          - { os: ubuntu-latest, environment: 'oldies' }
+          - { os: ubuntu-latest, environment: 'nightly' }
     steps:
       - name: Checkout branch
         uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
