@@ -94,6 +94,7 @@ PATH = "$HOME/.cargo/bin:$PATH"
 
 [tool.cibuildwheel.windows]
 before-build = "vcpkg integrate install && vcpkg install openblas:x64-windows && pip install delvewheel"
+repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel} --add-path C:/vcpkg/installed/x64-windows/bin"
 
 [tool.cibuildwheel.windows.environment]
 OPENBLAS_NO_AVX512 = "1"

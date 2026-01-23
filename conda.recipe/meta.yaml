@@ -10,7 +10,9 @@ source:
 
 build:
   number: 0
-  script: {{ PYTHON }} -m pip install . -vv
+  script:
+    - export OPENSSL_DIR=$BUILD_PREFIX  # [build_platform != target_platform]
+    - {{ PYTHON }} -m pip install . -vv
 
 
 requirements:
