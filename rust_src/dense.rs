@@ -86,27 +86,52 @@ pub fn dense_sandwich<'py>(
     // Threshold: if in_n / out_m > 100 (very tall), use BLIS k-parallel
     let is_tall = in_n > 100 * out_m && out_m <= 200;
 
+    // Check if any weights are negative - BLAS dsyrk uses sqrt(d) which produces NaN
+    // for negative values. Use signed BLAS approach that handles negative weights by
+    // splitting into positive and negative contributions.
+    let has_negative_weights = rows_slice.iter().any(|&r| d_slice[r as usize] < 0.0);
+
+    // For non-tall matrices, use BLAS dsyrk path
     if !is_tall && in_n >= 500 && out_m >= 10 {
-        return dense_sandwich_blas(py, &x_arr, d_slice, rows_slice, cols_slice);
+        if has_negative_weights {
+            return dense_sandwich_blas_signed(py, &x_arr, d_slice, rows_slice, cols_slice);
+        } else {
+            return dense_sandwich_blas(py, &x_arr, d_slice, rows_slice, cols_slice);
+        }
     }
 
-    // Use BLIS-style approach with true k-parallelism for tall matrices
+    // Use appropriate approach based on matrix shape and weight signs
     let mut out = vec![0.0f64; out_m * out_m];
 
     if is_c_order {
         if let Some(x_slice) = x_arr.as_slice() {
             if is_tall {
-                dense_sandwich_tall_c(
-                    x_slice,
-                    d_slice,
-                    rows_slice,
-                    cols_slice,
-                    &mut out,
-                    n_total_cols,
-                    in_n,
-                    out_m,
-                );
+                if has_negative_weights {
+                    // Tall matrix with negative weights: use signed tall path
+                    dense_sandwich_tall_signed_c(
+                        x_slice,
+                        d_slice,
+                        rows_slice,
+                        cols_slice,
+                        &mut out,
+                        n_total_cols,
+                        out_m,
+                    );
+                } else {
+                    // Tall matrix with positive weights: use standard tall path
+                    dense_sandwich_tall_c(
+                        x_slice,
+                        d_slice,
+                        rows_slice,
+                        cols_slice,
+                        &mut out,
+                        n_total_cols,
+                        in_n,
+                        out_m,
+                    );
+                }
             } else {
+                // Non-tall, small matrix: use BLIS fallback
                 dense_sandwich_blis_c(
                     x_slice,
                     d_slice,
@@ -122,16 +147,28 @@ pub fn dense_sandwich<'py>(
     } else if let Some(x_slice) = x_arr.as_slice_memory_order() {
         // F-order: use as_slice_memory_order() which gives column-major data
         if is_tall {
-            dense_sandwich_tall_f(
-                x_slice,
-                d_slice,
-                rows_slice,
-                cols_slice,
-                &mut out,
-                n_total_rows,
-                in_n,
-                out_m,
-            );
+            if has_negative_weights {
+                dense_sandwich_tall_signed_f(
+                    x_slice,
+                    d_slice,
+                    rows_slice,
+                    cols_slice,
+                    &mut out,
+                    n_total_rows,
+                    out_m,
+                );
+            } else {
+                dense_sandwich_tall_f(
+                    x_slice,
+                    d_slice,
+                    rows_slice,
+                    cols_slice,
+                    &mut out,
+                    n_total_rows,
+                    in_n,
+                    out_m,
+                );
+            }
         } else {
             dense_sandwich_blis_f(
                 x_slice,
@@ -218,6 +255,143 @@ fn dense_sandwich_blas<'py>(
             result.as_mut_ptr(),
             out_m as i32,
         );
+    }
+
+    // Fill lower triangle from upper
+    for i in 0..out_m {
+        for j in (i + 1)..out_m {
+            result[j * out_m + i] = result[i * out_m + j];
+        }
+    }
+
+    let out_2d: Vec<Vec<f64>> = (0..out_m)
+        .map(|i| result[i * out_m..(i + 1) * out_m].to_vec())
+        .collect();
+
+    PyArray2::from_vec2_bound(py, &out_2d).unwrap()
+}
+
+/// BLAS-accelerated dense sandwich that handles negative weights.
+///
+/// Uses the identity: X.T @ diag(d) @ X = X_pos.T @ X_pos - X_neg.T @ X_neg
+/// where X_pos contains rows scaled by sqrt(d) for positive d,
+/// and X_neg contains rows scaled by sqrt(-d) for negative d.
+///
+/// This allows using fast BLAS dsyrk for both contributions.
+fn dense_sandwich_blas_signed<'py>(
+    py: Python<'py>,
+    x_arr: &ndarray::ArrayView2<f64>,
+    d_slice: &[f64],
+    rows_slice: &[i32],
+    cols_slice: &[i32],
+) -> Bound<'py, PyArray2<f64>> {
+    let out_m = cols_slice.len();
+    let cols: Vec<usize> = cols_slice.iter().map(|&c| c as usize).collect();
+
+    // Partition rows into positive and negative weight sets
+    let mut pos_rows: Vec<i32> = Vec::new();
+    let mut neg_rows: Vec<i32> = Vec::new();
+    for &r in rows_slice {
+        if d_slice[r as usize] >= 0.0 {
+            pos_rows.push(r);
+        } else {
+            neg_rows.push(r);
+        }
+    }
+
+    let n_pos = pos_rows.len();
+    let n_neg = neg_rows.len();
+
+    // Build scaled matrices for positive and negative contributions
+    let mut x_pos = vec![0.0; n_pos * out_m];
+    let mut x_neg = vec![0.0; n_neg * out_m];
+
+    if let Some(x_slice) = x_arr.as_slice() {
+        let n_total_cols = x_arr.ncols();
+
+        // Fill positive rows: scale by sqrt(d)
+        x_pos
+            .par_chunks_mut(out_m)
+            .enumerate()
+            .for_each(|(i, out_row)| {
+                let row_idx = pos_rows[i] as usize;
+                let d_sqrt = d_slice[row_idx].sqrt();
+                let row_offset = row_idx * n_total_cols;
+                for (j, &col_j) in cols.iter().enumerate() {
+                    out_row[j] = x_slice[row_offset + col_j] * d_sqrt;
+                }
+            });
+
+        // Fill negative rows: scale by sqrt(-d)
+        x_neg
+            .par_chunks_mut(out_m)
+            .enumerate()
+            .for_each(|(i, out_row)| {
+                let row_idx = neg_rows[i] as usize;
+                let d_sqrt = (-d_slice[row_idx]).sqrt();
+                let row_offset = row_idx * n_total_cols;
+                for (j, &col_j) in cols.iter().enumerate() {
+                    out_row[j] = x_slice[row_offset + col_j] * d_sqrt;
+                }
+            });
+    } else {
+        // Fallback for non-contiguous arrays
+        for (i, row_i) in pos_rows.iter().enumerate() {
+            let row_idx = *row_i as usize;
+            let d_sqrt = d_slice[row_idx].sqrt();
+            let out_offset = i * out_m;
+            for (j, &col_j) in cols.iter().enumerate() {
+                x_pos[out_offset + j] = x_arr[[row_idx, col_j]] * d_sqrt;
+            }
+        }
+        for (i, row_i) in neg_rows.iter().enumerate() {
+            let row_idx = *row_i as usize;
+            let d_sqrt = (-d_slice[row_idx]).sqrt();
+            let out_offset = i * out_m;
+            for (j, &col_j) in cols.iter().enumerate() {
+                x_neg[out_offset + j] = x_arr[[row_idx, col_j]] * d_sqrt;
+            }
+        }
+    }
+
+    let mut result = vec![0.0; out_m * out_m];
+
+    // Add positive contribution: result += X_pos.T @ X_pos
+    if n_pos > 0 {
+        unsafe {
+            cblas_sys::cblas_dsyrk(
+                cblas_sys::CBLAS_LAYOUT::CblasRowMajor,
+                cblas_sys::CBLAS_UPLO::CblasUpper,
+                cblas_sys::CBLAS_TRANSPOSE::CblasTrans,
+                out_m as i32,
+                n_pos as i32,
+                1.0, // alpha = 1.0 (add)
+                x_pos.as_ptr(),
+                out_m as i32,
+                0.0, // beta = 0.0 (first call)
+                result.as_mut_ptr(),
+                out_m as i32,
+            );
+        }
+    }
+
+    // Subtract negative contribution: result -= X_neg.T @ X_neg
+    if n_neg > 0 {
+        unsafe {
+            cblas_sys::cblas_dsyrk(
+                cblas_sys::CBLAS_LAYOUT::CblasRowMajor,
+                cblas_sys::CBLAS_UPLO::CblasUpper,
+                cblas_sys::CBLAS_TRANSPOSE::CblasTrans,
+                out_m as i32,
+                n_neg as i32,
+                -1.0,                              // alpha = -1.0 (subtract)
+                x_neg.as_ptr(),
+                out_m as i32,
+                if n_pos > 0 { 1.0 } else { 0.0 }, // beta: accumulate if pos exists
+                result.as_mut_ptr(),
+                out_m as i32,
+            );
+        }
     }
 
     // Fill lower triangle from upper
@@ -388,6 +562,267 @@ fn dense_sandwich_tall_f(
                 }
 
                 // Use BLAS dsyrk: C += A.T @ A where A is k_size x out_m
+                unsafe {
+                    cblas_sys::cblas_dsyrk(
+                        cblas_sys::CBLAS_LAYOUT::CblasRowMajor,
+                        cblas_sys::CBLAS_UPLO::CblasUpper,
+                        cblas_sys::CBLAS_TRANSPOSE::CblasTrans,
+                        out_m as i32,
+                        k_size as i32,
+                        1.0,
+                        tl.x_sub.as_ptr(),
+                        out_m as i32,
+                        1.0,
+                        tl.out_buf.as_mut_ptr(),
+                        out_m as i32,
+                    );
+                }
+
+                tl
+            },
+        )
+        .map(|tl| tl.out_buf)
+        .reduce(
+            || vec![0.0f64; out_size],
+            |mut a, b| {
+                for i in 0..out_size {
+                    a[i] += b[i];
+                }
+                a
+            },
+        );
+
+    out[..out_size].copy_from_slice(&result);
+}
+
+/// Optimized dense sandwich for tall matrices (C-order) with negative weights.
+/// Partitions rows into positive/negative, processes each with k-parallel dsyrk.
+fn dense_sandwich_tall_signed_c(
+    x: &[f64],
+    d: &[f64],
+    rows: &[i32],
+    cols: &[i32],
+    out: &mut [f64],
+    stride: usize,
+    out_m: usize,
+) {
+    // Partition rows into positive and negative weight sets
+    let mut pos_rows: Vec<i32> = Vec::new();
+    let mut neg_rows: Vec<i32> = Vec::new();
+    for &r in rows {
+        if d[r as usize] >= 0.0 {
+            pos_rows.push(r);
+        } else {
+            neg_rows.push(r);
+        }
+    }
+
+    let out_size = out_m * out_m;
+
+    // Process positive rows
+    if !pos_rows.is_empty() {
+        dense_sandwich_tall_c_inner(x, d, &pos_rows, cols, out, stride, pos_rows.len(), out_m, 1.0);
+    }
+
+    // Process negative rows (subtract)
+    if !neg_rows.is_empty() {
+        let mut neg_out = vec![0.0f64; out_size];
+        dense_sandwich_tall_c_inner(
+            x,
+            d,
+            &neg_rows,
+            cols,
+            &mut neg_out,
+            stride,
+            neg_rows.len(),
+            out_m,
+            -1.0, // use |d| but will subtract result
+        );
+        // Subtract negative contribution
+        for i in 0..out_size {
+            out[i] -= neg_out[i];
+        }
+    }
+}
+
+/// Inner function for tall C-order sandwich with sign parameter.
+fn dense_sandwich_tall_c_inner(
+    x: &[f64],
+    d: &[f64],
+    rows: &[i32],
+    cols: &[i32],
+    out: &mut [f64],
+    stride: usize,
+    in_n: usize,
+    out_m: usize,
+    sign: f64, // 1.0 for positive d, -1.0 for negative d (use |d|)
+) {
+    let kblock = KRATIO * THRESH1D;
+    let n_kblocks = (in_n + kblock - 1) / kblock;
+
+    let cols_usize: Vec<usize> = cols.iter().map(|&c| c as usize).collect();
+    let out_size = out_m * out_m;
+
+    struct ThreadLocal {
+        out_buf: Vec<f64>,
+        x_sub: Vec<f64>,
+    }
+
+    let x_sub_size = kblock * out_m;
+
+    let result = (0..n_kblocks)
+        .into_par_iter()
+        .fold(
+            || ThreadLocal {
+                out_buf: vec![0.0f64; out_size],
+                x_sub: vec![0.0f64; x_sub_size],
+            },
+            |mut tl, kb| {
+                let rk = kb * kblock;
+                let rkmax = (rk + kblock).min(in_n);
+                let k_size = rkmax - rk;
+
+                // Build x_sub scaled by sqrt(|d|)
+                for (k_local, rkk) in (rk..rkmax).enumerate() {
+                    let kk = rows[rkk] as usize;
+                    let d_sqrt = if sign > 0.0 {
+                        d[kk].sqrt()
+                    } else {
+                        (-d[kk]).sqrt()
+                    };
+                    for (j_local, &col_j) in cols_usize.iter().enumerate() {
+                        tl.x_sub[k_local * out_m + j_local] = d_sqrt * x[kk * stride + col_j];
+                    }
+                }
+
+                unsafe {
+                    cblas_sys::cblas_dsyrk(
+                        cblas_sys::CBLAS_LAYOUT::CblasRowMajor,
+                        cblas_sys::CBLAS_UPLO::CblasUpper,
+                        cblas_sys::CBLAS_TRANSPOSE::CblasTrans,
+                        out_m as i32,
+                        k_size as i32,
+                        1.0,
+                        tl.x_sub.as_ptr(),
+                        out_m as i32,
+                        1.0,
+                        tl.out_buf.as_mut_ptr(),
+                        out_m as i32,
+                    );
+                }
+
+                tl
+            },
+        )
+        .map(|tl| tl.out_buf)
+        .reduce(
+            || vec![0.0f64; out_size],
+            |mut a, b| {
+                for i in 0..out_size {
+                    a[i] += b[i];
+                }
+                a
+            },
+        );
+
+    out[..out_size].copy_from_slice(&result);
+}
+
+/// Optimized dense sandwich for tall matrices (F-order) with negative weights.
+fn dense_sandwich_tall_signed_f(
+    x: &[f64],
+    d: &[f64],
+    rows: &[i32],
+    cols: &[i32],
+    out: &mut [f64],
+    stride: usize,
+    out_m: usize,
+) {
+    let mut pos_rows: Vec<i32> = Vec::new();
+    let mut neg_rows: Vec<i32> = Vec::new();
+    for &r in rows {
+        if d[r as usize] >= 0.0 {
+            pos_rows.push(r);
+        } else {
+            neg_rows.push(r);
+        }
+    }
+
+    let out_size = out_m * out_m;
+
+    if !pos_rows.is_empty() {
+        dense_sandwich_tall_f_inner(x, d, &pos_rows, cols, out, stride, pos_rows.len(), out_m, 1.0);
+    }
+
+    if !neg_rows.is_empty() {
+        let mut neg_out = vec![0.0f64; out_size];
+        dense_sandwich_tall_f_inner(
+            x,
+            d,
+            &neg_rows,
+            cols,
+            &mut neg_out,
+            stride,
+            neg_rows.len(),
+            out_m,
+            -1.0,
+        );
+        for i in 0..out_size {
+            out[i] -= neg_out[i];
+        }
+    }
+}
+
+/// Inner function for tall F-order sandwich with sign parameter.
+fn dense_sandwich_tall_f_inner(
+    x: &[f64],
+    d: &[f64],
+    rows: &[i32],
+    cols: &[i32],
+    out: &mut [f64],
+    stride: usize,
+    in_n: usize,
+    out_m: usize,
+    sign: f64,
+) {
+    let kblock = KRATIO * THRESH1D;
+    let n_kblocks = (in_n + kblock - 1) / kblock;
+
+    let cols_usize: Vec<usize> = cols.iter().map(|&c| c as usize).collect();
+    let out_size = out_m * out_m;
+
+    struct ThreadLocal {
+        out_buf: Vec<f64>,
+        x_sub: Vec<f64>,
+    }
+
+    let x_sub_size = kblock * out_m;
+
+    let result = (0..n_kblocks)
+        .into_par_iter()
+        .fold(
+            || ThreadLocal {
+                out_buf: vec![0.0f64; out_size],
+                x_sub: vec![0.0f64; x_sub_size],
+            },
+            |mut tl, kb| {
+                let rk = kb * kblock;
+                let rkmax = (rk + kblock).min(in_n);
+                let k_size = rkmax - rk;
+
+                // F-order: X[row, col] = x[col * stride + row]
+                for (k_local, rkk) in (rk..rkmax).enumerate() {
+                    let kk = rows[rkk] as usize;
+                    let d_sqrt = if sign > 0.0 {
+                        d[kk].sqrt()
+                    } else {
+                        (-d[kk]).sqrt()
+                    };
+                    for (j_local, &col_j) in cols_usize.iter().enumerate() {
+                        tl.x_sub[k_local * out_m + j_local] = d_sqrt * x[col_j * stride + kk];
+                    }
+                }
+
                 unsafe {
                     cblas_sys::cblas_dsyrk(
                         cblas_sys::CBLAS_LAYOUT::CblasRowMajor,

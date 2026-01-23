@@ -109,6 +109,40 @@ def simulate_matrix(nonzero_frac=0.05, shape=(100, 50), seed=0, dtype=np.float64
     return A
 
 
+@pytest.mark.parametrize("order", ["C", "F"])
+@pytest.mark.parametrize("shape", [(1000, 10), (100, 100), (500, 500), (10000, 50)])
+def test_dense_sandwich_negative_weights(order, shape):
+    """Test dense sandwich with negative weights.
+
+    BLAS dsyrk uses sqrt(d) which produces NaN for negative values.
+    The implementation should fall back to BLIS-style computation
+    which handles negative weights correctly.
+    """
+    rng = np.random.default_rng(seed=42)
+    nrows, ncols = shape
+    X = rng.standard_normal((nrows, ncols))
+    if order == "F":
+        X = np.asfortranarray(X)
+
+    # Create weights with mixed positive and negative values
+    d = rng.standard_normal(nrows)  # Will have ~50% negative values
+
+    # Compute expected result using numpy
+    sqrtD = np.sqrt(np.abs(d))[:, np.newaxis]
+    sign = np.sign(d)[:, np.newaxis]
+    # X.T @ diag(d) @ X = (sqrt(|d|) * X).T @ diag(sign(d)) @ (sqrt(|d|) * X)
+    X_scaled = X * sqrtD
+    expected = X_scaled.T @ (sign * X_scaled)
+
+    # Test via DenseMatrix
+    dm = DenseMatrix(X)
+    result = dm.sandwich(d)
+
+    # Use rtol=1e-9 to allow for floating-point precision differences
+    # from different computation orders (split BLAS vs direct)
+    np.testing.assert_allclose(result, expected, rtol=1e-9)
+
+
 @pytest.mark.skip(reason="too heavy")
 @pytest.mark.parametrize("order", ["C", "F"])
 def test_fast_sandwich_dense_large(order):
