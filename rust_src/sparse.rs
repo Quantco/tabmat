@@ -193,6 +193,11 @@ pub fn csr_matvec_unrestricted<'py>(
 /// * `rows` - Row indices to include
 /// * `cols` - Column indices to include (columns not in this set are skipped)
 /// * `ncols` - Total number of columns (used for mask sizing)
+///
+/// # Performance
+///
+/// - Fast path when all columns are included (skips mask entirely)
+/// - Uses branchless inner loop to avoid pipeline stalls from mispredictions
 #[pyfunction]
 #[pyo3(signature = (data, indices, indptr, v, rows, cols, ncols))]
 pub fn csr_matvec<'py>(
@@ -215,12 +220,31 @@ pub fn csr_matvec<'py>(
     let n = rows_slice.len();
     let mut out = vec![0.0; n];
 
-    // Build col_included mask using u8 for cache efficiency
-    let mut col_included = vec![0u8; ncols];
-    for &col in cols_slice {
-        col_included[col as usize] = 1;
+    // Fast path: if all columns are included, skip the mask entirely
+    if cols_slice.len() == ncols {
+        out.par_iter_mut().enumerate().for_each(|(ci, out_val)| {
+            let i = rows_slice[ci] as usize;
+            let start = indptr_slice[i] as usize;
+            let end = indptr_slice[i + 1] as usize;
+            let mut accum = 0.0;
+            for idx in start..end {
+                unsafe {
+                    let j = *indices_slice.get_unchecked(idx) as usize;
+                    accum += data_slice.get_unchecked(idx) * v_slice.get_unchecked(j);
+                }
+            }
+            *out_val = accum;
+        });
+        return PyArray1::from_vec_bound(py, out);
     }
 
+    // Build col_included mask using f64 for branchless multiplication
+    let mut col_included = vec![0.0f64; ncols];
+    for &col in cols_slice {
+        col_included[col as usize] = 1.0;
+    }
+
+    // Branchless inner loop: multiply by mask value instead of branching
     out.par_iter_mut().enumerate().for_each(|(ci, out_val)| {
         let i = rows_slice[ci] as usize;
         let start = indptr_slice[i] as usize;
@@ -229,9 +253,9 @@ pub fn csr_matvec<'py>(
         for idx in start..end {
             unsafe {
                 let j = *indices_slice.get_unchecked(idx) as usize;
-                if *col_included.get_unchecked(j) != 0 {
-                    accum += data_slice.get_unchecked(idx) * v_slice.get_unchecked(j);
-                }
+                accum += *col_included.get_unchecked(j)
+                    * data_slice.get_unchecked(idx)
+                    * v_slice.get_unchecked(j);
             }
         }
         *out_val = accum;
@@ -295,6 +319,11 @@ pub fn csc_rmatvec_unrestricted<'py>(
 /// * `rows` - Row indices to include (rows not in this set are skipped)
 /// * `cols` - Column indices to include
 /// * `nrows` - Total number of rows (used for mask sizing)
+///
+/// # Performance
+///
+/// - Fast path when all rows are included (skips mask entirely)
+/// - Uses branchless inner loop to avoid pipeline stalls from mispredictions
 #[pyfunction]
 #[pyo3(signature = (data, indices, indptr, v, rows, cols, nrows))]
 pub fn csc_rmatvec<'py>(
@@ -317,12 +346,31 @@ pub fn csc_rmatvec<'py>(
     let m = cols_slice.len();
     let mut out = vec![0.0; m];
 
-    // Build row_included mask using u8 for cache efficiency
-    let mut row_included = vec![0u8; nrows];
-    for &row in rows_slice {
-        row_included[row as usize] = 1;
+    // Fast path: if all rows are included, skip the mask entirely
+    if rows_slice.len() == nrows {
+        out.par_iter_mut().enumerate().for_each(|(cj, out_val)| {
+            let j = cols_slice[cj] as usize;
+            let start = indptr_slice[j] as usize;
+            let end = indptr_slice[j + 1] as usize;
+            let mut accum = 0.0;
+            for idx in start..end {
+                unsafe {
+                    let i = *indices_slice.get_unchecked(idx) as usize;
+                    accum += data_slice.get_unchecked(idx) * v_slice.get_unchecked(i);
+                }
+            }
+            *out_val = accum;
+        });
+        return PyArray1::from_vec_bound(py, out);
     }
 
+    // Build row_included mask using f64 for branchless multiplication
+    let mut row_included = vec![0.0f64; nrows];
+    for &row in rows_slice {
+        row_included[row as usize] = 1.0;
+    }
+
+    // Branchless inner loop: multiply by mask value instead of branching
     out.par_iter_mut().enumerate().for_each(|(cj, out_val)| {
         let j = cols_slice[cj] as usize;
         let start = indptr_slice[j] as usize;
@@ -331,9 +379,9 @@ pub fn csc_rmatvec<'py>(
         for idx in start..end {
             unsafe {
                 let i = *indices_slice.get_unchecked(idx) as usize;
-                if *row_included.get_unchecked(i) != 0 {
-                    accum += data_slice.get_unchecked(idx) * v_slice.get_unchecked(i);
-                }
+                accum += *row_included.get_unchecked(i)
+                    * data_slice.get_unchecked(idx)
+                    * v_slice.get_unchecked(i);
             }
         }
         *out_val = accum;
