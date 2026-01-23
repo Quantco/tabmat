@@ -13,6 +13,7 @@ build:
   script:
     - export OPENSSL_DIR=$BUILD_PREFIX  # [build_platform != target_platform]
     - export RUSTFLAGS="-L $PREFIX/lib"  # [build_platform != target_platform]
+    - export MACOSX_DEPLOYMENT_TARGET=11.0  # [osx]
     - {{ PYTHON }} -m pip install . -vv
 
 
