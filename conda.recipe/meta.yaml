@@ -25,6 +25,7 @@ requirements:
     - maturin >=1.4,<2.0                     # [build_platform != target_platform]
     - openssl                                # [build_platform != target_platform]
     - {{ compiler("c") }}
+    - {{ stdlib("c") }}
     - {{ compiler("rust") }}
     - cargo-bundle-licenses
     - pkg-config
