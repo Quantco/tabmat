@@ -8,6 +8,14 @@ Changelog
 =========
 
 
+4.2.1 - 2026-01-27
+------------------
+
+**Bug fixes:**
+
+- Fixed :meth:`CategoricalMatrix._cross_categorical` to operate on read-only buffers as well.
+
+
 4.2.0 - 2026-01-13
 ------------------
 
