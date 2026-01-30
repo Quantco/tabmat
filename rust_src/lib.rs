@@ -58,6 +58,7 @@ fn tabmat_ext(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(dense::dense_rmatvec, m)?)?;
     m.add_function(wrap_pyfunction!(dense::dense_matvec, m)?)?;
     m.add_function(wrap_pyfunction!(dense::transpose_square_dot_weights, m)?)?;
+    m.add_function(wrap_pyfunction!(dense::standardized_sandwich_correction, m)?)?;
 
     // Sparse matrix operations
     // These operate on CSR (Compressed Sparse Row) or CSC (Compressed Sparse Column) matrices
@@ -74,8 +75,12 @@ fn tabmat_ext(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(categorical::categorical_sandwich, m)?)?;
     m.add_function(wrap_pyfunction!(categorical::matvec_fast, m)?)?;
     m.add_function(wrap_pyfunction!(categorical::matvec_complex, m)?)?;
+    m.add_function(wrap_pyfunction!(categorical::matvec_restricted, m)?)?;
     m.add_function(wrap_pyfunction!(categorical::transpose_matvec_fast, m)?)?;
+    m.add_function(wrap_pyfunction!(categorical::transpose_matvec_fast_rows, m)?)?;
     m.add_function(wrap_pyfunction!(categorical::transpose_matvec_complex, m)?)?;
+    m.add_function(wrap_pyfunction!(categorical::transpose_matvec_complex_rows, m)?)?;
+    m.add_function(wrap_pyfunction!(categorical::transpose_matvec_restricted, m)?)?;
     m.add_function(wrap_pyfunction!(categorical::sandwich_categorical_fast, m)?)?;
     m.add_function(wrap_pyfunction!(categorical::sandwich_categorical_complex, m)?)?;
     m.add_function(wrap_pyfunction!(categorical::multiply_complex, m)?)?;
@@ -87,6 +92,7 @@ fn tabmat_ext(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(split::is_sorted, m)?)?;
     m.add_function(wrap_pyfunction!(split::sandwich_cat_cat, m)?)?;
     m.add_function(wrap_pyfunction!(split::sandwich_cat_dense, m)?)?;
+    m.add_function(wrap_pyfunction!(split::sandwich_cat_sparse, m)?)?;
     m.add_function(wrap_pyfunction!(split::split_col_subsets, m)?)?;
 
     Ok(())

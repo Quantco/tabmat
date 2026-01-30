@@ -2,6 +2,7 @@ import numpy as np
 from scipy import sparse as sps
 
 from .dense_matrix import DenseMatrix
+from .ext._ops import standardized_sandwich_correction
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .util import (
@@ -131,15 +132,7 @@ class StandardizedMatrix:
         if not hasattr(d, "dtype"):
             d = np.asarray(d)
         check_sandwich_compatible(self, d)
-        # stat_mat = mat * mult[newaxis, :] + shift[newaxis, :]
-        # stat_mat.T @ d[:, newaxis] * stat_mat
-        # = mult[:, newaxis] * mat.T @ d[:, newaxis] * mat * mult[newaxis, :] +   (1)
-        #   mult[:, newaxis] * mat.T @ d[:, newaxis] * np.outer(ones, shift) +    (2)
-        #   shift[:, newaxis] @ d[:, newaxis] * mat * mult[newaxis, :] +          (3)
-        #   shift[:, newaxis] @ d[:, newaxis] * shift[newaxis, :]                 (4)
-        #
-        # (1) = self.mat.sandwich(d) * np.outer(limited_mult, limited_mult)
-        # (2) = mult * self.transpose_matvec(d) * shift[newaxis, :]
+
         if rows is not None or cols is not None:
             setup_rows, setup_cols = setup_restrictions(self.shape, rows, cols)
             if rows is not None:
@@ -147,29 +140,43 @@ class StandardizedMatrix:
             if cols is not None:
                 cols = setup_cols
 
+        # Get base sandwich and transpose_matvec from underlying matrix
         term1 = self.mat.sandwich(d, rows, cols)
         d_mat = self.mat.transpose_matvec(d, rows, cols)
+
+        # Apply mult scaling to d_mat
+        limited_mult = None
         if self.mult is not None:
             limited_mult = self.mult[cols] if cols is not None else self.mult
-            d_mat *= limited_mult
-        term2 = np.outer(d_mat, self.shift[cols])
+            d_mat = d_mat * limited_mult
 
         limited_shift = self.shift[cols] if cols is not None else self.shift
         limited_d = d[rows] if rows is not None else d
-        term3 = np.outer(limited_shift, d_mat)
-        term4 = np.outer(limited_shift, limited_shift) * np.sum(limited_d)
-        res = term2 + term3 + term4
+        sum_d = float(np.sum(limited_d))
+
+        # Handle diagonal (categorical) vs dense base sandwich differently
         if isinstance(term1, sps.dia_matrix):
-            idx = np.arange(res.shape[0])
-            to_add = term1.data[0, :]
-            if self.mult is not None:
-                to_add *= limited_mult**2
-            res[idx, idx] += to_add
+            # Categorical sandwich returns diagonal matrix
+            # Build full result using Rust for the correction terms
+            n = len(limited_shift)
+            res = np.zeros((n, n), dtype=np.float64)
+            # Apply the standardization corrections (shift terms)
+            standardized_sandwich_correction(res, d_mat, limited_shift, None, sum_d)
+            # Add the diagonal term with mult scaling
+            idx = np.arange(n)
+            diag_vals = term1.data[0, :]
+            if limited_mult is not None:
+                diag_vals = diag_vals * (limited_mult**2)
+            res[idx, idx] += diag_vals
         else:
-            to_add = term1
-            if self.mult is not None:
-                to_add *= np.outer(limited_mult, limited_mult)
-            res += to_add
+            # Dense/sparse base sandwich - apply correction in-place
+            res = np.asarray(term1, dtype=np.float64, order="C")
+            if not res.flags["WRITEABLE"]:
+                res = res.copy()
+            standardized_sandwich_correction(
+                res, d_mat, limited_shift, limited_mult, sum_d
+            )
+
         return res
 
     def unstandardize(self) -> MatrixBase:

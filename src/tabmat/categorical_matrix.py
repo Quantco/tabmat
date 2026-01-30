@@ -178,6 +178,7 @@ from .ext._ops import (
     multiply_complex,
     sandwich_cat_cat,
     sandwich_cat_dense,
+    sandwich_cat_sparse,
     sandwich_categorical_complex,
     sandwich_categorical_fast,
     subset_categorical_complex,
@@ -828,11 +829,23 @@ class CategoricalMatrix(MatrixBase):
         L_cols: np.ndarray | None,
         R_cols: np.ndarray | None,
     ) -> np.ndarray:
-        term_1 = self.multiply(d)  # multiply will deal with drop_first
+        # Ensure other is in CSC format for efficient column access
+        if not sps.isspmatrix_csc(other):
+            other = other.tocsc()
 
-        term_1 = _row_col_indexing(term_1, rows, L_cols)
+        rows = set_up_rows_or_cols(rows, self.shape[0])
 
-        res = term_1.T.dot(_row_col_indexing(other, rows, R_cols)).toarray()
+        res = sandwich_cat_sparse(
+            self.indices,
+            self.shape[1],
+            d,
+            other,
+            rows,
+            L_cols,
+            R_cols,
+            has_missings=self._has_missings,
+            drop_first=self.drop_first,
+        )
         return res
 
     def multiply(self, other) -> SparseMatrix:

@@ -50,6 +50,9 @@ from .tabmat_ext import (
     matvec_fast as _rust_matvec_fast,
 )
 from .tabmat_ext import (
+    matvec_restricted as _rust_matvec_restricted,
+)
+from .tabmat_ext import (
     multiply_complex as _rust_multiply_complex,
 )
 from .tabmat_ext import (
@@ -57,6 +60,9 @@ from .tabmat_ext import (
 )
 from .tabmat_ext import (
     sandwich_cat_dense as _rust_sandwich_cat_dense,
+)
+from .tabmat_ext import (
+    sandwich_cat_sparse as _rust_sandwich_cat_sparse,
 )
 from .tabmat_ext import (
     sandwich_categorical_complex as _rust_sandwich_categorical_complex,
@@ -74,13 +80,25 @@ from .tabmat_ext import (
     split_col_subsets as _rust_split_col_subsets,
 )
 from .tabmat_ext import (
+    standardized_sandwich_correction as _rust_standardized_sandwich_correction,
+)
+from .tabmat_ext import (
     subset_categorical_complex as _rust_subset_categorical_complex,
 )
 from .tabmat_ext import (
     transpose_matvec_complex as _rust_transpose_matvec_complex,
 )
 from .tabmat_ext import (
+    transpose_matvec_complex_rows as _rust_transpose_matvec_complex_rows,
+)
+from .tabmat_ext import (
     transpose_matvec_fast as _rust_transpose_matvec_fast,
+)
+from .tabmat_ext import (
+    transpose_matvec_fast_rows as _rust_transpose_matvec_fast_rows,
+)
+from .tabmat_ext import (
+    transpose_matvec_restricted as _rust_transpose_matvec_restricted,
 )
 
 # Dense functions with dtype conversion wrappers
@@ -140,6 +158,33 @@ def transpose_square_dot_weights(*args, **kwargs):
             f"transpose_square_dot_weights() takes 3, 4, or 5 arguments "
             f"but {len(args)} were given"
         )
+
+
+def standardized_sandwich_correction(base, d_mat, shift, mult, sum_d):
+    """Apply standardization corrections to a sandwich product in-place.
+
+    For a standardized matrix S[i,j] = mult[j] * X[i,j] + shift[j], this
+    computes the full sandwich S.T @ diag(d) @ S by correcting the base
+    sandwich X.T @ diag(d) @ X.
+
+    Parameters
+    ----------
+    base : ndarray
+        Base sandwich product (modified in-place)
+    d_mat : ndarray
+        mult * X.T @ d (already scaled by mult)
+    shift : ndarray
+        Shift values per column
+    mult : ndarray or None
+        Multiplier values per column (None = all 1s)
+    sum_d : float
+        Sum of weights
+    """
+    d_mat = np.asarray(d_mat, dtype=np.float64)
+    shift = np.asarray(shift, dtype=np.float64)
+    if mult is not None:
+        mult = np.asarray(mult, dtype=np.float64)
+    _rust_standardized_sandwich_correction(base, d_mat, shift, mult, sum_d)
 
 
 # Sparse functions with matrix object wrappers
@@ -236,14 +281,11 @@ def matvec_fast(indices, other, n_rows, cols, n_cols, out):
     if cols is None:
         result = _rust_matvec_fast(indices, other, n_rows)
     else:
-        result = np.zeros(n_rows, dtype=np.float64)
+        # Use Rust function with column restriction
         col_included = np.zeros(n_cols, dtype=np.int32)
         for col in cols:
             col_included[col] = 1
-        for i in range(n_rows):
-            col_idx = indices[i]
-            if col_included[col_idx]:
-                result[i] = other[col_idx]
+        result = _rust_matvec_restricted(indices, other, col_included, n_rows, False)
     out += result
 
 
@@ -254,42 +296,41 @@ def matvec_complex(indices, other, n_rows, cols, n_cols, out, drop_first):
             f"The first dimension of 'out' must be {n_rows}, but it is {out.shape[0]}."
         )
     other = np.asarray(other, dtype=np.float64)
-    result = _rust_matvec_complex(indices, other, n_rows, drop_first)
-    if cols is not None:
+    if cols is None:
+        result = _rust_matvec_complex(indices, other, n_rows, drop_first)
+    else:
+        # Use Rust function with column restriction
         col_included = np.zeros(n_cols, dtype=np.int32)
         for col in cols:
             col_included[col] = 1
-        for i in range(n_rows):
-            col_idx = indices[i] - (1 if drop_first else 0)
-            if col_idx >= 0 and not col_included[col_idx]:
-                result[i] = 0
+        result = _rust_matvec_restricted(
+            indices, other, col_included, n_rows, drop_first
+        )
     out += result
 
 
 def transpose_matvec_fast(indices, other, n_cols, dtype, rows, cols, out):
     """Compute categorical transpose-vector product (simple case)."""
+    other = np.asarray(other, dtype=np.float64)
     if rows is None and cols is None:
         result = _rust_transpose_matvec_fast(indices, other, n_cols)
     elif cols is None:
-        result = np.zeros(n_cols, dtype=dtype)
-        for row_idx in rows:
-            result[indices[row_idx]] += other[row_idx]
+        # Use Rust function with row restriction
+        rows = np.asarray(rows, dtype=np.int32)
+        result = _rust_transpose_matvec_fast_rows(indices, other, rows, n_cols)
     else:
-        result = np.zeros(n_cols, dtype=dtype)
+        # Use Rust function with row and column restrictions
         col_included = np.zeros(n_cols, dtype=np.int32)
         for col in cols:
             col_included[col] = 1
 
         if rows is None:
-            for row_idx in range(len(indices)):
-                col = indices[row_idx]
-                if col_included[col]:
-                    result[col] += other[row_idx]
+            rows = np.arange(len(indices), dtype=np.int32)
         else:
-            for row_idx in rows:
-                col = indices[row_idx]
-                if col_included[col]:
-                    result[col] += other[row_idx]
+            rows = np.asarray(rows, dtype=np.int32)
+        result = _rust_transpose_matvec_restricted(
+            indices, other, rows, col_included, n_cols, False
+        )
     out += result
 
 
@@ -297,30 +338,28 @@ def transpose_matvec_complex(
     indices, other, n_cols, dtype, rows, cols, out, drop_first
 ):
     """Compute categorical transpose-vector product (with drop_first)."""
+    other = np.asarray(other, dtype=np.float64)
     if rows is None and cols is None:
         result = _rust_transpose_matvec_complex(indices, other, n_cols, drop_first)
     elif cols is None:
-        result = np.zeros(n_cols, dtype=dtype)
-        for row_idx in rows:
-            col_idx = indices[row_idx] - (1 if drop_first else 0)
-            if col_idx >= 0:
-                result[col_idx] += other[row_idx]
+        # Use Rust function with row restriction
+        rows = np.asarray(rows, dtype=np.int32)
+        result = _rust_transpose_matvec_complex_rows(
+            indices, other, rows, n_cols, drop_first
+        )
     else:
-        result = np.zeros(n_cols, dtype=dtype)
+        # Use Rust function with row and column restrictions
         col_included = np.zeros(n_cols, dtype=np.int32)
         for col in cols:
             col_included[col] = 1
 
         if rows is None:
-            for row_idx in range(len(indices)):
-                col_idx = indices[row_idx] - (1 if drop_first else 0)
-                if col_idx >= 0 and col_included[col_idx]:
-                    result[col_idx] += other[row_idx]
+            rows = np.arange(len(indices), dtype=np.int32)
         else:
-            for row_idx in rows:
-                col_idx = indices[row_idx] - (1 if drop_first else 0)
-                if col_idx >= 0 and col_included[col_idx]:
-                    result[col_idx] += other[row_idx]
+            rows = np.asarray(rows, dtype=np.int32)
+        result = _rust_transpose_matvec_restricted(
+            indices, other, rows, col_included, n_cols, drop_first
+        )
     out += result
 
 
@@ -416,6 +455,74 @@ def sandwich_cat_dense(
     )
 
 
+def sandwich_cat_sparse(
+    cat_indices,
+    cat_ncol,
+    d,
+    sparse_csc,
+    rows=None,
+    L_cols=None,
+    R_cols=None,
+    has_missings=False,
+    drop_first=False,
+):
+    """Compute cross sandwich for categorical and sparse (CSC) matrices.
+
+    Computes: Cat.T @ diag(d) @ Sparse
+
+    Parameters
+    ----------
+    cat_indices : ndarray
+        Category indices for the categorical matrix
+    cat_ncol : int
+        Number of categories
+    d : ndarray
+        Diagonal weight vector
+    sparse_csc : csc_matrix
+        Sparse matrix in CSC format
+    rows : ndarray, optional
+        Row indices to include
+    L_cols : ndarray, optional
+        Categorical column indices to include
+    R_cols : ndarray, optional
+        Sparse column indices to include
+    has_missings : bool
+        Whether categorical matrix has missing values
+    drop_first : bool
+        Whether to drop first category
+
+    Returns
+    -------
+    ndarray
+        Dense result matrix
+    """
+    d = np.asarray(d, dtype=np.float64)
+    sparse_data = np.asarray(sparse_csc.data, dtype=np.float64)
+    sparse_indices = np.asarray(sparse_csc.indices, dtype=np.int32)
+    sparse_indptr = np.asarray(sparse_csc.indptr, dtype=np.int32)
+
+    if rows is not None:
+        rows = np.asarray(rows, dtype=np.int32)
+    if L_cols is not None:
+        L_cols = np.asarray(L_cols, dtype=np.int32)
+    if R_cols is not None:
+        R_cols = np.asarray(R_cols, dtype=np.int32)
+
+    return _rust_sandwich_cat_sparse(
+        cat_indices,
+        cat_ncol,
+        d,
+        sparse_data,
+        sparse_indices,
+        sparse_indptr,
+        rows,
+        L_cols,
+        R_cols,
+        has_missings,
+        drop_first,
+    )
+
+
 def split_col_subsets(self, cols):
     """Split column subsets for split matrix operations."""
     return _rust_split_col_subsets(self.indices, cols)
@@ -426,6 +533,7 @@ __all__ = [
     "dense_rmatvec",
     "dense_matvec",
     "transpose_square_dot_weights",
+    "standardized_sandwich_correction",
     "sparse_sandwich",
     "csr_matvec_unrestricted",
     "csr_matvec",
@@ -445,5 +553,6 @@ __all__ = [
     "is_sorted",
     "sandwich_cat_cat",
     "sandwich_cat_dense",
+    "sandwich_cat_sparse",
     "split_col_subsets",
 ]

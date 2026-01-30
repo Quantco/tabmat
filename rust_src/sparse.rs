@@ -442,31 +442,9 @@ pub fn transpose_square_dot_weights<'py>(
 
 /// Computes mixed CSR-dense sandwich product: `A.T @ diag(d) @ B`.
 ///
-/// This operation is used when one component of a split matrix is sparse (A)
-/// and another is dense (B). Common in GLM fitting with mixed feature types.
-///
 /// The output `out[i, j] = sum_k A[k, a_cols[i]] * d[k] * B[k, b_cols[j]]`
 ///
-/// # Arguments
-///
-/// * `a_data`, `a_indices`, `a_indptr` - CSR format sparse matrix A
-/// * `b` - Dense matrix B (row-major, C-contiguous)
-/// * `d` - Diagonal weight vector
-/// * `rows` - Row indices to include
-/// * `a_cols` - Column indices for A (determines output rows)
-/// * `b_cols` - Column indices for B (determines output columns)
-///
-/// # Returns
-///
-/// Dense matrix of shape (len(a_cols), len(b_cols)).
-///
-/// # Performance
-///
-/// Uses BLIS-style blocking with:
-/// - Parallel k-blocks (128 rows per block) for row-wise parallelism
-/// - J-blocks (128 columns) for cache locality on B
-/// - Per-thread accumulation buffers to avoid synchronization
-/// - SIMD vectorization (f64x4) for inner loops
+/// Uses k-parallel blocking with per-thread accumulation buffers.
 #[pyfunction]
 #[pyo3(signature = (a_data, a_indices, a_indptr, b, d, rows, a_cols, b_cols))]
 pub fn csr_dense_sandwich<'py>(
@@ -480,8 +458,6 @@ pub fn csr_dense_sandwich<'py>(
     a_cols: PyReadonlyArray1<i32>,
     b_cols: PyReadonlyArray1<i32>,
 ) -> Bound<'py, PyArray2<f64>> {
-    use wide::f64x4;
-
     let a_data_slice = a_data.as_slice().unwrap();
     let a_indices_slice = a_indices.as_slice().unwrap();
     let a_indptr_slice = a_indptr.as_slice().unwrap();
@@ -496,7 +472,6 @@ pub fn csr_dense_sandwich<'py>(
     let n_rows = rows_slice.len();
     let b_ncols = b_arr.ncols();
 
-    // Early return for empty inputs
     if n_rows == 0 || n_a_cols == 0 || n_b_cols == 0 {
         return PyArray2::zeros_bound(py, [n_a_cols, n_b_cols], false);
     }
@@ -505,131 +480,72 @@ pub fn csr_dense_sandwich<'py>(
     let max_a_col = a_cols_slice.iter().map(|&c| c as usize).max().unwrap_or(0);
     let mut a_col_map: Vec<i32> = vec![-1; max_a_col + 1];
     for (ci, &col) in a_cols_slice.iter().enumerate() {
-        unsafe { *a_col_map.get_unchecked_mut(col as usize) = ci as i32; }
+        a_col_map[col as usize] = ci as i32;
     }
 
     // Pre-convert b_cols to usize for indexing
     let b_cols_usize: Vec<usize> = b_cols_slice.iter().map(|&c| c as usize).collect();
 
-    // Blocking parameters (matching C++)
     const KBLOCK: usize = 128;
     const JBLOCK: usize = 128;
 
     let n_kblocks = (n_rows + KBLOCK - 1) / KBLOCK;
     let out_size = n_a_cols * n_b_cols;
 
-    // Get B as contiguous slice - required for fast path
     let b_slice = b_arr.as_slice().expect("B must be contiguous");
 
     // Parallel fold over k-blocks with per-thread accumulation
-    // Each thread gets its own out_local AND r_block buffer (no per-j-block allocation)
     let result = (0..n_kblocks)
         .into_par_iter()
         .fold(
-            || {
-                // Allocate both buffers once per thread, not per iteration
-                (vec![0.0f64; out_size], vec![0.0f64; KBLOCK * JBLOCK])
-            },
+            || (vec![0.0f64; out_size], vec![0.0f64; KBLOCK * JBLOCK]),
             |(mut out_local, mut r_block), kb| {
                 let k_start = kb * KBLOCK;
                 let k_end = (k_start + KBLOCK).min(n_rows);
                 let k_size = k_end - k_start;
 
-                // Process j-blocks for better cache locality
+                // Process j-blocks for cache locality
                 for jb_start in (0..n_b_cols).step_by(JBLOCK) {
                     let jb_end = (jb_start + JBLOCK).min(n_b_cols);
                     let j_size = jb_end - jb_start;
 
-                    // Pre-compute R[k_local, j_local] = d[row_k] * B[row_k, B_cols[j]]
-                    // Reuse r_block buffer (just overwrite, no need to zero)
-                    unsafe {
-                        for k_local in 0..k_size {
-                            let k_idx = k_start + k_local;
-                            let row_k = *rows_slice.get_unchecked(k_idx) as usize;
-                            let d_k = *d_slice.get_unchecked(row_k);
-                            let b_row_start = row_k * b_ncols;
+                    // Pre-compute R[k_local, j_local] = d[row_k] * B[row_k, b_cols[j]]
+                    for k_local in 0..k_size {
+                        let row_k = rows_slice[k_start + k_local] as usize;
+                        let d_k = d_slice[row_k];
+                        let b_row_start = row_k * b_ncols;
+                        let r_row_start = k_local * j_size;
 
-                            let r_row_start = k_local * j_size;
-                            for j_local in 0..j_size {
-                                let b_col = *b_cols_usize.get_unchecked(jb_start + j_local);
-                                *r_block.get_unchecked_mut(r_row_start + j_local) =
-                                    d_k * *b_slice.get_unchecked(b_row_start + b_col);
-                            }
+                        for j_local in 0..j_size {
+                            let b_col = b_cols_usize[jb_start + j_local];
+                            r_block[r_row_start + j_local] = d_k * b_slice[b_row_start + b_col];
                         }
                     }
 
-                    // Now iterate over rows in this k-block and scatter A values
-                    unsafe {
-                        for k_local in 0..k_size {
-                            let k_idx = k_start + k_local;
-                            let row_k = *rows_slice.get_unchecked(k_idx) as usize;
-                            let a_start = *a_indptr_slice.get_unchecked(row_k) as usize;
-                            let a_end = *a_indptr_slice.get_unchecked(row_k + 1) as usize;
-                            let r_row_start = k_local * j_size;
+                    // Scatter A values into output
+                    for k_local in 0..k_size {
+                        let row_k = rows_slice[k_start + k_local] as usize;
+                        let a_start = a_indptr_slice[row_k] as usize;
+                        let a_end = a_indptr_slice[row_k + 1] as usize;
+                        let r_row_start = k_local * j_size;
 
-                            // Iterate over sparse entries in A[row_k, :]
-                            for a_idx in a_start..a_end {
-                                let a_col = *a_indices_slice.get_unchecked(a_idx) as usize;
+                        for a_idx in a_start..a_end {
+                            let a_col = a_indices_slice[a_idx] as usize;
+                            if a_col > max_a_col {
+                                continue;
+                            }
+                            let ci = a_col_map[a_col];
+                            if ci < 0 {
+                                continue;
+                            }
+                            let ci = ci as usize;
 
-                                // Check if this column is in our output
-                                if a_col > max_a_col {
-                                    continue;
-                                }
-                                let ci = *a_col_map.get_unchecked(a_col);
-                                if ci < 0 {
-                                    continue;
-                                }
-                                let ci = ci as usize;
+                            let a_val = a_data_slice[a_idx];
+                            let out_row_start = ci * n_b_cols + jb_start;
 
-                                let a_val = *a_data_slice.get_unchecked(a_idx);
-                                let out_row_start = ci * n_b_cols + jb_start;
-
-                                // SIMD inner loop: process 4 elements at a time
-                                let a_val_simd = f64x4::splat(a_val);
-                                let mut j_local = 0usize;
-
-                                // SIMD loop for 4 elements at a time
-                                while j_local + 4 <= j_size {
-                                    let r_idx = r_row_start + j_local;
-                                    let out_idx = out_row_start + j_local;
-
-                                    // Load r_block values
-                                    let r_vals = f64x4::new([
-                                        *r_block.get_unchecked(r_idx),
-                                        *r_block.get_unchecked(r_idx + 1),
-                                        *r_block.get_unchecked(r_idx + 2),
-                                        *r_block.get_unchecked(r_idx + 3),
-                                    ]);
-
-                                    // Load current output values
-                                    let out_vals = f64x4::new([
-                                        *out_local.get_unchecked(out_idx),
-                                        *out_local.get_unchecked(out_idx + 1),
-                                        *out_local.get_unchecked(out_idx + 2),
-                                        *out_local.get_unchecked(out_idx + 3),
-                                    ]);
-
-                                    // FMA: out += a_val * r
-                                    let result = a_val_simd.mul_add(r_vals, out_vals);
-                                    let result_arr = result.to_array();
-
-                                    // Store back
-                                    *out_local.get_unchecked_mut(out_idx) = result_arr[0];
-                                    *out_local.get_unchecked_mut(out_idx + 1) = result_arr[1];
-                                    *out_local.get_unchecked_mut(out_idx + 2) = result_arr[2];
-                                    *out_local.get_unchecked_mut(out_idx + 3) = result_arr[3];
-
-                                    j_local += 4;
-                                }
-
-                                // Scalar cleanup for remaining elements
-                                while j_local < j_size {
-                                    let r_idx = r_row_start + j_local;
-                                    let out_idx = out_row_start + j_local;
-                                    *out_local.get_unchecked_mut(out_idx) +=
-                                        a_val * *r_block.get_unchecked(r_idx);
-                                    j_local += 1;
-                                }
+                            for j_local in 0..j_size {
+                                out_local[out_row_start + j_local] +=
+                                    a_val * r_block[r_row_start + j_local];
                             }
                         }
                     }
@@ -642,41 +558,13 @@ pub fn csr_dense_sandwich<'py>(
         .reduce(
             || vec![0.0f64; out_size],
             |mut a, b| {
-                // SIMD reduction
-                let mut i = 0;
-                while i + 4 <= out_size {
-                    unsafe {
-                        let a_vals = f64x4::new([
-                            *a.get_unchecked(i),
-                            *a.get_unchecked(i + 1),
-                            *a.get_unchecked(i + 2),
-                            *a.get_unchecked(i + 3),
-                        ]);
-                        let b_vals = f64x4::new([
-                            *b.get_unchecked(i),
-                            *b.get_unchecked(i + 1),
-                            *b.get_unchecked(i + 2),
-                            *b.get_unchecked(i + 3),
-                        ]);
-                        let sum = a_vals + b_vals;
-                        let sum_arr = sum.to_array();
-                        *a.get_unchecked_mut(i) = sum_arr[0];
-                        *a.get_unchecked_mut(i + 1) = sum_arr[1];
-                        *a.get_unchecked_mut(i + 2) = sum_arr[2];
-                        *a.get_unchecked_mut(i + 3) = sum_arr[3];
-                    }
-                    i += 4;
-                }
-                // Scalar cleanup
-                while i < out_size {
-                    unsafe { *a.get_unchecked_mut(i) += *b.get_unchecked(i); }
-                    i += 1;
+                for (ai, bi) in a.iter_mut().zip(b.iter()) {
+                    *ai += bi;
                 }
                 a
             },
         );
 
-    // Create output array directly without intermediate Vec<Vec>
     let out_arr = PyArray2::zeros_bound(py, [n_a_cols, n_b_cols], false);
     unsafe {
         let mut arr_view = out_arr.as_array_mut();

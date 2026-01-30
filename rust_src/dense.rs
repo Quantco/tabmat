@@ -13,22 +13,18 @@
 //!
 //! # Performance Strategy
 //!
-//! The sandwich product uses a hybrid approach:
-//! - **BLAS dsyrk** for square-ish matrices (exploits symmetry, highly optimized)
-//! - **BLIS-style blocking** with true k-parallelism for tall matrices
+//! The sandwich product uses k-parallel BLAS dsyrk with blocking:
+//! - Rows are divided into k-blocks of size KRATIO × THRESH1D (512 rows)
+//! - Each k-block builds a scaled submatrix and uses BLAS dsyrk
+//! - Results are accumulated using parallel fold/reduce
 //!
 //! The blocking parameters follow BLIS conventions:
 //! - `THRESH1D`: Block size for output dimensions (32)
 //! - `KRATIO`: Multiplier for k-dimension blocking (16)
-//! - `INNERBLOCK`: Register blocking size (128)
-//!
-//! SIMD vectorization using `f64x4` (4-wide double precision) is applied to
-//! inner loops where applicable.
 
 use numpy::{PyArray1, PyArray2, PyReadonlyArray1, PyReadonlyArray2};
 use pyo3::prelude::*;
 use rayon::prelude::*;
-use wide::f64x4;
 
 /// Computes the dense sandwich product: `X.T @ diag(d) @ X`.
 ///
@@ -39,7 +35,7 @@ use wide::f64x4;
 /// # Arguments
 ///
 /// * `x` - Input matrix X (n_total_rows × n_total_cols)
-/// * `d` - Diagonal weight vector (length n_total_rows)
+/// * `d` - Diagonal weight vector (length n_total_rows), may contain negative values
 /// * `rows` - Row indices to include in the computation
 /// * `cols` - Column indices to include in the computation
 ///
@@ -47,10 +43,12 @@ use wide::f64x4;
 ///
 /// A symmetric matrix of shape (len(cols), len(cols)) containing the sandwich product.
 ///
-/// # Algorithm Selection
+/// # Algorithm
 ///
-/// - For square-ish matrices (n_rows ≥ 500, n_cols ≥ 10): Uses BLAS dsyrk
-/// - For very tall matrices (n_rows > 100 × n_cols): Uses k-parallel BLIS blocking
+/// Uses k-parallel BLAS dsyrk with blocking. Rows are divided into k-blocks,
+/// each block builds a scaled submatrix and uses BLAS dsyrk, then results
+/// are accumulated using parallel fold/reduce. Negative weights are handled
+/// by partitioning into positive/negative contributions.
 #[pyfunction]
 #[pyo3(signature = (x, d, rows, cols))]
 pub fn dense_sandwich<'py>(
@@ -77,62 +75,25 @@ pub fn dense_sandwich<'py>(
     let is_c_order = strides[1] == 1;
     let (n_total_rows, n_total_cols) = (x_arr.nrows(), x_arr.ncols());
 
-    // Decision logic for tall vs square-ish matrices:
-    // - Tall matrices (large in_n, small out_m): use BLIS with true k-parallelism
-    // - Square-ish matrices: use BLAS dsyrk
-    //
-    // For tall matrices, the output is small enough (out_m^2) that we can afford
-    // one output buffer per k-block, enabling true parallel accumulation.
-    // Threshold: if in_n / out_m > 100 (very tall), use BLIS k-parallel
-    let is_tall = in_n > 100 * out_m && out_m <= 200;
-
-    // Check if any weights are negative - BLAS dsyrk uses sqrt(d) which produces NaN
-    // for negative values. Use signed BLAS approach that handles negative weights by
-    // splitting into positive and negative contributions.
+    // Check if any weights are negative
     let has_negative_weights = rows_slice.iter().any(|&r| d_slice[r as usize] < 0.0);
 
-    // For non-tall matrices, use BLAS dsyrk path
-    if !is_tall && in_n >= 500 && out_m >= 10 {
-        if has_negative_weights {
-            return dense_sandwich_blas_signed(py, &x_arr, d_slice, rows_slice, cols_slice);
-        } else {
-            return dense_sandwich_blas(py, &x_arr, d_slice, rows_slice, cols_slice);
-        }
-    }
-
-    // Use appropriate approach based on matrix shape and weight signs
     let mut out = vec![0.0f64; out_m * out_m];
 
     if is_c_order {
         if let Some(x_slice) = x_arr.as_slice() {
-            if is_tall {
-                if has_negative_weights {
-                    // Tall matrix with negative weights: use signed tall path
-                    dense_sandwich_tall_signed_c(
-                        x_slice,
-                        d_slice,
-                        rows_slice,
-                        cols_slice,
-                        &mut out,
-                        n_total_cols,
-                        out_m,
-                    );
-                } else {
-                    // Tall matrix with positive weights: use standard tall path
-                    dense_sandwich_tall_c(
-                        x_slice,
-                        d_slice,
-                        rows_slice,
-                        cols_slice,
-                        &mut out,
-                        n_total_cols,
-                        in_n,
-                        out_m,
-                    );
-                }
+            if has_negative_weights {
+                dense_sandwich_tall_signed_c(
+                    x_slice,
+                    d_slice,
+                    rows_slice,
+                    cols_slice,
+                    &mut out,
+                    n_total_cols,
+                    out_m,
+                );
             } else {
-                // Non-tall, small matrix: use BLIS fallback
-                dense_sandwich_blis_c(
+                dense_sandwich_tall_c(
                     x_slice,
                     d_slice,
                     rows_slice,
@@ -146,31 +107,18 @@ pub fn dense_sandwich<'py>(
         }
     } else if let Some(x_slice) = x_arr.as_slice_memory_order() {
         // F-order: use as_slice_memory_order() which gives column-major data
-        if is_tall {
-            if has_negative_weights {
-                dense_sandwich_tall_signed_f(
-                    x_slice,
-                    d_slice,
-                    rows_slice,
-                    cols_slice,
-                    &mut out,
-                    n_total_rows,
-                    out_m,
-                );
-            } else {
-                dense_sandwich_tall_f(
-                    x_slice,
-                    d_slice,
-                    rows_slice,
-                    cols_slice,
-                    &mut out,
-                    n_total_rows,
-                    in_n,
-                    out_m,
-                );
-            }
+        if has_negative_weights {
+            dense_sandwich_tall_signed_f(
+                x_slice,
+                d_slice,
+                rows_slice,
+                cols_slice,
+                &mut out,
+                n_total_rows,
+                out_m,
+            );
         } else {
-            dense_sandwich_blis_f(
+            dense_sandwich_tall_f(
                 x_slice,
                 d_slice,
                 rows_slice,
@@ -197,239 +145,18 @@ pub fn dense_sandwich<'py>(
     PyArray2::from_vec2_bound(py, &out_2d).unwrap()
 }
 
-/// BLAS-accelerated dense sandwich for square-ish matrices.
-///
-/// Uses BLAS `dsyrk` (symmetric rank-k update) which is highly optimized for
-/// computing `A.T @ A` style products. The input is pre-scaled by `sqrt(d)`
-/// so that `dsyrk(X_scaled)` computes `X.T @ diag(d) @ X`.
-fn dense_sandwich_blas<'py>(
-    py: Python<'py>,
-    x_arr: &ndarray::ArrayView2<f64>,
-    d_slice: &[f64],
-    rows_slice: &[i32],
-    cols_slice: &[i32],
-) -> Bound<'py, PyArray2<f64>> {
-    let n_rows = rows_slice.len();
-    let out_m = cols_slice.len();
-
-    let mut x_sub = vec![0.0; n_rows * out_m];
-    let cols: Vec<usize> = cols_slice.iter().map(|&c| c as usize).collect();
-
-    if let Some(x_slice) = x_arr.as_slice() {
-        let n_total_cols = x_arr.ncols();
-        x_sub
-            .par_chunks_mut(out_m)
-            .enumerate()
-            .for_each(|(i, out_row)| {
-                let row_idx = rows_slice[i] as usize;
-                let d_sqrt = d_slice[row_idx].sqrt();
-                let row_offset = row_idx * n_total_cols;
-                for (j, &col_j) in cols.iter().enumerate() {
-                    out_row[j] = x_slice[row_offset + col_j] * d_sqrt;
-                }
-            });
-    } else {
-        for (i, &row_i) in rows_slice.iter().enumerate() {
-            let row_idx = row_i as usize;
-            let d_sqrt = d_slice[row_idx].sqrt();
-            let out_offset = i * out_m;
-            for (j, &col_j) in cols.iter().enumerate() {
-                x_sub[out_offset + j] = x_arr[[row_idx, col_j]] * d_sqrt;
-            }
-        }
-    }
-
-    let mut result = vec![0.0; out_m * out_m];
-
-    unsafe {
-        cblas_sys::cblas_dsyrk(
-            cblas_sys::CBLAS_LAYOUT::CblasRowMajor,
-            cblas_sys::CBLAS_UPLO::CblasUpper,
-            cblas_sys::CBLAS_TRANSPOSE::CblasTrans,
-            out_m as i32,
-            n_rows as i32,
-            1.0,
-            x_sub.as_ptr(),
-            out_m as i32,
-            0.0,
-            result.as_mut_ptr(),
-            out_m as i32,
-        );
-    }
-
-    // Fill lower triangle from upper
-    for i in 0..out_m {
-        for j in (i + 1)..out_m {
-            result[j * out_m + i] = result[i * out_m + j];
-        }
-    }
-
-    let out_2d: Vec<Vec<f64>> = (0..out_m)
-        .map(|i| result[i * out_m..(i + 1) * out_m].to_vec())
-        .collect();
-
-    PyArray2::from_vec2_bound(py, &out_2d).unwrap()
-}
-
-/// BLAS-accelerated dense sandwich that handles negative weights.
-///
-/// Uses the identity: X.T @ diag(d) @ X = X_pos.T @ X_pos - X_neg.T @ X_neg
-/// where X_pos contains rows scaled by sqrt(d) for positive d,
-/// and X_neg contains rows scaled by sqrt(-d) for negative d.
-///
-/// This allows using fast BLAS dsyrk for both contributions.
-fn dense_sandwich_blas_signed<'py>(
-    py: Python<'py>,
-    x_arr: &ndarray::ArrayView2<f64>,
-    d_slice: &[f64],
-    rows_slice: &[i32],
-    cols_slice: &[i32],
-) -> Bound<'py, PyArray2<f64>> {
-    let out_m = cols_slice.len();
-    let cols: Vec<usize> = cols_slice.iter().map(|&c| c as usize).collect();
-
-    // Partition rows into positive and negative weight sets
-    let mut pos_rows: Vec<i32> = Vec::new();
-    let mut neg_rows: Vec<i32> = Vec::new();
-    for &r in rows_slice {
-        if d_slice[r as usize] >= 0.0 {
-            pos_rows.push(r);
-        } else {
-            neg_rows.push(r);
-        }
-    }
-
-    let n_pos = pos_rows.len();
-    let n_neg = neg_rows.len();
-
-    // Build scaled matrices for positive and negative contributions
-    let mut x_pos = vec![0.0; n_pos * out_m];
-    let mut x_neg = vec![0.0; n_neg * out_m];
-
-    if let Some(x_slice) = x_arr.as_slice() {
-        let n_total_cols = x_arr.ncols();
-
-        // Fill positive rows: scale by sqrt(d)
-        x_pos
-            .par_chunks_mut(out_m)
-            .enumerate()
-            .for_each(|(i, out_row)| {
-                let row_idx = pos_rows[i] as usize;
-                let d_sqrt = d_slice[row_idx].sqrt();
-                let row_offset = row_idx * n_total_cols;
-                for (j, &col_j) in cols.iter().enumerate() {
-                    out_row[j] = x_slice[row_offset + col_j] * d_sqrt;
-                }
-            });
-
-        // Fill negative rows: scale by sqrt(-d)
-        x_neg
-            .par_chunks_mut(out_m)
-            .enumerate()
-            .for_each(|(i, out_row)| {
-                let row_idx = neg_rows[i] as usize;
-                let d_sqrt = (-d_slice[row_idx]).sqrt();
-                let row_offset = row_idx * n_total_cols;
-                for (j, &col_j) in cols.iter().enumerate() {
-                    out_row[j] = x_slice[row_offset + col_j] * d_sqrt;
-                }
-            });
-    } else {
-        // Fallback for non-contiguous arrays
-        for (i, row_i) in pos_rows.iter().enumerate() {
-            let row_idx = *row_i as usize;
-            let d_sqrt = d_slice[row_idx].sqrt();
-            let out_offset = i * out_m;
-            for (j, &col_j) in cols.iter().enumerate() {
-                x_pos[out_offset + j] = x_arr[[row_idx, col_j]] * d_sqrt;
-            }
-        }
-        for (i, row_i) in neg_rows.iter().enumerate() {
-            let row_idx = *row_i as usize;
-            let d_sqrt = (-d_slice[row_idx]).sqrt();
-            let out_offset = i * out_m;
-            for (j, &col_j) in cols.iter().enumerate() {
-                x_neg[out_offset + j] = x_arr[[row_idx, col_j]] * d_sqrt;
-            }
-        }
-    }
-
-    let mut result = vec![0.0; out_m * out_m];
-
-    // Add positive contribution: result += X_pos.T @ X_pos
-    if n_pos > 0 {
-        unsafe {
-            cblas_sys::cblas_dsyrk(
-                cblas_sys::CBLAS_LAYOUT::CblasRowMajor,
-                cblas_sys::CBLAS_UPLO::CblasUpper,
-                cblas_sys::CBLAS_TRANSPOSE::CblasTrans,
-                out_m as i32,
-                n_pos as i32,
-                1.0, // alpha = 1.0 (add)
-                x_pos.as_ptr(),
-                out_m as i32,
-                0.0, // beta = 0.0 (first call)
-                result.as_mut_ptr(),
-                out_m as i32,
-            );
-        }
-    }
-
-    // Subtract negative contribution: result -= X_neg.T @ X_neg
-    if n_neg > 0 {
-        unsafe {
-            cblas_sys::cblas_dsyrk(
-                cblas_sys::CBLAS_LAYOUT::CblasRowMajor,
-                cblas_sys::CBLAS_UPLO::CblasUpper,
-                cblas_sys::CBLAS_TRANSPOSE::CblasTrans,
-                out_m as i32,
-                n_neg as i32,
-                -1.0,                              // alpha = -1.0 (subtract)
-                x_neg.as_ptr(),
-                out_m as i32,
-                if n_pos > 0 { 1.0 } else { 0.0 }, // beta: accumulate if pos exists
-                result.as_mut_ptr(),
-                out_m as i32,
-            );
-        }
-    }
-
-    // Fill lower triangle from upper
-    for i in 0..out_m {
-        for j in (i + 1)..out_m {
-            result[j * out_m + i] = result[i * out_m + j];
-        }
-    }
-
-    let out_2d: Vec<Vec<f64>> = (0..out_m)
-        .map(|i| result[i * out_m..(i + 1) * out_m].to_vec())
-        .collect();
-
-    PyArray2::from_vec2_bound(py, &out_2d).unwrap()
-}
-
 // =============================================================================
-// BLIS-style blocking parameters
+// K-parallel blocking parameters
 // =============================================================================
-// These parameters control cache-blocking behavior and match the C++ defaults.
-// See: "BLIS: A Framework for Rapidly Instantiating BLAS Functionality"
 
-/// Block size for output matrix dimensions (i and j loops).
-/// Small enough to fit L1 cache, large enough to amortize loop overhead.
+/// Block size for output matrix dimensions.
 const THRESH1D: usize = 32;
 
 /// Ratio of k-dimension block size to output block size.
 /// k-blocks are KRATIO × THRESH1D = 512 rows.
 const KRATIO: usize = 16;
 
-/// Register blocking size for innermost loops.
-/// Controls micro-kernel tile size for better instruction-level parallelism.
-const INNERBLOCK: usize = 128;
-
-/// SIMD vector width for f64 operations (f64x4 = 4 doubles = 256 bits).
-const SIMD_WIDTH: usize = 4;
-
-/// Optimized dense sandwich for tall matrices (C-order) with true k-parallelism.
+/// K-parallel dense sandwich for C-order matrices.
 /// Uses BLAS dsyrk for each k-block, with parallel fold/reduce.
 fn dense_sandwich_tall_c(
     x: &[f64],
@@ -856,517 +583,6 @@ fn dense_sandwich_tall_f_inner(
     out[..out_size].copy_from_slice(&result);
 }
 
-/// BLIS-style dense sandwich for C-ordered (row-major) matrices.
-///
-/// Dynamically chooses between k-parallel and i-parallel strategies based on
-/// matrix shape. For tall matrices (many rows, few columns), k-parallelism
-/// is more efficient. For square-ish matrices, i-parallelism is preferred.
-fn dense_sandwich_blis_c(
-    x: &[f64],
-    d: &[f64],
-    rows: &[i32],
-    cols: &[i32],
-    out: &mut [f64],
-    m: usize, // total columns in X (stride)
-    in_n: usize,
-    out_m: usize,
-) {
-    let kblock = KRATIO * THRESH1D;
-
-    // Decide parallelization strategy based on matrix shape
-    // For tall matrices (many rows, few cols): parallelize k dimension
-    // For wide matrices: parallelize i dimension
-    let kparallel = (in_n / kblock) > (out_m / THRESH1D);
-
-    // Pre-convert cols to usize
-    let cols_usize: Vec<usize> = cols.iter().map(|&c| c as usize).collect();
-
-    // Process j-blocks (outer loop)
-    for cj in (0..out_m).step_by(kblock) {
-        let cjmax = (cj + kblock).min(out_m);
-
-        if kparallel {
-            // K-parallel: parallelize over k-blocks, need atomic updates or per-thread buffers
-            dense_sandwich_k_parallel_c(
-                x, d, rows, &cols_usize, out, m, in_n, out_m, cj, cjmax,
-            );
-        } else {
-            // I-parallel: parallelize over i-blocks
-            dense_sandwich_i_parallel_c(
-                x, d, rows, &cols_usize, out, m, in_n, out_m, cj, cjmax,
-            );
-        }
-    }
-}
-
-/// K-parallel version for tall matrices (C-order)
-/// Processes k-blocks sequentially but parallelizes inner i-blocks
-fn dense_sandwich_k_parallel_c(
-    x: &[f64],
-    d: &[f64],
-    rows: &[i32],
-    cols: &[usize],
-    out: &mut [f64],
-    m: usize,
-    in_n: usize,
-    out_m: usize,
-    cj: usize,
-    cjmax: usize,
-) {
-    let kblock = KRATIO * THRESH1D;
-    let jblock_size = cjmax - cj;
-
-    // Process k-blocks sequentially
-    for rk in (0..in_n).step_by(kblock) {
-        let rkmax = (rk + kblock).min(in_n);
-        let k_size = rkmax - rk;
-
-        // Allocate R buffer: [j_local][k_local]
-        let mut r_buf = vec![0.0f64; jblock_size * kblock];
-
-        // Fill R: R[j][k] = d[row] * X[row, col_j]
-        for cjj in cj..cjmax {
-            let jj = cols[cjj];
-            let r_col = &mut r_buf[(cjj - cj) * kblock..];
-            for (k_local, rkk) in (rk..rkmax).enumerate() {
-                let kk = rows[rkk] as usize;
-                r_col[k_local] = d[kk] * x[kk * m + jj];
-            }
-        }
-
-        // Parallel over i-blocks, collect partial results
-        let i_block_results: Vec<(usize, usize, Vec<f64>)> = (cj..out_m)
-            .into_par_iter()
-            .step_by(THRESH1D)
-            .map(|ci| {
-                let cimax = (ci + THRESH1D).min(out_m);
-                let i_size = cimax - ci;
-
-                // Allocate L buffer: [i_local][k_local]
-                let mut l_buf = vec![0.0f64; THRESH1D * kblock];
-
-                // Fill L: L[i][k] = X[row, col_i]
-                for cii in ci..cimax {
-                    let ii = cols[cii];
-                    let l_row = &mut l_buf[(cii - ci) * kblock..];
-                    for (k_local, rkk) in (rk..rkmax).enumerate() {
-                        let kk = rows[rkk] as usize;
-                        l_row[k_local] = x[kk * m + ii];
-                    }
-                }
-
-                // Compute local block result
-                let mut local_out = vec![0.0f64; i_size * jblock_size];
-                dense_base_kernel_local(
-                    &r_buf,
-                    &l_buf,
-                    &mut local_out,
-                    jblock_size,
-                    0,
-                    i_size,
-                    0,
-                    jblock_size,
-                    k_size,
-                    kblock,
-                );
-
-                (ci, cimax, local_out)
-            })
-            .collect();
-
-        // Accumulate results into output
-        for (ci, cimax, local_out) in i_block_results {
-            for (i_local, cii) in (ci..cimax).enumerate() {
-                for (j_local, cjj) in (cj..cjmax).enumerate() {
-                    out[cii * out_m + cjj] += local_out[i_local * jblock_size + j_local];
-                }
-            }
-        }
-    }
-}
-
-/// I-parallel version for wide matrices (C-order)
-fn dense_sandwich_i_parallel_c(
-    x: &[f64],
-    d: &[f64],
-    rows: &[i32],
-    cols: &[usize],
-    out: &mut [f64],
-    m: usize,
-    in_n: usize,
-    out_m: usize,
-    cj: usize,
-    cjmax: usize,
-) {
-    let kblock = KRATIO * THRESH1D;
-    let jblock_size = cjmax - cj;
-
-    // Process k-blocks sequentially
-    for rk in (0..in_n).step_by(kblock) {
-        let rkmax = (rk + kblock).min(in_n);
-        let k_size = rkmax - rk;
-
-        // Shared R buffer for all threads: [j_local][k_local]
-        let mut r_buf = vec![0.0f64; jblock_size * kblock];
-
-        // Fill R in parallel over j
-        r_buf
-            .par_chunks_mut(kblock)
-            .enumerate()
-            .for_each(|(j_local, r_col)| {
-                let cjj = cj + j_local;
-                if cjj < cjmax {
-                    let jj = cols[cjj];
-                    for (k_local, rkk) in (rk..rkmax).enumerate() {
-                        let kk = rows[rkk] as usize;
-                        r_col[k_local] = d[kk] * x[kk * m + jj];
-                    }
-                }
-            });
-
-        // Parallel over i-blocks
-        let i_block_results: Vec<(usize, usize, Vec<f64>)> = (cj..out_m)
-            .into_par_iter()
-            .step_by(THRESH1D)
-            .map(|ci| {
-                let cimax = (ci + THRESH1D).min(out_m);
-                let i_size = cimax - ci;
-
-                // Local L buffer for this i-block
-                let mut l_buf = vec![0.0f64; THRESH1D * kblock];
-
-                // Fill L
-                for cii in ci..cimax {
-                    let ii = cols[cii];
-                    let l_row = &mut l_buf[(cii - ci) * kblock..];
-                    for (k_local, rkk) in (rk..rkmax).enumerate() {
-                        let kk = rows[rkk] as usize;
-                        l_row[k_local] = x[kk * m + ii];
-                    }
-                }
-
-                // Compute local block result
-                let mut local_out = vec![0.0f64; i_size * jblock_size];
-                dense_base_kernel_local(
-                    &r_buf,
-                    &l_buf,
-                    &mut local_out,
-                    jblock_size,
-                    0,
-                    i_size,
-                    0,
-                    jblock_size,
-                    k_size,
-                    kblock,
-                );
-
-                (ci, cimax, local_out)
-            })
-            .collect();
-
-        // Accumulate results into output
-        for (ci, cimax, local_out) in i_block_results {
-            for (i_local, cii) in (ci..cimax).enumerate() {
-                for (j_local, cjj) in (cj..cjmax).enumerate() {
-                    out[cii * out_m + cjj] += local_out[i_local * jblock_size + j_local];
-                }
-            }
-        }
-    }
-}
-
-/// BLIS-style dense sandwich for F-ordered (column-major) matrices
-fn dense_sandwich_blis_f(
-    x: &[f64],
-    d: &[f64],
-    rows: &[i32],
-    cols: &[i32],
-    out: &mut [f64],
-    n: usize, // total rows in X (stride for F-order)
-    in_n: usize,
-    out_m: usize,
-) {
-    let kblock = KRATIO * THRESH1D;
-    let kparallel = (in_n / kblock) > (out_m / THRESH1D);
-    let cols_usize: Vec<usize> = cols.iter().map(|&c| c as usize).collect();
-
-    for cj in (0..out_m).step_by(kblock) {
-        let cjmax = (cj + kblock).min(out_m);
-
-        if kparallel {
-            dense_sandwich_k_parallel_f(x, d, rows, &cols_usize, out, n, in_n, out_m, cj, cjmax);
-        } else {
-            dense_sandwich_i_parallel_f(x, d, rows, &cols_usize, out, n, in_n, out_m, cj, cjmax);
-        }
-    }
-}
-
-/// K-parallel version for tall matrices (F-order)
-/// Processes k-blocks sequentially but parallelizes inner i-blocks
-fn dense_sandwich_k_parallel_f(
-    x: &[f64],
-    d: &[f64],
-    rows: &[i32],
-    cols: &[usize],
-    out: &mut [f64],
-    n: usize,
-    in_n: usize,
-    out_m: usize,
-    cj: usize,
-    cjmax: usize,
-) {
-    let kblock = KRATIO * THRESH1D;
-    let jblock_size = cjmax - cj;
-
-    for rk in (0..in_n).step_by(kblock) {
-        let rkmax = (rk + kblock).min(in_n);
-        let k_size = rkmax - rk;
-
-        let mut r_buf = vec![0.0f64; jblock_size * kblock];
-
-        // Fill R for F-order: X[row, col] = x[col * n + row]
-        for cjj in cj..cjmax {
-            let jj = cols[cjj];
-            let r_col = &mut r_buf[(cjj - cj) * kblock..];
-            for (k_local, rkk) in (rk..rkmax).enumerate() {
-                let kk = rows[rkk] as usize;
-                r_col[k_local] = d[kk] * x[jj * n + kk];
-            }
-        }
-
-        let i_block_results: Vec<(usize, usize, Vec<f64>)> = (cj..out_m)
-            .into_par_iter()
-            .step_by(THRESH1D)
-            .map(|ci| {
-                let cimax = (ci + THRESH1D).min(out_m);
-                let i_size = cimax - ci;
-
-                let mut l_buf = vec![0.0f64; THRESH1D * kblock];
-
-                for cii in ci..cimax {
-                    let ii = cols[cii];
-                    let l_row = &mut l_buf[(cii - ci) * kblock..];
-                    for (k_local, rkk) in (rk..rkmax).enumerate() {
-                        let kk = rows[rkk] as usize;
-                        l_row[k_local] = x[ii * n + kk];
-                    }
-                }
-
-                let mut local_out = vec![0.0f64; i_size * jblock_size];
-                dense_base_kernel_local(
-                    &r_buf,
-                    &l_buf,
-                    &mut local_out,
-                    jblock_size,
-                    0,
-                    i_size,
-                    0,
-                    jblock_size,
-                    k_size,
-                    kblock,
-                );
-
-                (ci, cimax, local_out)
-            })
-            .collect();
-
-        for (ci, cimax, local_out) in i_block_results {
-            for (i_local, cii) in (ci..cimax).enumerate() {
-                for (j_local, cjj) in (cj..cjmax).enumerate() {
-                    out[cii * out_m + cjj] += local_out[i_local * jblock_size + j_local];
-                }
-            }
-        }
-    }
-}
-
-/// I-parallel version for wide matrices (F-order)
-fn dense_sandwich_i_parallel_f(
-    x: &[f64],
-    d: &[f64],
-    rows: &[i32],
-    cols: &[usize],
-    out: &mut [f64],
-    n: usize,
-    in_n: usize,
-    out_m: usize,
-    cj: usize,
-    cjmax: usize,
-) {
-    let kblock = KRATIO * THRESH1D;
-    let jblock_size = cjmax - cj;
-
-    for rk in (0..in_n).step_by(kblock) {
-        let rkmax = (rk + kblock).min(in_n);
-        let k_size = rkmax - rk;
-
-        let mut r_buf = vec![0.0f64; jblock_size * kblock];
-
-        r_buf
-            .par_chunks_mut(kblock)
-            .enumerate()
-            .for_each(|(j_local, r_col)| {
-                let cjj = cj + j_local;
-                if cjj < cjmax {
-                    let jj = cols[cjj];
-                    for (k_local, rkk) in (rk..rkmax).enumerate() {
-                        let kk = rows[rkk] as usize;
-                        r_col[k_local] = d[kk] * x[jj * n + kk];
-                    }
-                }
-            });
-
-        let i_block_results: Vec<(usize, usize, Vec<f64>)> = (cj..out_m)
-            .into_par_iter()
-            .step_by(THRESH1D)
-            .map(|ci| {
-                let cimax = (ci + THRESH1D).min(out_m);
-                let i_size = cimax - ci;
-
-                let mut l_buf = vec![0.0f64; THRESH1D * kblock];
-
-                for cii in ci..cimax {
-                    let ii = cols[cii];
-                    let l_row = &mut l_buf[(cii - ci) * kblock..];
-                    for (k_local, rkk) in (rk..rkmax).enumerate() {
-                        let kk = rows[rkk] as usize;
-                        l_row[k_local] = x[ii * n + kk];
-                    }
-                }
-
-                let mut local_out = vec![0.0f64; i_size * jblock_size];
-                dense_base_kernel_local(
-                    &r_buf,
-                    &l_buf,
-                    &mut local_out,
-                    jblock_size,
-                    0,
-                    i_size,
-                    0,
-                    jblock_size,
-                    k_size,
-                    kblock,
-                );
-
-                (ci, cimax, local_out)
-            })
-            .collect();
-
-        for (ci, cimax, local_out) in i_block_results {
-            for (i_local, cii) in (ci..cimax).enumerate() {
-                for (j_local, cjj) in (cj..cjmax).enumerate() {
-                    out[cii * out_m + cjj] += local_out[i_local * jblock_size + j_local];
-                }
-            }
-        }
-    }
-}
-
-/// Inner kernel with local output (for i-parallel).
-///
-/// Computes `L @ R.T` where L has shape [i_size × k_size] and R has shape [j_size × k_size].
-/// Uses 4×4 micro-kernels with SIMD vectorization for the inner dot product.
-#[inline]
-fn dense_base_kernel_local(
-    r: &[f64],
-    l: &[f64],
-    out: &mut [f64],
-    out_stride: usize,
-    imin: usize,
-    imax: usize,
-    jmin: usize,
-    jmax: usize,
-    k_size: usize,
-    kstep: usize,
-) {
-    for iblock in (imin..imax).step_by(INNERBLOCK) {
-        let iblock_max = (iblock + INNERBLOCK).min(imax);
-        for jblock in (jmin..jmax).step_by(INNERBLOCK) {
-            let jblock_max = (jblock + INNERBLOCK).min(jmax);
-
-            // Process 4x4 blocks
-            let mut i = iblock;
-            while i + 4 <= iblock_max {
-                let mut j = jblock;
-                while j + 4 <= jblock_max {
-                    let mut accum = [[0.0f64; 4]; 4];
-
-                    let mut k = 0;
-                    let k_simd_end = (k_size / SIMD_WIDTH) * SIMD_WIDTH;
-
-                    while k < k_simd_end {
-                        let l0 = f64x4::from(&l[i * kstep + k..i * kstep + k + 4]);
-                        let l1 = f64x4::from(&l[(i + 1) * kstep + k..(i + 1) * kstep + k + 4]);
-                        let l2 = f64x4::from(&l[(i + 2) * kstep + k..(i + 2) * kstep + k + 4]);
-                        let l3 = f64x4::from(&l[(i + 3) * kstep + k..(i + 3) * kstep + k + 4]);
-
-                        let r0 = f64x4::from(&r[j * kstep + k..j * kstep + k + 4]);
-                        let r1 = f64x4::from(&r[(j + 1) * kstep + k..(j + 1) * kstep + k + 4]);
-                        let r2 = f64x4::from(&r[(j + 2) * kstep + k..(j + 2) * kstep + k + 4]);
-                        let r3 = f64x4::from(&r[(j + 3) * kstep + k..(j + 3) * kstep + k + 4]);
-
-                        for (ir, lv) in [l0, l1, l2, l3].iter().enumerate() {
-                            for (jr, rv) in [r0, r1, r2, r3].iter().enumerate() {
-                                let prod = *lv * *rv;
-                                let arr = prod.to_array();
-                                accum[ir][jr] += arr[0] + arr[1] + arr[2] + arr[3];
-                            }
-                        }
-
-                        k += SIMD_WIDTH;
-                    }
-
-                    while k < k_size {
-                        for ir in 0..4 {
-                            let lv = l[(i + ir) * kstep + k];
-                            for jr in 0..4 {
-                                let rv = r[(j + jr) * kstep + k];
-                                accum[ir][jr] += lv * rv;
-                            }
-                        }
-                        k += 1;
-                    }
-
-                    for ir in 0..4 {
-                        for jr in 0..4 {
-                            out[(i + ir) * out_stride + (j + jr)] += accum[ir][jr];
-                        }
-                    }
-
-                    j += 4;
-                }
-
-                while j < jblock_max {
-                    let mut accum = [0.0f64; 4];
-                    for k in 0..k_size {
-                        let rv = r[j * kstep + k];
-                        for ir in 0..4 {
-                            accum[ir] += l[(i + ir) * kstep + k] * rv;
-                        }
-                    }
-                    for ir in 0..4 {
-                        out[(i + ir) * out_stride + j] += accum[ir];
-                    }
-                    j += 1;
-                }
-
-                i += 4;
-            }
-
-            while i < iblock_max {
-                for j in jblock..jblock_max {
-                    let mut accum = 0.0f64;
-                    for k in 0..k_size {
-                        accum += l[i * kstep + k] * r[j * kstep + k];
-                    }
-                    out[i * out_stride + j] += accum;
-                }
-                i += 1;
-            }
-        }
-    }
-}
-
 /// Computes the dense transpose-vector product: `X.T @ v`.
 ///
 /// Returns a row vector (1 × n_cols) representing the sum of rows of X weighted by v.
@@ -1640,4 +856,102 @@ pub fn transpose_square_dot_weights<'py>(
     });
     
     PyArray1::from_vec_bound(py, out)
+}
+
+/// Applies standardization corrections to a sandwich product in-place.
+///
+/// For a standardized matrix `S[i,j] = mult[j] * X[i,j] + shift[j]`, the sandwich
+/// product `S.T @ diag(d) @ S` can be computed as:
+///
+/// ```text
+/// result[i,j] = base[i,j] * mult[i] * mult[j]
+///             + d_mat[i] * shift[j]
+///             + shift[i] * d_mat[j]
+///             + shift[i] * shift[j] * sum_d
+/// ```
+///
+/// where:
+/// - `base` is `X.T @ diag(d) @ X` (the base sandwich)
+/// - `d_mat` is `mult * (X.T @ d)` (transpose matvec scaled by mult)
+/// - `sum_d` is the sum of weights
+///
+/// This function computes the full result efficiently by combining all terms
+/// in a single pass, avoiding multiple intermediate array allocations.
+///
+/// # Arguments
+///
+/// * `base` - Base sandwich product X.T @ diag(d) @ X (modified in-place)
+/// * `d_mat` - mult * X.T @ d (already scaled by mult)
+/// * `shift` - Shift values per column
+/// * `mult` - Optional multiplier values per column (None = all 1s)
+/// * `sum_d` - Sum of weights (sum of d)
+///
+/// # Note
+///
+/// The `base` array is modified in-place. The result is stored in `base`.
+#[pyfunction]
+#[pyo3(signature = (base, d_mat, shift, mult, sum_d))]
+pub fn standardized_sandwich_correction<'py>(
+    _py: Python<'py>,
+    mut base: numpy::PyReadwriteArray2<f64>,
+    d_mat: PyReadonlyArray1<f64>,
+    shift: PyReadonlyArray1<f64>,
+    mult: Option<PyReadonlyArray1<f64>>,
+    sum_d: f64,
+) {
+    let mut base_arr = base.as_array_mut();
+    let d_mat_slice = d_mat.as_slice().unwrap();
+    let shift_slice = shift.as_slice().unwrap();
+    let n = d_mat_slice.len();
+
+    if n == 0 {
+        return;
+    }
+
+    match mult {
+        Some(mult_arr) => {
+            let mult_slice = mult_arr.as_slice().unwrap();
+            // Full correction with mult
+            // result[i,j] = base[i,j] * mult[i] * mult[j]
+            //             + d_mat[i] * shift[j]
+            //             + shift[i] * d_mat[j]
+            //             + shift[i] * shift[j] * sum_d
+            for i in 0..n {
+                let mult_i = mult_slice[i];
+                let shift_i = shift_slice[i];
+                let d_mat_i = d_mat_slice[i];
+
+                for j in 0..n {
+                    let mult_j = mult_slice[j];
+                    let shift_j = shift_slice[j];
+                    let d_mat_j = d_mat_slice[j];
+
+                    base_arr[[i, j]] = base_arr[[i, j]] * mult_i * mult_j
+                        + d_mat_i * shift_j
+                        + shift_i * d_mat_j
+                        + shift_i * shift_j * sum_d;
+                }
+            }
+        }
+        None => {
+            // No mult, just apply shift corrections
+            // result[i,j] = base[i,j]
+            //             + d_mat[i] * shift[j]
+            //             + shift[i] * d_mat[j]
+            //             + shift[i] * shift[j] * sum_d
+            for i in 0..n {
+                let shift_i = shift_slice[i];
+                let d_mat_i = d_mat_slice[i];
+
+                for j in 0..n {
+                    let shift_j = shift_slice[j];
+                    let d_mat_j = d_mat_slice[j];
+
+                    base_arr[[i, j]] += d_mat_i * shift_j
+                        + shift_i * d_mat_j
+                        + shift_i * shift_j * sum_d;
+                }
+            }
+        }
+    }
 }

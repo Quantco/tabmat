@@ -15,32 +15,22 @@
 //!
 //! When `drop_first=true`, the first category (index 0) is dropped to avoid
 //! multicollinearity in regression models. Rows with category 0 become all-zeros.
-//!
-//! # Key Operations
-//!
-//! - [`categorical_sandwich`] / [`sandwich_categorical_fast`]: Diagonal sum per category
-//! - [`matvec_fast`] / [`matvec_complex`]: Forward matrix-vector products
-//! - [`transpose_matvec_fast`] / [`transpose_matvec_complex`]: Transpose matrix-vector products
-//! - [`multiply_complex`]: Element-wise multiplication returning CSR format
-//! - [`subset_categorical_complex`]: Subset to CSR format
 
 use numpy::{PyArray1, PyReadonlyArray1};
 use pyo3::prelude::*;
 use rayon::prelude::*;
 
-/// Computes the categorical sandwich product (diagonal).
+/// Chunk size for parallel reduction operations.
+const CHUNK_SIZE: usize = 4096;
+
+// =============================================================================
+// Sandwich operations
+// =============================================================================
+
+/// Computes categorical sandwich product: diagonal of `X.T @ diag(d) @ X`.
 ///
-/// For a one-hot categorical matrix X, the sandwich `X.T @ diag(d) @ X` is diagonal.
-/// This function returns just the diagonal: `out[j] = sum_{i where indices[i]==j} d[i]`
-///
-/// This is equivalent to [`sandwich_categorical_fast`].
-///
-/// # Arguments
-///
-/// * `indices` - Category index for each row
-/// * `d` - Diagonal weight vector
-/// * `rows` - Row indices to include in the computation
-/// * `n_cols` - Number of categories (output length)
+/// For a one-hot categorical matrix X, the sandwich is diagonal.
+/// Returns: `out[j] = sum_{i where indices[i]==j} d[i]`
 #[pyfunction]
 #[pyo3(signature = (indices, d, rows, n_cols))]
 pub fn categorical_sandwich<'py>(
@@ -50,29 +40,83 @@ pub fn categorical_sandwich<'py>(
     rows: PyReadonlyArray1<i32>,
     n_cols: usize,
 ) -> Bound<'py, PyArray1<f64>> {
+    sandwich_categorical_complex(py, indices, d, rows, n_cols, false)
+}
+
+/// Alias for categorical_sandwich (for API compatibility).
+#[pyfunction]
+#[pyo3(signature = (indices, d, rows, n_cols))]
+pub fn sandwich_categorical_fast<'py>(
+    py: Python<'py>,
+    indices: PyReadonlyArray1<i32>,
+    d: PyReadonlyArray1<f64>,
+    rows: PyReadonlyArray1<i32>,
+    n_cols: usize,
+) -> Bound<'py, PyArray1<f64>> {
+    sandwich_categorical_complex(py, indices, d, rows, n_cols, false)
+}
+
+/// Computes categorical sandwich product with drop_first option.
+///
+/// When `drop_first=true`, rows with category 0 are excluded.
+#[pyfunction]
+#[pyo3(signature = (indices, d, rows, n_cols, drop_first))]
+pub fn sandwich_categorical_complex<'py>(
+    py: Python<'py>,
+    indices: PyReadonlyArray1<i32>,
+    d: PyReadonlyArray1<f64>,
+    rows: PyReadonlyArray1<i32>,
+    n_cols: usize,
+    drop_first: bool,
+) -> Bound<'py, PyArray1<f64>> {
     let indices_slice = indices.as_slice().unwrap();
     let d_slice = d.as_slice().unwrap();
     let rows_slice = rows.as_slice().unwrap();
+    let n_keep_rows = rows_slice.len();
 
-    let mut res = vec![0.0; n_cols];
+    let n_chunks = (n_keep_rows + CHUNK_SIZE - 1) / CHUNK_SIZE;
 
-    for &k in rows_slice {
-        let col_idx = indices_slice[k as usize] as usize;
-        res[col_idx] += d_slice[k as usize];
-    }
+    let res = (0..n_chunks)
+        .into_par_iter()
+        .fold(
+            || vec![0.0f64; n_cols],
+            |mut acc, chunk_idx| {
+                let start = chunk_idx * CHUNK_SIZE;
+                let end = (start + CHUNK_SIZE).min(n_keep_rows);
+                for row_idx_idx in start..end {
+                    let k = rows_slice[row_idx_idx] as usize;
+                    let col_idx = if drop_first {
+                        indices_slice[k] - 1
+                    } else {
+                        indices_slice[k]
+                    };
+                    if col_idx >= 0 {
+                        acc[col_idx as usize] += d_slice[k];
+                    }
+                }
+                acc
+            },
+        )
+        .reduce(
+            || vec![0.0f64; n_cols],
+            |mut a, b| {
+                for (ai, bi) in a.iter_mut().zip(b.iter()) {
+                    *ai += bi;
+                }
+                a
+            },
+        );
 
     PyArray1::from_vec_bound(py, res)
 }
 
+// =============================================================================
+// Matrix-vector products (X @ v)
+// =============================================================================
+
 /// Computes categorical matrix-vector product: `X @ v` (simple case).
 ///
-/// For row i, returns `v[indices[i]]` - just a lookup since each row has a single 1.
-///
-/// # Arguments
-///
-/// * `indices` - Category index for each row
-/// * `other` - Input vector v (length = number of categories)
-/// * `nrows` - Number of rows in the output
+/// For row i, returns `v[indices[i]]`.
 #[pyfunction]
 #[pyo3(signature = (indices, other, nrows))]
 pub fn matvec_fast<'py>(
@@ -81,29 +125,10 @@ pub fn matvec_fast<'py>(
     other: PyReadonlyArray1<f64>,
     nrows: usize,
 ) -> Bound<'py, PyArray1<f64>> {
-    let indices_slice = indices.as_slice().unwrap();
-    let other_slice = other.as_slice().unwrap();
-
-    let mut out = vec![0.0; nrows];
-
-    out.par_iter_mut().enumerate().for_each(|(i, out_val)| {
-        let col_idx = indices_slice[i] as usize;
-        *out_val = other_slice[col_idx];
-    });
-
-    PyArray1::from_vec_bound(py, out)
+    matvec_complex(py, indices, other, nrows, false)
 }
 
-/// Computes categorical matrix-vector product: `X @ v` (with drop_first option).
-///
-/// When `drop_first=true`, rows with category 0 produce output 0 (dropped category).
-///
-/// # Arguments
-///
-/// * `indices` - Category index for each row
-/// * `other` - Input vector v
-/// * `nrows` - Number of rows in the output
-/// * `drop_first` - If true, subtract 1 from indices and skip negative results
+/// Computes categorical matrix-vector product with drop_first option.
 #[pyfunction]
 #[pyo3(signature = (indices, other, nrows, drop_first))]
 pub fn matvec_complex<'py>(
@@ -124,7 +149,6 @@ pub fn matvec_complex<'py>(
         } else {
             indices_slice[i]
         };
-        
         if col_idx >= 0 {
             *out_val = other_slice[col_idx as usize];
         }
@@ -133,15 +157,47 @@ pub fn matvec_complex<'py>(
     PyArray1::from_vec_bound(py, out)
 }
 
-/// Computes categorical transpose-vector product: `X.T @ v` (simple case).
+/// Computes categorical matrix-vector product with column restriction.
+#[pyfunction]
+#[pyo3(signature = (indices, other, col_included, nrows, drop_first))]
+pub fn matvec_restricted<'py>(
+    py: Python<'py>,
+    indices: PyReadonlyArray1<i32>,
+    other: PyReadonlyArray1<f64>,
+    col_included: PyReadonlyArray1<i32>,
+    nrows: usize,
+    drop_first: bool,
+) -> Bound<'py, PyArray1<f64>> {
+    let indices_slice = indices.as_slice().unwrap();
+    let other_slice = other.as_slice().unwrap();
+    let col_included_slice = col_included.as_slice().unwrap();
+
+    let mut out = vec![0.0; nrows];
+
+    out.par_iter_mut().enumerate().for_each(|(i, out_val)| {
+        let col_idx = if drop_first {
+            indices_slice[i] - 1
+        } else {
+            indices_slice[i]
+        };
+        if col_idx >= 0 {
+            let col = col_idx as usize;
+            if col < col_included_slice.len() && col_included_slice[col] != 0 {
+                *out_val = other_slice[col];
+            }
+        }
+    });
+
+    PyArray1::from_vec_bound(py, out)
+}
+
+// =============================================================================
+// Transpose matrix-vector products (X.T @ v)
+// =============================================================================
+
+/// Computes categorical transpose-vector product: `X.T @ v`.
 ///
 /// Sums elements of v by category: `out[j] = sum_{i where indices[i]==j} v[i]`
-///
-/// # Arguments
-///
-/// * `indices` - Category index for each row
-/// * `other` - Input vector v
-/// * `n_cols` - Number of categories (output length)
 #[pyfunction]
 #[pyo3(signature = (indices, other, n_cols))]
 pub fn transpose_matvec_fast<'py>(
@@ -150,29 +206,23 @@ pub fn transpose_matvec_fast<'py>(
     other: PyReadonlyArray1<f64>,
     n_cols: usize,
 ) -> Bound<'py, PyArray1<f64>> {
-    let indices_slice = indices.as_slice().unwrap();
-    let other_slice = other.as_slice().unwrap();
-
-    let mut out = vec![0.0; n_cols];
-
-    for (i, &other_val) in other_slice.iter().enumerate() {
-        let col_idx = indices_slice[i] as usize;
-        out[col_idx] += other_val;
-    }
-
-    PyArray1::from_vec_bound(py, out)
+    transpose_matvec_complex(py, indices, other, n_cols, false)
 }
 
-/// Computes categorical transpose-vector product: `X.T @ v` (with drop_first option).
-///
-/// When `drop_first=true`, rows with category 0 are skipped in the accumulation.
-///
-/// # Arguments
-///
-/// * `indices` - Category index for each row
-/// * `other` - Input vector v
-/// * `n_cols` - Number of categories (output length)
-/// * `drop_first` - If true, subtract 1 from indices and skip negative results
+/// Computes categorical transpose-vector product with row restriction.
+#[pyfunction]
+#[pyo3(signature = (indices, other, rows, n_cols))]
+pub fn transpose_matvec_fast_rows<'py>(
+    py: Python<'py>,
+    indices: PyReadonlyArray1<i32>,
+    other: PyReadonlyArray1<f64>,
+    rows: PyReadonlyArray1<i32>,
+    n_cols: usize,
+) -> Bound<'py, PyArray1<f64>> {
+    transpose_matvec_complex_rows(py, indices, other, rows, n_cols, false)
+}
+
+/// Computes categorical transpose-vector product with drop_first option.
 #[pyfunction]
 #[pyo3(signature = (indices, other, n_cols, drop_first))]
 pub fn transpose_matvec_complex<'py>(
@@ -184,115 +234,158 @@ pub fn transpose_matvec_complex<'py>(
 ) -> Bound<'py, PyArray1<f64>> {
     let indices_slice = indices.as_slice().unwrap();
     let other_slice = other.as_slice().unwrap();
+    let n_rows = other_slice.len();
 
-    let mut out = vec![0.0; n_cols];
+    let n_chunks = (n_rows + CHUNK_SIZE - 1) / CHUNK_SIZE;
 
-    for (i, &other_val) in other_slice.iter().enumerate() {
-        let col_idx = if drop_first {
-            indices_slice[i] - 1
-        } else {
-            indices_slice[i]
-        };
-        
-        if col_idx >= 0 {
-            out[col_idx as usize] += other_val;
-        }
-    }
+    let out = (0..n_chunks)
+        .into_par_iter()
+        .fold(
+            || vec![0.0f64; n_cols],
+            |mut acc, chunk_idx| {
+                let start = chunk_idx * CHUNK_SIZE;
+                let end = (start + CHUNK_SIZE).min(n_rows);
+                for i in start..end {
+                    let col_idx = if drop_first {
+                        indices_slice[i] - 1
+                    } else {
+                        indices_slice[i]
+                    };
+                    if col_idx >= 0 {
+                        acc[col_idx as usize] += other_slice[i];
+                    }
+                }
+                acc
+            },
+        )
+        .reduce(
+            || vec![0.0f64; n_cols],
+            |mut a, b| {
+                for (ai, bi) in a.iter_mut().zip(b.iter()) {
+                    *ai += bi;
+                }
+                a
+            },
+        );
 
     PyArray1::from_vec_bound(py, out)
 }
 
-/// Computes categorical sandwich product (simple case).
-///
-/// Returns the diagonal of `X.T @ diag(d) @ X`.
-/// Equivalent to [`categorical_sandwich`].
-///
-/// # Arguments
-///
-/// * `indices` - Category index for each row
-/// * `d` - Diagonal weight vector
-/// * `rows` - Row indices to include
-/// * `n_cols` - Number of categories (output length)
+/// Computes categorical transpose-vector product with row restriction and drop_first.
 #[pyfunction]
-#[pyo3(signature = (indices, d, rows, n_cols))]
-pub fn sandwich_categorical_fast<'py>(
+#[pyo3(signature = (indices, other, rows, n_cols, drop_first))]
+pub fn transpose_matvec_complex_rows<'py>(
     py: Python<'py>,
     indices: PyReadonlyArray1<i32>,
-    d: PyReadonlyArray1<f64>,
-    rows: PyReadonlyArray1<i32>,
-    n_cols: usize,
-) -> Bound<'py, PyArray1<f64>> {
-    let indices_slice = indices.as_slice().unwrap();
-    let d_slice = d.as_slice().unwrap();
-    let rows_slice = rows.as_slice().unwrap();
-
-    let mut res = vec![0.0; n_cols];
-
-    for &k in rows_slice {
-        let col_idx = indices_slice[k as usize] as usize;
-        res[col_idx] += d_slice[k as usize];
-    }
-
-    PyArray1::from_vec_bound(py, res)
-}
-
-/// Computes categorical sandwich product (with drop_first option).
-///
-/// Returns the diagonal of `X.T @ diag(d) @ X` where rows with category 0
-/// are excluded when `drop_first=true`.
-///
-/// # Arguments
-///
-/// * `indices` - Category index for each row
-/// * `d` - Diagonal weight vector
-/// * `rows` - Row indices to include
-/// * `n_cols` - Number of categories (output length)
-/// * `drop_first` - If true, exclude rows with category 0
-#[pyfunction]
-#[pyo3(signature = (indices, d, rows, n_cols, drop_first))]
-pub fn sandwich_categorical_complex<'py>(
-    py: Python<'py>,
-    indices: PyReadonlyArray1<i32>,
-    d: PyReadonlyArray1<f64>,
+    other: PyReadonlyArray1<f64>,
     rows: PyReadonlyArray1<i32>,
     n_cols: usize,
     drop_first: bool,
 ) -> Bound<'py, PyArray1<f64>> {
     let indices_slice = indices.as_slice().unwrap();
-    let d_slice = d.as_slice().unwrap();
+    let other_slice = other.as_slice().unwrap();
     let rows_slice = rows.as_slice().unwrap();
+    let n_keep_rows = rows_slice.len();
 
-    let mut res = vec![0.0; n_cols];
+    let n_chunks = (n_keep_rows + CHUNK_SIZE - 1) / CHUNK_SIZE;
 
-    for &k in rows_slice {
-        let col_idx = if drop_first {
-            indices_slice[k as usize] - 1
-        } else {
-            indices_slice[k as usize]
-        };
-        
-        if col_idx >= 0 {
-            res[col_idx as usize] += d_slice[k as usize];
-        }
-    }
+    let out = (0..n_chunks)
+        .into_par_iter()
+        .fold(
+            || vec![0.0f64; n_cols],
+            |mut acc, chunk_idx| {
+                let start = chunk_idx * CHUNK_SIZE;
+                let end = (start + CHUNK_SIZE).min(n_keep_rows);
+                for row_idx_idx in start..end {
+                    let i = rows_slice[row_idx_idx] as usize;
+                    let col_idx = if drop_first {
+                        indices_slice[i] - 1
+                    } else {
+                        indices_slice[i]
+                    };
+                    if col_idx >= 0 {
+                        acc[col_idx as usize] += other_slice[i];
+                    }
+                }
+                acc
+            },
+        )
+        .reduce(
+            || vec![0.0f64; n_cols],
+            |mut a, b| {
+                for (ai, bi) in a.iter_mut().zip(b.iter()) {
+                    *ai += bi;
+                }
+                a
+            },
+        );
 
-    PyArray1::from_vec_bound(py, res)
+    PyArray1::from_vec_bound(py, out)
 }
 
-/// Element-wise multiplication of categorical matrix by diagonal vector.
-///
-/// Computes `diag(d) @ X` and returns the result in CSR format.
-/// Since each row of X has at most one non-zero, the result is sparse.
-///
-/// # Arguments
-///
-/// * `indices` - Category index for each row
-/// * `d` - Diagonal values to multiply by
-/// * `drop_first` - If true, exclude rows with category 0
-///
-/// # Returns
-///
-/// Tuple of (data, indices, indptr) arrays representing the CSR result.
+/// Computes categorical transpose-vector product with row and column restrictions.
+#[pyfunction]
+#[pyo3(signature = (indices, other, rows, col_included, n_cols, drop_first))]
+pub fn transpose_matvec_restricted<'py>(
+    py: Python<'py>,
+    indices: PyReadonlyArray1<i32>,
+    other: PyReadonlyArray1<f64>,
+    rows: PyReadonlyArray1<i32>,
+    col_included: PyReadonlyArray1<i32>,
+    n_cols: usize,
+    drop_first: bool,
+) -> Bound<'py, PyArray1<f64>> {
+    let indices_slice = indices.as_slice().unwrap();
+    let other_slice = other.as_slice().unwrap();
+    let rows_slice = rows.as_slice().unwrap();
+    let col_included_slice = col_included.as_slice().unwrap();
+    let n_keep_rows = rows_slice.len();
+    let col_included_len = col_included_slice.len();
+
+    let n_chunks = (n_keep_rows + CHUNK_SIZE - 1) / CHUNK_SIZE;
+
+    let out = (0..n_chunks)
+        .into_par_iter()
+        .fold(
+            || vec![0.0f64; n_cols],
+            |mut acc, chunk_idx| {
+                let start = chunk_idx * CHUNK_SIZE;
+                let end = (start + CHUNK_SIZE).min(n_keep_rows);
+                for row_idx_idx in start..end {
+                    let i = rows_slice[row_idx_idx] as usize;
+                    let col_idx = if drop_first {
+                        indices_slice[i] - 1
+                    } else {
+                        indices_slice[i]
+                    };
+                    if col_idx >= 0 {
+                        let col = col_idx as usize;
+                        if col < col_included_len && col_included_slice[col] != 0 {
+                            acc[col] += other_slice[i];
+                        }
+                    }
+                }
+                acc
+            },
+        )
+        .reduce(
+            || vec![0.0f64; n_cols],
+            |mut a, b| {
+                for (ai, bi) in a.iter_mut().zip(b.iter()) {
+                    *ai += bi;
+                }
+                a
+            },
+        );
+
+    PyArray1::from_vec_bound(py, out)
+}
+
+// =============================================================================
+// Utility functions
+// =============================================================================
+
+/// Element-wise multiplication returning CSR format: `diag(d) @ X`.
 #[pyfunction]
 #[pyo3(signature = (indices, d, drop_first))]
 pub fn multiply_complex<'py>(
@@ -300,7 +393,11 @@ pub fn multiply_complex<'py>(
     indices: PyReadonlyArray1<i32>,
     d: PyReadonlyArray1<f64>,
     drop_first: bool,
-) -> (Bound<'py, PyArray1<f64>>, Bound<'py, PyArray1<i32>>, Bound<'py, PyArray1<i32>>) {
+) -> (
+    Bound<'py, PyArray1<f64>>,
+    Bound<'py, PyArray1<i32>>,
+    Bound<'py, PyArray1<i32>>,
+) {
     let indices_slice = indices.as_slice().unwrap();
     let d_slice = d.as_slice().unwrap();
     let nrows = indices_slice.len();
@@ -315,12 +412,12 @@ pub fn multiply_complex<'py>(
         } else {
             indices_slice[i]
         };
-        
+
         if col_idx >= 0 {
             data.push(d_slice[i]);
             new_indices.push(col_idx);
         }
-        
+
         indptr.push(data.len() as i32);
     }
 
@@ -331,20 +428,7 @@ pub fn multiply_complex<'py>(
     )
 }
 
-/// Converts a categorical matrix to CSR format (for subsetting).
-///
-/// Creates an all-ones CSR matrix with the same sparsity pattern as the
-/// categorical matrix. Used when subsetting operations need CSR format.
-///
-/// # Arguments
-///
-/// * `indices` - Category index for each row
-/// * `drop_first` - If true, exclude rows with category 0
-///
-/// # Returns
-///
-/// Tuple of (nnz, indices, indptr) where nnz is the number of non-zeros.
-/// The data array (all ones) is not returned since it can be reconstructed.
+/// Converts categorical matrix to CSR format for subsetting.
 #[pyfunction]
 #[pyo3(signature = (indices, drop_first))]
 pub fn subset_categorical_complex<'py>(
@@ -353,18 +437,17 @@ pub fn subset_categorical_complex<'py>(
     drop_first: bool,
 ) -> (usize, Bound<'py, PyArray1<i32>>, Bound<'py, PyArray1<i32>>) {
     let indices_slice = indices.as_slice().unwrap();
-    let _nrows = indices_slice.len();
 
     let mut new_indices = Vec::new();
     let mut indptr = vec![0];
 
     for &idx in indices_slice {
         let col_idx = if drop_first { idx - 1 } else { idx };
-        
+
         if col_idx >= 0 {
             new_indices.push(col_idx);
         }
-        
+
         indptr.push(new_indices.len() as i32);
     }
 
@@ -378,17 +461,6 @@ pub fn subset_categorical_complex<'py>(
 }
 
 /// Creates a column inclusion mask from column indices.
-///
-/// Returns a binary mask where `mask[i] = 1` if column i is in the `cols` array.
-///
-/// # Arguments
-///
-/// * `cols` - Column indices that should be included
-/// * `n_cols` - Total number of columns (mask length)
-///
-/// # Returns
-///
-/// A binary mask array of length n_cols.
 #[pyfunction]
 #[pyo3(signature = (cols, n_cols))]
 pub fn get_col_included<'py>(
