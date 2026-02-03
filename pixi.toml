@@ -4,7 +4,16 @@ channels = ["conda-forge"]
 platforms = ["linux-64", "osx-arm64", "win-64"]
 
 [tasks]
-postinstall = "pip install --no-build-isolation --no-deps --disable-pip-version-check -e ."
+# Build the Rust extension using maturin (config in pyproject.toml [tool.maturin])
+build-rust = """
+    maturin build --release -m rust_ext/Cargo.toml \
+    && pip install --force-reinstall rust_ext/target/wheels/*.whl \
+    && cp $(python -c "import tabmat_rust_ext; print(tabmat_rust_ext.__file__.replace('__init__.py', 'tabmat_rust_ext.abi3.so'))") src/tabmat/tabmat_rust_ext/
+"""
+# Build only C++ extensions (skip Rust)
+postinstall-cpp = "pip install --no-build-isolation --no-deps --disable-pip-version-check -e ."
+# Full build: Rust extension first, then C++ extensions
+postinstall = { cmd = "pip install --no-build-isolation --no-deps --disable-pip-version-check -e .", depends-on = ["build-rust"] }
 
 [tasks.install-nightlies]
 cmd = """
@@ -88,6 +97,8 @@ mako = "*"
 setuptools = ">=62.0"
 setuptools-scm = ">=8.1"
 xsimd = "<11|>12.1"
+rust = ">=1.70"
+maturin = ">=1.0"
 [target.unix.dependencies]
 jemalloc-local = "*"
 
