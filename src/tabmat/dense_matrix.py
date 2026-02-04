@@ -4,7 +4,7 @@ from typing import Optional, Union
 
 import numpy as np
 
-from .ext.dense import (
+from .ext.dense_dispatch import (
     dense_matvec,
     dense_rmatvec,
     dense_sandwich,

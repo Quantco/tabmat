@@ -10,6 +10,7 @@ use numpy::{
 use pyo3::prelude::*;
 
 mod categorical;
+mod dense;
 mod sparse;
 
 /// Rust backend module for tabmat operations.
@@ -30,6 +31,12 @@ fn tabmat_rust_ext(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sparse_sandwich, m)?)?;
     m.add_function(wrap_pyfunction!(csr_dense_sandwich, m)?)?;
     m.add_function(wrap_pyfunction!(transpose_square_dot_weights, m)?)?;
+
+    // Dense operations
+    m.add_function(wrap_pyfunction!(dense_sandwich, m)?)?;
+    m.add_function(wrap_pyfunction!(dense_rmatvec, m)?)?;
+    m.add_function(wrap_pyfunction!(dense_matvec, m)?)?;
+    m.add_function(wrap_pyfunction!(dense_transpose_square_dot_weights, m)?)?;
     Ok(())
 }
 
@@ -456,6 +463,107 @@ fn transpose_square_dot_weights<'py>(
     let weights = weights.as_slice()?;
 
     let result = sparse::transpose_square_dot_weights(data, indices, indptr, weights);
+
+    Ok(PyArray1::from_vec(py, result).into())
+}
+
+// =============================================================================
+// Dense operations
+// =============================================================================
+
+/// Dense sandwich product: X.T @ diag(d) @ X
+#[pyfunction]
+fn dense_sandwich<'py>(
+    py: Python<'py>,
+    x: PyReadonlyArray2<'py, f64>,
+    d: PyReadonlyArray1<'py, f64>,
+    rows: PyReadonlyArray1<'py, i32>,
+    cols: PyReadonlyArray1<'py, i32>,
+) -> PyResult<Py<PyArray2<f64>>> {
+    let x_slice = x.as_slice()?;
+    let x_shape = (x.shape()[0], x.shape()[1]);
+    let d = d.as_slice()?;
+    let rows = rows.as_slice()?;
+    let cols = cols.as_slice()?;
+    let is_c_contiguous = x.is_c_contiguous();
+
+    let out_m = cols.len();
+
+    if out_m == 0 {
+        let array = PyArray2::zeros(py, [0, 0], false);
+        return Ok(array.unbind());
+    }
+
+    let result = dense::dense_sandwich(x_slice, x_shape, d, rows, cols, is_c_contiguous);
+
+    let array = PyArray2::from_vec2(
+        py,
+        &result
+            .chunks(out_m)
+            .map(|chunk| chunk.to_vec())
+            .collect::<Vec<_>>(),
+    )?;
+
+    Ok(array.into())
+}
+
+/// Dense transpose matrix-vector multiplication: X.T @ v
+#[pyfunction]
+fn dense_rmatvec<'py>(
+    py: Python<'py>,
+    x: PyReadonlyArray2<'py, f64>,
+    v: PyReadonlyArray1<'py, f64>,
+    rows: PyReadonlyArray1<'py, i32>,
+    cols: PyReadonlyArray1<'py, i32>,
+) -> PyResult<Py<PyArray1<f64>>> {
+    let x_slice = x.as_slice()?;
+    let x_shape = (x.shape()[0], x.shape()[1]);
+    let v = v.as_slice()?;
+    let rows = rows.as_slice()?;
+    let cols = cols.as_slice()?;
+    let is_c_contiguous = x.is_c_contiguous();
+
+    let result = dense::dense_rmatvec(x_slice, x_shape, v, rows, cols, is_c_contiguous);
+
+    Ok(PyArray1::from_vec(py, result).into())
+}
+
+/// Dense matrix-vector multiplication: X @ v
+#[pyfunction]
+fn dense_matvec<'py>(
+    py: Python<'py>,
+    x: PyReadonlyArray2<'py, f64>,
+    v: PyReadonlyArray1<'py, f64>,
+    rows: PyReadonlyArray1<'py, i32>,
+    cols: PyReadonlyArray1<'py, i32>,
+) -> PyResult<Py<PyArray1<f64>>> {
+    let x_slice = x.as_slice()?;
+    let x_shape = (x.shape()[0], x.shape()[1]);
+    let v = v.as_slice()?;
+    let rows = rows.as_slice()?;
+    let cols = cols.as_slice()?;
+    let is_c_contiguous = x.is_c_contiguous();
+
+    let result = dense::dense_matvec(x_slice, x_shape, v, rows, cols, is_c_contiguous);
+
+    Ok(PyArray1::from_vec(py, result).into())
+}
+
+/// Compute weighted squared column norms with shift for dense matrix
+#[pyfunction]
+fn dense_transpose_square_dot_weights<'py>(
+    py: Python<'py>,
+    x: PyReadonlyArray2<'py, f64>,
+    weights: PyReadonlyArray1<'py, f64>,
+    shift: PyReadonlyArray1<'py, f64>,
+) -> PyResult<Py<PyArray1<f64>>> {
+    let x_slice = x.as_slice()?;
+    let x_shape = (x.shape()[0], x.shape()[1]);
+    let weights = weights.as_slice()?;
+    let shift = shift.as_slice()?;
+    let is_c_contiguous = x.is_c_contiguous();
+
+    let result = dense::dense_transpose_square_dot_weights(x_slice, x_shape, weights, shift, is_c_contiguous);
 
     Ok(PyArray1::from_vec(py, result).into())
 }
