@@ -8,6 +8,14 @@ Changelog
 =========
 
 
+4.2.1 - 2026-02-04
+------------------
+
+**Bug fixes:**
+
+- Fixed methods `_cross_categorical`, `_cross_sandwich`,  `multiply`, `tocsr` of `CategoricalMatrix` and function `_sandwich_cat_cat_limited_rows_cols` to operate on read-only buffers as well.
+
+
 4.2.0 - 2026-01-13
 ------------------
 
