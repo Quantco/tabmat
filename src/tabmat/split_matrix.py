@@ -6,7 +6,7 @@ import numpy as np
 from scipy import sparse as sps
 
 from .dense_matrix import DenseMatrix
-from .ext.split import is_sorted, split_col_subsets
+from .ext.split_dispatch import is_sorted, split_col_subsets
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .standardized_mat import StandardizedMatrix

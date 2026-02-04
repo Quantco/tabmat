@@ -92,3 +92,19 @@ before-all = [
   "cmake -DCMAKE_INSTALL_PREFIX=/usr/local ..",
   "make install"
 ]
+
+# =============================================================================
+# Maturin configuration for the Rust extension
+# =============================================================================
+# The Rust extension is built separately using maturin. This configuration
+# tells maturin where to find the Cargo.toml and how to build the extension.
+# Build with: maturin build --release -m rust_ext/Cargo.toml
+# =============================================================================
+
+[tool.maturin]
+# Path to the Cargo.toml for the Rust extension
+manifest-path = "rust_ext/Cargo.toml"
+# Use stable ABI for Python 3.10+
+features = ["pyo3/extension-module", "pyo3/abi3-py310"]
+# Strip symbols for smaller binary
+strip = true
