@@ -1,7 +1,7 @@
-"""Backend selection for categorical matrix operations.
+"""Backend selection for categorical and sparse matrix operations.
 
-This module provides a unified interface for categorical matrix operations
-that can use either the C++ (Cython) or Rust backend.
+This module provides a unified interface for categorical and sparse matrix
+operations that can use either the C++ (Cython) or Rust backend.
 
 Usage:
     from tabmat.ext.backend import get_backend, set_backend
@@ -14,6 +14,7 @@ Usage:
 
     # Use functions from the backend
     backend.transpose_matvec_fast(...)
+    backend.csr_matvec_unrestricted(...)
 """
 
 import os
@@ -32,8 +33,11 @@ def _load_cpp_backend():
     """Load the C++ (Cython) backend."""
     global _cpp_backend
     if _cpp_backend is None:
-        from tabmat.ext import categorical as _cpp_categorical
-        from tabmat.ext import split as _cpp_split
+        from tabmat.ext import (  # type: ignore[attr-defined]
+            categorical as _cpp_categorical,
+        )
+        from tabmat.ext import sparse as _cpp_sparse  # type: ignore[attr-defined]
+        from tabmat.ext import split as _cpp_split  # type: ignore[attr-defined]
 
         class CppBackend:
             """C++ backend wrapper."""
@@ -60,6 +64,19 @@ def _load_cpp_backend():
             # From split.pyx
             sandwich_cat_dense = staticmethod(_cpp_split.sandwich_cat_dense)
             sandwich_cat_cat = staticmethod(_cpp_split.sandwich_cat_cat)
+
+            # From sparse.pyx
+            csr_matvec_unrestricted = staticmethod(_cpp_sparse.csr_matvec_unrestricted)
+            csr_matvec = staticmethod(_cpp_sparse.csr_matvec)
+            csc_rmatvec_unrestricted = staticmethod(
+                _cpp_sparse.csc_rmatvec_unrestricted
+            )
+            csc_rmatvec = staticmethod(_cpp_sparse.csc_rmatvec)
+            sparse_sandwich = staticmethod(_cpp_sparse.sparse_sandwich)
+            csr_dense_sandwich = staticmethod(_cpp_sparse.csr_dense_sandwich)
+            transpose_square_dot_weights = staticmethod(
+                _cpp_sparse.transpose_square_dot_weights
+            )
 
             name = "cpp"
 
@@ -190,6 +207,154 @@ def _load_rust_backend():
                     i_drop_first,
                     j_drop_first,
                 )
+
+            # Sparse operations
+            # Note: Rust backend only supports float64, so we convert if needed
+            @staticmethod
+            def csr_matvec_unrestricted(X, v, out, X_indices):
+                import numpy as np
+
+                orig_dtype = X.dtype
+                if orig_dtype != np.float64:
+                    data = X.data.astype(np.float64)
+                    v = v.astype(np.float64)
+                else:
+                    data = X.data
+
+                if out is None:
+                    out = np.zeros(X.shape[0], dtype=np.float64)
+                elif out.dtype != np.float64:
+                    out = out.astype(np.float64)
+                _rust_ext.csr_matvec_unrestricted(data, X.indices, X.indptr, v, out)
+                if orig_dtype != np.float64:
+                    out = out.astype(orig_dtype)
+                return out
+
+            @staticmethod
+            def csr_matvec(X, v, rows, cols):
+                import numpy as np
+
+                orig_dtype = X.dtype
+                if orig_dtype != np.float64:
+                    data = X.data.astype(np.float64)
+                    v = v.astype(np.float64)
+                else:
+                    data = X.data
+                result = _rust_ext.csr_matvec(
+                    data, X.indices, X.indptr, v, rows, cols, X.shape[1]
+                )
+                if orig_dtype != np.float64:
+                    result = result.astype(orig_dtype)
+                return result
+
+            @staticmethod
+            def csc_rmatvec_unrestricted(XT, v, out, XT_indices):
+                import numpy as np
+
+                orig_dtype = XT.dtype
+                if orig_dtype != np.float64:
+                    data = XT.data.astype(np.float64)
+                    v = v.astype(np.float64)
+                else:
+                    data = XT.data
+
+                if out is None:
+                    out = np.zeros(XT.shape[1], dtype=np.float64)
+                elif out.dtype != np.float64:
+                    out = out.astype(np.float64)
+                _rust_ext.csc_rmatvec_unrestricted(data, XT.indices, XT.indptr, v, out)
+                if orig_dtype != np.float64:
+                    out = out.astype(orig_dtype)
+                return out
+
+            @staticmethod
+            def csc_rmatvec(XT, v, rows, cols):
+                import numpy as np
+
+                orig_dtype = XT.dtype
+                if orig_dtype != np.float64:
+                    data = XT.data.astype(np.float64)
+                    v = v.astype(np.float64)
+                else:
+                    data = XT.data
+                result = _rust_ext.csc_rmatvec(
+                    data, XT.indices, XT.indptr, v, rows, cols, XT.shape[0]
+                )
+                if orig_dtype != np.float64:
+                    result = result.astype(orig_dtype)
+                return result
+
+            @staticmethod
+            def sparse_sandwich(A, AT, d, rows, cols):
+                import numpy as np
+
+                orig_dtype = A.dtype
+                if orig_dtype != np.float64:
+                    a_data = A.data.astype(np.float64)
+                    at_data = AT.data.astype(np.float64)
+                    d = d.astype(np.float64)
+                else:
+                    a_data = A.data
+                    at_data = AT.data
+                result = _rust_ext.sparse_sandwich(
+                    a_data,
+                    A.indices,
+                    A.indptr,
+                    at_data,
+                    AT.indices,
+                    AT.indptr,
+                    d,
+                    rows,
+                    cols,
+                    d.shape[0],
+                    A.shape[1],
+                )
+                if orig_dtype != np.float64:
+                    result = result.astype(orig_dtype)
+                return result
+
+            @staticmethod
+            def csr_dense_sandwich(A, B, d, rows, A_cols, B_cols):
+                import numpy as np
+
+                orig_dtype = A.dtype
+                is_c_contiguous = B.flags["C_CONTIGUOUS"]
+                if orig_dtype != np.float64:
+                    a_data = A.data.astype(np.float64)
+                    d = d.astype(np.float64)
+                    B = B.astype(np.float64)
+                else:
+                    a_data = A.data
+                result = _rust_ext.csr_dense_sandwich(
+                    a_data,
+                    A.indices,
+                    A.indptr,
+                    B,
+                    d,
+                    rows,
+                    A_cols,
+                    B_cols,
+                    A.shape[1],
+                    is_c_contiguous,
+                )
+                if orig_dtype != np.float64:
+                    result = result.astype(orig_dtype)
+                return result
+
+            @staticmethod
+            def transpose_square_dot_weights(data, indices, indptr, weights, dtype):
+                import numpy as np
+
+                orig_dtype = data.dtype
+                if orig_dtype != np.float64:
+                    data = data.astype(np.float64)
+                    weights = weights.astype(np.float64)
+                result = _rust_ext.transpose_square_dot_weights(
+                    data, indices, indptr, weights
+                )
+                if orig_dtype != np.float64:
+                    result = result.astype(orig_dtype)
+                return result
 
             name = "rust"
 

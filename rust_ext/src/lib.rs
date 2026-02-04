@@ -1,7 +1,7 @@
-//! Rust backend for tabmat categorical matrix operations.
+//! Rust backend for tabmat matrix operations.
 //!
-//! This module provides idiomatic Rust implementations of the categorical matrix
-//! operations that are also available in the C++ backend. The implementations
+//! This module provides idiomatic Rust implementations of categorical and sparse
+//! matrix operations that are also available in the C++ backend. The implementations
 //! use simple sequential iteration for clarity and correctness.
 
 use numpy::{
@@ -10,15 +10,26 @@ use numpy::{
 use pyo3::prelude::*;
 
 mod categorical;
+mod sparse;
 
-/// Rust backend module for tabmat categorical operations.
+/// Rust backend module for tabmat operations.
 #[pymodule]
 fn tabmat_rust_ext(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    // Categorical operations
     m.add_function(wrap_pyfunction!(transpose_matvec, m)?)?;
     m.add_function(wrap_pyfunction!(matvec, m)?)?;
     m.add_function(wrap_pyfunction!(sandwich_categorical, m)?)?;
     m.add_function(wrap_pyfunction!(sandwich_cat_cat, m)?)?;
     m.add_function(wrap_pyfunction!(sandwich_cat_dense, m)?)?;
+
+    // Sparse operations
+    m.add_function(wrap_pyfunction!(csr_matvec_unrestricted, m)?)?;
+    m.add_function(wrap_pyfunction!(csr_matvec, m)?)?;
+    m.add_function(wrap_pyfunction!(csc_rmatvec_unrestricted, m)?)?;
+    m.add_function(wrap_pyfunction!(csc_rmatvec, m)?)?;
+    m.add_function(wrap_pyfunction!(sparse_sandwich, m)?)?;
+    m.add_function(wrap_pyfunction!(csr_dense_sandwich, m)?)?;
+    m.add_function(wrap_pyfunction!(transpose_square_dot_weights, m)?)?;
     Ok(())
 }
 
@@ -182,6 +193,14 @@ fn sandwich_cat_dense<'py>(
 
     let mat_j_slice = mat_j.as_slice()?;
 
+    let n_j_cols = j_cols_slice.len();
+
+    // Handle edge case: empty j_cols produces empty result with correct shape
+    if n_j_cols == 0 || i_ncol == 0 {
+        let array = PyArray2::zeros(py, [i_ncol, n_j_cols], false);
+        return Ok(array.unbind());
+    }
+
     let result = categorical::sandwich_cat_dense(
         i_indices,
         d,
@@ -194,7 +213,6 @@ fn sandwich_cat_dense<'py>(
         drop_first,
     );
 
-    let n_j_cols = j_cols_slice.len();
     let array = PyArray2::from_vec2(
         py,
         &result
@@ -204,4 +222,240 @@ fn sandwich_cat_dense<'py>(
     )?;
 
     Ok(array.into())
+}
+
+// =============================================================================
+// Sparse operations
+// =============================================================================
+
+/// CSR matrix-vector multiplication: out += X @ v (unrestricted)
+#[pyfunction]
+fn csr_matvec_unrestricted<'py>(
+    _py: Python<'py>,
+    data: PyReadonlyArray1<'py, f64>,
+    indices: PyReadonlyArray1<'py, i32>,
+    indptr: PyReadonlyArray1<'py, i32>,
+    v: PyReadonlyArray1<'py, f64>,
+    out: &Bound<'py, PyArray1<f64>>,
+) -> PyResult<()> {
+    let data = data.as_slice()?;
+    let indices = indices.as_slice()?;
+    let indptr = indptr.as_slice()?;
+    let v = v.as_slice()?;
+
+    {
+        let out_slice = unsafe { out.as_slice_mut()? };
+        sparse::csr_matvec_unrestricted(data, indices, indptr, v, out_slice);
+    }
+
+    Ok(())
+}
+
+/// CSR matrix-vector multiplication with row/column restrictions
+#[pyfunction]
+fn csr_matvec<'py>(
+    py: Python<'py>,
+    data: PyReadonlyArray1<'py, f64>,
+    indices: PyReadonlyArray1<'py, i32>,
+    indptr: PyReadonlyArray1<'py, i32>,
+    v: PyReadonlyArray1<'py, f64>,
+    rows: PyReadonlyArray1<'py, i32>,
+    cols: PyReadonlyArray1<'py, i32>,
+    n_cols_total: usize,
+) -> PyResult<Py<PyArray1<f64>>> {
+    let data = data.as_slice()?;
+    let indices = indices.as_slice()?;
+    let indptr = indptr.as_slice()?;
+    let v = v.as_slice()?;
+    let rows = rows.as_slice()?;
+    let cols = cols.as_slice()?;
+
+    let result = sparse::csr_matvec(data, indices, indptr, v, rows, cols, n_cols_total);
+
+    Ok(PyArray1::from_vec(py, result).into())
+}
+
+/// CSC transpose matrix-vector multiplication: out += XT.T @ v (unrestricted)
+#[pyfunction]
+fn csc_rmatvec_unrestricted<'py>(
+    _py: Python<'py>,
+    data: PyReadonlyArray1<'py, f64>,
+    indices: PyReadonlyArray1<'py, i32>,
+    indptr: PyReadonlyArray1<'py, i32>,
+    v: PyReadonlyArray1<'py, f64>,
+    out: &Bound<'py, PyArray1<f64>>,
+) -> PyResult<()> {
+    let data = data.as_slice()?;
+    let indices = indices.as_slice()?;
+    let indptr = indptr.as_slice()?;
+    let v = v.as_slice()?;
+
+    {
+        let out_slice = unsafe { out.as_slice_mut()? };
+        sparse::csc_rmatvec_unrestricted(data, indices, indptr, v, out_slice);
+    }
+
+    Ok(())
+}
+
+/// CSC transpose matrix-vector multiplication with restrictions
+#[pyfunction]
+fn csc_rmatvec<'py>(
+    py: Python<'py>,
+    data: PyReadonlyArray1<'py, f64>,
+    indices: PyReadonlyArray1<'py, i32>,
+    indptr: PyReadonlyArray1<'py, i32>,
+    v: PyReadonlyArray1<'py, f64>,
+    rows: PyReadonlyArray1<'py, i32>,
+    cols: PyReadonlyArray1<'py, i32>,
+    n_rows_total: usize,
+) -> PyResult<Py<PyArray1<f64>>> {
+    let data = data.as_slice()?;
+    let indices = indices.as_slice()?;
+    let indptr = indptr.as_slice()?;
+    let v = v.as_slice()?;
+    let rows = rows.as_slice()?;
+    let cols = cols.as_slice()?;
+
+    let result = sparse::csc_rmatvec(data, indices, indptr, v, rows, cols, n_rows_total);
+
+    Ok(PyArray1::from_vec(py, result).into())
+}
+
+/// Sparse sandwich product: AT @ diag(d) @ A
+#[pyfunction]
+fn sparse_sandwich<'py>(
+    py: Python<'py>,
+    a_data: PyReadonlyArray1<'py, f64>,
+    a_indices: PyReadonlyArray1<'py, i32>,
+    a_indptr: PyReadonlyArray1<'py, i32>,
+    at_data: PyReadonlyArray1<'py, f64>,
+    at_indices: PyReadonlyArray1<'py, i32>,
+    at_indptr: PyReadonlyArray1<'py, i32>,
+    d: PyReadonlyArray1<'py, f64>,
+    rows: PyReadonlyArray1<'py, i32>,
+    cols: PyReadonlyArray1<'py, i32>,
+    n_rows_total: usize,
+    n_cols_total: usize,
+) -> PyResult<Py<PyArray2<f64>>> {
+    let a_data = a_data.as_slice()?;
+    let a_indices = a_indices.as_slice()?;
+    let a_indptr = a_indptr.as_slice()?;
+    let at_data = at_data.as_slice()?;
+    let at_indices = at_indices.as_slice()?;
+    let at_indptr = at_indptr.as_slice()?;
+    let d = d.as_slice()?;
+    let rows = rows.as_slice()?;
+    let cols = cols.as_slice()?;
+
+    let m = cols.len();
+
+    // Handle edge case: empty cols produces empty result with correct shape
+    if m == 0 {
+        let array = PyArray2::zeros(py, [0, 0], false);
+        return Ok(array.unbind());
+    }
+
+    let result = sparse::sparse_sandwich(
+        a_data,
+        a_indices,
+        a_indptr,
+        at_data,
+        at_indices,
+        at_indptr,
+        d,
+        rows,
+        cols,
+        n_rows_total,
+        n_cols_total,
+    );
+
+    let array = PyArray2::from_vec2(
+        py,
+        &result
+            .chunks(m)
+            .map(|chunk| chunk.to_vec())
+            .collect::<Vec<_>>(),
+    )?;
+
+    Ok(array.into())
+}
+
+/// CSR-dense sandwich: A.T @ diag(d) @ B
+#[pyfunction]
+fn csr_dense_sandwich<'py>(
+    py: Python<'py>,
+    a_data: PyReadonlyArray1<'py, f64>,
+    a_indices: PyReadonlyArray1<'py, i32>,
+    a_indptr: PyReadonlyArray1<'py, i32>,
+    b: PyReadonlyArray2<'py, f64>,
+    d: PyReadonlyArray1<'py, f64>,
+    rows: PyReadonlyArray1<'py, i32>,
+    a_cols: PyReadonlyArray1<'py, i32>,
+    b_cols: PyReadonlyArray1<'py, i32>,
+    a_ncol: usize,
+    is_c_contiguous: bool,
+) -> PyResult<Py<PyArray2<f64>>> {
+    let a_data = a_data.as_slice()?;
+    let a_indices = a_indices.as_slice()?;
+    let a_indptr = a_indptr.as_slice()?;
+    let d = d.as_slice()?;
+    let rows = rows.as_slice()?;
+    let a_cols = a_cols.as_slice()?;
+    let b_cols = b_cols.as_slice()?;
+    let b_shape = (b.shape()[0], b.shape()[1]);
+    let b_slice = b.as_slice()?;
+
+    let n_a_cols = a_cols.len();
+    let n_b_cols = b_cols.len();
+
+    // Handle edge cases: empty dimensions produce empty result with correct shape
+    if n_a_cols == 0 || n_b_cols == 0 {
+        // Use zeros to create array with correct shape
+        let array = PyArray2::zeros(py, [n_a_cols, n_b_cols], false);
+        return Ok(array.unbind());
+    }
+
+    let result = sparse::csr_dense_sandwich(
+        a_data,
+        a_indices,
+        a_indptr,
+        b_slice,
+        b_shape,
+        d,
+        rows,
+        a_cols,
+        b_cols,
+        a_ncol,
+        is_c_contiguous,
+    );
+
+    let array = PyArray2::from_vec2(
+        py,
+        &result
+            .chunks(n_b_cols)
+            .map(|chunk| chunk.to_vec())
+            .collect::<Vec<_>>(),
+    )?;
+
+    Ok(array.into())
+}
+
+/// Compute weighted squared column norms for CSC matrix
+#[pyfunction]
+fn transpose_square_dot_weights<'py>(
+    py: Python<'py>,
+    data: PyReadonlyArray1<'py, f64>,
+    indices: PyReadonlyArray1<'py, i32>,
+    indptr: PyReadonlyArray1<'py, i32>,
+    weights: PyReadonlyArray1<'py, f64>,
+) -> PyResult<Py<PyArray1<f64>>> {
+    let data = data.as_slice()?;
+    let indices = indices.as_slice()?;
+    let indptr = indptr.as_slice()?;
+    let weights = weights.as_slice()?;
+
+    let result = sparse::transpose_square_dot_weights(data, indices, indptr, weights);
+
+    Ok(PyArray1::from_vec(py, result).into())
 }

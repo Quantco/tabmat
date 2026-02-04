@@ -1,4 +1,4 @@
-//! Core categorical matrix operations implemented in idiomatic Rust.
+//! Core categorical matrix operations implemented in Rust.
 //!
 //! These functions implement the categorical matrix operations using simple
 //! sequential iteration. The design prioritizes clarity and correctness.
