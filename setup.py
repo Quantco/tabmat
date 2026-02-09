@@ -79,7 +79,6 @@ elif sys.platform == "darwin":
         "-Xpreprocessor",
         "-fopenmp",
         "-O3",
-        "-ffast-math",
         "--std=c++17",
         f"-DJEMALLOC_INSTALL_SUFFIX={je_install_suffix}",
     ]
@@ -101,7 +100,6 @@ else:
     extra_compile_args = [
         "-fopenmp",
         "-O3",
-        "-ffast-math",
         "--std=c++17",
         f"-DJEMALLOC_INSTALL_SUFFIX={je_install_suffix}",
     ]
@@ -168,6 +166,7 @@ setup(
             "initializedcheck": False,
             "nonecheck": False,
             "cdivision": True,
+            "cpow": True,
             "legacy_implicit_noexcept": True,
         },
     ),
