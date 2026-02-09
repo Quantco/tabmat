@@ -154,6 +154,9 @@ setup(
     ],
     package_dir={"": "src"},
     packages=find_packages(where="src"),
+    package_data={
+        "tabmat.tabmat_rust_ext": ["*.so", "*.pyd", "*.dylib"],
+    },
     install_requires=["formulaic>=1.2", "narwhals", "numpy", "scipy"],
     python_requires=">=3.10",
     ext_modules=cythonize(

@@ -1,0 +1,16 @@
+[package]
+name = "tabmat_rust_ext"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "tabmat_rust_ext"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.23", features = ["extension-module", "abi3-py310"] }
+numpy = "0.23"
+
+[profile.release]
+lto = true
+opt-level = 3
