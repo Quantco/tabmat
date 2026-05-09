@@ -8,11 +8,11 @@ postinstall = "pip install --no-build-isolation --no-deps --disable-pip-version-
 
 [tasks.install-nightlies]
 cmd = """
-    PRE_WHEELS="https://pypi.anaconda.org/scientific-python-nightly-wheels/simple/"
-    && pip install --pre --no-deps --only-binary :all: --upgrade --timeout=60 -i $PRE_WHEELS numpy
-    && pip install --pre --no-deps --only-binary :all: --upgrade --timeout=60 -i $PRE_WHEELS pandas
-    && pip install --pre --no-deps --only-binary :all: --upgrade --timeout=60 -i https://pypi.fury.io/arrow-nightlies/ pyarrow
-    && pip install --no-deps git+https://github.com/matthewwardrop/formulaic
+    PRE_WHEELS="https://pypi.anaconda.org/scientific-python-nightly-wheels/simple/" &&
+    pip install --pre --no-deps --only-binary :all: --upgrade --timeout=60 -i $PRE_WHEELS numpy &&
+    pip install --pre --no-deps --only-binary :all: --upgrade --timeout=60 -i $PRE_WHEELS pandas &&
+    pip install --pre --no-deps --only-binary :all: --upgrade --timeout=60 -i https://pypi.fury.io/arrow-nightlies/ pyarrow &&
+    pip install --no-deps git+https://github.com/matthewwardrop/formulaic
 """
 
 [feature.test.tasks]
