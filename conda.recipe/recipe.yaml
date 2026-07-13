@@ -47,7 +47,7 @@ requirements:
     - xsimd <11|>12.1
   run:
     - python
-    - numpy
+    - ${{ pin_compatible('numpy') }}
     - formulaic >=1.2
     - scipy
     - narwhals >=2
