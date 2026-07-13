@@ -16,7 +16,7 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.variant-file }}
+    name: ${{ matrix['variant-file'] }}
     runs-on: ${{ matrix.os }}
     env:
       CI: True
@@ -54,8 +54,8 @@ jobs:
       - uses: prefix-dev/rattler-build-action@ca874f064b8716c9da7cb420cf9affa13a5899d8 # v0.2.38
         with:
           recipe-path: conda.recipe/recipe.yaml
-          build-args: -m .ci_support/${{ matrix.variant-file }}.yaml --target-platform ${{ matrix.target-platform }} ${{ matrix.rattler-build-args }}
-          artifact-name: package-${{ matrix.variant-file }}
+          build-args: -m .ci_support/${{ matrix['variant-file'] }}.yaml --target-platform ${{ matrix['target-platform'] }} ${{ matrix['rattler-build-args'] }}
+          artifact-name: package-${{ matrix['variant-file'] }}
         env:
           GIT_DESCRIBE_TAG: ${{ steps.git-metadata.outputs.GIT_DESCRIBE_TAG }}
           GIT_DESCRIBE_HASH: ${{ steps.git-metadata.outputs.GIT_DESCRIBE_HASH }}
