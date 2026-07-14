@@ -1,0 +1,77 @@
+context:
+  name: tabmat
+  version: ${{ env.get('GIT_DESCRIBE_TAG') | trim('v') }}${{ ('.post' + env.get('GIT_DESCRIBE_NUMBER') + '+' + env.get('GIT_DESCRIBE_HASH')) if env.get('GIT_DESCRIBE_NUMBER', default='0') != '0' }}
+
+package:
+  name: tabmat
+  version: ${{ version }}
+
+source:
+  path: ../
+  use_gitignore: false
+
+build:
+  number: 0
+  script: python -m pip install . -vv
+
+requirements:
+  build:
+    - if: build_platform != target_platform
+      then:
+        - python
+        - cross-python_${{ target_platform }}
+        - cython !=3.0.4
+        - numpy
+    - ${{ compiler("c") }}
+    - ${{ stdlib("c") }}
+    - ${{ compiler("cxx") }}
+    - if: osx
+      then:
+        - llvm-openmp
+    - if: linux
+      then:
+        - libgomp
+  host:
+    - python
+    - cython !=3.0.4
+    - if: not win
+      then:
+        - jemalloc-local
+    - if: osx
+      then:
+        - llvm-openmp
+    - mako
+    - numpy
+    - pip
+    - setuptools-scm
+    - xsimd <11|>12.1
+  run:
+    - python
+    - ${{ pin_compatible('numpy') }}
+    - formulaic >=1.2
+    - scipy
+    - narwhals >=2
+
+tests:
+  - python:
+      pip_check: true
+      imports:
+        - tabmat
+
+about:
+  homepage: https://github.com/Quantco/tabmat
+  license: BSD-3-Clause
+  license_file: LICENSE
+  summary: Efficient matrix representations for working with tabular data
+  description: |
+    tabmat provides efficient tools for representing tabular data as a mix of
+    dense, sparse and categorical subcomponents, resulting in 100x faster
+    performance on some machine learning problems!
+  documentation: https://tabmat.readthedocs.io/
+  repository: https://github.com/Quantco/tabmat
+
+extra:
+  recipe-maintainers:
+    - MarcAntoineSchmidtQC
+    - xhochy
+    - tbenthompson
