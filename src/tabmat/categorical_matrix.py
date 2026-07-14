@@ -228,6 +228,7 @@ def _factorize(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _extract_codes_and_categories_pandas(cat_vec) -> tuple[np.ndarray, np.ndarray]:
+    assert pd is not None
     if isinstance(cat_vec, pd.Categorical):
         categories = cat_vec.categories
         indices = cat_vec.codes
