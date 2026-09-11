@@ -177,6 +177,28 @@ class DenseMatrix(MatrixBase):
             return other._cross_sandwich(self, d, rows, R_cols, L_cols).T
         raise TypeError
 
+    def _materialize_standardization(
+        self, shifter: np.ndarray, mult: Optional[np.ndarray]
+    ) -> "DenseMatrix":
+        """Apply the standardization to a copy of the data.
+
+        A dense matrix stays dense under standardization, so there is nothing
+        to lose by folding the shift and the multiplier straight into the
+        values. Doing so lets ``StandardizedMatrix`` skip the algebraic
+        expansion of the sandwich product, which is where the accuracy is lost.
+        """
+        array = self._array
+        if mult is not None:
+            standardized = array * mult
+        else:
+            standardized = array.astype(array.dtype, copy=True)
+        standardized += shifter
+        return DenseMatrix(
+            standardized,
+            column_names=self._colnames,
+            term_names=self._terms,
+        )
+
     def _get_col_stds(self, weights: np.ndarray, col_means: np.ndarray) -> np.ndarray:
         """Get standard deviations of columns using weights `weights`."""
         sqrt_arg = transpose_square_dot_weights(self._array, weights, col_means)
