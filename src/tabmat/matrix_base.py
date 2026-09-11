@@ -126,7 +126,11 @@ class MatrixBase(ABC):
         pass
 
     def standardize(
-        self, weights: np.ndarray, center_predictors: bool, scale_predictors: bool
+        self,
+        weights: np.ndarray,
+        center_predictors: bool,
+        scale_predictors: bool,
+        materialize_shift: bool = False,
     ) -> tuple[Any, np.ndarray, Optional[np.ndarray]]:
         """
         Return a StandardizedMatrix along with the column means and column standard
@@ -137,6 +141,19 @@ class MatrixBase(ABC):
         without modifying the underlying dataset by storing shifting and scaling
         factors that are then used whenever an operation is performed with the new
         StandardizedMatrix.
+
+        If ``materialize_shift`` is set, the standardization is instead applied
+        to a copy of the data, and the returned StandardizedMatrix carries a
+        zero shift. This costs one O(n * k) copy up front and avoids the
+        expansion that :meth:`StandardizedMatrix.sandwich` would otherwise
+        perform, which is both faster per call and much more accurate: the
+        expansion adds ``outer(shift, shift) * sum(d)`` to the uncentered
+        second moment, and for a column whose mean is large relative to its
+        standard deviation those two quantities nearly cancel.
+
+        Only matrix types that can absorb the standardization without changing
+        their storage honor this flag; for the others it is ignored, so a
+        sparse matrix is never densified by standardizing it.
 
         Note: If center_predictors is False, col_means will be zeros.
 
@@ -164,7 +181,37 @@ class MatrixBase(ABC):
                 out_means = shifter
             mult = None
 
+        if materialize_shift and shifter.any():
+            materialized = self._materialize_standardization(shifter, mult)
+            if materialized is not None:
+                return (
+                    StandardizedMatrix(
+                        materialized,
+                        np.zeros_like(shifter),
+                        None,
+                        unstandardized=self,
+                    ),
+                    out_means,
+                    col_stds,
+                )
+
         return StandardizedMatrix(self, shifter, mult), out_means, col_stds
+
+    def _materialize_standardization(
+        self, shifter: np.ndarray, mult: Optional[np.ndarray]
+    ) -> Optional["MatrixBase"]:
+        """
+        Return a copy of this matrix with the standardization applied, if possible.
+
+        The result must satisfy ``out[i, j] == mult[j] * self[i, j] + shifter[j]``
+        so that the caller can drop the shift and multiplier entirely.
+
+        Returning ``None``, as this default implementation does, means the
+        matrix type cannot absorb the standardization without changing how it
+        is stored -- a sparse or categorical matrix would have to become dense
+        -- and the caller keeps the shift/multiplier representation.
+        """
+        return None
 
     @abstractmethod
     def __getitem__(self, item):

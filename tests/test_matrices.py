@@ -569,6 +569,122 @@ def test_standardize(
     np.testing.assert_allclose(unstandardized.toarray(), asarray)
 
 
+@pytest.mark.parametrize("mat", get_unscaled_matrices())
+@pytest.mark.parametrize("center_predictors", [False, True])
+@pytest.mark.parametrize("scale_predictors", [False, True])
+def test_standardize_materialize_shift(
+    mat: tm.MatrixBase, center_predictors: bool, scale_predictors: bool
+):
+    """``materialize_shift`` must not change what ``standardize`` means."""
+    asarray = mat.toarray().copy()
+    weights = np.random.rand(mat.shape[0])
+    weights /= weights.sum()
+
+    expansion, means, stds = mat.standardize(
+        weights, center_predictors, scale_predictors
+    )
+    shifted, means_shifted, stds_shifted = mat.standardize(
+        weights, center_predictors, scale_predictors, materialize_shift=True
+    )
+
+    # Same matrix, same summary statistics, whichever representation is used.
+    np.testing.assert_allclose(shifted.toarray(), expansion.toarray())
+    np.testing.assert_allclose(means_shifted, means)
+    if stds is None:
+        assert stds_shifted is None
+    else:
+        np.testing.assert_allclose(stds_shifted, stds)
+
+    # Standardizing must never modify the caller's data.
+    np.testing.assert_array_equal(mat.toarray(), asarray)
+
+    # ... and the original matrix must still be recoverable.
+    unstandardized = shifted.unstandardize()
+    assert isinstance(unstandardized, type(mat))
+    np.testing.assert_allclose(unstandardized.toarray(), asarray)
+
+    if center_predictors and isinstance(mat, tm.DenseMatrix):
+        # A dense matrix stays dense, so the shift is folded into the data.
+        assert not shifted.shift.any()
+        assert shifted.mult is None
+    elif not isinstance(mat, tm.DenseMatrix):
+        # Everything else keeps the shift, so that standardizing a sparse or
+        # categorical matrix never densifies it.
+        assert isinstance(shifted.mat, type(mat))
+
+
+@pytest.mark.parametrize("mat", get_unscaled_matrices())
+@pytest.mark.parametrize("center_predictors", [False, True])
+@pytest.mark.parametrize("scale_predictors", [False, True])
+def test_standardize_materialize_shift_operations(
+    mat: tm.MatrixBase, center_predictors: bool, scale_predictors: bool
+):
+    """The two representations must agree on the operations, not just toarray."""
+    weights = np.random.rand(mat.shape[0])
+    weights /= weights.sum()
+    d = np.random.rand(mat.shape[0])
+    vec = np.random.rand(mat.shape[1])
+    other = np.random.rand(mat.shape[0])
+
+    expansion, _, _ = mat.standardize(weights, center_predictors, scale_predictors)
+    shifted, _, _ = mat.standardize(
+        weights, center_predictors, scale_predictors, materialize_shift=True
+    )
+
+    np.testing.assert_allclose(shifted.sandwich(d), expansion.sandwich(d), atol=1e-11)
+    np.testing.assert_allclose(shifted.matvec(vec), expansion.matvec(vec))
+    np.testing.assert_allclose(
+        shifted.transpose_matvec(other), expansion.transpose_matvec(other), atol=1e-11
+    )
+
+
+# Offsets are chosen per dtype so that the column spread is still
+# representable in that precision: float32 has ~7 significant digits, so an
+# offset of 1e6 would swallow a spread of order 1 in the data itself, before
+# `sandwich` is ever called.
+# The tolerances are set by how precisely the *data* can hold the spread:
+# ``offset + spread`` quantizes the spread at ``eps * offset``, and no
+# implementation can recover what the input never stored. They are still
+# orders of magnitude tighter than the expansion achieves on this input.
+@pytest.mark.parametrize(
+    "dtype, offset, tol", [(np.float64, 1e6, 1e-9), (np.float32, 1e3, 1e-4)]
+)
+def test_sandwich_accuracy_with_large_column_means(dtype, offset, tol):
+    """``sandwich`` must stay accurate when a column mean dwarfs its spread.
+
+    ``StandardizedMatrix.sandwich`` expands the product into four terms, one of
+    which is ``outer(shift, shift) * sum(d)``. For a column whose mean is large
+    relative to its standard deviation, ``shift`` is huge and that term very
+    nearly cancels against the uncentered second moment, so most of the
+    significant digits are lost. Materializing the shift skips the expansion.
+    See #414.
+    """
+    n = 100
+    offsets = np.array([offset, -offset, offset / 1000], dtype=dtype)
+    spread = np.linspace(-1.0, 1.0, n, dtype=dtype)
+    X = (offsets + np.stack([spread, spread**2, spread**3], axis=1)).astype(dtype)
+    d = np.linspace(0.5, 1.5, n, dtype=dtype)
+    weights = np.full(n, 1 / n, dtype=dtype)
+
+    shifted, col_means, col_stds = tm.DenseMatrix(X).standardize(
+        weights, center_predictors=True, scale_predictors=True, materialize_shift=True
+    )
+
+    # Reference: standardize by hand with the very same factors and let numpy
+    # compute the product, in higher precision than the matrix itself so that
+    # the reference contributes no error of its own.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        one_over_stds = np.nan_to_num(1 / col_stds)
+    centered = (X.astype(np.longdouble) - col_means.astype(np.longdouble)) * (
+        one_over_stds.astype(np.longdouble)
+    )
+    expected = centered.T @ (d.astype(np.longdouble)[:, None] * centered)
+
+    error = np.max(np.abs(shifted.sandwich(d) - expected)) / np.max(np.abs(expected))
+    assert error < tol, f"relative error {error:.2e} exceeds {tol:.2e}"
+
+
 @pytest.mark.parametrize("mat", get_matrices())
 def test_indexing_int_row(mat: Union[tm.MatrixBase, tm.StandardizedMatrix]):
     res = mat[0, :]
