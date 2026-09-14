@@ -955,3 +955,38 @@ def test_dense_matrix_get_col_stds(dtype):
     np.testing.assert_allclose(
         standardized_mat.mult, 1 / np.std(X, axis=0, ddof=0), rtol=eps
     )
+
+
+def _materialized_dense(n=40, p=6, seed=0):
+    rng = np.random.default_rng(seed)
+    X = rng.standard_normal((n, p)) + 1e3
+    weights = np.full(n, 1 / n)
+    shifted, _, _ = tm.DenseMatrix(X).standardize(
+        weights,
+        center_predictors=True,
+        scale_predictors=True,
+        materialize_shift=True,
+    )
+    return X, shifted
+
+
+def test_materialized_getitem_unstandardize():
+    X, shifted = _materialized_dense()
+    np.testing.assert_array_equal(shifted[:, 1:4].unstandardize().toarray(), X[:, 1:4])
+    np.testing.assert_array_equal(
+        shifted[10:20, :].unstandardize().toarray(), X[10:20, :]
+    )
+
+
+def test_materialized_getcol_unstandardize():
+    X, shifted = _materialized_dense()
+    np.testing.assert_array_equal(
+        shifted.getcol(2).unstandardize().toarray(), X[:, [2]]
+    )
+
+
+def test_materialized_astype_unstandardize():
+    X, shifted = _materialized_dense()
+    np.testing.assert_array_equal(
+        shifted.astype(np.float32).unstandardize().toarray(), X.astype(np.float32)
+    )

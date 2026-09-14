@@ -151,6 +151,10 @@ class MatrixBase(ABC):
         second moment, and for a column whose mean is large relative to its
         standard deviation those two quantities nearly cancel.
 
+        The original matrix is kept alongside the copy so that
+        :meth:`StandardizedMatrix.unstandardize` can still return it, so
+        this roughly doubles the memory held for the design matrix.
+
         Only matrix types that can absorb the standardization without changing
         their storage honor this flag; for the others it is ignored, so a
         sparse matrix is never densified by standardizing it.

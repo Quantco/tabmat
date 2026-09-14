@@ -131,7 +131,12 @@ class StandardizedMatrix:
         col = self.mat.getcol(i)
         if isinstance(col, sps.csc_matrix) and not isinstance(col, MatrixBase):
             col = SparseMatrix(col)
-        return StandardizedMatrix(col, [self.shift[i]], mult)
+        unstandardized = None
+        if self._unstandardized is not None:
+            unstandardized = self._unstandardized.getcol(i)
+        return StandardizedMatrix(
+            col, [self.shift[i]], mult, unstandardized=unstandardized
+        )
 
     def sandwich(
         self,
@@ -314,9 +319,15 @@ class StandardizedMatrix:
 
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
         """Return StandardizedMatrix cast to new type."""
+        unstandardized = None
+        if self._unstandardized is not None:
+            unstandardized = self._unstandardized.astype(
+                dtype, casting=casting, copy=copy
+            )
         return type(self)(
             self.mat.astype(dtype, casting=casting, copy=copy),
             self.shift.astype(dtype, order=order, casting=casting, copy=copy),
+            unstandardized=unstandardized,
         )
 
     def __getitem__(self, item):
@@ -338,7 +349,15 @@ class StandardizedMatrix:
                 out = out * mult_part
             return out + shift_part
 
-        return StandardizedMatrix(mat_part, np.atleast_1d(shift_part), mult_part)
+        unstandardized = None
+        if self._unstandardized is not None:
+            unstandardized = self._unstandardized.__getitem__(item)
+        return StandardizedMatrix(
+            mat_part,
+            np.atleast_1d(shift_part),
+            mult_part,
+            unstandardized=unstandardized,
+        )
 
     def __repr__(self):
         out = f"""StandardizedMat. Mat: {type(self.mat)} of shape {self.mat.shape}.
