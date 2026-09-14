@@ -324,9 +324,13 @@ class StandardizedMatrix:
             unstandardized = self._unstandardized.astype(
                 dtype, casting=casting, copy=copy
             )
+        mult = None
+        if self.mult is not None:
+            mult = self.mult.astype(dtype, order=order, casting=casting, copy=copy)
         return type(self)(
             self.mat.astype(dtype, casting=casting, copy=copy),
             self.shift.astype(dtype, order=order, casting=casting, copy=copy),
+            mult,
             unstandardized=unstandardized,
         )
 

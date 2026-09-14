@@ -990,3 +990,15 @@ def test_materialized_astype_unstandardize():
     np.testing.assert_array_equal(
         shifted.astype(np.float32).unstandardize().toarray(), X.astype(np.float32)
     )
+
+
+def test_standardized_astype_keeps_mult():
+    rng = np.random.default_rng(0)
+    X = rng.standard_normal((40, 6)) + 1e3
+    weights = np.full(40, 1 / 40)
+    shifted, _, _ = tm.DenseMatrix(X).standardize(
+        weights, center_predictors=True, scale_predictors=True
+    )
+    cast = shifted.astype(np.float64)
+    assert cast.mult is not None
+    np.testing.assert_allclose(cast.toarray(), shifted.toarray())
