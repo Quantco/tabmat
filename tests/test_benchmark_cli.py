@@ -1,6 +1,8 @@
+import numpy as np
 import pytest
 from click.testing import CliRunner
 
+import tabmat as tm
 from tabmat.benchmark.generate_matrices import (
     generate_matrices,
     get_all_benchmark_matrices,
@@ -49,3 +51,25 @@ def test_run_all_benchmarks(
             1,
             bench_memory,
         )
+
+
+def test_run_one_benchmark_set_records_timings():
+    """Timings must actually be written to the results frame.
+
+    Regression test: under pandas copy-on-write the chained assignment
+    ``times["time"].iloc[i] = ...`` is rejected and the value silently dropped,
+    leaving every timing at its initial value.
+    """
+    rng = np.random.default_rng(0)
+    matrices = {"tabmat": tm.DenseMatrix(rng.standard_normal((50, 4)))}
+    times = run_one_benchmark_set(
+        matrices,
+        include_baseline=False,
+        name="dense",
+        standardized=False,
+        ops_to_run=["matvec", "transpose-matvec", "sandwich"],
+        n_iterations=1,
+        bench_memory=False,
+    )
+    assert times["time"].notna().all()
+    assert (times["time"] > 0).all()
