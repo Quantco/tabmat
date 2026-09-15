@@ -125,13 +125,13 @@ def run_one_benchmark_set(
         # We want to get a consistent measure of runtime so we take the
         # minimum. Any increase in runtime is due to warmup or other
         # processes running at the same time.
-        times["time"].iloc[i] = np.min(runtimes)
+        times.loc[i, "time"] = np.min(runtimes)
 
         # On the other hand, we want the maximum memory usage because this
         # metric is isolated to our current python process. Any lower
         # values will be because the highest memory usage was "missed" by
         # the tracker
-        times["memory"].iloc[i] = np.max(peak_mems)
+        times.loc[i, "memory"] = np.max(peak_mems)
 
     times["design"] = name
     return times
