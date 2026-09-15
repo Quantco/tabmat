@@ -197,3 +197,94 @@ def test_names_polars(prefix_sep, drop_first):
 
     unique_terms = list(dict.fromkeys(mat_expand.term_names))
     assert unique_terms == df.columns
+
+
+def _members(mat):
+    return mat.matrices if isinstance(mat, tm.SplitMatrix) else [mat]
+
+
+def _sparse_series(values, fill_value=0.0):
+    return pd.Series(
+        pd.arrays.SparseArray(np.asarray(values, dtype=float), fill_value=fill_value)
+    )
+
+
+def test_from_pandas_sparse_columns_match_dense():
+    rng = np.random.default_rng(0)
+    n = 200
+
+    def sparse_col(density):
+        v = np.zeros(n)
+        idx = rng.choice(n, int(n * density), replace=False)
+        v[idx] = rng.standard_normal(idx.size)
+        return v
+
+    s0, s1, d = sparse_col(0.05), sparse_col(0.1), rng.standard_normal(n)
+    df = pd.DataFrame({"s0": _sparse_series(s0), "s1": _sparse_series(s1), "d": d})
+    mat = tm.from_pandas(df, dtype=np.float64)
+    np.testing.assert_array_equal(mat.toarray(), np.column_stack([s0, s1, d]))
+    sparse_members = [m for m in _members(mat) if isinstance(m, tm.SparseMatrix)]
+    assert len(sparse_members) == 1
+    assert sparse_members[0].shape[1] == 2
+
+
+def test_from_pandas_sparse_explicit_zeros_are_dropped():
+    # The product of two sparse arrays keeps the union of their indices, so it
+    # stores zeros explicitly. Those must not end up as stored entries.
+    a = pd.arrays.SparseArray([1.0, 0.0] * 10, fill_value=0.0)
+    b = pd.arrays.SparseArray([0.0, 1.0] * 10, fill_value=0.0)
+    prod = a * b
+    assert prod.sp_values.size > 0 and (prod.sp_values == 0).all()
+    mat = tm.from_pandas(pd.DataFrame({"s": pd.Series(prod)}))
+    assert isinstance(mat, tm.SparseMatrix)
+    assert mat.tocsc().nnz == 0
+    np.testing.assert_array_equal(mat.toarray(), np.zeros((20, 1)))
+
+
+@pytest.mark.parametrize("fill_value", [np.nan, 1.0])
+def test_from_pandas_sparse_nonzero_fill_is_stored_dense(fill_value):
+    values = np.full(30, fill_value)
+    values[[3, 7]] = 2.0
+    df = pd.DataFrame(
+        {
+            "s": pd.Series(pd.arrays.SparseArray(values, fill_value=fill_value)),
+            "d": np.arange(30, dtype=float),
+        }
+    )
+    with pytest.warns(UserWarning, match="fill_value"):
+        mat = tm.from_pandas(df, dtype=np.float64)
+    assert all(isinstance(m, tm.DenseMatrix) for m in _members(mat))
+    expected = np.column_stack([values, np.arange(30, dtype=float)])
+    np.testing.assert_array_equal(mat.toarray(), expected)
+
+
+def test_from_pandas_sparse_all_fill_column():
+    df = pd.DataFrame({"s": _sparse_series(np.zeros(25)), "d": np.ones(25)})
+    mat = tm.from_pandas(df, dtype=np.float64)
+    np.testing.assert_array_equal(
+        mat.toarray(), np.column_stack([np.zeros(25), np.ones(25)])
+    )
+    sparse_members = [m for m in _members(mat) if isinstance(m, tm.SparseMatrix)]
+    assert len(sparse_members) == 1
+    assert sparse_members[0].tocsc().nnz == 0
+
+
+def test_from_pandas_sparse_block_mixes_sources():
+    # pandas sparse columns and numeric or boolean columns below the sparse
+    # threshold share one SparseMatrix and must agree with the dense reference.
+    n = 100
+    s = np.zeros(n)
+    s[[1, 50]] = 3.0
+    ds = np.zeros(n)
+    ds[[2, 60]] = -1.5
+    b = np.zeros(n, dtype=bool)
+    b[[4, 70]] = True
+    d = np.linspace(0, 1, n)
+    df = pd.DataFrame({"s": _sparse_series(s), "ds": ds, "b": b, "d": d})
+    mat = tm.from_pandas(df, dtype=np.float64, sparse_threshold=0.1)
+    np.testing.assert_array_equal(
+        mat.toarray(), np.column_stack([s, ds, b.astype(float), d])
+    )
+    sparse_members = [m for m in _members(mat) if isinstance(m, tm.SparseMatrix)]
+    assert len(sparse_members) == 1
+    assert sparse_members[0].shape[1] == 3
