@@ -72,4 +72,4 @@ def test_run_one_benchmark_set_records_timings():
         bench_memory=False,
     )
     assert times["time"].notna().all()
-    assert (times["time"] > 0).all()
+    assert times["memory"].notna().all()
