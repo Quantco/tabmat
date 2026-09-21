@@ -89,6 +89,7 @@ def from_df(
     sparse_tmidx = []  # index in the new SplitMatrix
     pandas_sparse_dfidx = set()  # zero-fill pandas SparseDtype columns
     ignored_cols = []
+    nonzero_fill_cols: list[tuple[str, object]] = []
 
     mxcolidx = 0
 
@@ -116,12 +117,7 @@ def from_df(
                 else:
                     # SparseMatrix only represents zero fill. A sparse array with
                     # any other fill value is logically dense, so store it that way.
-                    warnings.warn(
-                        f"Column {colname!r} has a sparse dtype with fill_value="
-                        f"{fill!r}. tabmat only supports a fill value of 0 for sparse"
-                        " storage, so the column is stored as dense. Use fill_value=0"
-                        " to keep it sparse."
-                    )
+                    nonzero_fill_cols.append((colname, fill))
                     dense_dfidx.append(dfcolidx)
                     dense_tmidx.append(mxcolidx)
                 mxcolidx += 1
@@ -194,6 +190,15 @@ def from_df(
     if len(ignored_cols) > 0:
         warnings.warn(
             f"Columns {ignored_cols} were ignored. Make sure they have a valid dtype."
+        )
+    if len(nonzero_fill_cols) > 0:
+        listed = ", ".join(
+            f"{colname!r} (fill_value={fill!r})" for colname, fill in nonzero_fill_cols
+        )
+        warnings.warn(
+            f"Columns {listed} have a sparse dtype with a fill value other than 0."
+            " tabmat only supports a fill value of 0 for sparse storage, so these"
+            " columns are stored as dense. Use fill_value=0 to keep them sparse."
         )
     if dense_dfidx:
         matrices.append(

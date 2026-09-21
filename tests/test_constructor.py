@@ -258,6 +258,33 @@ def test_from_pandas_sparse_nonzero_fill_is_stored_dense(fill_value):
     np.testing.assert_array_equal(mat.toarray(), expected)
 
 
+def test_from_pandas_sparse_nonzero_fill_warns_once_for_many_columns():
+    # Several non-zero-fill columns must produce a single warning naming all of
+    # them, not one warning per column.
+    n = 20
+    df = pd.DataFrame(
+        {
+            "a": pd.Series(pd.arrays.SparseArray(np.ones(n), fill_value=1.0)),
+            "b": pd.Series(pd.arrays.SparseArray(np.full(n, 2.0), fill_value=2.0)),
+            "c": pd.Series(
+                pd.arrays.SparseArray(np.full(n, np.nan), fill_value=np.nan)
+            ),
+            "d": np.arange(n, dtype=float),
+        }
+    )
+    with pytest.warns(UserWarning, match="fill_value") as record:
+        mat = tm.from_pandas(df, dtype=np.float64)
+
+    fill_warnings = [w for w in record if "fill_value" in str(w.message)]
+    assert len(fill_warnings) == 1
+    message = str(fill_warnings[0].message)
+    for colname in ("a", "b", "c"):
+        assert repr(colname) in message
+    assert "'d'" not in message
+
+    assert all(isinstance(m, tm.DenseMatrix) for m in _members(mat))
+
+
 def test_from_pandas_sparse_all_fill_column():
     df = pd.DataFrame({"s": _sparse_series(np.zeros(25)), "d": np.ones(25)})
     mat = tm.from_pandas(df, dtype=np.float64)
