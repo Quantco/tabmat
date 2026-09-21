@@ -215,7 +215,7 @@ def from_df(
         indptr = [0]
         for dfcolidx in sparse_dfidx:
             if dfcolidx in pandas_sparse_dfidx:
-                sparse_array = nw.to_native(df[:, [dfcolidx]]).iloc[:, 0].array
+                sparse_array = nw.to_native(df[:, dfcolidx]).array
                 col_indices = sparse_array.sp_index.to_int_index().indices
                 col_values = sparse_array.sp_values
             else:
