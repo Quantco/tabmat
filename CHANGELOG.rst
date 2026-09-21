@@ -12,6 +12,7 @@ Changelog
 
 **Other changes:**
 
+- Fixed the benchmark harness silently recording zero timings and memory under pandas 3, where the chained assignment it used is rejected by copy-on-write.
 - We disabled fast math to avoid invalid results (e.g., when dividing by zero).
 
 
