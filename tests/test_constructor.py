@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import polars as pl
 import pytest
+import scipy.sparse as sps
 
 import tabmat as tm
 
@@ -229,16 +230,24 @@ def test_from_pandas_sparse_columns_match_dense():
 
 
 def test_from_pandas_sparse_explicit_zeros_are_dropped():
-    # The product of two sparse arrays keeps the union of their indices, so it
-    # stores zeros explicitly. Those must not end up as stored entries.
-    a = pd.arrays.SparseArray([1.0, 0.0] * 10, fill_value=0.0)
-    b = pd.arrays.SparseArray([0.0, 1.0] * 10, fill_value=0.0)
-    prod = a * b
-    assert prod.sp_values.size > 0 and (prod.sp_values == 0).all()
-    mat = tm.from_pandas(pd.DataFrame({"s": pd.Series(prod)}))
+    # A pandas sparse column can carry explicitly stored zeros, for instance when
+    # it is built from a scipy matrix that was never pruned. Those must not end up
+    # as stored entries, while the genuine non-zeros must survive.
+    column = pd.arrays.SparseArray.from_spmatrix(
+        sps.csc_matrix(
+            (np.array([3.0, 0.0, 7.0]), np.array([1, 4, 9]), np.array([0, 3])),
+            shape=(20, 1),
+        )
+    )
+    assert (column.sp_values == 0).any()
+
+    mat = tm.from_pandas(pd.DataFrame({"s": pd.Series(column)}))
+
     assert isinstance(mat, tm.SparseMatrix)
-    assert mat.tocsc().nnz == 0
-    np.testing.assert_array_equal(mat.toarray(), np.zeros((20, 1)))
+    assert mat.tocsc().nnz == 2
+    expected = np.zeros((20, 1))
+    expected[[1, 9], 0] = [3.0, 7.0]
+    np.testing.assert_array_equal(mat.toarray(), expected)
 
 
 @pytest.mark.parametrize("fill_value", [np.nan, 1.0])
