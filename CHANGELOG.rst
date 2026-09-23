@@ -7,8 +7,16 @@
 Changelog
 =========
 
-4.2.2 - unreleased
+4.3.0 - unreleased
 ------------------
+
+**New feature:**
+
+- Added a ``materialize_shift`` option to :meth:`MatrixBase.standardize`. When set, the standardization is applied to a copy of the data instead of being stored as a shift and a multiplier, which makes :meth:`StandardizedMatrix.sandwich` both faster per call and much more accurate for columns whose mean is large relative to their standard deviation, at the cost of keeping a second copy of the data. Matrix types that would have to change their storage to absorb the standardization, such as :class:`SparseMatrix` and :class:`CategoricalMatrix`, ignore the option and are never densified.
+
+**Bug fixes:**
+
+- :meth:`StandardizedMatrix.sandwich`, :meth:`StandardizedMatrix.matvec` and :meth:`StandardizedMatrix.transpose_matvec` no longer evaluate the shift terms when the shift is zero. Besides saving work, this avoids forming ``outer(shift, shift) * sum(d)``, which can be many orders of magnitude larger than the result it is added to.
 
 **Other changes:**
 

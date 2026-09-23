@@ -38,6 +38,7 @@ class StandardizedMatrix:
         mat: MatrixBase,
         shift: Union[np.ndarray, list],
         mult: Optional[Union[np.ndarray, list]] = None,
+        unstandardized: Optional[MatrixBase] = None,
     ):
         shift_arr = np.atleast_1d(np.squeeze(shift))
         expected_shape = (mat.shape[1],)
@@ -65,6 +66,15 @@ class StandardizedMatrix:
         self.shape = mat.shape
         self.ndim = mat.ndim
         self.dtype = mat.dtype
+        # True when the standardization is already baked into ``mat``, either
+        # because no centering was requested or because it was materialized by
+        # :meth:`MatrixBase.standardize`. The expansions below all collapse in
+        # that case.
+        self._shift_is_zero = not shift_arr.any()
+        # When the standardization has been materialized into a copy, this
+        # holds the matrix it was derived from so that ``unstandardize`` can
+        # still hand back the original data.
+        self._unstandardized = unstandardized
 
     def matvec(
         self,
@@ -90,6 +100,9 @@ class StandardizedMatrix:
                 mult = mult[:, np.newaxis]
             mult_other = mult * other_mat
         mat_part = self.mat.matvec(mult_other, cols, out=out)
+
+        if self._shift_is_zero:
+            return mat_part
 
         # Add shift part to mat_part
         shift_part = self.shift[cols].dot(other_mat[cols, ...])  # scalar
@@ -118,7 +131,12 @@ class StandardizedMatrix:
         col = self.mat.getcol(i)
         if isinstance(col, sps.csc_matrix) and not isinstance(col, MatrixBase):
             col = SparseMatrix(col)
-        return StandardizedMatrix(col, [self.shift[i]], mult)
+        unstandardized = None
+        if self._unstandardized is not None:
+            unstandardized = self._unstandardized.getcol(i)
+        return StandardizedMatrix(
+            col, [self.shift[i]], mult, unstandardized=unstandardized
+        )
 
     def sandwich(
         self,
@@ -147,13 +165,35 @@ class StandardizedMatrix:
                 cols = setup_cols
 
         term1 = self.mat.sandwich(d, rows, cols)
-        d_mat = self.mat.transpose_matvec(d, rows, cols)
+        limited_shift = self.shift[cols] if cols is not None else self.shift
+        limited_mult = None
         if self.mult is not None:
             limited_mult = self.mult[cols] if cols is not None else self.mult
-            d_mat *= limited_mult
-        term2 = np.outer(d_mat, self.shift[cols])
 
-        limited_shift = self.shift[cols] if cols is not None else self.shift
+        if self._shift_is_zero:
+            # Terms (2), (3) and (4) are all zero, so the expansion collapses
+            # to term (1). Skipping it is not only cheaper -- three p x p outer
+            # products and an extra transpose_matvec -- it also avoids forming
+            # (4), which is O(shift^2 * sum(d)) and can be many orders of
+            # magnitude larger than the result it is added to.
+            if isinstance(term1, sps.dia_matrix):
+                diagonal = term1.data[0, :].copy()
+                if limited_mult is not None:
+                    diagonal *= limited_mult**2
+                res = np.zeros(
+                    (diagonal.shape[0], diagonal.shape[0]), dtype=diagonal.dtype
+                )
+                np.fill_diagonal(res, diagonal)
+                return res
+            if limited_mult is not None:
+                term1 = term1 * np.outer(limited_mult, limited_mult)
+            return term1
+
+        d_mat = self.mat.transpose_matvec(d, rows, cols)
+        if limited_mult is not None:
+            d_mat *= limited_mult
+        term2 = np.outer(d_mat, limited_shift)
+
         limited_d = d[rows] if rows is not None else d
         term3 = np.outer(limited_shift, d_mat)
         term4 = np.outer(limited_shift, limited_shift) * np.sum(limited_d)
@@ -161,18 +201,20 @@ class StandardizedMatrix:
         if isinstance(term1, sps.dia_matrix):
             idx = np.arange(res.shape[0])
             to_add = term1.data[0, :]
-            if self.mult is not None:
+            if limited_mult is not None:
                 to_add *= limited_mult**2
             res[idx, idx] += to_add
         else:
             to_add = term1
-            if self.mult is not None:
+            if limited_mult is not None:
                 to_add *= np.outer(limited_mult, limited_mult)
             res += to_add
         return res
 
     def unstandardize(self) -> MatrixBase:
         """Get unstandardized (base) matrix."""
+        if self._unstandardized is not None:
+            return self._unstandardized
         return self.mat
 
     def transpose_matvec(
@@ -209,11 +251,6 @@ class StandardizedMatrix:
         res = self.mat.transpose_matvec(other, rows, cols)
 
         rows, cols = setup_restrictions(self.shape, rows, cols)
-        other_sum = np.sum(other[rows], 0)
-
-        shift_part_tmp = np.outer(self.shift[cols], other_sum)
-        output_shape = ((self.shape[1] if cols is None else len(cols)),) + res.shape[1:]
-        shift_part = np.reshape(shift_part_tmp, output_shape)
 
         if self.mult is not None:
             mult = self.mult
@@ -221,7 +258,14 @@ class StandardizedMatrix:
             for _ in range(res.ndim - 1):
                 mult = mult[:, np.newaxis]
             res *= mult[cols]
-        res += shift_part
+
+        if not self._shift_is_zero:
+            other_sum = np.sum(other[rows], 0)
+            shift_part_tmp = np.outer(self.shift[cols], other_sum)
+            output_shape = (
+                (self.shape[1] if cols is None else len(cols)),
+            ) + res.shape[1:]
+            res += np.reshape(shift_part_tmp, output_shape)
 
         if out is None:
             return res
@@ -275,9 +319,19 @@ class StandardizedMatrix:
 
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
         """Return StandardizedMatrix cast to new type."""
+        unstandardized = None
+        if self._unstandardized is not None:
+            unstandardized = self._unstandardized.astype(
+                dtype, casting=casting, copy=copy
+            )
+        mult = None
+        if self.mult is not None:
+            mult = self.mult.astype(dtype, order=order, casting=casting, copy=copy)
         return type(self)(
             self.mat.astype(dtype, casting=casting, copy=copy),
             self.shift.astype(dtype, order=order, casting=casting, copy=copy),
+            mult,
+            unstandardized=unstandardized,
         )
 
     def __getitem__(self, item):
@@ -299,7 +353,15 @@ class StandardizedMatrix:
                 out = out * mult_part
             return out + shift_part
 
-        return StandardizedMatrix(mat_part, np.atleast_1d(shift_part), mult_part)
+        unstandardized = None
+        if self._unstandardized is not None:
+            unstandardized = self._unstandardized.__getitem__(item)
+        return StandardizedMatrix(
+            mat_part,
+            np.atleast_1d(shift_part),
+            mult_part,
+            unstandardized=unstandardized,
+        )
 
     def __repr__(self):
         out = f"""StandardizedMat. Mat: {type(self.mat)} of shape {self.mat.shape}.
