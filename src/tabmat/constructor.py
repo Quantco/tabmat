@@ -49,8 +49,9 @@ def from_df(
     dtype : np.dtype, default np.float64
         dtype of all sub-matrices of the resulting SplitMatrix.
     sparse_threshold : float, default 0.1
-        Density threshold below which numerical columns will be stored in a sparse
-        format.
+        Density threshold at or below which numerical columns that are not already
+        sparse will be stored in a sparse format. This threshold is not used to
+        densify columns that are already sparse.
     cat_threshold : int, default 4
         Number of levels of a categorical column under which the column will be stored
         as sparse one-hot-encoded columns instead of CategoricalMatrix
@@ -236,8 +237,9 @@ def from_pandas(
     dtype : np.dtype, default np.float64
         dtype of all sub-matrices of the resulting SplitMatrix.
     sparse_threshold : float, default 0.1
-        Density threshold below which numerical columns will be stored in a sparse
-        format.
+        Density threshold at or below which numerical columns that are not already
+        sparse will be stored in a sparse format. This threshold is not used to
+        densify columns that are already sparse.
     cat_threshold : int, default 4
         Number of levels of a categorical column under which the column will be stored
         as sparse one-hot-encoded columns instead of CategoricalMatrix
