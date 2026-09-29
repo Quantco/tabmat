@@ -179,7 +179,7 @@ class DenseMatrix(MatrixBase):
 
     def _materialize_standardization(
         self, shifter: np.ndarray, mult: Optional[np.ndarray]
-    ) -> "DenseMatrix":
+    ) -> tuple["DenseMatrix", np.ndarray]:
         """Apply the standardization to a copy of the data.
 
         A dense matrix stays dense under standardization, so there is nothing
@@ -193,10 +193,13 @@ class DenseMatrix(MatrixBase):
         else:
             standardized = array.astype(array.dtype, copy=True)
         standardized += shifter
-        return DenseMatrix(
-            standardized,
-            column_names=self._colnames,
-            term_names=self._terms,
+        return (
+            DenseMatrix(
+                standardized,
+                column_names=self._colnames,
+                term_names=self._terms,
+            ),
+            np.ones(self.shape[1], dtype=bool),
         )
 
     def _get_col_stds(self, weights: np.ndarray, col_means: np.ndarray) -> np.ndarray:

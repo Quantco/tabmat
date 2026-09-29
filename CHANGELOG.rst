@@ -12,7 +12,7 @@ Changelog
 
 **New feature:**
 
-- Added a ``materialize_shift`` option to :meth:`MatrixBase.standardize`. When set, the standardization is applied to a copy of the data instead of being stored as a shift and a multiplier, which makes :meth:`StandardizedMatrix.sandwich` both faster per call and much more accurate for columns whose mean is large relative to their standard deviation, at the cost of keeping a second copy of the data. Matrix types that would have to change their storage to absorb the standardization, such as :class:`SparseMatrix` and :class:`CategoricalMatrix`, ignore the option and are never densified.
+- Added a ``materialize_shift`` option to :meth:`MatrixBase.standardize`. When set, the standardization is applied to a copy of the data instead of being stored as a shift and a multiplier, which makes :meth:`StandardizedMatrix.sandwich` both faster per call and much more accurate for columns whose mean is large relative to their standard deviation, at the cost of keeping a second copy of the data. Matrix types that would have to change their storage to absorb the standardization, such as :class:`SparseMatrix` and :class:`CategoricalMatrix`, ignore the option and are never densified. A :class:`SplitMatrix` applies it to the parts that can absorb it and leaves the others as they were.
 
 **Bug fixes:**
 

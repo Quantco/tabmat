@@ -155,9 +155,10 @@ class MatrixBase(ABC):
         :meth:`StandardizedMatrix.unstandardize` can still return it, so
         this roughly doubles the memory held for the design matrix.
 
-        Only matrix types that can absorb the standardization without changing
-        their storage honor this flag; for the others it is ignored, so a
-        sparse matrix is never densified by standardizing it.
+        Only columns that can absorb the standardization without changing how
+        they are stored honor this flag; the others keep the shift, so a sparse
+        matrix is never densified by standardizing it. A :class:`SplitMatrix`
+        absorbs it into its dense parts and leaves the rest as they were.
 
         Note: If center_predictors is False, col_means will be zeros.
 
@@ -188,11 +189,19 @@ class MatrixBase(ABC):
         if materialize_shift and shifter.any():
             materialized = self._materialize_standardization(shifter, mult)
             if materialized is not None:
+                matrix, absorbed = materialized
+                shift_left = shifter.copy()
+                shift_left[absorbed] = 0.0
+                if mult is None or absorbed.all():
+                    mult_left = None
+                else:
+                    mult_left = mult.copy()
+                    mult_left[absorbed] = 1.0
                 return (
                     StandardizedMatrix(
-                        materialized,
-                        np.zeros_like(shifter),
-                        None,
+                        matrix,
+                        shift_left,
+                        mult_left,
                         unstandardized=self,
                     ),
                     out_means,
@@ -203,12 +212,16 @@ class MatrixBase(ABC):
 
     def _materialize_standardization(
         self, shifter: np.ndarray, mult: Optional[np.ndarray]
-    ) -> Optional["MatrixBase"]:
+    ) -> Optional[tuple["MatrixBase", np.ndarray]]:
         """
         Return a copy of this matrix with the standardization applied, if possible.
 
-        The result must satisfy ``out[i, j] == mult[j] * self[i, j] + shifter[j]``
-        so that the caller can drop the shift and multiplier entirely.
+        On success, return the copy together with a boolean mask of the columns
+        that absorbed it. Those columns must satisfy
+        ``out[i, j] == mult[j] * self[i, j] + shifter[j]`` so that the caller can
+        drop their shift and multiplier; the remaining columns keep theirs. A
+        matrix built out of parts can therefore fold the standardization into the
+        parts that stay in the same storage and leave the rest alone.
 
         Returning ``None``, as this default implementation does, means the
         matrix type cannot absorb the standardization without changing how it

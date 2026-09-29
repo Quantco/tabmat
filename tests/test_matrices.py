@@ -685,6 +685,91 @@ def test_sandwich_accuracy_with_large_column_means(dtype, offset, tol):
     assert error < tol, f"relative error {error:.2e} exceeds {tol:.2e}"
 
 
+def test_standardize_materialize_shift_split_matrix():
+    """A SplitMatrix folds the shift into the parts that can take it.
+
+    The dense parts absorb it. The sparse and categorical parts would have to
+    change storage to do the same, so they keep theirs and the columns they
+    cover keep their shift.
+    """
+    mat = complex_split_matrix()
+    asarray = mat.toarray().copy()
+    weights = np.random.rand(mat.shape[0])
+    weights /= weights.sum()
+
+    expansion, means, stds = mat.standardize(
+        weights, center_predictors=True, scale_predictors=True
+    )
+    shifted, means_shifted, stds_shifted = mat.standardize(
+        weights, center_predictors=True, scale_predictors=True, materialize_shift=True
+    )
+
+    np.testing.assert_allclose(shifted.toarray(), expansion.toarray())
+    np.testing.assert_allclose(means_shifted, means)
+    np.testing.assert_allclose(stds_shifted, stds)
+    np.testing.assert_array_equal(mat.toarray(), asarray)
+    np.testing.assert_allclose(shifted.unstandardize().toarray(), asarray)
+
+    dense_cols = np.concatenate(
+        [
+            idx
+            for part, idx in zip(mat.matrices, mat.indices)
+            if isinstance(part, tm.DenseMatrix)
+        ]
+    )
+    other_cols = np.setdiff1d(np.arange(mat.shape[1]), dense_cols)
+    assert not shifted.shift[dense_cols].any()
+    assert shifted.shift[other_cols].any()
+
+    # Nothing changed how it is stored.
+    for part, original in zip(shifted.mat.matrices, mat.matrices):
+        assert isinstance(part, type(original))
+
+
+def test_sandwich_accuracy_split_matrix_with_large_column_means():
+    """The dense part of a SplitMatrix has to benefit too.
+
+    glum fits SplitMatrix designs, so a large column mean in the dense part
+    costs the same accuracy there as it does for a plain DenseMatrix. See #414.
+    """
+    rng = np.random.default_rng(0)
+    n = 1000
+    spread = np.linspace(-1.0, 1.0, n)
+    dense = np.array([1e6, -1e6, 1e3]) + np.stack(
+        [spread, spread**2, spread**3], axis=1
+    )
+    mat = tm.SplitMatrix(
+        [
+            tm.DenseMatrix(dense),
+            tm.SparseMatrix(sps.random(n, 3, density=0.1, random_state=0).tocsc()),
+            tm.CategoricalMatrix(rng.choice(["a", "b", "c"], n)),
+        ]
+    )
+    d = np.linspace(0.5, 1.5, n)
+    weights = np.full(n, 1 / n)
+
+    expansion, col_means, col_stds = mat.standardize(
+        weights, center_predictors=True, scale_predictors=True
+    )
+    shifted, _, _ = mat.standardize(
+        weights, center_predictors=True, scale_predictors=True, materialize_shift=True
+    )
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        one_over_stds = np.nan_to_num(1 / col_stds)
+    centered = (
+        mat.toarray().astype(np.longdouble) - col_means.astype(np.longdouble)
+    ) * one_over_stds.astype(np.longdouble)
+    expected = centered.T @ (d.astype(np.longdouble)[:, None] * centered)
+    scale = np.max(np.abs(expected))
+
+    error_expansion = np.max(np.abs(expansion.sandwich(d) - expected)) / scale
+    error_shifted = np.max(np.abs(shifted.sandwich(d) - expected)) / scale
+    assert error_expansion > 1e-4, "the expansion should lose accuracy on this input"
+    assert error_shifted < 1e-9, f"relative error {error_shifted:.2e}"
+
+
 @pytest.mark.parametrize("mat", get_matrices())
 def test_indexing_int_row(mat: Union[tm.MatrixBase, tm.StandardizedMatrix]):
     res = mat[0, :]
