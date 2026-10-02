@@ -304,6 +304,32 @@ class SplitMatrix(MatrixBase):
             )
         return SplitMatrix(self.matrices, self.indices)
 
+    def _materialize_standardization(
+        self, shifter: np.ndarray, mult: Optional[np.ndarray]
+    ) -> Optional[tuple["SplitMatrix", np.ndarray]]:
+        """Fold the standardization into the parts that can absorb it.
+
+        The dense parts take it into their values. The sparse and categorical
+        parts would have to change storage to do the same, so they keep their
+        shift and multiplier and the mask reports which columns were absorbed.
+        """
+        new_matrices = []
+        absorbed = np.zeros(self.shape[1], dtype=bool)
+        for mat, idx in zip(self.matrices, self.indices):
+            materialized = mat._materialize_standardization(
+                shifter[idx], None if mult is None else mult[idx]
+            )
+            if materialized is None:
+                new_matrices.append(mat)
+            else:
+                part, part_absorbed = materialized
+                new_matrices.append(part)
+                absorbed[idx[part_absorbed]] = True
+
+        if not absorbed.any():
+            return None
+        return SplitMatrix(new_matrices, self.indices), absorbed
+
     def toarray(self) -> np.ndarray:
         """Return array representation of matrix."""
         out = np.empty(self.shape)
