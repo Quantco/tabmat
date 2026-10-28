@@ -10,6 +10,10 @@ Changelog
 4.2.2 - unreleased
 ------------------
 
+**Bug fixes:**
+
+- Fixed compatibility with polars 2.0, which removed ``Series.cat.get_categories()``.
+
 **Other changes:**
 
 - Clarified that ``sparse_threshold`` is used to sparsify numerical columns and is not used to densify columns that are already sparse.
