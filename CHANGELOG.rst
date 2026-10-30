@@ -7,8 +7,12 @@
 Changelog
 =========
 
-4.2.2 - unreleased
+4.3.0 - 2026-10-30
 ------------------
+
+**New feature:**
+
+- Numerical factors now record formulaic's ``spans_intercept`` in the model spec's ``encoder_state``. For example, this shows whether ``bs()`` dropped its first basis function.
 
 **Bug fixes:**
 
@@ -16,7 +20,6 @@ Changelog
 
 **Other changes:**
 
-- Numerical factors now record formulaic's ``spans_intercept`` in the model spec's ``encoder_state``. For example, this shows whether ``bs()`` dropped its first basis function.
 - Clarified that ``sparse_threshold`` is used to sparsify numerical columns and is not used to densify columns that are already sparse.
 - Fixed the benchmark harness silently recording zero timings and memory under pandas 3, where the chained assignment it used is rejected by copy-on-write.
 - We disabled fast math to avoid invalid results (e.g., when dividing by zero).
