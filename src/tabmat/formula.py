@@ -81,6 +81,9 @@ class TabmatMaterializer(FormulaMaterializer):
 
     @override
     def _encode_numerical(self, values, metadata, encoder_state, spec, drop_rows):
+        # Keep spans_intercept in the model spec (formulaic discards it), so that
+        # users can tell e.g. whether bs() dropped its first basis function.
+        encoder_state["spans_intercept"] = metadata.spans_intercept
         if drop_rows:
             values = drop_nulls(values, indices=drop_rows)
         if isinstance(values, nw.Series):
