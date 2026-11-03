@@ -1,5 +1,3 @@
-from typing import Optional, Union
-
 import numpy as np
 from scipy import sparse as sps
 
@@ -36,8 +34,8 @@ class StandardizedMatrix:
     def __init__(
         self,
         mat: MatrixBase,
-        shift: Union[np.ndarray, list],
-        mult: Optional[Union[np.ndarray, list]] = None,
+        shift: np.ndarray | list,
+        mult: np.ndarray | list | None = None,
     ):
         shift_arr = np.atleast_1d(np.squeeze(shift))
         expected_shape = (mat.shape[1],)
@@ -68,9 +66,9 @@ class StandardizedMatrix:
 
     def matvec(
         self,
-        other_mat: Union[np.ndarray, list],
-        cols: Optional[np.ndarray] = None,
-        out: Optional[np.ndarray] = None,
+        other_mat: np.ndarray | list,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
     ) -> np.ndarray:
         """
         Perform self[:, cols] @ other[cols].
@@ -123,8 +121,8 @@ class StandardizedMatrix:
     def sandwich(
         self,
         d: np.ndarray,
-        rows: Optional[np.ndarray] = None,
-        cols: Optional[np.ndarray] = None,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
         if not hasattr(d, "dtype"):
@@ -177,10 +175,10 @@ class StandardizedMatrix:
 
     def transpose_matvec(
         self,
-        other: Union[np.ndarray, list],
-        rows: Optional[np.ndarray] = None,
-        cols: Optional[np.ndarray] = None,
-        out: Optional[np.ndarray] = None,
+        other: np.ndarray | list,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
     ) -> np.ndarray:
         """
         Perform: self[rows, cols].T @ vec[rows].
@@ -229,7 +227,7 @@ class StandardizedMatrix:
             out[cols] += res
             return out
 
-    def __rmatmul__(self, other: Union[np.ndarray, list]) -> np.ndarray:
+    def __rmatmul__(self, other: np.ndarray | list) -> np.ndarray:
         """
         Return matrix multiplication with other.
 
@@ -311,9 +309,9 @@ class StandardizedMatrix:
     def get_names(
         self,
         type: str = "column",
-        missing_prefix: Optional[str] = None,
-        indices: Optional[list[int]] = None,
-    ) -> list[Optional[str]]:
+        missing_prefix: str | None = None,
+        indices: list[int] | None = None,
+    ) -> list[str | None]:
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
@@ -341,7 +339,7 @@ class StandardizedMatrix:
         """
         return self.mat.get_names(type, missing_prefix, indices)
 
-    def set_names(self, names: Union[str, list[Optional[str]]], type: str = "column"):
+    def set_names(self, names: str | list[str | None], type: str = "column"):
         """Set column names.
 
         Parameters
@@ -362,7 +360,7 @@ class StandardizedMatrix:
         return self.get_names(type="column")
 
     @column_names.setter
-    def column_names(self, names: list[Optional[str]]):
+    def column_names(self, names: list[str | None]):
         self.set_names(names, type="column")
 
     @property
@@ -374,5 +372,5 @@ class StandardizedMatrix:
         return self.get_names(type="term")
 
     @term_names.setter
-    def term_names(self, names: list[Optional[str]]):
+    def term_names(self, names: list[str | None]):
         self.set_names(names, type="term")

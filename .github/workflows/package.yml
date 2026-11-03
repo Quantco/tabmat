@@ -24,13 +24,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { variant-file: linux_64_python3.10.____cpython,  target-platform: linux-64,  os: ubuntu-latest,  rattler-build-args: '' }
-          - { variant-file: linux_64_python3.13.____cp313,    target-platform: linux-64,  os: ubuntu-latest,  rattler-build-args: '' }
-          - { variant-file: osx_64_python3.10.____cpython,    target-platform: osx-64,    os: macos-15-intel, rattler-build-args: '' }
-          - { variant-file: osx_arm64_python3.10.____cpython, target-platform: osx-arm64, os: macos-latest,   rattler-build-args: '' }
-          - { variant-file: osx_arm64_python3.13.____cp313,   target-platform: osx-arm64, os: macos-latest,   rattler-build-args: '' }
-          - { variant-file: win_64_python3.10.____cpython,    target-platform: win-64,    os: windows-2022,   rattler-build-args: '' }
-          - { variant-file: win_64_python3.13.____cp313,      target-platform: win-64,    os: windows-2022,   rattler-build-args: '' }
+          - { variant-file: linux_64_python3.11.____cpython,  target-platform: linux-64,  os: ubuntu-latest,  rattler-build-args: '' }
+          - { variant-file: linux_64_python3.15.____cp315,    target-platform: linux-64,  os: ubuntu-latest,  rattler-build-args: '' }
+          - { variant-file: osx_64_python3.11.____cpython,    target-platform: osx-64,    os: macos-15-intel, rattler-build-args: '' }
+          - { variant-file: osx_arm64_python3.11.____cpython, target-platform: osx-arm64, os: macos-latest,   rattler-build-args: '' }
+          - { variant-file: osx_arm64_python3.15.____cp315,   target-platform: osx-arm64, os: macos-latest,   rattler-build-args: '' }
+          - { variant-file: win_64_python3.11.____cpython,    target-platform: win-64,    os: windows-2022,   rattler-build-args: '' }
+          - { variant-file: win_64_python3.15.____cp315,      target-platform: win-64,    os: windows-2022,   rattler-build-args: '' }
 
     steps:
       - name: Checkout branch

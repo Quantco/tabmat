@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Optional, Union
+from typing import Any
 
 import numpy as np
 
@@ -13,7 +13,7 @@ class MatrixBase(ABC):
 
     @abstractmethod
     def matvec(
-        self, other, cols: Optional[np.ndarray] = None, out: Optional[np.ndarray] = None
+        self, other, cols: np.ndarray | None = None, out: np.ndarray | None = None
     ):
         """
         Perform: self[:, cols] @ other[cols], so result[i] = sum_j self[i, j] other[j].
@@ -33,10 +33,10 @@ class MatrixBase(ABC):
     @abstractmethod
     def transpose_matvec(
         self,
-        vec: Union[np.ndarray, list],
-        rows: Optional[np.ndarray] = None,
-        cols: Optional[np.ndarray] = None,
-        out: Optional[np.ndarray] = None,
+        vec: np.ndarray | list,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
     ) -> np.ndarray:
         """
         Perform: self[rows, cols].T @ vec[rows], so result[i] = sum_j self[j, i] vec[j].
@@ -65,8 +65,8 @@ class MatrixBase(ABC):
     def sandwich(
         self,
         d: np.ndarray,
-        rows: Optional[np.ndarray] = None,
-        cols: Optional[np.ndarray] = None,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
     ) -> np.ndarray:
         """
         Perform a sandwich product: (self[rows, cols].T * d[rows]) @ self[rows, cols].
@@ -94,7 +94,7 @@ class MatrixBase(ABC):
         """Convert self into an np.ndarray."""
         pass
 
-    def __rmatmul__(self, other: Union[np.ndarray, list]) -> np.ndarray:
+    def __rmatmul__(self, other: np.ndarray | list) -> np.ndarray:
         """
         Perform other @ X = (X.T @ other.T).T = X.transpose_matvec(other.T).T.
 
@@ -127,7 +127,7 @@ class MatrixBase(ABC):
 
     def standardize(
         self, weights: np.ndarray, center_predictors: bool, scale_predictors: bool
-    ) -> tuple[Any, np.ndarray, Optional[np.ndarray]]:
+    ) -> tuple[Any, np.ndarray, np.ndarray | None]:
         """
         Return a StandardizedMatrix along with the column means and column standard
         deviations.
@@ -174,9 +174,9 @@ class MatrixBase(ABC):
     def get_names(
         self,
         type: str = "column",
-        missing_prefix: Optional[str] = None,
-        indices: Optional[list[int]] = None,
-    ) -> list[Optional[str]]:
+        missing_prefix: str | None = None,
+        indices: list[int] | None = None,
+    ) -> list[str | None]:
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
@@ -204,7 +204,7 @@ class MatrixBase(ABC):
         """
         pass
 
-    def set_names(self, names: Union[str, list[Optional[str]]], type: str = "column"):
+    def set_names(self, names: str | list[str | None], type: str = "column"):
         """Set column names.
 
         Parameters
@@ -225,7 +225,7 @@ class MatrixBase(ABC):
         return self.get_names(type="column")
 
     @column_names.setter
-    def column_names(self, names: list[Optional[str]]):
+    def column_names(self, names: list[str | None]):
         self.set_names(names, type="column")
 
     @property
@@ -237,7 +237,7 @@ class MatrixBase(ABC):
         return self.get_names(type="term")
 
     @term_names.setter
-    def term_names(self, names: list[Optional[str]]):
+    def term_names(self, names: list[str | None]):
         self.set_names(names, type="term")
 
     # Higher priority than numpy arrays, so behavior for funcs like "@" defaults to the
