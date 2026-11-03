@@ -10,7 +10,7 @@ requires = [
 
 [tool.ruff]
 line-length = 88
-target-version = "py39"
+target-version = "py311"
 
 [tool.ruff.lint]
 ignore = ["E731", "N802", "N803", "N806"]
@@ -49,6 +49,7 @@ skip = [
   "cp36*",
   "cp37*",
   "cp38*",
+  "cp310*",
 ]
 test-requires = ["pytest", "pytest-xdist"]
 test-command = "pytest {package}/tests/test_matrices.py"

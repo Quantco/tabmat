@@ -1,10 +1,8 @@
-from typing import Optional
-
 import numpy as np
 
 
 def set_up_rows_or_cols(
-    arr: Optional[np.ndarray], length: int, dtype=np.int32
+    arr: np.ndarray | None, length: int, dtype=np.int32
 ) -> np.ndarray:
     """Set up rows or columns using input array and input length."""
     if arr is None:
@@ -14,8 +12,8 @@ def set_up_rows_or_cols(
 
 def setup_restrictions(
     shape: tuple[int, int],
-    rows: Optional[np.ndarray],
-    cols: Optional[np.ndarray],
+    rows: np.ndarray | None,
+    cols: np.ndarray | None,
     dtype=np.int32,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Set up row and column restrictions."""
@@ -24,7 +22,7 @@ def setup_restrictions(
     return rows, cols
 
 
-def _check_out_shape(out: Optional[np.ndarray], expected_first_dim: int) -> None:
+def _check_out_shape(out: np.ndarray | None, expected_first_dim: int) -> None:
     if out is not None and out.shape[0] != expected_first_dim:
         raise ValueError(
             f"""The first dimension of 'out' must be {expected_first_dim}, but it is
@@ -32,12 +30,12 @@ def _check_out_shape(out: Optional[np.ndarray], expected_first_dim: int) -> None
         )
 
 
-def check_transpose_matvec_out_shape(mat, out: Optional[np.ndarray]) -> None:
+def check_transpose_matvec_out_shape(mat, out: np.ndarray | None) -> None:
     """Assert that the first dimension of the transpose_matvec output is correct."""
     _check_out_shape(out, mat.shape[1])
 
 
-def check_matvec_out_shape(mat, out: Optional[np.ndarray]) -> None:
+def check_matvec_out_shape(mat, out: np.ndarray | None) -> None:
     """Assert that the first dimension of the matvec output is correct."""
     _check_out_shape(out, mat.shape[0])
 

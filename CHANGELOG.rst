@@ -7,6 +7,17 @@
 Changelog
 =========
 
+4.3.1 - unreleased
+------------------
+
+**Other changes:**
+
+- Require Python>=3.11, since conda-forge no longer supports Python 3.10. No Python 3.10 wheels are built or uploaded to PyPI any more.
+- Added ``py315`` test environment and a conda package build for Python 3.15, and added the Python 3.14 and 3.15 classifiers.
+- Removed the ``py310`` test environment and moved the ``oldies`` environment and the conda package builds from Python 3.10 to 3.11. The ``oldies`` pins for pandas (1.5.3), scipy (1.9.3) and setuptools (65) were raised to the oldest releases with Python 3.11 builds.
+- Raised ruff's target version to Python 3.11 and modernized type annotations.
+
+
 4.3.0 - 2026-10-30
 ------------------
 

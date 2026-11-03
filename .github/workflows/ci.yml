@@ -36,11 +36,11 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          - { os: ubuntu-latest, environment: 'py310' }
           - { os: ubuntu-latest, environment: 'py311' }
           - { os: ubuntu-latest, environment: 'py312' }
           - { os: ubuntu-latest, environment: 'py313' }
           - { os: ubuntu-latest, environment: 'py314' }
+          - { os: ubuntu-latest, environment: 'py315' }
           - { os: windows-latest, environment: 'py314' }
           - { os: macos-latest, environment: 'py314' }
           - { os: ubuntu-latest, environment: 'oldies' }
