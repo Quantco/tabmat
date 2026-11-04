@@ -71,7 +71,7 @@ before-all = [
 ]
 
 [tool.cibuildwheel.windows.environment]
-INCLUDE='"$GITHUB_WORKSPACE/envs/build/Library/include;$INCLUDE"'
+INCLUDE='$GITHUB_WORKSPACE/envs/build/Library/include;$INCLUDE'
 
 [tool.cibuildwheel.linux]
 before-all = [
