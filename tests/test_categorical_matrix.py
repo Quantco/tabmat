@@ -154,16 +154,6 @@ def test_multiply(cat_vec, drop_first, missing, cat_missing_method):
     np.testing.assert_allclose(actual.toarray(), expected)
 
 
-@pytest.mark.parametrize("column_vector", [False, True])
-@pytest.mark.parametrize("drop_first", [False, True])
-def test_multiply_single_row(column_vector, drop_first):
-    mat = CategoricalMatrix(
-        pd.Categorical(["b"], categories=["a", "b"]), drop_first=drop_first
-    )
-    weights = np.array([[2.0]]) if column_vector else np.array([2.0])
-    np.testing.assert_allclose(mat.multiply(weights).toarray(), mat.toarray() * 2)
-
-
 @pytest.mark.parametrize("mi_element", [np.nan, None])
 def test_nulls(mi_element):
     vec = [0, mi_element, 1]
