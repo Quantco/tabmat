@@ -28,7 +28,7 @@ Releases
 
 Development installation
 ------------------------
-We use [pixi](https://prefix.dev/) for setting up the project dependencies. [Install it](https://pixi.sh/latest/#installation) first if you do not have it already. The following commands will set up the project for development:
+We use [pixi](https://prefix.dev/) 0.68.0 or newer for setting up the project dependencies. [Install it](https://pixi.sh/latest/#installation) first if you do not have it already, or run `pixi self-update` to update an existing installation. The following commands will set up the project for development:
 
 ```bash
 git clone git@github.com:Quantco/tabmat.git
@@ -61,6 +61,17 @@ pixi task list
 Testing and continuous integration
 --------------------------------------------------
 The test suite is in ``tests/`` and can be run using ``pixi run test``.
+
+We require Python 3.11 or newer and test Python 3.11 through 3.15 in CI.
+To build and test with a specific version, use its Pixi environment:
+
+```bash
+pixi run -e py314 postinstall
+pixi run -e py314 test -nauto -m "not high_memory"
+```
+
+The versioned environments are `py311`, `py312`, `py313`, `py314`, and `py315`.
+The `oldies` environment tests older dependencies on Python 3.11.
 
 Developing the documentation
 ----------------------------------------
