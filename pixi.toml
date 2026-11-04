@@ -79,7 +79,15 @@ inputs = [
 pre-commit-install = "pre-commit install"
 pre-commit-run = "pre-commit run -a"
 
-[build-dependencies]
+[dependencies]
+python = ">=3.11"
+formulaic = ">=1.2.0"
+numpy = ">=1.24.0"
+pandas = ">=1.4.4"
+scipy = ">=1.7.3"
+narwhals = ">=2.0.0"
+
+# build dependencies
 c-compiler = "*"
 cxx-compiler = "*"
 cython = "*"
@@ -88,21 +96,13 @@ mako = "*"
 setuptools = ">=62.0"
 setuptools-scm = ">=8.1"
 xsimd = "<11|>12.1"
-[target.unix.dependencies]
-jemalloc-local = "*"
 
-[host-dependencies]
-python = ">=3.11"
+# host dependencies
 pip = "*"
-setuptools = "*"
 wheel = "*"
 
-[dependencies]
-formulaic = ">=1.2.0"
-numpy = ">=1.24.0"
-pandas = ">=1.4.4"
-scipy = ">=1.7.3"
-narwhals = ">=2.0.0"
+[target.unix.dependencies]
+jemalloc-local = "*"
 
 [feature.dev.dependencies]
 ipython = "*"
