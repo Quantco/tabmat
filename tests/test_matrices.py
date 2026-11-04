@@ -645,6 +645,8 @@ def test_split_matrix_creation(mat):
     assert sm.shape[1] == 2 * mat.shape[1]
 
 
+# The complex split matrix intentionally mixes dtypes.
+@pytest.mark.filterwarnings("ignore:Matrices do not all have the same dtype")
 @pytest.mark.parametrize("mat", get_matrices())
 def test_multiply(mat):
     other = np.arange(mat.shape[0])
