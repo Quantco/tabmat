@@ -5,7 +5,7 @@ requires = [
   'wheel',
   'mako',
   'numpy>=1.25',
-  'Cython != 3.0.4',
+  'Cython>=3.1',
 ]
 
 [tool.ruff]
@@ -46,7 +46,6 @@ skip = [
   "*-win32",
   "*-manylinux_i686",
   "*-musllinux_*",
-  "cp3??t-*",
 ]
 test-requires = ["pytest", "pytest-xdist"]
 test-command = "pytest {package}/tests/test_matrices.py"

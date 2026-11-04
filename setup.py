@@ -162,6 +162,7 @@ setup(
         annotate=False,
         compiler_directives={
             "language_level": "3",
+            "freethreading_compatible": True,
             "boundscheck": debug_build,
             "wraparound": debug_build,
             "initializedcheck": False,

@@ -852,7 +852,7 @@ class CategoricalMatrix(MatrixBase):
                 sps.csr_matrix(
                     multiply_complex(
                         indices=self.indices,
-                        d=np.squeeze(other),
+                        d=np.atleast_1d(np.squeeze(other)),
                         ncols=self.shape[1],
                         dtype=other.dtype,
                         drop_first=self.drop_first,
@@ -864,7 +864,7 @@ class CategoricalMatrix(MatrixBase):
         return SparseMatrix(
             sps.csr_matrix(
                 (
-                    np.squeeze(other),
+                    np.atleast_1d(np.squeeze(other)),
                     self.indices,
                     np.arange(self.shape[0] + 1, dtype=int),
                 ),
