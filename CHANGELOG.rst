@@ -10,6 +10,10 @@ Changelog
 4.3.1 - unreleased
 ------------------
 
+**Bug fix:**
+
+- Fixed :meth:`tabmat.CategoricalMatrix.multiply` for matrices with a single row, which failed because ``np.squeeze`` reduced the multiplier to a 0-d array.
+
 **Other changes:**
 
 - Require Python>=3.11, since conda-forge no longer supports Python 3.10. No Python 3.10 wheels are built or uploaded to PyPI any more.
