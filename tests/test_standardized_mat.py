@@ -116,6 +116,15 @@ def test_dense_sandwich_large_mean_without_known_centers():
     _assert_sandwich_close(mat.sandwich(d), Z, d, 1e-9)
 
 
+def test_dense_sandwich_large_mean_ix_slice():
+    # The column indexer of np.ix_ has shape (1, k).
+    mat, Z, d = _large_mean_dense(np.float64, 1e6)
+    rows = np.arange(0, Z.shape[0], 2)
+    cols = np.array([1, 3, 4])
+    sub = mat[np.ix_(rows, cols)]
+    _assert_sandwich_close(sub.sandwich(d[rows]), Z[np.ix_(rows, cols)], d[rows], 1e-12)
+
+
 def test_dense_sandwich_follows_shift_changes():
     rng = np.random.default_rng(2)
     X = tm.DenseMatrix(rng.standard_normal((500, 3)) + 10)
@@ -224,14 +233,15 @@ def test_matvec_mixed_dtypes():
         _assert_close(actual, expected, 1e-4)
 
 
+@pytest.mark.parametrize("cols_dtype", [np.int32, np.uint32])
 @pytest.mark.parametrize("rows", [None, np.arange(0, 100, 2, dtype=np.int32)])
-def test_transpose_matvec_keeps_order_of_permuted_cols(rows):
+def test_transpose_matvec_keeps_order_of_permuted_cols(rows, cols_dtype):
     # All columns in another order are not unrestricted: the output follows cols.
     rng = np.random.default_rng(9)
     X = rng.standard_normal((100, 4)) + 5
     mat = tm.DenseMatrix(X).standardize(np.full(100, 0.01), True, True)[0]
     v = rng.standard_normal(100)
-    cols = np.array([3, 1, 0, 2], dtype=np.int32)
+    cols = np.array([3, 1, 0, 2], dtype=cols_dtype)
     r = np.arange(100) if rows is None else rows
     expected = mat.toarray()[np.ix_(r, cols)].T @ v[r]
     np.testing.assert_allclose(mat.transpose_matvec(v, rows, cols), expected)

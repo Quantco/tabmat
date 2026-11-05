@@ -127,7 +127,9 @@ class StandardizedMatrix:
         mult = None if self.mult is None else np.atleast_1d(self.mult[col])
         out = StandardizedMatrix(mat, np.atleast_1d(self.shift[col]), mult)
         if self._center is not None:
-            out._center = np.atleast_1d(self._center[col])
+            # Squeezed like shift and mult in the constructor, e.g. for the (1, k)
+            # column indexer of np.ix_.
+            out._center = np.atleast_1d(np.squeeze(self._center[col]))
         return out
 
     def _dense_centering(self) -> tuple[np.ndarray | None, np.ndarray]:

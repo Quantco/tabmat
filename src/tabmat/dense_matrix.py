@@ -256,8 +256,8 @@ class DenseMatrix(MatrixBase):
         # give the same result, but the order of cols is the output order of
         # transpose_matvec, so only the identity counts as unrestricted.
         unrestricted_rows = rows is None or len(rows) == self.shape[0]
-        unrestricted_cols = cols is None or (
-            len(cols) == self.shape[1] and bool(np.all(np.diff(cols) > 0))
+        unrestricted_cols = cols is None or np.array_equal(
+            cols, np.arange(self.shape[1])
         )
 
         if center is None and unrestricted_rows and unrestricted_cols:
