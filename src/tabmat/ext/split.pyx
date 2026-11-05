@@ -6,6 +6,8 @@ from libc.stdlib cimport free, malloc
 from libcpp cimport bool
 from libcpp.vector cimport vector
 
+from .dense import _check_center
+
 
 # This is necessary because it's quite difficult to have a dynamic array of
 # memoryviews in Cython
@@ -21,10 +23,13 @@ ctypedef fused win_integral:
 
 
 cdef extern from "cat_split_helpers.cpp":
-    void _sandwich_cat_denseC_fast[Int, F](F*, const int*, Int*, Int, Int*, Int, F*, Int, F*, Int, Int) nogil
-    void _sandwich_cat_denseF_fast[Int, F](F*, const int*, Int*, Int, Int*, Int, F*, Int, F*, Int, Int) nogil
-    void _sandwich_cat_denseC_complex[Int, F](F*, const int*, Int*, Int, Int*, Int, F*, Int, F*, Int, Int, bool) nogil
-    void _sandwich_cat_denseF_complex[Int, F](F*, const int*, Int*, Int, Int*, Int, F*, Int, F*, Int, Int, bool) nogil
+    # The C++ kernels take the center of the dense matrix as const F*. It is
+    # declared as F* here because older Cython versions (e.g. 3.2) cannot deduce
+    # F from a const F*.
+    void _sandwich_cat_denseC_fast[Int, F](F*, const int*, Int*, Int, Int*, Int, F*, Int, F*, F*, Int, Int) nogil
+    void _sandwich_cat_denseF_fast[Int, F](F*, const int*, Int*, Int, Int*, Int, F*, Int, F*, F*, Int, Int) nogil
+    void _sandwich_cat_denseC_complex[Int, F](F*, const int*, Int*, Int, Int*, Int, F*, Int, F*, F*, Int, Int, bool) nogil
+    void _sandwich_cat_denseF_complex[Int, F](F*, const int*, Int*, Int, Int*, Int, F*, Int, F*, F*, Int, Int, bool) nogil
     void _sandwich_cat_cat_fast[Int, F](F*, const int*, const int*, Int*, Int, F*, Int, Int)
     void _sandwich_cat_cat_complex[Int, F](F*, const int*, const int*, Int*, Int, F*, Int, Int, bool, bool)
 
@@ -38,12 +43,19 @@ def sandwich_cat_dense(
     int[:] j_cols,
     bool is_c_contiguous,
     bool has_missings,
-    bint drop_first
+    bint drop_first,
+    dense_center=None
 ):
+    # dense_center (None means none) is subtracted from mat_j as it is read.
     cdef int nj_rows = mat_j.shape[0]
     cdef int nj_cols = mat_j.shape[1]
     cdef int n_active_rows = len(rows)
     cdef int nj_active_cols = len(j_cols)
+
+    cdef const floating[::1] mu = _check_center(
+        dense_center, nj_cols, mat_j.dtype, "dense_center"
+    )
+
     cdef floating[:, :] res
     res = np.zeros((i_ncol, nj_active_cols), dtype=mat_j.dtype)
     cdef int res_size = res.size
@@ -57,25 +69,28 @@ def sandwich_cat_dense(
     cdef int* j_cols_p = &j_cols[0]
 
     cdef floating* mat_j_p = <floating*>mat_j.data
+    cdef floating* mup = NULL
+    if mu is not None:
+        mup = <floating*>&mu[0]
 
     if (not drop_first) and (not has_missings):
         if is_c_contiguous:
             _sandwich_cat_denseC_fast(d_p, i_indices_p, rows_p, n_active_rows, j_cols_p,
                                       nj_active_cols, &res[0, 0], res_size, mat_j_p,
-                                      nj_rows, nj_cols)
+                                      mup, nj_rows, nj_cols)
         else:
             _sandwich_cat_denseF_fast(d_p, i_indices_p, rows_p, n_active_rows, j_cols_p,
                                       nj_active_cols, &res[0, 0], res_size, mat_j_p,
-                                      nj_rows, nj_cols)
+                                      mup, nj_rows, nj_cols)
     else:
         if is_c_contiguous:
             _sandwich_cat_denseC_complex(d_p, i_indices_p, rows_p, n_active_rows, j_cols_p,
                                          nj_active_cols, &res[0, 0], res_size, mat_j_p,
-                                         nj_rows, nj_cols, drop_first)
+                                         mup, nj_rows, nj_cols, drop_first)
         else:
             _sandwich_cat_denseF_complex(d_p, i_indices_p, rows_p, n_active_rows, j_cols_p,
                                          nj_active_cols, &res[0, 0], res_size, mat_j_p,
-                                         nj_rows, nj_cols, drop_first)
+                                         mup, nj_rows, nj_cols, drop_first)
 
     return np.asarray(res)
 

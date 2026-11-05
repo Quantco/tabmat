@@ -189,13 +189,19 @@ class SparseMatrix(MatrixBase):
         rows: np.ndarray | None,
         L_cols: np.ndarray | None = None,
         R_cols: np.ndarray | None = None,
+        dense_center: np.ndarray | None = None,
     ):
-        """Perform a sandwich product: X.T @ diag(d) @ Y."""
+        """Perform a sandwich product: X.T @ diag(d) @ Y.
+
+        If ``other`` is dense, ``dense_center`` centers it, see :meth:`sandwich_dense`.
+        """
         from .categorical_matrix import CategoricalMatrix
         from .dense_matrix import DenseMatrix
 
         if isinstance(other, DenseMatrix):
-            return self.sandwich_dense(other._array, d, rows, L_cols, R_cols)
+            return self.sandwich_dense(
+                other._array, d, rows, L_cols, R_cols, B_center=dense_center
+            )
 
         if isinstance(other, CategoricalMatrix):
             return other._cross_sandwich(self, d, rows, R_cols, L_cols).T
@@ -208,8 +214,13 @@ class SparseMatrix(MatrixBase):
         rows: np.ndarray | None,
         L_cols: np.ndarray | None,
         R_cols: np.ndarray | None,
+        B_center: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Perform a sandwich product: self.T @ diag(d) @ B."""
+        """Perform a sandwich product: self.T @ diag(d) @ B.
+
+        If ``B_center`` (one value per column of ``B``) is given, compute
+        ``self.T @ diag(d) @ (B - B_center)`` instead, centering ``B`` in the kernel.
+        """
         if not hasattr(d, "dtype"):
             d = np.asarray(d)
 
@@ -224,7 +235,9 @@ class SparseMatrix(MatrixBase):
 
         rows, L_cols = setup_restrictions(self.shape, rows, L_cols)
         R_cols = set_up_rows_or_cols(R_cols, B.shape[1])
-        return csr_dense_sandwich(self.array_csr, B, d, rows, L_cols, R_cols)
+        return csr_dense_sandwich(
+            self.array_csr, B, d, rows, L_cols, R_cols, B_center=B_center
+        )
 
     def _matvec_helper(
         self,
