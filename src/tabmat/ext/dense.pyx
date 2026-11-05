@@ -18,6 +18,22 @@ cdef extern from "dense_helpers.cpp":
     void _denseC_matvec[Int, F](Int*, Int*, F*, F*, F*, F*, Int, Int, Int, Int) nogil
     void _denseF_matvec[Int, F](Int*, Int*, F*, F*, F*, F*, Int, Int, Int, Int) nogil
 
+def _check_center(center, Py_ssize_t m, dtype, name="center", bint zeros=False):
+    """Return ``center`` as a contiguous array of length ``m``.
+
+    ``None`` stays ``None``, or becomes zeros if ``zeros``. The dense kernels
+    always subtract a center, which costs nothing there, and ``x - 0 == x``
+    exactly. The cross kernels skip the subtraction for a null center, because
+    it would slow down their uncentered packing.
+    """
+    if center is None:
+        return np.zeros(m, dtype=dtype) if zeros else None
+    center = np.ascontiguousarray(center, dtype=dtype)
+    if center.shape[0] != m:
+        raise ValueError(f"{name} must have length {m}, got {center.shape[0]}.")
+    return center
+
+
 def dense_sandwich(np.ndarray X, floating[:] d, int[:] rows, int[:] cols, int thresh1d = 32, int kratio = 16, int innerblock = 128, center=None):
     """(X[rows, cols] - center[cols]).T @ diag(d[rows]) @ (X[rows, cols] - center[cols]).
 
@@ -31,12 +47,7 @@ def dense_sandwich(np.ndarray X, floating[:] d, int[:] rows, int[:] cols, int th
 
     # A const view, so that a read-only center works too. The kernel does not
     # write to it, so casting the const away for the call below is safe.
-    cdef const floating[::1] center_view
-    cdef floating* mup = NULL
-    if center is not None:
-        center_view = np.ascontiguousarray(center, dtype=X.dtype)
-        if center_view.shape[0] != m:
-            raise ValueError(f"center must have length {m}, got {center_view.shape[0]}.")
+    cdef const floating[::1] mu = _check_center(center, m, X.dtype, zeros=True)
 
     out = np.zeros((out_m,out_m), dtype=X.dtype)
     if in_n == 0 or out_m == 0:
@@ -50,9 +61,7 @@ def dense_sandwich(np.ndarray X, floating[:] d, int[:] rows, int[:] cols, int th
 
     cdef int* colsp = &cols[0]
     cdef int* rowsp = &rows[0]
-
-    if center is not None:
-        mup = <floating*>&center_view[0]
+    cdef floating* mup = <floating*>&mu[0]
 
     if X.flags["C_CONTIGUOUS"]:
         _denseC_sandwich(rowsp, colsp, Xp, dp, mup, outp, in_n, out_m, m, n, thresh1d, kratio, innerblock)
@@ -90,13 +99,7 @@ cdef _dense_matvec_impl(
     cdef int m = X.shape[1]
     cdef int n_rows = n if rows is None else rows.shape[0]
     cdef int n_cols = m if cols is None else cols.shape[0]
-
-    cdef const floating[::1] center_view
-    cdef floating* mup = NULL
-    if center is not None:
-        center_view = np.ascontiguousarray(center, dtype=X.dtype)
-        if center_view.shape[0] != m:
-            raise ValueError(f"center must have length {m}, got {center_view.shape[0]}.")
+    cdef const floating[::1] mu = _check_center(center, m, X.dtype, zeros=True)
 
     out = np.zeros(n_cols if transpose else n_rows, dtype=X.dtype)
     if n_rows == 0 or n_cols == 0:
@@ -107,6 +110,7 @@ cdef _dense_matvec_impl(
 
     cdef floating* Xp = <floating*>X.data
     cdef floating* vp = <floating*>&v[0]
+    cdef floating* mup = <floating*>&mu[0]
 
     cdef int* rowsp = NULL
     cdef int* colsp = NULL
@@ -114,8 +118,6 @@ cdef _dense_matvec_impl(
         rowsp = &rows[0]
     if cols is not None:
         colsp = &cols[0]
-    if center is not None:
-        mup = <floating*>&center_view[0]
 
     if X.flags["C_CONTIGUOUS"]:
         if transpose:

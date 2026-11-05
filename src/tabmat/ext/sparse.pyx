@@ -5,6 +5,8 @@ from cython cimport floating, integral
 from cython.parallel import prange
 from libc.stdint cimport int64_t
 
+from .dense import _check_center
+
 
 np.import_array()
 
@@ -221,14 +223,7 @@ def csr_dense_sandwich(
     ):
     # computes where (A.T * d) @ (B - B_center)
     # assumes that A is in csr form; B_center=None means no centering
-    cdef const floating[::1] B_center_view
-    cdef floating* B_mup = NULL
-    if B_center is not None:
-        B_center_view = np.ascontiguousarray(B_center, dtype=B.dtype)
-        if B_center_view.shape[0] != B.shape[1]:
-            raise ValueError(
-                f"B_center must have length {B.shape[1]}, got {B_center_view.shape[0]}."
-            )
+    cdef const floating[::1] B_mu = _check_center(B_center, B.shape[1], B.dtype, "B_center")
 
     cdef floating[:] Adata = A.data
     cdef win_integral[:] Aindices = A.indices
@@ -256,9 +251,9 @@ def csr_dense_sandwich(
     cdef win_integral* rowsp = &rows[0];
     cdef win_integral* A_colsp = &A_cols[0];
     cdef win_integral* B_colsp = &B_cols[0];
-
-    if B_center is not None:
-        B_mup = <floating*>&B_center_view[0]
+    cdef floating* B_mup = NULL
+    if B_mu is not None:
+        B_mup = <floating*>&B_mu[0]
 
     if B.flags["C_CONTIGUOUS"]:
         _csr_denseC_sandwich(

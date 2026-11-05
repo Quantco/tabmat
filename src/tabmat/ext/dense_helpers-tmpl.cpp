@@ -1,7 +1,8 @@
 // The dense_sandwich function below implement a BLIS/GotoBLAS-like sandwich
 // product for computing A.T @ diag(d) @ A
-// If a per-column center mu is passed, it computes (A - mu).T @ diag(d) @ (A - mu)
-// instead; the centering is fused into the panel packing, so it costs ~nothing.
+// With a per-column center mu, it computes (A - mu).T @ diag(d) @ (A - mu); the
+// centering is fused into the panel packing, so it costs ~nothing. A zero center
+// gives the uncentered product exactly.
 // It works for both C-ordered and Fortran-ordered matrices.
 // It is parallelized to be fast for both narrow and square matrices
 //
@@ -24,7 +25,6 @@
 #include <algorithm>
 #include <iostream>
 #include <omp.h>
-#include <vector>
 
 #include "alloc.h"
 
@@ -221,9 +221,8 @@ ${dense_base_tmpl(False)}
     % endif
         {
             Int jj = cols[Cjj];
-            // Optional per-column center: pack d * (X - mu) instead of d * X.
-            // x - 0 == x exactly, so mu == nullptr reproduces the old result.
-            F mujj = (mu == nullptr) ? (F)0.0 : mu[jj];
+            // Pack d * (X - mu) instead of d * X.
+            F mujj = mu[jj];
             %if order == 'F':
                 //TODO: this could use some pointer logic for the R assignment?
                 for (Py_ssize_t Rkk=Rk; Rkk<Rkmax2; Rkk++) {
@@ -252,7 +251,7 @@ ${dense_base_tmpl(False)}
         F* L = &Lglobal.get()[omp_get_thread_num()*thresh1d*thresh1d*kratio];
         for (Py_ssize_t Cii = Ci; Cii < Cimax2; Cii++) {
             Int ii = cols[Cii];
-            F muii = (mu == nullptr) ? (F)0.0 : mu[ii];
+            F muii = mu[ii];
             %if order == 'F':
                 for (Py_ssize_t Rkk=Rk; Rkk<Rkmax2; Rkk++) {
                     Int kk = rows[Rkk];
@@ -322,8 +321,7 @@ ${dense_sandwich_tmpl('F')}
 // The matrix-vector kernels below compute with (X - mu) for a per-column
 // center mu, subtracting it from each entry as it is read. Expanding into
 // X @ v - mu @ v instead would cancel when mu is large relative to the spread
-// of X. Passing nullptr for mu means no centering, and nullptr for rows or cols
-// selects all of them. The inner loops run along the contiguous direction of X
+// of X. Passing nullptr for rows or cols selects all of them. The inner loops run along the contiguous direction of X
 // (rows for F order, columns for C order) and are vectorized if that direction
 // is not restricted; otherwise they fall back to indexed loads.
 
@@ -422,12 +420,6 @@ void _dense${order}_rmatvec(Int* rows, Int* cols, F* X, F* v, const F* mu, F* ou
 #endif
     constexpr std::size_t alignment = simd_size * sizeof(F);
 
-    std::vector<F> zeros;
-    if (mu == nullptr) {
-        zeros.assign(m, (F)0.0);
-        mu = zeros.data();
-    }
-
     auto outglobal = make_aligned_unique<F>(omp_get_max_threads()*n_cols, alignment);
 
     // Longer blocks for F order mean fewer column switches per block.
@@ -491,12 +483,6 @@ template <typename Int, typename F>
 void _dense${order}_matvec(Int* rows, Int* cols, F* X, F* v, const F* mu, F* out,
         Int n_rows, Int n_cols, Int m, Int n)
 {
-    std::vector<F> zeros;
-    if (mu == nullptr) {
-        zeros.assign(m, (F)0.0);
-        mu = zeros.data();
-    }
-
     constexpr Py_ssize_t rowblocksize = ${'4096' if order == 'F' else '1024'};
 
     // Starting threads costs more than a small product.

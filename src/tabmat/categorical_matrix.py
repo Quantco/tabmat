@@ -661,10 +661,16 @@ class CategoricalMatrix(MatrixBase):
         rows: np.ndarray | None = None,
         L_cols: np.ndarray | None = None,
         R_cols: np.ndarray | None = None,
+        dense_center: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Perform a sandwich product: X.T @ diag(d) @ Y."""
+        """Perform a sandwich product: X.T @ diag(d) @ Y.
+
+        If ``other`` is dense, ``dense_center`` centers it, see :meth:`_cross_dense`.
+        """
         if isinstance(other, DenseMatrix):
-            return self._cross_dense(other._array, d, rows, L_cols, R_cols)
+            return self._cross_dense(
+                other._array, d, rows, L_cols, R_cols, dense_center
+            )
         if isinstance(other, SparseMatrix):
             return self._cross_sparse(other.array_csc, d, rows, L_cols, R_cols)
         if isinstance(other, CategoricalMatrix):
@@ -765,9 +771,9 @@ class CategoricalMatrix(MatrixBase):
         rows: np.ndarray | None,
         L_cols: np.ndarray | None,
         R_cols: np.ndarray | None,
-        other_center: np.ndarray | None = None,
+        dense_center: np.ndarray | None = None,
     ) -> np.ndarray:
-        # other_center (one value per column of other) centers other in the kernel.
+        # dense_center (one value per column of other) centers other in the kernel.
         if other.flags["C_CONTIGUOUS"]:
             is_c_contiguous = True
         elif other.flags["F_CONTIGUOUS"]:
@@ -789,7 +795,7 @@ class CategoricalMatrix(MatrixBase):
             is_c_contiguous,
             has_missings=self._has_missings,
             drop_first=self.drop_first,
-            dense_center=other_center,
+            dense_center=dense_center,
         )
 
         res = _row_col_indexing(res, L_cols, None)

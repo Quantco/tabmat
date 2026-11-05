@@ -327,64 +327,42 @@ class SplitMatrix(MatrixBase):
         cols: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
-        d = np.asarray(d)
-        check_sandwich_compatible(self, d)
+        return self._centered_sandwich(d, None, rows, cols)
 
-        subset_cols_indices, subset_cols, n_cols = self._split_col_subsets(cols)
+    def _part_centers(self, center: np.ndarray | None) -> list[np.ndarray | None]:
+        """Split ``center`` (one value per column) into one center per part.
 
-        out = np.zeros((n_cols, n_cols))
-        for i in range(len(self.indices)):
-            idx_i = subset_cols_indices[i]
-            mat_i = self.matrices[i]
-            res = mat_i.sandwich(d, rows, subset_cols[i])
-            if isinstance(res, sps.dia_matrix):
-                out[(idx_i, idx_i)] += np.squeeze(res.data)
-            else:
-                out[np.ix_(idx_i, idx_i)] = res
-
-            for j in range(i + 1, len(self.indices)):
-                idx_j = subset_cols_indices[j]
-                mat_j = self.matrices[j]
-                res = mat_i._cross_sandwich(
-                    mat_j, d, rows, subset_cols[i], subset_cols[j]
-                )
-
-                out[np.ix_(idx_i, idx_j)] = res
-                out[np.ix_(idx_j, idx_i)] = res.T
-
-        return out
+        Only the dense part is centered; the other parts get ``None``.
+        """
+        return [
+            center[idx] if center is not None and isinstance(mat, DenseMatrix) else None
+            for mat, idx in zip(self.matrices, self.indices)
+        ]
 
     def _centered_sandwich(
         self,
-        d: np.ndarray,
-        center: np.ndarray,
+        d: np.ndarray | list,
+        center: np.ndarray | None,
         rows: np.ndarray | None = None,
         cols: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Like :meth:`sandwich`, but with the dense part centered by ``center``.
+        """Like :meth:`sandwich`, with the dense part centered by ``center``.
 
-        ``center`` has one value per column; only the values for the columns of
-        the dense part are used. Those columns are centered inside the kernels,
-        both for their own block and for their cross blocks with the other parts,
-        so that a large center does not cancel. The other parts are not centered.
+        The dense columns are centered inside the kernels, both for their own
+        block and for their cross blocks with the other parts, so that a large
+        center does not cancel. ``center=None`` means no centering.
         """
-        from .categorical_matrix import CategoricalMatrix
-
         d = np.asarray(d)
         check_sandwich_compatible(self, d)
 
         subset_cols_indices, subset_cols, n_cols = self._split_col_subsets(cols)
+        centers = self._part_centers(center)
 
         out = np.zeros((n_cols, n_cols))
         for i in range(len(self.indices)):
             idx_i = subset_cols_indices[i]
             mat_i = self.matrices[i]
-            if isinstance(mat_i, DenseMatrix):
-                res = mat_i._centered_sandwich(
-                    d, center[self.indices[i]], rows, subset_cols[i]
-                )
-            else:
-                res = mat_i.sandwich(d, rows, subset_cols[i])
+            res = mat_i._centered_sandwich(d, centers[i], rows, subset_cols[i])
             if isinstance(res, sps.dia_matrix):
                 out[(idx_i, idx_i)] += np.squeeze(res.data)
             else:
@@ -393,39 +371,25 @@ class SplitMatrix(MatrixBase):
             for j in range(i + 1, len(self.indices)):
                 idx_j = subset_cols_indices[j]
                 mat_j = self.matrices[j]
-                if isinstance(mat_i, DenseMatrix) or isinstance(mat_j, DenseMatrix):
-                    # Cross block with the dense part, computed as
-                    # other.T @ diag(d) @ (dense - center) and transposed to fit.
-                    dense_is_i = isinstance(mat_i, DenseMatrix)
-                    dense, dense_k, other, other_k = (
-                        (mat_i, i, mat_j, j) if dense_is_i else (mat_j, j, mat_i, i)
+                # A centered dense part goes on the right, as the other matrix.
+                if centers[i] is not None:
+                    res = mat_j._cross_sandwich(
+                        mat_i,
+                        d,
+                        rows,
+                        subset_cols[j],
+                        subset_cols[i],
+                        dense_center=centers[i],
+                    ).T
+                elif centers[j] is not None:
+                    res = mat_i._cross_sandwich(
+                        mat_j,
+                        d,
+                        rows,
+                        subset_cols[i],
+                        subset_cols[j],
+                        dense_center=centers[j],
                     )
-                    dense_center = center[self.indices[dense_k]]
-                    if isinstance(other, SparseMatrix):
-                        res = other.sandwich_dense(
-                            dense._array,
-                            d,
-                            rows,
-                            subset_cols[other_k],
-                            subset_cols[dense_k],
-                            B_center=dense_center,
-                        )
-                    elif isinstance(other, CategoricalMatrix):
-                        res = other._cross_dense(
-                            dense._array,
-                            d,
-                            rows,
-                            subset_cols[other_k],
-                            subset_cols[dense_k],
-                            other_center=dense_center,
-                        )
-                    else:
-                        raise TypeError(
-                            f"Unexpected matrix type {type(other).__name__} next to "
-                            "a dense part."
-                        )
-                    if dense_is_i:
-                        res = res.T
                 else:
                     res = mat_i._cross_sandwich(
                         mat_j, d, rows, subset_cols[i], subset_cols[j]
@@ -479,6 +443,7 @@ class SplitMatrix(MatrixBase):
             raise ValueError(f"shapes {self.shape} and {v.shape} not aligned")
 
         _, subset_cols, n_cols = self._split_col_subsets(cols)
+        centers = self._part_centers(center)
 
         out_shape = [self.shape[0]] + ([] if v.ndim == 1 else list(v.shape[1:]))
         out_dtype = np.result_type(self.dtype, v.dtype)
@@ -498,10 +463,7 @@ class SplitMatrix(MatrixBase):
             idx = self.indices[dense_matrix_idx]
             mat = self.matrices[dense_matrix_idx]
             in_vec = v[idx, ...]
-            if center is None:
-                res = mat.matvec(in_vec, sub_cols, out)
-            else:
-                res = mat._centered_matvec(in_vec, center[idx], sub_cols, out)
+            res = mat._centered_matvec(in_vec, centers[dense_matrix_idx], sub_cols, out)
             out = np.asarray(res, dtype=out_dtype)
         else:
             dense_matrix_idx = -1
@@ -513,10 +475,7 @@ class SplitMatrix(MatrixBase):
             if i == dense_matrix_idx:
                 continue
             in_vec = v[idx, ...]
-            if center is not None and isinstance(mat, DenseMatrix):
-                mat._centered_matvec(in_vec, center[idx], sub_cols, out=out)
-            else:
-                mat.matvec(in_vec, sub_cols, out=out)
+            mat.matvec(in_vec, sub_cols, out=out)
         return out  # type: ignore
 
     def transpose_matvec(
@@ -564,15 +523,10 @@ class SplitMatrix(MatrixBase):
         if cols is not None:
             cols = np.asarray(cols, dtype=np.int32)
 
-        for idx, sub_cols, mat, mat_indices in zip(
-            subset_cols_indices, subset_cols, self.matrices, self.indices
+        for idx, sub_cols, mat, mat_center in zip(
+            subset_cols_indices, subset_cols, self.matrices, self._part_centers(center)
         ):
-            if center is not None and isinstance(mat, DenseMatrix):
-                res = mat._centered_transpose_matvec(
-                    v, center[mat_indices], rows, sub_cols
-                )
-            else:
-                res = mat.transpose_matvec(v, rows=rows, cols=sub_cols)
+            res = mat._centered_transpose_matvec(v, mat_center, rows, sub_cols)
             if out_is_none or cols is None:
                 out[idx, ...] += res
             else:

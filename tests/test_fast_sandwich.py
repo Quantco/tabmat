@@ -63,6 +63,13 @@ def test_fast_sandwich_dense():
         check(A, d, cols)
 
 
+def _assert_close_to(actual, expected, dtype):
+    rtol = 1e-12 if dtype == np.float64 else 1e-5
+    np.testing.assert_allclose(
+        actual, expected, rtol=rtol, atol=rtol * np.abs(expected).max()
+    )
+
+
 # (3000, 40) takes the k-parallel path, (700, 600) the other one with several
 # column blocks, and (7, 3) only the remainder loops.
 @pytest.mark.parametrize("shape", [(3000, 40), (700, 600), (7, 3)])
@@ -86,11 +93,7 @@ def test_dense_sandwich_center(shape, order, dtype, restrict):
     out = dense_sandwich(X, d, rows, cols, center=center)
 
     Xc = X.astype(np.float64)[np.ix_(rows, cols)] - center[cols]
-    expected = Xc.T @ (d.astype(np.float64)[rows, None] * Xc)
-    rtol = 1e-12 if dtype == np.float64 else 1e-5
-    np.testing.assert_allclose(
-        out, expected, rtol=rtol, atol=rtol * np.abs(expected).max()
-    )
+    _assert_close_to(out, Xc.T @ (d.astype(np.float64)[rows, None] * Xc), dtype)
 
 
 def test_dense_sandwich_zero_center_matches_uncentered():
@@ -116,13 +119,6 @@ def _centered_kernel_data(order, dtype, n=1200, m=9):
     center = B.mean(axis=0, dtype=np.float64).astype(dtype).astype(np.float64)
     rows = np.sort(rng.choice(n, n // 2, replace=False)).astype(np.int32)
     return rng, B, d, center, rows
-
-
-def _assert_close_to(actual, expected, dtype):
-    rtol = 1e-12 if dtype == np.float64 else 1e-5
-    np.testing.assert_allclose(
-        actual, expected, rtol=rtol, atol=rtol * np.abs(expected).max()
-    )
 
 
 @pytest.mark.parametrize("order", ["C", "F"])
@@ -162,7 +158,7 @@ def test_categorical_dense_sandwich_center(order, dtype, kind):
     )
     B_cols = np.array([0, 3, 4, 7], dtype=np.int32)
 
-    out = cat._cross_dense(B, d, rows, None, B_cols, other_center=center)
+    out = cat._cross_dense(B, d, rows, None, B_cols, dense_center=center)
 
     A_dense = cat.toarray().astype(np.float64)[rows]
     Bc = B.astype(np.float64)[np.ix_(rows, B_cols)] - center[B_cols]
@@ -214,7 +210,7 @@ def test_centered_kernels_zero_center_match_uncentered():
         rtol=1e-13,
     )
     np.testing.assert_allclose(
-        cat._cross_dense(B, d, rows, None, None, other_center=zeros),
+        cat._cross_dense(B, d, rows, None, None, dense_center=zeros),
         cat._cross_dense(B, d, rows, None, None),
         rtol=1e-13,
     )

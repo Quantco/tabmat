@@ -161,42 +161,38 @@ class DenseMatrix(MatrixBase):
         cols: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
-        d = np.asarray(d)
-        check_sandwich_compatible(self, d)
-        rows, cols = setup_restrictions(self.shape, rows, cols)
-        return dense_sandwich(self._array, d, rows, cols)
+        return self._centered_sandwich(d, None, rows, cols)
 
     def _centered_sandwich(
         self,
         d: np.ndarray,
-        center: np.ndarray,
+        center: np.ndarray | None,
         rows: np.ndarray | None = None,
         cols: np.ndarray | None = None,
     ) -> np.ndarray:
         """Compute ``(X - center).T @ diag(d) @ (X - center)`` without copying X.
 
-        ``center`` has length ``self.shape[1]`` and is in the unscaled data space.
-        The subtraction is fused into the panel packing of the sandwich kernel.
+        ``center`` has length ``self.shape[1]``; ``None`` means no centering. The
+        subtraction is fused into the panel packing of the sandwich kernel.
         """
         d = np.asarray(d)
         check_sandwich_compatible(self, d)
         rows, cols = setup_restrictions(self.shape, rows, cols)
-        if not np.any(center):
-            center = None
         return dense_sandwich(self._array, d, rows, cols, center=center)
 
     def _centered_transpose_matvec(
         self,
         vec: np.ndarray | list,
-        center: np.ndarray,
+        center: np.ndarray | None,
         rows: np.ndarray | None = None,
         cols: np.ndarray | None = None,
         out: np.ndarray | None = None,
     ) -> np.ndarray:
         """Compute ``(X - center)[rows, cols].T @ vec[rows]``.
 
-        ``center`` has length ``self.shape[1]``. The subtraction happens inside the
-        kernel, so that a large center does not cancel against ``X.T @ vec``.
+        ``center`` has length ``self.shape[1]``; ``None`` means no centering. The
+        subtraction happens inside the kernel, so that a large center does not
+        cancel against ``X.T @ vec``.
         """
         check_transpose_matvec_out_shape(self, out)
         return self._matvec_helper(vec, rows, cols, out, True, center)
@@ -204,7 +200,7 @@ class DenseMatrix(MatrixBase):
     def _centered_matvec(
         self,
         vec: np.ndarray | list,
-        center: np.ndarray,
+        center: np.ndarray | None,
         cols: np.ndarray | None = None,
         out: np.ndarray | None = None,
     ) -> np.ndarray:
@@ -256,11 +252,13 @@ class DenseMatrix(MatrixBase):
         check_matvec_dimensions(self, vec, transpose=transpose)
         X = self._array.T if transpose else self._array
 
-        # NOTE: We assume that rows and cols are unique
+        # NOTE: We assume that rows and cols are unique. All rows in any order
+        # give the same result, but the order of cols is the output order of
+        # transpose_matvec, so only the identity counts as unrestricted.
         unrestricted_rows = rows is None or len(rows) == self.shape[0]
-        unrestricted_cols = cols is None or len(cols) == self.shape[1]
-        if center is not None and not np.any(center):
-            center = None
+        unrestricted_cols = cols is None or (
+            len(cols) == self.shape[1] and bool(np.all(np.diff(cols) > 0))
+        )
 
         if center is None and unrestricted_rows and unrestricted_cols:
             if out is None:

@@ -189,13 +189,19 @@ class SparseMatrix(MatrixBase):
         rows: np.ndarray | None,
         L_cols: np.ndarray | None = None,
         R_cols: np.ndarray | None = None,
+        dense_center: np.ndarray | None = None,
     ):
-        """Perform a sandwich product: X.T @ diag(d) @ Y."""
+        """Perform a sandwich product: X.T @ diag(d) @ Y.
+
+        If ``other`` is dense, ``dense_center`` centers it, see :meth:`sandwich_dense`.
+        """
         from .categorical_matrix import CategoricalMatrix
         from .dense_matrix import DenseMatrix
 
         if isinstance(other, DenseMatrix):
-            return self.sandwich_dense(other._array, d, rows, L_cols, R_cols)
+            return self.sandwich_dense(
+                other._array, d, rows, L_cols, R_cols, B_center=dense_center
+            )
 
         if isinstance(other, CategoricalMatrix):
             return other._cross_sandwich(self, d, rows, R_cols, L_cols).T

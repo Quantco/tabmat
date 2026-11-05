@@ -6,6 +6,8 @@ from libc.stdlib cimport free, malloc
 from libcpp cimport bool
 from libcpp.vector cimport vector
 
+from .dense import _check_center
+
 
 # This is necessary because it's quite difficult to have a dynamic array of
 # memoryviews in Cython
@@ -50,14 +52,9 @@ def sandwich_cat_dense(
     cdef int n_active_rows = len(rows)
     cdef int nj_active_cols = len(j_cols)
 
-    cdef const floating[::1] center_view
-    cdef floating* mup = NULL
-    if dense_center is not None:
-        center_view = np.ascontiguousarray(dense_center, dtype=mat_j.dtype)
-        if center_view.shape[0] != nj_cols:
-            raise ValueError(
-                f"dense_center must have length {nj_cols}, got {center_view.shape[0]}."
-            )
+    cdef const floating[::1] mu = _check_center(
+        dense_center, nj_cols, mat_j.dtype, "dense_center"
+    )
 
     cdef floating[:, :] res
     res = np.zeros((i_ncol, nj_active_cols), dtype=mat_j.dtype)
@@ -72,9 +69,9 @@ def sandwich_cat_dense(
     cdef int* j_cols_p = &j_cols[0]
 
     cdef floating* mat_j_p = <floating*>mat_j.data
-
-    if dense_center is not None:
-        mup = <floating*>&center_view[0]
+    cdef floating* mup = NULL
+    if mu is not None:
+        mup = <floating*>&mu[0]
 
     if (not drop_first) and (not has_missings):
         if is_c_contiguous:

@@ -60,11 +60,14 @@ def _large_mean_dense(dtype, offset, n=20_000, p=6, seed=0):
     return mat, Z, d
 
 
-def _assert_sandwich_close(actual, Z, d, rtol):
-    expected = Z.T @ (d.astype(np.float64)[:, None] * Z)
+def _assert_close(actual, expected, rtol):
     np.testing.assert_allclose(
         actual, expected, rtol=rtol, atol=rtol * np.abs(expected).max()
     )
+
+
+def _assert_sandwich_close(actual, Z, d, rtol):
+    _assert_close(actual, Z.T @ (d.astype(np.float64)[:, None] * Z), rtol)
 
 
 @pytest.mark.parametrize(
@@ -198,16 +201,13 @@ def test_matvec_large_mean_is_accurate(split, dtype, offset, rtol):
     rows = np.arange(0, Z.shape[0], 3, dtype=np.int32)
     cols = np.array([0, 2, 3, 5], dtype=np.int32)
 
-    def check(actual, expected):
-        np.testing.assert_allclose(
-            actual, expected, rtol=rtol, atol=rtol * np.abs(expected).max()
-        )
-
-    check(mat.matvec(coef), Z @ coef)
-    check(mat.matvec(coef, cols), Z[:, cols] @ coef[cols])
+    _assert_close(mat.matvec(coef), Z @ coef, rtol)
+    _assert_close(mat.matvec(coef, cols), Z[:, cols] @ coef[cols], rtol)
     # The gradient in glum, and the intercept row of its Hessian.
-    check(d @ mat, Z.T @ d)
-    check(mat.transpose_matvec(d, rows, cols), Z[np.ix_(rows, cols)].T @ d[rows])
+    _assert_close(d @ mat, Z.T @ d, rtol)
+    _assert_close(
+        mat.transpose_matvec(d, rows, cols), Z[np.ix_(rows, cols)].T @ d[rows], rtol
+    )
 
 
 def test_matvec_mixed_dtypes():
@@ -221,9 +221,23 @@ def test_matvec_mixed_dtypes():
         (mat.transpose_matvec(d64), Z.T @ d64),
     ]:
         assert actual.dtype == np.float64
-        np.testing.assert_allclose(
-            actual, expected, rtol=1e-4, atol=1e-4 * np.abs(expected).max()
-        )
+        _assert_close(actual, expected, 1e-4)
+
+
+@pytest.mark.parametrize("rows", [None, np.arange(0, 100, 2, dtype=np.int32)])
+def test_transpose_matvec_keeps_order_of_permuted_cols(rows):
+    # All columns in another order are not unrestricted: the output follows cols.
+    rng = np.random.default_rng(9)
+    X = rng.standard_normal((100, 4)) + 5
+    mat = tm.DenseMatrix(X).standardize(np.full(100, 0.01), True, True)[0]
+    v = rng.standard_normal(100)
+    cols = np.array([3, 1, 0, 2], dtype=np.int32)
+    r = np.arange(100) if rows is None else rows
+    expected = mat.toarray()[np.ix_(r, cols)].T @ v[r]
+    np.testing.assert_allclose(mat.transpose_matvec(v, rows, cols), expected)
+    np.testing.assert_allclose(
+        mat.mat.transpose_matvec(v, rows, cols), X[np.ix_(r, cols)].T @ v[r]
+    )
 
 
 def test_split_sandwich_without_dense_part():
