@@ -208,8 +208,13 @@ class SparseMatrix(MatrixBase):
         rows: np.ndarray | None,
         L_cols: np.ndarray | None,
         R_cols: np.ndarray | None,
+        B_center: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Perform a sandwich product: self.T @ diag(d) @ B."""
+        """Perform a sandwich product: self.T @ diag(d) @ B.
+
+        If ``B_center`` (one value per column of ``B``) is given, compute
+        ``self.T @ diag(d) @ (B - B_center)`` instead, centering ``B`` in the kernel.
+        """
         if not hasattr(d, "dtype"):
             d = np.asarray(d)
 
@@ -224,7 +229,9 @@ class SparseMatrix(MatrixBase):
 
         rows, L_cols = setup_restrictions(self.shape, rows, L_cols)
         R_cols = set_up_rows_or_cols(R_cols, B.shape[1])
-        return csr_dense_sandwich(self.array_csr, B, d, rows, L_cols, R_cols)
+        return csr_dense_sandwich(
+            self.array_csr, B, d, rows, L_cols, R_cols, B_center=B_center
+        )
 
     def _matvec_helper(
         self,

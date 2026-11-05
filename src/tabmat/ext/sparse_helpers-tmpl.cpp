@@ -21,10 +21,12 @@
 namespace xs = xsimd;
 
 <%def name="csr_dense_sandwich_tmpl(order)">
+// Computes A[rows, A_cols].T @ diag(d[rows]) @ (B - Bmu)[rows, B_cols], where the
+// optional per-column center Bmu (nullptr means none) is subtracted while packing B.
 template <typename Int, typename F>
 void _csr_dense${order}_sandwich(
     F* Adata, Int* Aindices, Int* Aindptr,
-    F* B, F* d, F* out,
+    F* B, const F* Bmu, F* d, F* out,
     Int m, Int n, Int r,
     Int* rows, Int* A_cols, Int* B_cols,
     Int nrows, Int nA_cols, Int nB_cols
@@ -86,6 +88,9 @@ void _csr_dense${order}_sandwich(
                         % else:
                             F Bv = B[(Py_ssize_t) j * n + k];
                         % endif
+                        if (Bmu != nullptr) {
+                            Bv -= Bmu[j];
+                        }
                         R[(Py_ssize_t) (Ck-Ckk) * jblock + (Cj-Cjj)] = d[k] * Bv;
                     }
                 }

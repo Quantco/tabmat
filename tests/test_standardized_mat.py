@@ -137,3 +137,82 @@ def test_astype_keeps_mult():
     X = tm.DenseMatrix(rng.standard_normal((100, 3)) * [1.0, 10.0, 100.0] + 5)
     mat = X.standardize(np.full(100, 0.01), True, True)[0]
     np.testing.assert_allclose(mat.astype(np.float64).toarray(), mat.toarray())
+
+
+def _large_mean_split(dtype, offset, kind="plain", n=20_000, seed=0):
+    """A SplitMatrix whose dense columns have means much larger than their std."""
+    rng = np.random.default_rng(seed)
+    dense = rng.standard_normal((n, 3)) * rng.uniform(0.5, 2.0, 3) + offset
+    sparse = sps.random(n, 3, density=0.2, format="csc", random_state=seed)
+    # A dominant level, so that the categorical columns have a sizable shift too.
+    levels = rng.choice(list("abcd"), n, p=[0.85, 0.05, 0.05, 0.05]).astype(object)
+    if kind == "missing":
+        levels[rng.random(n) < 0.02] = None
+    X = tm.SplitMatrix(
+        [
+            tm.DenseMatrix(dense.astype(dtype)),
+            tm.SparseMatrix(sparse.astype(dtype)),
+            tm.CategoricalMatrix(
+                levels,
+                drop_first=kind == "drop_first",
+                cat_missing_method="zero" if kind == "missing" else "fail",
+                dtype=dtype,
+            ),
+        ]
+    )
+    weights = np.full(n, 1 / n, dtype=dtype)
+    mat, means, _ = X.standardize(weights, True, True)
+    Z = (X.toarray().astype(np.float64) - means.astype(np.float64)) * mat.mult.astype(
+        np.float64
+    )
+    d = (1 + 0.5 * np.tanh(Z[:, 0])).astype(dtype)
+    return mat, Z, d
+
+
+@pytest.mark.parametrize("kind", ["plain", "drop_first", "missing"])
+@pytest.mark.parametrize(
+    "dtype, offset, rtol", [(np.float64, 1e6, 1e-12), (np.float32, 1e3, 1e-4)]
+)
+def test_split_sandwich_large_mean_is_accurate(dtype, offset, rtol, kind):
+    mat, Z, d = _large_mean_split(dtype, offset, kind)
+    _assert_sandwich_close(mat.sandwich(d), Z, d, rtol)
+
+    rows = np.arange(0, Z.shape[0], 3, dtype=np.int32)
+    # Dense, sparse and categorical columns; SplitMatrix needs them sorted.
+    cols = np.array([0, 2, 3, 5, 7], dtype=np.int32)
+    _assert_sandwich_close(
+        mat.sandwich(d, rows, cols), Z[np.ix_(rows, cols)], d[rows], rtol
+    )
+
+
+def test_split_sandwich_without_dense_part():
+    rng = np.random.default_rng(5)
+    n = 500
+    X = tm.SplitMatrix(
+        [
+            tm.SparseMatrix(sps.random(n, 3, density=0.3, format="csc")),
+            tm.CategoricalMatrix(rng.choice(list("abc"), n)),
+        ]
+    )
+    mat = X.standardize(np.full(n, 1 / n), True, True)[0]
+    d = rng.uniform(0.5, 1.5, n)
+    _assert_sandwich_close(mat.sandwich(d), mat.toarray(), d, 1e-12)
+
+
+@pytest.mark.parametrize("split", [False, True], ids=["categorical", "split"])
+def test_sandwich_without_shift(split):
+    # Without centering there is no shift, so only the scaled product remains.
+    rng = np.random.default_rng(6)
+    n = 500
+    X = tm.CategoricalMatrix(rng.choice(list("abc"), n))
+    if split:
+        X = tm.SplitMatrix([tm.DenseMatrix(rng.standard_normal((n, 2)) + 3), X])
+    mat = X.standardize(np.full(n, 1 / n), False, True)[0]
+    assert not mat.shift.any()
+    d = rng.uniform(0.5, 1.5, n)
+    _assert_sandwich_close(mat.sandwich(d), mat.toarray(), d, 1e-12)
+    rows = np.arange(0, n, 2, dtype=np.int32)
+    cols = np.array([0, 2], dtype=np.int32)
+    _assert_sandwich_close(
+        mat.sandwich(d, rows, cols), mat.toarray()[np.ix_(rows, cols)], d[rows], 1e-12
+    )

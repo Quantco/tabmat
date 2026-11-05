@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING, cast
+
 import numpy as np
 from scipy import sparse as sps
 
@@ -11,6 +13,9 @@ from .util import (
     set_up_rows_or_cols,
     setup_restrictions,
 )
+
+if TYPE_CHECKING:
+    from .split_matrix import SplitMatrix
 
 
 class StandardizedMatrix:
@@ -126,28 +131,49 @@ class StandardizedMatrix:
             out._center = np.atleast_1d(center[i])
         return out
 
-    def _dense_center(self) -> np.ndarray | None:
-        """Return the unscaled column centers, for use with a dense ``self.mat``.
+    def _dense_centering(self) -> tuple[np.ndarray, np.ndarray] | None:
+        """Return ``(center, shift)`` for centering the dense columns in the kernels.
 
-        These are the ``c`` with ``self.toarray() == (self.mat.toarray() - c) * mult``,
-        which lets the dense sandwich kernel center the data directly. The exact
-        centers from :meth:`MatrixBase.standardize` are used while they still match
-        ``shift``; otherwise they are recovered from ``shift`` and ``mult``.
-        Returns ``None`` if they cannot be recovered because a multiplier is zero.
+        ``center`` holds the unscaled means of the columns stored in a dense
+        matrix and zero for the others, so that
+        ``self.toarray() == (self.mat.toarray() - center) * mult + shift``. Centering
+        the dense columns absorbs their part of the shift, so ``shift`` is zero for
+        them. The exact means from :meth:`MatrixBase.standardize` are used while
+        they still match ``self.shift``; otherwise they are recovered from
+        ``self.shift`` and ``self.mult``. Returns ``None`` if ``self.mat`` has no
+        dense columns or their means cannot be recovered (a zero multiplier).
         """
+        from .split_matrix import SplitMatrix
+
+        if isinstance(self.mat, DenseMatrix):
+            dense = np.ones(self.shape[1], dtype=bool)
+        elif isinstance(self.mat, SplitMatrix):
+            dense = np.zeros(self.shape[1], dtype=bool)
+            for mat, idx in zip(self.mat.matrices, self.mat.indices):
+                if isinstance(mat, DenseMatrix):
+                    dense[idx] = True
+            if not dense.any():
+                return None
+        else:
+            return None
+
         center = getattr(self, "_center", None)
         if center is not None:
             # Allow for rounding, e.g. after astype casts shift and center
             # separately. A larger difference means shift was changed since.
             expected = -center if self.mult is None else -center * self.mult
             eps = np.finfo(np.result_type(expected, self.shift)).eps
-            if np.allclose(expected, self.shift, rtol=4 * eps, atol=0):
-                return center
-        if self.mult is None:
-            return -self.shift
-        with np.errstate(divide="ignore", invalid="ignore"):
-            center = -self.shift / self.mult
-        return center if np.isfinite(center).all() else None
+            if not np.allclose(expected, self.shift, rtol=4 * eps, atol=0):
+                center = None
+        if center is None:
+            if self.mult is None:
+                center = -self.shift
+            else:
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    center = -self.shift / self.mult
+        if not np.isfinite(center[dense]).all():
+            return None
+        return np.where(dense, center, 0.0), np.where(dense, 0.0, self.shift)
 
     def sandwich(
         self,
@@ -175,32 +201,45 @@ class StandardizedMatrix:
             if cols is not None:
                 cols = setup_cols
 
-        if isinstance(self.mat, DenseMatrix):
-            center = self._dense_center()
-            if center is not None:
-                # For dense data the sandwich kernel subtracts the center while
-                # packing its panels, so it returns
-                # (mat - center).T @ diag(d) @ (mat - center) without copying the
-                # data. The expansion below would instead form uncentered terms
-                # that nearly cancel when a column's mean is large relative to its
-                # standard deviation, losing most significant digits.
-                if center.any():
-                    res = self.mat._centered_sandwich(d, center, rows, cols)
-                else:
-                    res = self.mat.sandwich(d, rows, cols)
-                if self.mult is not None:
-                    limited_mult = self.mult[cols] if cols is not None else self.mult
-                    res *= np.outer(limited_mult, limited_mult)
-                return res
+        # The dense columns are centered inside the kernels, without copying the
+        # data: for a DenseMatrix, (1) becomes
+        # (mat - center).T @ diag(d) @ (mat - center) and (2) to (4) vanish.
+        # Expanding the uncentered product instead forms terms that nearly cancel
+        # when a column's mean is large relative to its standard deviation,
+        # losing most significant digits.
+        centering = self._dense_centering()
+        center, shift = (None, self.shift) if centering is None else centering
+        # Only used if center is not None, which requires a dense or split matrix.
+        centered_mat = cast("DenseMatrix | SplitMatrix", self.mat)
+        if center is None:
+            term1 = self.mat.sandwich(d, rows, cols)
+        else:
+            term1 = centered_mat._centered_sandwich(d, center, rows, cols)
 
-        term1 = self.mat.sandwich(d, rows, cols)
-        d_mat = self.mat.transpose_matvec(d, rows, cols)
+        limited_mult = None
         if self.mult is not None:
             limited_mult = self.mult[cols] if cols is not None else self.mult
-            d_mat *= limited_mult
-        term2 = np.outer(d_mat, self.shift[cols])
+        limited_shift = shift[cols] if cols is not None else shift
 
-        limited_shift = self.shift[cols] if cols is not None else self.shift
+        if not limited_shift.any():
+            # (2) to (4) vanish without a shift.
+            if isinstance(term1, sps.dia_matrix):
+                diagonal = term1.data[0, :]
+                if limited_mult is not None:
+                    diagonal = diagonal * limited_mult**2
+                return np.diag(diagonal)
+            if limited_mult is not None:
+                term1 *= np.outer(limited_mult, limited_mult)
+            return term1
+
+        if center is None:
+            d_mat = self.mat.transpose_matvec(d, rows, cols)
+        else:
+            d_mat = centered_mat._centered_transpose_matvec(d, center, rows, cols)
+        if limited_mult is not None:
+            d_mat *= limited_mult
+        term2 = np.outer(d_mat, limited_shift)
+
         limited_d = d[rows] if rows is not None else d
         term3 = np.outer(limited_shift, d_mat)
         term4 = np.outer(limited_shift, limited_shift) * np.sum(limited_d)
@@ -208,12 +247,12 @@ class StandardizedMatrix:
         if isinstance(term1, sps.dia_matrix):
             idx = np.arange(res.shape[0])
             to_add = term1.data[0, :]
-            if self.mult is not None:
+            if limited_mult is not None:
                 to_add *= limited_mult**2
             res[idx, idx] += to_add
         else:
             to_add = term1
-            if self.mult is not None:
+            if limited_mult is not None:
                 to_add *= np.outer(limited_mult, limited_mult)
             res += to_add
         return res

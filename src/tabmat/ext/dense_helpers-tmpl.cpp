@@ -318,9 +318,10 @@ ${dense_sandwich_tmpl('F')}
 
 
 <%def name="dense_rmatvec_tmpl(order)">
+// If a per-column center mu is passed, it computes (X - mu)[rows, cols].T @ v[rows].
 template <typename Int, typename F>
-void _dense${order}_rmatvec(Int* rows, Int* cols, F* X, F* v, F* out,
-        Int n_rows, Int n_cols, Int m, Int n) 
+void _dense${order}_rmatvec(Int* rows, Int* cols, F* X, F* v, const F* mu, F* out,
+        Int n_rows, Int n_cols, Int m, Int n)
 {
 #ifdef XSIMD_NO_SUPPORTED_ARCHITECTURE
     constexpr std::size_t simd_size = 1;
@@ -352,10 +353,11 @@ void _dense${order}_rmatvec(Int* rows, Int* cols, F* X, F* v, F* out,
             % if order == 'F':
                 for (Py_ssize_t Cjj = Cj; Cjj < Cjmax; Cjj++) {
                     Int j = cols[Cjj];
+                    F muj = (mu == nullptr) ? (F)0.0 : mu[j];
                     F out_entry = 0.0;
                     for (Py_ssize_t Cii = Ci; Cii < Cimax; Cii++) {
                         Int i = rows[Cii];
-                        F Xv = X[(Py_ssize_t) j * n + i];
+                        F Xv = X[(Py_ssize_t) j * n + i] - muj;
                         F vv = v[i];
                         out_entry += Xv * vv;
                     }
@@ -372,6 +374,9 @@ void _dense${order}_rmatvec(Int* rows, Int* cols, F* X, F* v, F* out,
                     for (Py_ssize_t Cjj = Cj; Cjj < Cjmax; Cjj++) {
                         Int j = cols[Cjj];
                         F Xv = X[(Py_ssize_t) i * m + j];
+                        if (mu != nullptr) {
+                            Xv -= mu[j];
+                        }
                         outlocal[Cjj] += Xv * vv;
                     }
                 }

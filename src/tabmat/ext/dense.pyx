@@ -13,8 +13,8 @@ cdef extern from "dense_helpers.cpp":
     # because older Cython versions (e.g. 3.2) cannot deduce F from a const F*.
     void _denseC_sandwich[Int, F](Int*, Int*, F*, F*, F*, F*, Int, Int, Int, Int, Int, Int, Int) nogil
     void _denseF_sandwich[Int, F](Int*, Int*, F*, F*, F*, F*, Int, Int, Int, Int, Int, Int, Int) nogil
-    void _denseC_rmatvec[Int, F](Int*, Int*, F*, F*, F*, Int, Int, Int, Int) nogil
-    void _denseF_rmatvec[Int, F](Int*, Int*, F*, F*, F*, Int, Int, Int, Int) nogil
+    void _denseC_rmatvec[Int, F](Int*, Int*, F*, F*, F*, F*, Int, Int, Int, Int) nogil
+    void _denseF_rmatvec[Int, F](Int*, Int*, F*, F*, F*, F*, Int, Int, Int, Int) nogil
     void _denseC_matvec[Int, F](Int*, Int*, F*, F*, F*, Int, Int, Int, Int) nogil
     void _denseF_matvec[Int, F](Int*, Int*, F*, F*, F*, Int, Int, Int, Int) nogil
 
@@ -64,11 +64,19 @@ def dense_sandwich(np.ndarray X, floating[:] d, int[:] rows, int[:] cols, int th
 
 
 # TODO: lots of duplicated code with dense_sandwich above
-def dense_rmatvec(np.ndarray X, floating[:] v, int[:] rows, int[:] cols):
+def dense_rmatvec(np.ndarray X, floating[:] v, int[:] rows, int[:] cols, center=None):
+    """(X[rows, cols] - center[cols]).T @ v[rows]; ``center=None`` means no centering."""
     cdef int n = X.shape[0]
     cdef int m = X.shape[1]
     cdef int n_rows = rows.shape[0]
     cdef int n_cols = cols.shape[0]
+
+    cdef const floating[::1] center_view
+    cdef floating* mup = NULL
+    if center is not None:
+        center_view = np.ascontiguousarray(center, dtype=X.dtype)
+        if center_view.shape[0] != m:
+            raise ValueError(f"center must have length {m}, got {center_view.shape[0]}.")
 
     out = np.zeros(n_cols, dtype=X.dtype)
     if n_rows == 0 or n_cols == 0:
@@ -83,10 +91,13 @@ def dense_rmatvec(np.ndarray X, floating[:] v, int[:] rows, int[:] cols):
     cdef int* colsp = &cols[0]
     cdef int* rowsp = &rows[0]
 
+    if center is not None:
+        mup = <floating*>&center_view[0]
+
     if X.flags["C_CONTIGUOUS"]:
-        _denseC_rmatvec(rowsp, colsp, Xp, vp, outp, n_rows, n_cols, m, n)
+        _denseC_rmatvec(rowsp, colsp, Xp, vp, mup, outp, n_rows, n_cols, m, n)
     elif X.flags["F_CONTIGUOUS"]:
-        _denseF_rmatvec(rowsp, colsp, Xp, vp, outp, n_rows, n_cols, m, n)
+        _denseF_rmatvec(rowsp, colsp, Xp, vp, mup, outp, n_rows, n_cols, m, n)
     else:
         raise Exception("The matrix X is not contiguous.")
     return out

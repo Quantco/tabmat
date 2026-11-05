@@ -180,7 +180,28 @@ class DenseMatrix(MatrixBase):
         d = np.asarray(d)
         check_sandwich_compatible(self, d)
         rows, cols = setup_restrictions(self.shape, rows, cols)
+        if not np.any(center):
+            center = None
         return dense_sandwich(self._array, d, rows, cols, center=center)
+
+    def _centered_transpose_matvec(
+        self,
+        v: np.ndarray,
+        center: np.ndarray,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Compute ``(X - center)[rows, cols].T @ v[rows]`` for a 1-d ``v``.
+
+        ``center`` has length ``self.shape[1]``. The subtraction happens inside the
+        kernel, so that a large center does not cancel against ``X.T @ v``.
+        """
+        if not np.any(center):
+            return self.transpose_matvec(v, rows, cols)
+        v = np.asarray(v)
+        check_matvec_dimensions(self, v, transpose=True)
+        rows, cols = setup_restrictions(self.shape, rows, cols)
+        return dense_rmatvec(self._array, v, rows, cols, center=center)
 
     def _cross_sandwich(
         self,

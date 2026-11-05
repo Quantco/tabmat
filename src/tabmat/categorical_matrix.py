@@ -765,7 +765,9 @@ class CategoricalMatrix(MatrixBase):
         rows: np.ndarray | None,
         L_cols: np.ndarray | None,
         R_cols: np.ndarray | None,
+        other_center: np.ndarray | None = None,
     ) -> np.ndarray:
+        # other_center (one value per column of other) centers other in the kernel.
         if other.flags["C_CONTIGUOUS"]:
             is_c_contiguous = True
         elif other.flags["F_CONTIGUOUS"]:
@@ -787,6 +789,7 @@ class CategoricalMatrix(MatrixBase):
             is_c_contiguous,
             has_missings=self._has_missings,
             drop_first=self.drop_first,
+            dense_center=other_center,
         )
 
         res = _row_col_indexing(res, L_cols, None)

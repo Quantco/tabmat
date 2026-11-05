@@ -354,6 +354,115 @@ class SplitMatrix(MatrixBase):
 
         return out
 
+    def _centered_sandwich(
+        self,
+        d: np.ndarray,
+        center: np.ndarray,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Like :meth:`sandwich`, but with the dense part centered by ``center``.
+
+        ``center`` has one value per column; only the values for the columns of
+        the dense part are used. Those columns are centered inside the kernels,
+        both for their own block and for their cross blocks with the other parts,
+        so that a large center does not cancel. The other parts are not centered.
+        """
+        from .categorical_matrix import CategoricalMatrix
+
+        d = np.asarray(d)
+        check_sandwich_compatible(self, d)
+
+        subset_cols_indices, subset_cols, n_cols = self._split_col_subsets(cols)
+
+        out = np.zeros((n_cols, n_cols))
+        for i in range(len(self.indices)):
+            idx_i = subset_cols_indices[i]
+            mat_i = self.matrices[i]
+            if isinstance(mat_i, DenseMatrix):
+                res = mat_i._centered_sandwich(
+                    d, center[self.indices[i]], rows, subset_cols[i]
+                )
+            else:
+                res = mat_i.sandwich(d, rows, subset_cols[i])
+            if isinstance(res, sps.dia_matrix):
+                out[(idx_i, idx_i)] += np.squeeze(res.data)
+            else:
+                out[np.ix_(idx_i, idx_i)] = res
+
+            for j in range(i + 1, len(self.indices)):
+                idx_j = subset_cols_indices[j]
+                mat_j = self.matrices[j]
+                if isinstance(mat_i, DenseMatrix) or isinstance(mat_j, DenseMatrix):
+                    # Cross block with the dense part, computed as
+                    # other.T @ diag(d) @ (dense - center) and transposed to fit.
+                    dense_is_i = isinstance(mat_i, DenseMatrix)
+                    dense, dense_k, other, other_k = (
+                        (mat_i, i, mat_j, j) if dense_is_i else (mat_j, j, mat_i, i)
+                    )
+                    dense_center = center[self.indices[dense_k]]
+                    if isinstance(other, SparseMatrix):
+                        res = other.sandwich_dense(
+                            dense._array,
+                            d,
+                            rows,
+                            subset_cols[other_k],
+                            subset_cols[dense_k],
+                            B_center=dense_center,
+                        )
+                    elif isinstance(other, CategoricalMatrix):
+                        res = other._cross_dense(
+                            dense._array,
+                            d,
+                            rows,
+                            subset_cols[other_k],
+                            subset_cols[dense_k],
+                            other_center=dense_center,
+                        )
+                    else:
+                        raise TypeError(
+                            f"Unexpected matrix type {type(other).__name__} next to "
+                            "a dense part."
+                        )
+                    if dense_is_i:
+                        res = res.T
+                else:
+                    res = mat_i._cross_sandwich(
+                        mat_j, d, rows, subset_cols[i], subset_cols[j]
+                    )
+
+                out[np.ix_(idx_i, idx_j)] = res
+                out[np.ix_(idx_j, idx_i)] = res.T
+
+        return out
+
+    def _centered_transpose_matvec(
+        self,
+        v: np.ndarray,
+        center: np.ndarray,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Like :meth:`transpose_matvec` for a 1-d ``v``, with the dense part
+        centered by ``center`` (one value per column) inside the kernel.
+        """
+        v = np.asarray(v)
+        check_matvec_dimensions(self, v, transpose=True)
+
+        subset_cols_indices, subset_cols, n_cols = self._split_col_subsets(cols)
+        out = np.zeros(n_cols, dtype=np.result_type(self.dtype, v.dtype))
+        for idx, sub_cols, mat, mat_indices in zip(
+            subset_cols_indices, subset_cols, self.matrices, self.indices
+        ):
+            if isinstance(mat, DenseMatrix):
+                res = mat._centered_transpose_matvec(
+                    v, center[mat_indices], rows, sub_cols
+                )
+            else:
+                res = mat.transpose_matvec(v, rows=rows, cols=sub_cols)
+            out[idx] += res
+        return out
+
     def _get_col_means(self, weights: np.ndarray) -> np.ndarray:
         """Get means of columns."""
         col_means = np.empty(self.shape[1], dtype=self.dtype)

@@ -4,8 +4,8 @@ import scipy as sp
 import scipy.sparse
 from scipy.sparse import csc_matrix
 
-from tabmat import DenseMatrix, SparseMatrix, SplitMatrix
-from tabmat.ext.dense import dense_sandwich
+from tabmat import CategoricalMatrix, DenseMatrix, SparseMatrix, SplitMatrix
+from tabmat.ext.dense import dense_rmatvec, dense_sandwich
 from tabmat.ext.sparse import sparse_sandwich
 
 
@@ -102,6 +102,112 @@ def test_dense_sandwich_zero_center_matches_uncentered():
     np.testing.assert_array_equal(
         dense_sandwich(X, d, rows, cols, center=np.zeros(50)),
         dense_sandwich(X, d, rows, cols),
+    )
+
+
+def _centered_kernel_data(order, dtype, n=1200, m=9):
+    rng = np.random.default_rng(1)
+    B = np.array(
+        rng.standard_normal((n, m)) + rng.uniform(-50, 50, m), dtype=dtype, order=order
+    )
+    d = rng.uniform(0.5, 1.5, n).astype(dtype)
+    # In the data's dtype, like the means from standardize. The kernels cast the
+    # center to that dtype, so a float64 center would not be the one they use.
+    center = B.mean(axis=0, dtype=np.float64).astype(dtype).astype(np.float64)
+    rows = np.sort(rng.choice(n, n // 2, replace=False)).astype(np.int32)
+    return rng, B, d, center, rows
+
+
+def _assert_close_to(actual, expected, dtype):
+    rtol = 1e-12 if dtype == np.float64 else 1e-5
+    np.testing.assert_allclose(
+        actual, expected, rtol=rtol, atol=rtol * np.abs(expected).max()
+    )
+
+
+@pytest.mark.parametrize("order", ["C", "F"])
+@pytest.mark.parametrize("dtype", [np.float64, np.float32])
+def test_sparse_dense_sandwich_center(order, dtype):
+    rng, B, d, center, rows = _centered_kernel_data(order, dtype)
+    A = SparseMatrix(
+        sp.sparse.random(
+            B.shape[0], 7, density=0.3, format="csc", random_state=2
+        ).astype(dtype)
+    )
+    A_cols = np.array([0, 2, 3, 6], dtype=np.int32)
+    B_cols = np.array([1, 4, 5, 8], dtype=np.int32)
+
+    out = A.sandwich_dense(B, d, rows, A_cols, B_cols, B_center=center)
+
+    A_dense = A.toarray().astype(np.float64)[np.ix_(rows, A_cols)]
+    Bc = B.astype(np.float64)[np.ix_(rows, B_cols)] - center[B_cols]
+    _assert_close_to(out, A_dense.T @ (d.astype(np.float64)[rows, None] * Bc), dtype)
+
+
+@pytest.mark.parametrize("order", ["C", "F"])
+@pytest.mark.parametrize("dtype", [np.float64, np.float32])
+@pytest.mark.parametrize(
+    "kind", ["plain", "drop_first", "missing"], ids=["fast", "drop_first", "missing"]
+)
+def test_categorical_dense_sandwich_center(order, dtype, kind):
+    rng, B, d, center, rows = _centered_kernel_data(order, dtype)
+    levels = rng.choice(list("abcd"), B.shape[0]).astype(object)
+    if kind == "missing":
+        levels[rng.random(B.shape[0]) < 0.1] = None
+    cat = CategoricalMatrix(
+        levels,
+        drop_first=kind == "drop_first",
+        cat_missing_method="zero" if kind == "missing" else "fail",
+        dtype=dtype,
+    )
+    B_cols = np.array([0, 3, 4, 7], dtype=np.int32)
+
+    out = cat._cross_dense(B, d, rows, None, B_cols, other_center=center)
+
+    A_dense = cat.toarray().astype(np.float64)[rows]
+    Bc = B.astype(np.float64)[np.ix_(rows, B_cols)] - center[B_cols]
+    _assert_close_to(out, A_dense.T @ (d.astype(np.float64)[rows, None] * Bc), dtype)
+
+
+@pytest.mark.parametrize("order", ["C", "F"])
+@pytest.mark.parametrize("dtype", [np.float64, np.float32])
+@pytest.mark.parametrize("restrict", [False, True], ids=["all", "restricted"])
+def test_dense_transpose_matvec_center(order, dtype, restrict):
+    rng, B, d, center, rows = _centered_kernel_data(order, dtype)
+    cols = np.arange(B.shape[1], dtype=np.int32)
+    if restrict:
+        cols = np.array([2, 5, 6], dtype=np.int32)
+    else:
+        rows = np.arange(B.shape[0], dtype=np.int32)
+
+    out = DenseMatrix(B)._centered_transpose_matvec(d, center, rows, cols)
+
+    Bc = B.astype(np.float64)[np.ix_(rows, cols)] - center[cols]
+    _assert_close_to(out, Bc.T @ d.astype(np.float64)[rows], dtype)
+
+
+def test_centered_kernels_zero_center_match_uncentered():
+    rng, B, d, _, rows = _centered_kernel_data("F", np.float64)
+    zeros = np.zeros(B.shape[1])
+    all_cols = np.arange(B.shape[1], dtype=np.int32)
+    A = SparseMatrix(sp.sparse.random(B.shape[0], 4, density=0.3, format="csc"))
+    cat = CategoricalMatrix(rng.choice(list("abc"), B.shape[0]))
+    # These kernels add up per-thread results atomically, in varying order, so
+    # even two identical calls can differ in the last bit.
+    np.testing.assert_allclose(
+        A.sandwich_dense(B, d, rows, None, None, B_center=zeros),
+        A.sandwich_dense(B, d, rows, None, None),
+        rtol=1e-13,
+    )
+    np.testing.assert_allclose(
+        cat._cross_dense(B, d, rows, None, None, other_center=zeros),
+        cat._cross_dense(B, d, rows, None, None),
+        rtol=1e-13,
+    )
+    np.testing.assert_allclose(
+        dense_rmatvec(B, d, rows, all_cols, center=zeros),
+        dense_rmatvec(B, d, rows, all_cols),
+        rtol=1e-13,
     )
 
 
