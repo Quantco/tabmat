@@ -7,12 +7,14 @@
 Changelog
 =========
 
-4.3.1 - unreleased
+4.3.1 - 2026-11-05
 ------------------
 
 **Bug fix:**
 
 - Fixed :meth:`tabmat.CategoricalMatrix.multiply` for matrices with a single row, which failed because ``np.squeeze`` reduced the multiplier to a 0-d array.
+- :meth:`tabmat.CategoricalMatrix.unpack` no longer emits a ``DeprecationWarning`` caused by internally accessing the deprecated ``cat`` property.
+- Slicing a :class:`tabmat.DenseMatrix` no longer emits a spurious warning about non-contiguous input.
 
 **Other changes:**
 

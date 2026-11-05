@@ -609,8 +609,8 @@ def test_C_state(df, formula, ensure_full_rank):
         model_tabmat.toarray()[:2, :], model_tabmat_2.toarray()
     )
     np.testing.assert_array_equal(
-        model_tabmat.matrices[1].cat.categories,
-        model_tabmat_2.matrices[1].cat.categories,
+        model_tabmat.matrices[1].categories,
+        model_tabmat_2.matrices[1].categories,
     )
 
 
@@ -1253,7 +1253,7 @@ class TestFormulaicTests:
         encoded_matrix = (
             encoded_factor["B[a]"].set_name("B[a]").to_tabmat(cat_threshold=1)
         )
-        assert list(encoded_matrix.cat) == ["B[a][a]", "B[a][b]", "B[a][c]"]
+        assert list(encoded_matrix.unpack()) == ["B[a][a]", "B[a][b]", "B[a][c]"]
 
     @pytest.mark.parametrize("input", ["pandas", "polars"])
     def test_empty(self, materializer):
@@ -1318,4 +1318,4 @@ class TestFormulaicTests:
         o.seek(0)
         ms2 = pickle.load(o)
         assert isinstance(ms, Structured)
-        assert ms2.lhs.formula.root == ["a"]
+        assert ms2.lhs.formula == ["a"]

@@ -245,9 +245,10 @@ def test_extract_codes_and_categories(input_type, narwhals_input):
 
 def test_polars_non_contiguous_codes():
     str_series = ["labrador", "boxer", "beagle"]
-    with pl.StringCache():
-        _ = pl.Series(["beagle", "poodle", "labrador"], dtype=pl.Categorical)
-        cat_series = pl.Series(str_series, dtype=pl.Categorical)
+    # Share one set of categories so that the physical codes are non-contiguous.
+    dtype = pl.Categorical(pl.Categories.random())
+    _ = pl.Series(["beagle", "poodle", "labrador"], dtype=dtype)
+    cat_series = pl.Series(str_series, dtype=dtype)
 
     indices, categories = _extract_codes_and_categories(cat_series)
     np.testing.assert_array_equal(str_series, categories[indices].tolist())

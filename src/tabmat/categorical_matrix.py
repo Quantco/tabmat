@@ -440,6 +440,9 @@ class CategoricalMatrix(MatrixBase):
             "This property will be removed in the next major release.",
             category=DeprecationWarning,
         )
+        return self._to_pandas_categorical()
+
+    def _to_pandas_categorical(self):
         if pd:
             return pd.Categorical.from_codes(self.indices, categories=self.categories)
         else:
@@ -717,7 +720,7 @@ class CategoricalMatrix(MatrixBase):
 
     def unpack(self):
         """Return the underlying pandas.Categorical."""
-        return self.cat
+        return self._to_pandas_categorical()
 
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
         """Return CategoricalMatrix cast to new type."""

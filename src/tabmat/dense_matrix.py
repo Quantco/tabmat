@@ -80,9 +80,13 @@ class DenseMatrix(MatrixBase):
         colnames = np.array(self.column_names)[col].ravel().tolist()
         terms = np.array(self.term_names)[col].ravel().tolist()
 
-        return type(self)(
-            self._array.__getitem__((row, col)), column_names=colnames, term_names=terms
-        )
+        sliced = self._array.__getitem__((row, col))
+        # Slicing may yield a non-contiguous view; make it contiguous here so that
+        # the constructor does not warn about an input the user did not provide.
+        # Only copy when needed, to avoid a performance cost.
+        if not (sliced.flags["C_CONTIGUOUS"] or sliced.flags["F_CONTIGUOUS"]):
+            sliced = np.asfortranarray(sliced)
+        return type(self)(sliced, column_names=colnames, term_names=terms)
 
     __array_ufunc__ = None
 
