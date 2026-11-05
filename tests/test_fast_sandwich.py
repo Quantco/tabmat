@@ -5,7 +5,7 @@ import scipy.sparse
 from scipy.sparse import csc_matrix
 
 from tabmat import CategoricalMatrix, DenseMatrix, SparseMatrix, SplitMatrix
-from tabmat.ext.dense import dense_rmatvec, dense_sandwich
+from tabmat.ext.dense import dense_matvec, dense_rmatvec, dense_sandwich
 from tabmat.ext.sparse import sparse_sandwich
 
 
@@ -169,21 +169,35 @@ def test_categorical_dense_sandwich_center(order, dtype, kind):
     _assert_close_to(out, A_dense.T @ (d.astype(np.float64)[rows, None] * Bc), dtype)
 
 
+# (5000, 30) runs in parallel and the others serially; widths 9 and 3 also
+# exercise the scalar remainders of the vectorized loops. None selects all rows
+# or columns, which the kernels vectorize along.
+@pytest.mark.parametrize("shape", [(5000, 30), (1200, 9), (7, 3)])
 @pytest.mark.parametrize("order", ["C", "F"])
 @pytest.mark.parametrize("dtype", [np.float64, np.float32])
-@pytest.mark.parametrize("restrict", [False, True], ids=["all", "restricted"])
-def test_dense_transpose_matvec_center(order, dtype, restrict):
-    rng, B, d, center, rows = _centered_kernel_data(order, dtype)
-    cols = np.arange(B.shape[1], dtype=np.int32)
-    if restrict:
-        cols = np.array([2, 5, 6], dtype=np.int32)
-    else:
-        rows = np.arange(B.shape[0], dtype=np.int32)
+@pytest.mark.parametrize("restrict", ["none", "rows", "cols", "both"])
+@pytest.mark.parametrize("transpose", [False, True], ids=["matvec", "rmatvec"])
+def test_dense_matvec_center(shape, order, dtype, restrict, transpose):
+    rng = np.random.default_rng(1)
+    n, m = shape
+    X = np.array(
+        rng.standard_normal(shape) + rng.uniform(-50, 50, m), dtype=dtype, order=order
+    )
+    center = X.mean(axis=0, dtype=np.float64).astype(dtype).astype(np.float64)
+    rows = cols = None
+    if restrict in ("rows", "both"):
+        rows = np.sort(rng.choice(n, max(1, n // 2), replace=False)).astype(np.int32)
+    if restrict in ("cols", "both"):
+        cols = rng.permutation(m)[: max(1, m // 2)].astype(np.int32)
+    v = rng.standard_normal(n if transpose else m).astype(dtype)
 
-    out = DenseMatrix(B)._centered_transpose_matvec(d, center, rows, cols)
+    out = (dense_rmatvec if transpose else dense_matvec)(X, v, rows, cols, center)
 
-    Bc = B.astype(np.float64)[np.ix_(rows, cols)] - center[cols]
-    _assert_close_to(out, Bc.T @ d.astype(np.float64)[rows], dtype)
+    r = np.arange(n) if rows is None else rows
+    c = np.arange(m) if cols is None else cols
+    Xc = X.astype(np.float64)[np.ix_(r, c)] - center[c]
+    v64 = v.astype(np.float64)
+    _assert_close_to(out, Xc.T @ v64[r] if transpose else Xc @ v64[c], dtype)
 
 
 def test_centered_kernels_zero_center_match_uncentered():
@@ -208,6 +222,10 @@ def test_centered_kernels_zero_center_match_uncentered():
         dense_rmatvec(B, d, rows, all_cols, center=zeros),
         dense_rmatvec(B, d, rows, all_cols),
         rtol=1e-13,
+    )
+    np.testing.assert_array_equal(
+        dense_matvec(B, d[: B.shape[1]], center=zeros),
+        dense_matvec(B, d[: B.shape[1]]),
     )
 
 

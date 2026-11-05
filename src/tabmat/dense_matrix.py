@@ -16,6 +16,7 @@ from .util import (
     check_matvec_out_shape,
     check_sandwich_compatible,
     check_transpose_matvec_out_shape,
+    set_up_rows_or_cols,
     setup_restrictions,
 )
 
@@ -186,22 +187,33 @@ class DenseMatrix(MatrixBase):
 
     def _centered_transpose_matvec(
         self,
-        v: np.ndarray,
+        vec: np.ndarray | list,
         center: np.ndarray,
         rows: np.ndarray | None = None,
         cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Compute ``(X - center)[rows, cols].T @ v[rows]`` for a 1-d ``v``.
+        """Compute ``(X - center)[rows, cols].T @ vec[rows]``.
 
         ``center`` has length ``self.shape[1]``. The subtraction happens inside the
-        kernel, so that a large center does not cancel against ``X.T @ v``.
+        kernel, so that a large center does not cancel against ``X.T @ vec``.
         """
-        if not np.any(center):
-            return self.transpose_matvec(v, rows, cols)
-        v = np.asarray(v)
-        check_matvec_dimensions(self, v, transpose=True)
-        rows, cols = setup_restrictions(self.shape, rows, cols)
-        return dense_rmatvec(self._array, v, rows, cols, center=center)
+        check_transpose_matvec_out_shape(self, out)
+        return self._matvec_helper(vec, rows, cols, out, True, center)
+
+    def _centered_matvec(
+        self,
+        vec: np.ndarray | list,
+        center: np.ndarray,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Compute ``(X - center)[:, cols] @ vec[cols]``.
+
+        See :meth:`_centered_transpose_matvec`.
+        """
+        check_matvec_out_shape(self, out)
+        return self._matvec_helper(vec, None, cols, out, False, center)
 
     def _cross_sandwich(
         self,
@@ -234,14 +246,12 @@ class DenseMatrix(MatrixBase):
         cols: np.ndarray | None,
         out: np.ndarray | None,
         transpose: bool,
+        center: np.ndarray | None = None,
     ):
         # Because the dense_rmatvec takes a row array and col array, it has
         # added overhead compared to a raw matrix vector product. So, when
-        # we're not filtering at all, let's just use default numpy dot product.
-        #
-        # TODO: related to above, it could be nice to have a version that only
-        # filters rows and a version that only filters columns. How do we do
-        # this without an explosion of code?
+        # we're not filtering or centering at all, let's just use default numpy
+        # dot product.
         vec = np.asarray(vec)
         check_matvec_dimensions(self, vec, transpose=transpose)
         X = self._array.T if transpose else self._array
@@ -249,32 +259,62 @@ class DenseMatrix(MatrixBase):
         # NOTE: We assume that rows and cols are unique
         unrestricted_rows = rows is None or len(rows) == self.shape[0]
         unrestricted_cols = cols is None or len(cols) == self.shape[1]
+        if center is not None and not np.any(center):
+            center = None
 
-        if unrestricted_rows and unrestricted_cols:
+        if center is None and unrestricted_rows and unrestricted_cols:
             if out is None:
                 out = X.dot(vec)
             else:
                 out += X.dot(vec)
             return out
-        else:
-            rows, cols = setup_restrictions(self.shape, rows, cols)
-            # TODO: should take 'out' parameter
-            fast_fnc = dense_rmatvec if transpose else dense_matvec
-            if vec.ndim == 1:
-                res = fast_fnc(self._array, vec, rows, cols)
-            elif vec.ndim == 2 and vec.shape[1] == 1:
-                res = fast_fnc(self._array, vec[:, 0], rows, cols)[:, None]
-            else:
-                subset = self._array[np.ix_(rows, cols)]
-                res = subset.T.dot(vec[rows]) if transpose else subset.dot(vec[cols])
-            if out is None:
-                return res
+
+        if center is not None and vec.dtype != self.dtype:
+            # The kernels need matching dtypes, so expand the centered product
+            # instead. This can cancel if the center is large.
+            res = self._matvec_helper(vec, rows, cols, None, transpose)
+            all_rows, all_cols = setup_restrictions(self.shape, rows, cols)
             if transpose:
-                out[cols] += res
+                res -= np.multiply.outer(center[all_cols], vec[all_rows].sum(axis=0))
             else:
-                # Note that currently 'rows' will always be all rows
-                out[rows] += res
-            return out
+                res -= center[all_cols] @ vec[all_cols]
+        else:
+            # The kernels vectorize along rows or columns that are not restricted.
+            kernel_rows = None if unrestricted_rows else rows
+            kernel_cols = None if unrestricted_cols else cols
+            if kernel_rows is not None:
+                kernel_rows = set_up_rows_or_cols(kernel_rows, self.shape[0])
+            if kernel_cols is not None:
+                kernel_cols = set_up_rows_or_cols(kernel_cols, self.shape[1])
+            fast_fnc = dense_rmatvec if transpose else dense_matvec
+
+            def kernel(v):
+                v = np.ascontiguousarray(v)
+                return fast_fnc(self._array, v, kernel_rows, kernel_cols, center=center)
+
+            # TODO: should take 'out' parameter
+            if vec.ndim == 1:
+                res = kernel(vec)
+            elif vec.ndim == 2 and vec.shape[1] == 1:
+                res = kernel(vec[:, 0])[:, None]
+            elif vec.ndim == 2 and vec.shape[1] > 1 and center is not None:
+                res = np.stack([kernel(v) for v in vec.T], axis=1)
+            else:
+                all_rows, all_cols = setup_restrictions(self.shape, rows, cols)
+                subset = self._array[np.ix_(all_rows, all_cols)]
+                if transpose:
+                    res = subset.T.dot(vec[all_rows])
+                else:
+                    res = subset.dot(vec[all_cols])
+
+        if out is None:
+            return res
+        if transpose and not unrestricted_cols:
+            out[set_up_rows_or_cols(cols, self.shape[1])] += res
+        else:
+            # Note that matvec currently always uses all rows.
+            out += res
+        return out
 
     def transpose_matvec(
         self,

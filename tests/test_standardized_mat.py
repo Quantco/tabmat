@@ -185,6 +185,47 @@ def test_split_sandwich_large_mean_is_accurate(dtype, offset, rtol, kind):
     )
 
 
+@pytest.mark.parametrize("split", [False, True], ids=["dense", "split"])
+@pytest.mark.parametrize(
+    "dtype, offset, rtol", [(np.float64, 1e6, 1e-12), (np.float32, 1e3, 1e-5)]
+)
+def test_matvec_large_mean_is_accurate(split, dtype, offset, rtol):
+    if split:
+        mat, Z, d = _large_mean_split(dtype, offset)
+    else:
+        mat, Z, d = _large_mean_dense(dtype, offset)
+    coef = np.random.default_rng(7).standard_normal(Z.shape[1]).astype(dtype)
+    rows = np.arange(0, Z.shape[0], 3, dtype=np.int32)
+    cols = np.array([0, 2, 3, 5], dtype=np.int32)
+
+    def check(actual, expected):
+        np.testing.assert_allclose(
+            actual, expected, rtol=rtol, atol=rtol * np.abs(expected).max()
+        )
+
+    check(mat.matvec(coef), Z @ coef)
+    check(mat.matvec(coef, cols), Z[:, cols] @ coef[cols])
+    # The gradient in glum, and the intercept row of its Hessian.
+    check(d @ mat, Z.T @ d)
+    check(mat.transpose_matvec(d, rows, cols), Z[np.ix_(rows, cols)].T @ d[rows])
+
+
+def test_matvec_mixed_dtypes():
+    # The kernels need matching dtypes, so a float64 vector with float32 data
+    # takes the expanded product. It is less accurate, but still works.
+    mat, Z, d = _large_mean_dense(np.float32, 10.0)
+    coef = np.random.default_rng(8).standard_normal(Z.shape[1])
+    d64 = d.astype(np.float64)
+    for actual, expected in [
+        (mat.matvec(coef), Z @ coef),
+        (mat.transpose_matvec(d64), Z.T @ d64),
+    ]:
+        assert actual.dtype == np.float64
+        np.testing.assert_allclose(
+            actual, expected, rtol=1e-4, atol=1e-4 * np.abs(expected).max()
+        )
+
+
 def test_split_sandwich_without_dense_part():
     rng = np.random.default_rng(5)
     n = 500

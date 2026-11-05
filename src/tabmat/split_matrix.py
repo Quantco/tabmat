@@ -436,33 +436,6 @@ class SplitMatrix(MatrixBase):
 
         return out
 
-    def _centered_transpose_matvec(
-        self,
-        v: np.ndarray,
-        center: np.ndarray,
-        rows: np.ndarray | None = None,
-        cols: np.ndarray | None = None,
-    ) -> np.ndarray:
-        """Like :meth:`transpose_matvec` for a 1-d ``v``, with the dense part
-        centered by ``center`` (one value per column) inside the kernel.
-        """
-        v = np.asarray(v)
-        check_matvec_dimensions(self, v, transpose=True)
-
-        subset_cols_indices, subset_cols, n_cols = self._split_col_subsets(cols)
-        out = np.zeros(n_cols, dtype=np.result_type(self.dtype, v.dtype))
-        for idx, sub_cols, mat, mat_indices in zip(
-            subset_cols_indices, subset_cols, self.matrices, self.indices
-        ):
-            if isinstance(mat, DenseMatrix):
-                res = mat._centered_transpose_matvec(
-                    v, center[mat_indices], rows, sub_cols
-                )
-            else:
-                res = mat.transpose_matvec(v, rows=rows, cols=sub_cols)
-            out[idx] += res
-        return out
-
     def _get_col_means(self, weights: np.ndarray) -> np.ndarray:
         """Get means of columns."""
         col_means = np.empty(self.shape[1], dtype=self.dtype)
@@ -485,6 +458,18 @@ class SplitMatrix(MatrixBase):
         out: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform self[:, cols] @ other[cols]."""
+        return self._centered_matvec(v, None, cols, out)
+
+    def _centered_matvec(
+        self,
+        v: np.ndarray,
+        center: np.ndarray | None,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Like :meth:`matvec`, with the dense part centered by ``center`` (one
+        value per column) inside the kernels. ``center=None`` means no centering.
+        """
         assert not isinstance(v, sps.spmatrix)
         v = np.asarray(v)
         check_matvec_dimensions(self, v, transpose=False)
@@ -513,7 +498,11 @@ class SplitMatrix(MatrixBase):
             idx = self.indices[dense_matrix_idx]
             mat = self.matrices[dense_matrix_idx]
             in_vec = v[idx, ...]
-            out = np.asarray(mat.matvec(in_vec, sub_cols, out), dtype=out_dtype)
+            if center is None:
+                res = mat.matvec(in_vec, sub_cols, out)
+            else:
+                res = mat._centered_matvec(in_vec, center[idx], sub_cols, out)
+            out = np.asarray(res, dtype=out_dtype)
         else:
             dense_matrix_idx = -1
             out = _prepare_out_array(out, out_shape, out_dtype)
@@ -524,7 +513,10 @@ class SplitMatrix(MatrixBase):
             if i == dense_matrix_idx:
                 continue
             in_vec = v[idx, ...]
-            mat.matvec(in_vec, sub_cols, out=out)
+            if center is not None and isinstance(mat, DenseMatrix):
+                mat._centered_matvec(in_vec, center[idx], sub_cols, out=out)
+            else:
+                mat.matvec(in_vec, sub_cols, out=out)
         return out  # type: ignore
 
     def transpose_matvec(
@@ -545,7 +537,20 @@ class SplitMatrix(MatrixBase):
                 = sum_{j in rows} sum_{mat in self.matrices} 1(cols[i] in mat)
                                                             self[j, cols[i]] v[j]
         """
+        return self._centered_transpose_matvec(v, None, rows, cols, out)
 
+    def _centered_transpose_matvec(
+        self,
+        v: np.ndarray | list,
+        center: np.ndarray | None,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Like :meth:`transpose_matvec`, with the dense part centered by
+        ``center`` (one value per column) inside the kernels. ``center=None``
+        means no centering.
+        """
         v = np.asarray(v)
         check_matvec_dimensions(self, v, transpose=True)
         check_transpose_matvec_out_shape(self, out)
@@ -559,8 +564,15 @@ class SplitMatrix(MatrixBase):
         if cols is not None:
             cols = np.asarray(cols, dtype=np.int32)
 
-        for idx, sub_cols, mat in zip(subset_cols_indices, subset_cols, self.matrices):
-            res = mat.transpose_matvec(v, rows=rows, cols=sub_cols)
+        for idx, sub_cols, mat, mat_indices in zip(
+            subset_cols_indices, subset_cols, self.matrices, self.indices
+        ):
+            if center is not None and isinstance(mat, DenseMatrix):
+                res = mat._centered_transpose_matvec(
+                    v, center[mat_indices], rows, sub_cols
+                )
+            else:
+                res = mat.transpose_matvec(v, rows=rows, cols=sub_cols)
             if out_is_none or cols is None:
                 out[idx, ...] += res
             else:

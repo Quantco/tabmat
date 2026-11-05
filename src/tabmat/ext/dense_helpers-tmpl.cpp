@@ -21,8 +21,10 @@
 // if implemented directly.
 
 #include <xsimd/xsimd.hpp>
+#include <algorithm>
 #include <iostream>
 #include <omp.h>
+#include <vector>
 
 #include "alloc.h"
 
@@ -317,8 +319,98 @@ ${dense_sandwich_tmpl('C')}
 ${dense_sandwich_tmpl('F')}
 
 
+// The matrix-vector kernels below compute with (X - mu) for a per-column
+// center mu, subtracting it from each entry as it is read. Expanding into
+// X @ v - mu @ v instead would cancel when mu is large relative to the spread
+// of X. Passing nullptr for mu means no centering, and nullptr for rows or cols
+// selects all of them. The inner loops run along the contiguous direction of X
+// (rows for F order, columns for C order) and are vectorized if that direction
+// is not restricted; otherwise they fall back to indexed loads.
+
+// sum_k (x[k] - c[k]) * y[k], or with c[0] for all k if not VC.
+template <bool VC, typename F>
+inline F centered_dot(const F* x, const F* c, const F* y, Py_ssize_t len) {
+    Py_ssize_t k = 0;
+    F total = 0.0;
+#ifndef XSIMD_NO_SUPPORTED_ARCHITECTURE
+    constexpr Py_ssize_t simd_size = xsimd::simd_type<F>::size;
+    auto c0 = xs::XSIMD_BROADCAST(c[0]);
+    auto acc0 = xs::XSIMD_BROADCAST((F)0.0);
+    auto acc1 = acc0;
+    for (; k + 2 * simd_size <= len; k += 2 * simd_size) {
+        auto ca = c0;
+        auto cb = c0;
+        if constexpr (VC) {
+            ca = xs::load_unaligned(c + k);
+            cb = xs::load_unaligned(c + k + simd_size);
+        }
+        acc0 = xs::fma(xs::load_unaligned(x + k) - ca, xs::load_unaligned(y + k), acc0);
+        acc1 = xs::fma(
+            xs::load_unaligned(x + k + simd_size) - cb,
+            xs::load_unaligned(y + k + simd_size),
+            acc1
+        );
+    }
+    total = xs::XSIMD_REDUCE_ADD(acc0 + acc1);
+#endif
+    for (; k < len; k++) {
+        total += (x[k] - (VC ? c[k] : c[0])) * y[k];
+    }
+    return total;
+}
+
+// y[k] += (x[k] - c[k]) * a, or with c[0] for all k if not VC.
+template <bool VC, typename F>
+inline void centered_axpy(const F* x, const F* c, F a, F* y, Py_ssize_t len) {
+    Py_ssize_t k = 0;
+#ifndef XSIMD_NO_SUPPORTED_ARCHITECTURE
+    constexpr Py_ssize_t simd_size = xsimd::simd_type<F>::size;
+    auto c0 = xs::XSIMD_BROADCAST(c[0]);
+    auto asimd = xs::XSIMD_BROADCAST(a);
+    for (; k + simd_size <= len; k += simd_size) {
+        auto ck = c0;
+        if constexpr (VC) {
+            ck = xs::load_unaligned(c + k);
+        }
+        auto yk = xs::fma(xs::load_unaligned(x + k) - ck, asimd, xs::load_unaligned(y + k));
+        xs::store_unaligned(y + k, yk);
+    }
+#endif
+    for (; k < len; k++) {
+        y[k] += (x[k] - (VC ? c[k] : c[0])) * a;
+    }
+}
+
+// y[k] += sum_t (x[t][k] - c[t]) * a[t] for t < 4, which reads and writes y
+// once for four columns.
+template <typename F>
+inline void centered_axpy4(const F* const* x, const F* c, const F* a, F* y, Py_ssize_t len) {
+    Py_ssize_t k = 0;
+#ifndef XSIMD_NO_SUPPORTED_ARCHITECTURE
+    constexpr Py_ssize_t simd_size = xsimd::simd_type<F>::size;
+    % for t in range(4):
+        auto c${t} = xs::XSIMD_BROADCAST(c[${t}]);
+        auto a${t} = xs::XSIMD_BROADCAST(a[${t}]);
+    % endfor
+    for (; k + simd_size <= len; k += simd_size) {
+        auto yk = xs::load_unaligned(y + k);
+        % for t in range(4):
+            yk = xs::fma(xs::load_unaligned(x[${t}] + k) - c${t}, a${t}, yk);
+        % endfor
+        xs::store_unaligned(y + k, yk);
+    }
+#endif
+    for (; k < len; k++) {
+        F yk = y[k];
+        for (int t = 0; t < 4; t++) {
+            yk += (x[t][k] - c[t]) * a[t];
+        }
+        y[k] = yk;
+    }
+}
+
 <%def name="dense_rmatvec_tmpl(order)">
-// If a per-column center mu is passed, it computes (X - mu)[rows, cols].T @ v[rows].
+// Computes (X - mu)[rows, cols].T @ v[rows].
 template <typename Int, typename F>
 void _dense${order}_rmatvec(Int* rows, Int* cols, F* X, F* v, const F* mu, F* out,
         Int n_rows, Int n_cols, Int m, Int n)
@@ -330,58 +422,58 @@ void _dense${order}_rmatvec(Int* rows, Int* cols, F* X, F* v, const F* mu, F* ou
 #endif
     constexpr std::size_t alignment = simd_size * sizeof(F);
 
+    std::vector<F> zeros;
+    if (mu == nullptr) {
+        zeros.assign(m, (F)0.0);
+        mu = zeros.data();
+    }
+
     auto outglobal = make_aligned_unique<F>(omp_get_max_threads()*n_cols, alignment);
 
-    constexpr int rowblocksize = 256;
-    constexpr int colblocksize = 4;
+    // Longer blocks for F order mean fewer column switches per block.
+    constexpr Py_ssize_t rowblocksize = ${'4096' if order == 'F' else '1024'};
 
-    #pragma omp parallel for
+    // Starting threads costs more than a small product.
+    #pragma omp parallel for if((Py_ssize_t) n_rows * n_cols > 100000)
     for (Py_ssize_t Ci = 0; Ci < n_rows; Ci += rowblocksize) {
-        Py_ssize_t Cimax = Ci + rowblocksize;
-        if (Cimax > n_rows) {
-            Cimax = n_rows;
-        }
+        Py_ssize_t Cimax = std::min(Ci + rowblocksize, (Py_ssize_t) n_rows);
 
         F* outlocal = &outglobal.get()[omp_get_thread_num()*n_cols];
 
-        for (Py_ssize_t Cj = 0; Cj < n_cols; Cj += colblocksize) {
-            Py_ssize_t Cjmax = Cj + colblocksize;
-            if (Cjmax > n_cols) {
-                Cjmax = n_cols;
-            }
-
-            % if order == 'F':
-                for (Py_ssize_t Cjj = Cj; Cjj < Cjmax; Cjj++) {
-                    Int j = cols[Cjj];
-                    F muj = (mu == nullptr) ? (F)0.0 : mu[j];
+        % if order == 'F':
+            for (Py_ssize_t Cjj = 0; Cjj < n_cols; Cjj++) {
+                Py_ssize_t j = (cols == nullptr) ? Cjj : cols[Cjj];
+                const F* Xj = &X[j * n];
+                F muj = mu[j];
+                if (rows == nullptr) {
+                    outlocal[Cjj] = centered_dot<false>(&Xj[Ci], &muj, &v[Ci], Cimax - Ci);
+                } else {
                     F out_entry = 0.0;
                     for (Py_ssize_t Cii = Ci; Cii < Cimax; Cii++) {
                         Int i = rows[Cii];
-                        F Xv = X[(Py_ssize_t) j * n + i] - muj;
-                        F vv = v[i];
-                        out_entry += Xv * vv;
+                        out_entry += (Xj[i] - muj) * v[i];
                     }
-
                     outlocal[Cjj] = out_entry;
                 }
-            % else:
-                for (Py_ssize_t Cjj = Cj; Cjj < Cjmax; Cjj++) {
-                    outlocal[Cjj] = 0.0;
-                }
-                for (Py_ssize_t Cii = Ci; Cii < Cimax; Cii++) {
-                    Int i = rows[Cii];
-                    F vv = v[i];
-                    for (Py_ssize_t Cjj = Cj; Cjj < Cjmax; Cjj++) {
+            }
+        % else:
+            for (Py_ssize_t Cjj = 0; Cjj < n_cols; Cjj++) {
+                outlocal[Cjj] = 0.0;
+            }
+            for (Py_ssize_t Cii = Ci; Cii < Cimax; Cii++) {
+                Py_ssize_t i = (rows == nullptr) ? Cii : rows[Cii];
+                const F* Xi = &X[i * m];
+                F vi = v[i];
+                if (cols == nullptr) {
+                    centered_axpy<true>(Xi, mu, vi, outlocal, n_cols);
+                } else {
+                    for (Py_ssize_t Cjj = 0; Cjj < n_cols; Cjj++) {
                         Int j = cols[Cjj];
-                        F Xv = X[(Py_ssize_t) i * m + j];
-                        if (mu != nullptr) {
-                            Xv -= mu[j];
-                        }
-                        outlocal[Cjj] += Xv * vv;
+                        outlocal[Cjj] += (Xi[j] - mu[j]) * vi;
                     }
                 }
-            % endif
-        }
+            }
+        % endif
 
         for (Py_ssize_t Cj = 0; Cj < n_cols; Cj++) {
             #pragma omp atomic
@@ -394,33 +486,73 @@ ${dense_rmatvec_tmpl('C')}
 ${dense_rmatvec_tmpl('F')}
 
 <%def name="dense_matvec_tmpl(order)">
+// Computes (X - mu)[rows, cols] @ v[cols].
 template <typename Int, typename F>
-void _dense${order}_matvec(Int* rows, Int* cols, F* X, F* v, F* out,
-        Int n_rows, Int n_cols, Int m, Int n) 
+void _dense${order}_matvec(Int* rows, Int* cols, F* X, F* v, const F* mu, F* out,
+        Int n_rows, Int n_cols, Int m, Int n)
 {
-    constexpr int rowblocksize = 256;
+    std::vector<F> zeros;
+    if (mu == nullptr) {
+        zeros.assign(m, (F)0.0);
+        mu = zeros.data();
+    }
 
-    #pragma omp parallel for
+    constexpr Py_ssize_t rowblocksize = ${'4096' if order == 'F' else '1024'};
+
+    // Starting threads costs more than a small product.
+    #pragma omp parallel for if((Py_ssize_t) n_rows * n_cols > 100000)
     for (Py_ssize_t Ci = 0; Ci < n_rows; Ci += rowblocksize) {
-        Int Cimax = Ci + rowblocksize;
-        if (Cimax > n_rows) {
-            Cimax = n_rows;
-        }
-        for (Py_ssize_t Cii = Ci; Cii < Cimax; Cii++) {
-            F out_entry = 0.0;
-            Int i = rows[Cii];
-            for (Py_ssize_t Cjj = 0; Cjj < n_cols; Cjj++) {
-                Int j = cols[Cjj];
-                F vv = v[j];
-                % if order == 'F':
-                    F Xv = X[(Py_ssize_t) j * n + i];
-                % else:
-                    F Xv = X[(Py_ssize_t) i * m + j];
-                % endif
-                out_entry += Xv * vv;
+        Py_ssize_t Cimax = std::min(Ci + rowblocksize, (Py_ssize_t) n_rows);
+        % if order == 'F':
+            // Each thread owns out[Ci:Cimax] and adds the columns to it, four
+            // at a time if all rows are used.
+            for (Py_ssize_t Cii = Ci; Cii < Cimax; Cii++) {
+                out[Cii] = 0.0;
             }
-            out[Cii] = out_entry;
-        }
+            Py_ssize_t Cjj = 0;
+            if (rows == nullptr) {
+                for (; Cjj + 4 <= n_cols; Cjj += 4) {
+                    const F* Xs[4];
+                    F mus[4];
+                    F vs[4];
+                    for (int t = 0; t < 4; t++) {
+                        Py_ssize_t j = (cols == nullptr) ? Cjj + t : cols[Cjj + t];
+                        Xs[t] = &X[j * n + Ci];
+                        mus[t] = mu[j];
+                        vs[t] = v[j];
+                    }
+                    centered_axpy4(Xs, mus, vs, &out[Ci], Cimax - Ci);
+                }
+            }
+            for (; Cjj < n_cols; Cjj++) {
+                Py_ssize_t j = (cols == nullptr) ? Cjj : cols[Cjj];
+                const F* Xj = &X[j * n];
+                F muj = mu[j];
+                F vj = v[j];
+                if (rows == nullptr) {
+                    centered_axpy<false>(&Xj[Ci], &muj, vj, &out[Ci], Cimax - Ci);
+                } else {
+                    for (Py_ssize_t Cii = Ci; Cii < Cimax; Cii++) {
+                        out[Cii] += (Xj[rows[Cii]] - muj) * vj;
+                    }
+                }
+            }
+        % else:
+            for (Py_ssize_t Cii = Ci; Cii < Cimax; Cii++) {
+                Py_ssize_t i = (rows == nullptr) ? Cii : rows[Cii];
+                const F* Xi = &X[i * m];
+                if (cols == nullptr) {
+                    out[Cii] = centered_dot<true>(Xi, mu, v, n_cols);
+                } else {
+                    F out_entry = 0.0;
+                    for (Py_ssize_t Cjj = 0; Cjj < n_cols; Cjj++) {
+                        Int j = cols[Cjj];
+                        out_entry += (Xi[j] - mu[j]) * v[j];
+                    }
+                    out[Cii] = out_entry;
+                }
+            }
+        % endif
     }
 }
 </%def>
