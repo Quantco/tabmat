@@ -9,18 +9,34 @@ np.import_array()
 
 
 cdef extern from "dense_helpers.cpp":
-    void _denseC_sandwich[Int, F](Int*, Int*, F*, F*, F*, Int, Int, Int, Int, Int, Int, Int) nogil
-    void _denseF_sandwich[Int, F](Int*, Int*, F*, F*, F*, Int, Int, Int, Int, Int, Int, Int) nogil
+    # The C++ kernels take the center as const F*. It is declared as F* here
+    # because older Cython versions (e.g. 3.2) cannot deduce F from a const F*.
+    void _denseC_sandwich[Int, F](Int*, Int*, F*, F*, F*, F*, Int, Int, Int, Int, Int, Int, Int) nogil
+    void _denseF_sandwich[Int, F](Int*, Int*, F*, F*, F*, F*, Int, Int, Int, Int, Int, Int, Int) nogil
     void _denseC_rmatvec[Int, F](Int*, Int*, F*, F*, F*, Int, Int, Int, Int) nogil
     void _denseF_rmatvec[Int, F](Int*, Int*, F*, F*, F*, Int, Int, Int, Int) nogil
     void _denseC_matvec[Int, F](Int*, Int*, F*, F*, F*, Int, Int, Int, Int) nogil
     void _denseF_matvec[Int, F](Int*, Int*, F*, F*, F*, Int, Int, Int, Int) nogil
 
-def dense_sandwich(np.ndarray X, floating[:] d, int[:] rows, int[:] cols, int thresh1d = 32, int kratio = 16, int innerblock = 128):
+def dense_sandwich(np.ndarray X, floating[:] d, int[:] rows, int[:] cols, int thresh1d = 32, int kratio = 16, int innerblock = 128, center=None):
+    """(X[rows, cols] - center[cols]).T @ diag(d[rows]) @ (X[rows, cols] - center[cols]).
+
+    ``center`` is an optional length-``X.shape[1]`` vector (indexed by the
+    original column index, like ``X``); ``None`` means no centering.
+    """
     cdef int n = X.shape[0]
     cdef int m = X.shape[1]
     cdef int in_n = rows.shape[0]
     cdef int out_m = cols.shape[0]
+
+    # A const view, so that a read-only center works too. The kernel does not
+    # write to it, so casting the const away for the call below is safe.
+    cdef const floating[::1] center_view
+    cdef floating* mup = NULL
+    if center is not None:
+        center_view = np.ascontiguousarray(center, dtype=X.dtype)
+        if center_view.shape[0] != m:
+            raise ValueError(f"center must have length {m}, got {center_view.shape[0]}.")
 
     out = np.zeros((out_m,out_m), dtype=X.dtype)
     if in_n == 0 or out_m == 0:
@@ -35,10 +51,13 @@ def dense_sandwich(np.ndarray X, floating[:] d, int[:] rows, int[:] cols, int th
     cdef int* colsp = &cols[0]
     cdef int* rowsp = &rows[0]
 
+    if center is not None:
+        mup = <floating*>&center_view[0]
+
     if X.flags["C_CONTIGUOUS"]:
-        _denseC_sandwich(rowsp, colsp, Xp, dp, outp, in_n, out_m, m, n, thresh1d, kratio, innerblock)
+        _denseC_sandwich(rowsp, colsp, Xp, dp, mup, outp, in_n, out_m, m, n, thresh1d, kratio, innerblock)
     elif X.flags["F_CONTIGUOUS"]:
-        _denseF_sandwich(rowsp, colsp, Xp, dp, outp, in_n, out_m, m, n, thresh1d, kratio, innerblock)
+        _denseF_sandwich(rowsp, colsp, Xp, dp, mup, outp, in_n, out_m, m, n, thresh1d, kratio, innerblock)
     else:
         raise Exception("The matrix X is not contiguous.")
     return out

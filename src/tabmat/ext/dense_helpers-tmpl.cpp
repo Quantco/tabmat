@@ -1,5 +1,7 @@
 // The dense_sandwich function below implement a BLIS/GotoBLAS-like sandwich
 // product for computing A.T @ diag(d) @ A
+// If a per-column center mu is passed, it computes (A - mu).T @ diag(d) @ (A - mu)
+// instead; the centering is fused into the panel packing, so it costs ~nothing.
 // It works for both C-ordered and Fortran-ordered matrices.
 // It is parallelized to be fast for both narrow and square matrices
 //
@@ -217,16 +219,19 @@ ${dense_base_tmpl(False)}
     % endif
         {
             Int jj = cols[Cjj];
+            // Optional per-column center: pack d * (X - mu) instead of d * X.
+            // x - 0 == x exactly, so mu == nullptr reproduces the old result.
+            F mujj = (mu == nullptr) ? (F)0.0 : mu[jj];
             %if order == 'F':
                 //TODO: this could use some pointer logic for the R assignment?
                 for (Py_ssize_t Rkk=Rk; Rkk<Rkmax2; Rkk++) {
                     Int kk = rows[Rkk];
-                    R[(Cjj-Cj) * kratio * thresh1d + (Rkk-Rk)] = d[kk] * X[(Py_ssize_t) jj * n + kk];
+                    R[(Cjj-Cj) * kratio * thresh1d + (Rkk-Rk)] = d[kk] * (X[(Py_ssize_t) jj * n + kk] - mujj);
                 }
             % else:
                 for (Py_ssize_t Rkk=Rk; Rkk<Rkmax2; Rkk++) {
                     Int kk = rows[Rkk];
-                    R[(Cjj-Cj) * kratio * thresh1d + (Rkk-Rk)] = d[kk] * X[(Py_ssize_t) kk * m + jj];
+                    R[(Cjj-Cj) * kratio * thresh1d + (Rkk-Rk)] = d[kk] * (X[(Py_ssize_t) kk * m + jj] - mujj);
                 }
             % endif
         }
@@ -245,15 +250,16 @@ ${dense_base_tmpl(False)}
         F* L = &Lglobal.get()[omp_get_thread_num()*thresh1d*thresh1d*kratio];
         for (Py_ssize_t Cii = Ci; Cii < Cimax2; Cii++) {
             Int ii = cols[Cii];
+            F muii = (mu == nullptr) ? (F)0.0 : mu[ii];
             %if order == 'F':
                 for (Py_ssize_t Rkk=Rk; Rkk<Rkmax2; Rkk++) {
                     Int kk = rows[Rkk];
-                    L[(Py_ssize_t) (Cii-Ci) * kratio * thresh1d + (Rkk-Rk)] = X[(Py_ssize_t) ii * n + kk];
+                    L[(Py_ssize_t) (Cii-Ci) * kratio * thresh1d + (Rkk-Rk)] = X[(Py_ssize_t) ii * n + kk] - muii;
                 }
             % else:
                 for (Py_ssize_t Rkk=Rk; Rkk<Rkmax2; Rkk++) {
                     Int kk = rows[Rkk];
-                    L[(Py_ssize_t) (Cii-Ci) * kratio * thresh1d + (Rkk-Rk)] = X[(Py_ssize_t) kk * m + ii];
+                    L[(Py_ssize_t) (Cii-Ci) * kratio * thresh1d + (Rkk-Rk)] = X[(Py_ssize_t) kk * m + ii] - muii;
                 }
             % endif
         }
@@ -265,7 +271,7 @@ ${dense_base_tmpl(False)}
 
 <%def name="dense_sandwich_tmpl(order)">
 template <typename Int, typename F>
-void _dense${order}_sandwich(Int* rows, Int* cols, F* X, F* d, F* out,
+void _dense${order}_sandwich(Int* rows, Int* cols, F* X, F* d, const F* mu, F* out,
         Int in_n, Int out_m, Int m, Int n, Int thresh1d, Int kratio, Int innerblock) 
 {
 #ifdef XSIMD_NO_SUPPORTED_ARCHITECTURE

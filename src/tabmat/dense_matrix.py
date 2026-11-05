@@ -165,6 +165,23 @@ class DenseMatrix(MatrixBase):
         rows, cols = setup_restrictions(self.shape, rows, cols)
         return dense_sandwich(self._array, d, rows, cols)
 
+    def _centered_sandwich(
+        self,
+        d: np.ndarray,
+        center: np.ndarray,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Compute ``(X - center).T @ diag(d) @ (X - center)`` without copying X.
+
+        ``center`` has length ``self.shape[1]`` and is in the unscaled data space.
+        The subtraction is fused into the panel packing of the sandwich kernel.
+        """
+        d = np.asarray(d)
+        check_sandwich_compatible(self, d)
+        rows, cols = setup_restrictions(self.shape, rows, cols)
+        return dense_sandwich(self._array, d, rows, cols, center=center)
+
     def _cross_sandwich(
         self,
         other: MatrixBase,

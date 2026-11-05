@@ -63,6 +63,60 @@ def test_fast_sandwich_dense():
         check(A, d, cols)
 
 
+# (3000, 40) takes the k-parallel path, (700, 600) the other one with several
+# column blocks, and (7, 3) only the remainder loops.
+@pytest.mark.parametrize("shape", [(3000, 40), (700, 600), (7, 3)])
+@pytest.mark.parametrize("order", ["C", "F"])
+@pytest.mark.parametrize("dtype", [np.float64, np.float32])
+@pytest.mark.parametrize("restrict", [False, True], ids=["all", "restricted"])
+def test_dense_sandwich_center(shape, order, dtype, restrict):
+    rng = np.random.default_rng(0)
+    n, m = shape
+    X = np.array(
+        rng.standard_normal(shape) + rng.uniform(-50, 50, m), dtype=dtype, order=order
+    )
+    d = rng.uniform(0.5, 1.5, n).astype(dtype)
+    center = X.astype(np.float64).mean(axis=0)
+    rows = np.arange(n, dtype=np.int32)
+    cols = np.arange(m, dtype=np.int32)
+    if restrict:
+        rows = np.sort(rng.choice(n, max(1, n // 2), replace=False)).astype(np.int32)
+        cols = rng.permutation(m)[: max(1, m // 3)].astype(np.int32)
+
+    out = dense_sandwich(X, d, rows, cols, center=center)
+
+    Xc = X.astype(np.float64)[np.ix_(rows, cols)] - center[cols]
+    expected = Xc.T @ (d.astype(np.float64)[rows, None] * Xc)
+    rtol = 1e-12 if dtype == np.float64 else 1e-5
+    np.testing.assert_allclose(
+        out, expected, rtol=rtol, atol=rtol * np.abs(expected).max()
+    )
+
+
+def test_dense_sandwich_zero_center_matches_uncentered():
+    rng = np.random.default_rng(0)
+    X = np.asfortranarray(rng.standard_normal((700, 50)))
+    d = rng.uniform(0.5, 1.5, 700)
+    rows = np.arange(700, dtype=np.int32)
+    cols = np.arange(50, dtype=np.int32)
+    np.testing.assert_array_equal(
+        dense_sandwich(X, d, rows, cols, center=np.zeros(50)),
+        dense_sandwich(X, d, rows, cols),
+    )
+
+
+def test_dense_sandwich_center_wrong_length():
+    X = np.ones((10, 3))
+    with pytest.raises(ValueError, match="center must have length 3"):
+        dense_sandwich(
+            X,
+            np.ones(10),
+            np.arange(10, dtype=np.int32),
+            np.arange(3, dtype=np.int32),
+            center=np.zeros(2),
+        )
+
+
 def test_dense_sandwich_on_non_contiguous():
     """Non-regression test for #208
 

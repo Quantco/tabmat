@@ -63,6 +63,10 @@ class StandardizedMatrix:
         self.shape = mat.shape
         self.ndim = mat.ndim
         self.dtype = mat.dtype
+        # The unscaled column centers c, with shift == -c * mult, if known exactly.
+        # MatrixBase.standardize sets them; otherwise they are recovered from shift
+        # and mult when needed (see _dense_center).
+        self._center: np.ndarray | None = None
 
     def matvec(
         self,
@@ -116,7 +120,34 @@ class StandardizedMatrix:
         col = self.mat.getcol(i)
         if isinstance(col, sps.csc_matrix) and not isinstance(col, MatrixBase):
             col = SparseMatrix(col)
-        return StandardizedMatrix(col, [self.shift[i]], mult)
+        out = StandardizedMatrix(col, [self.shift[i]], mult)
+        center = getattr(self, "_center", None)
+        if center is not None:
+            out._center = np.atleast_1d(center[i])
+        return out
+
+    def _dense_center(self) -> np.ndarray | None:
+        """Return the unscaled column centers, for use with a dense ``self.mat``.
+
+        These are the ``c`` with ``self.toarray() == (self.mat.toarray() - c) * mult``,
+        which lets the dense sandwich kernel center the data directly. The exact
+        centers from :meth:`MatrixBase.standardize` are used while they still match
+        ``shift``; otherwise they are recovered from ``shift`` and ``mult``.
+        Returns ``None`` if they cannot be recovered because a multiplier is zero.
+        """
+        center = getattr(self, "_center", None)
+        if center is not None:
+            # Allow for rounding, e.g. after astype casts shift and center
+            # separately. A larger difference means shift was changed since.
+            expected = -center if self.mult is None else -center * self.mult
+            eps = np.finfo(np.result_type(expected, self.shift)).eps
+            if np.allclose(expected, self.shift, rtol=4 * eps, atol=0):
+                return center
+        if self.mult is None:
+            return -self.shift
+        with np.errstate(divide="ignore", invalid="ignore"):
+            center = -self.shift / self.mult
+        return center if np.isfinite(center).all() else None
 
     def sandwich(
         self,
@@ -143,6 +174,24 @@ class StandardizedMatrix:
                 rows = setup_rows
             if cols is not None:
                 cols = setup_cols
+
+        if isinstance(self.mat, DenseMatrix):
+            center = self._dense_center()
+            if center is not None:
+                # For dense data the sandwich kernel subtracts the center while
+                # packing its panels, so it returns
+                # (mat - center).T @ diag(d) @ (mat - center) without copying the
+                # data. The expansion below would instead form uncentered terms
+                # that nearly cancel when a column's mean is large relative to its
+                # standard deviation, losing most significant digits.
+                if center.any():
+                    res = self.mat._centered_sandwich(d, center, rows, cols)
+                else:
+                    res = self.mat.sandwich(d, rows, cols)
+                if self.mult is not None:
+                    limited_mult = self.mult[cols] if cols is not None else self.mult
+                    res *= np.outer(limited_mult, limited_mult)
+                return res
 
         term1 = self.mat.sandwich(d, rows, cols)
         d_mat = self.mat.transpose_matvec(d, rows, cols)
@@ -273,10 +322,18 @@ class StandardizedMatrix:
 
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
         """Return StandardizedMatrix cast to new type."""
-        return type(self)(
+        mult = None
+        if self.mult is not None:
+            mult = self.mult.astype(dtype, order=order, casting=casting, copy=copy)
+        out = type(self)(
             self.mat.astype(dtype, casting=casting, copy=copy),
             self.shift.astype(dtype, order=order, casting=casting, copy=copy),
+            mult,
         )
+        center = getattr(self, "_center", None)
+        if center is not None:
+            out._center = center.astype(dtype, order=order, casting=casting, copy=copy)
+        return out
 
     def __getitem__(self, item):
         if isinstance(item, tuple):
@@ -297,7 +354,11 @@ class StandardizedMatrix:
                 out = out * mult_part
             return out + shift_part
 
-        return StandardizedMatrix(mat_part, np.atleast_1d(shift_part), mult_part)
+        out = StandardizedMatrix(mat_part, np.atleast_1d(shift_part), mult_part)
+        center = getattr(self, "_center", None)
+        if center is not None:
+            out._center = np.atleast_1d(center[col])
+        return out
 
     def __repr__(self):
         out = f"""StandardizedMat. Mat: {type(self.mat)} of shape {self.mat.shape}.

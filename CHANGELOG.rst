@@ -7,6 +7,14 @@
 Changelog
 =========
 
+4.3.2 - unreleased
+------------------
+
+**Bug fix:**
+
+- :meth:`tabmat.StandardizedMatrix.sandwich` is now accurate for a dense matrix whose column means are large relative to their standard deviations (`#414 <https://github.com/Quantco/tabmat/issues/414>`_). It used to expand the product into uncentered terms that nearly cancel, which could lose all significant digits. The dense sandwich kernel now subtracts the column means while it packs the data, so this costs no copy of the data and makes the product 1.2-2x faster.
+- :meth:`tabmat.StandardizedMatrix.astype` no longer drops the scaling factors (``mult``) of the matrix.
+
 4.3.1 - 2026-11-05
 ------------------
 

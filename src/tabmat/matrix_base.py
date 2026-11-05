@@ -164,7 +164,11 @@ class MatrixBase(ABC):
                 out_means = shifter
             mult = None
 
-        return StandardizedMatrix(self, shifter, mult), out_means, col_stds
+        out = StandardizedMatrix(self, shifter, mult)
+        # Keep the exact means, so that dense products can center the data with
+        # them instead of recovering them from shifter / mult.
+        out._center = np.array(out_means, copy=True)
+        return out, out_means, col_stds
 
     @abstractmethod
     def __getitem__(self, item):
