@@ -7,6 +7,13 @@
 Changelog
 =========
 
+Unreleased
+----------
+
+**Bug fix:**
+
+- :class:`tabmat.DenseMatrix` no longer emits a ``UserWarning`` when it has to copy a non-contiguous input array, e.g. a row slice of a pandas DataFrame passed to :func:`tabmat.from_df`. Users of libraries built on tabmat could not act on this warning.
+
 4.3.1 - 2026-11-05
 ------------------
 

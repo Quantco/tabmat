@@ -78,8 +78,8 @@ def test_dense_sandwich_on_non_contiguous():
     assert not non_contiguous_array.flags["C_CONTIGUOUS"]
     assert not non_contiguous_array.flags["F_CONTIGUOUS"]
 
-    with pytest.warns(UserWarning, match="not contiguous"):
-        Xd = DenseMatrix(non_contiguous_array)
+    # No warning is emitted for the copy (warnings are errors in the test suite)
+    Xd = DenseMatrix(non_contiguous_array)
     # The internal array should now be contiguous
     assert Xd.A.flags["C_CONTIGUOUS"] or Xd.A.flags["F_CONTIGUOUS"]
 

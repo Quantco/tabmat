@@ -1,5 +1,4 @@
 import textwrap
-import warnings
 
 import numpy as np
 
@@ -43,17 +42,14 @@ class DenseMatrix(MatrixBase):
         elif input_array.ndim > 2:
             raise ValueError("Input array must be 1- or 2-dimensional")
 
-        # Ensure array is contiguous (C or F order) for Cython operations
-        # Only copy if necessary
+        # Ensure array is contiguous (C or F order) for Cython operations.
+        # Only copy if necessary. This is silent on purpose: non-contiguous inputs
+        # are common (e.g. row slices of a pandas DataFrame) and users of
+        # higher-level libraries cannot act on a warning about the copy.
         if (
             not input_array.flags["C_CONTIGUOUS"]
             and not input_array.flags["F_CONTIGUOUS"]
         ):
-            warnings.warn(
-                "Input array is not contiguous; making a copy.",
-                UserWarning,
-                stacklevel=2,
-            )
             input_array = np.asfortranarray(input_array)
 
         self._array = input_array
