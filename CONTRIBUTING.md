@@ -61,7 +61,9 @@ pixi task list
 Compiled extensions
 -------------------
 
-The compiled kernels live in `src/tabmat/ext/`. The `dense`, `sparse` and `split` modules are Cython wrappers around C++17 templates; the `categorical` module is written in Rust (`src/tabmat/ext/categorical.rs`, built from the `Cargo.toml` at the repository root with [PyO3](https://pyo3.rs) and [setuptools-rust](https://setuptools-rust.readthedocs.io)). Building from source therefore needs a C++ compiler and a Rust toolchain; the pixi environments provide both, and `pixi run postinstall` builds everything. If you build outside pixi, install Rust with [rustup](https://rustup.rs) and make sure `cargo` is on your `PATH`.
+The compiled kernels live in `src/tabmat/ext/`. The `dense`, `sparse` and `split` modules are Cython wrappers around C++17 templates; the `categorical` kernels are written in Rust and built with [PyO3](https://pyo3.rs) and [setuptools-rust](https://setuptools-rust.readthedocs.io). All Rust code is one crate (the `Cargo.toml` at the repository root, sources in `src/tabmat/ext/rust/`) that builds a single extension module, `tabmat.ext._rust`, so that every kernel shares one rayon thread pool; `categorical.rs` is its first submodule and `common.rs` holds what the submodules share (the element type trait and the thread pool setup). The thin Python module `tabmat.ext.categorical` re-exports the submodule's functions, so the rest of tabmat imports the kernels from the same place as before. Building from source therefore needs a C++ compiler and a Rust toolchain; the pixi environments provide both, and `pixi run postinstall` builds everything. If you build outside pixi, install Rust with [rustup](https://rustup.rs) and make sure `cargo` is on your `PATH`.
+
+If you have an editable install from before the Rust kernels were merged into `tabmat.ext._rust`, delete the stale `src/tabmat/ext/categorical.*.so` file: Python prefers an extension module over a `.py` file of the same name, so it would shadow the new Python module.
 
 `pixi run cargo fmt` and `pixi run cargo clippy --all-targets -- -D warnings` format and lint the Rust code; CI runs both.
 

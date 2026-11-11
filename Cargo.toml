@@ -1,16 +1,20 @@
+# The Rust extension of tabmat: one cdylib, imported as `tabmat.ext._rust`,
+# with one submodule per kernel family (`categorical`, ...) that the Python
+# modules `tabmat.ext.categorical`, ... re-export. The sources live next to
+# the Cython modules in `src/tabmat/ext/rust/`.
 [package]
-name = "tabmat-categorical"
+name = "tabmat"
+description = "Rust kernels of tabmat (the tabmat.ext._rust extension module)"
 version = "0.0.0"
 edition = "2021"
 rust-version = "1.85"
 publish = false
-description = "Rust kernels for tabmat.CategoricalMatrix (the tabmat.ext.categorical extension module)"
 license = "BSD-3-Clause"
 
 [lib]
-name = "categorical"
+name = "_rust"
 crate-type = ["cdylib"]
-path = "src/tabmat/ext/categorical.rs"
+path = "src/tabmat/ext/rust/lib.rs"
 
 [dependencies]
 pyo3 = { version = "0.30", features = ["extension-module"] }

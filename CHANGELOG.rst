@@ -19,7 +19,7 @@ Changelog
 **Other changes:**
 
 - The dense matrix-vector kernels used for row or column restrictions are vectorized along the direction that is not restricted, which makes most restricted products on dense data faster, by up to 2x.
-- The ``tabmat.ext.categorical`` extension module is now written in Rust (PyO3 + rayon) instead of Cython + C++, as the first step of moving the compiled kernels to Rust. Its functions, signatures and results are unchanged; building from source now requires a Rust toolchain (``cargo``) in addition to a C++ compiler. The number of threads follows ``RAYON_NUM_THREADS``, falling back to ``OMP_NUM_THREADS`` and then to the number of cores.
+- The ``tabmat.ext.categorical`` extension module is now written in Rust (PyO3 + rayon) instead of Cython + C++, as the first step of moving the compiled kernels to Rust. Its functions, signatures and results are unchanged; the kernels live in the extension module ``tabmat.ext._rust`` (built to hold every Rust kernel family as a submodule, sharing one thread pool), which ``tabmat.ext.categorical`` re-exports. Building from source now requires a Rust toolchain (``cargo``) in addition to a C++ compiler. The number of threads follows ``RAYON_NUM_THREADS``, falling back to ``OMP_NUM_THREADS`` and then to the number of cores.
 - The C++ kernels are now plain C++17 templates: template parameters and ``if constexpr`` replace the variants that used to be generated with Mako, so ``mako`` is no longer a build dependency and no source files are generated at build time. The generated code is unchanged in structure and the test suite is untouched.
 
 4.3.1 - 2026-11-05

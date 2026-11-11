@@ -136,10 +136,11 @@ setup(
         },
     ),
     rust_extensions=[
-        # Built from the Cargo.toml at the repository root. `debug` is passed
-        # explicitly because setuptools-rust would otherwise make in-place
-        # (editable) builds debug builds.
-        RustExtension("tabmat.ext.categorical", debug=debug_build),
+        # All Rust kernels are one extension module (see Cargo.toml) so that
+        # they share one rayon thread pool. `debug` is passed explicitly
+        # because setuptools-rust would otherwise make in-place (editable)
+        # builds debug builds.
+        RustExtension("tabmat.ext._rust", path="Cargo.toml", debug=debug_build),
     ],
     zip_safe=False,
 )

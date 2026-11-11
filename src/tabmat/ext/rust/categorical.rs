@@ -1,5 +1,5 @@
-//! Kernels for `tabmat.CategoricalMatrix`, exposed as the Python module
-//! `tabmat.ext.categorical`.
+//! Kernels for `tabmat.CategoricalMatrix`, exposed as the submodule
+//! `tabmat.ext._rust.categorical` and re-exported by `tabmat.ext.categorical`.
 //!
 //! A categorical matrix is stored as one `int32` index per row, giving the
 //! column of that row's single nonzero entry (`-1` for a missing value). Every
@@ -15,7 +15,6 @@
 //! Floating point arrays are accepted as either `float32` or `float64`; the
 //! dtype is dispatched at runtime, mirroring Cython's `floating` fused type.
 
-use std::borrow::Cow;
 use std::ops::Range;
 
 use numpy::ndarray::ArrayView1;
@@ -26,10 +25,7 @@ use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use rayon::prelude::*;
 
-/// Element types the floating point kernels are instantiated for.
-trait Float: Element + Copy + Default + Send + Sync + std::ops::AddAssign {}
-impl Float for f32 {}
-impl Float for f64 {}
+use crate::common::{ro_slice, Float};
 
 /// Below this many rows the kernels run single-threaded: the per-thread
 /// result copies and the thread wake-up would cost more than they save.
@@ -43,14 +39,6 @@ type PyArrayI32<'py> = Bound<'py, PyArray1<i32>>;
 // ---------------------------------------------------------------------------
 // Array access helpers
 // ---------------------------------------------------------------------------
-
-/// A contiguous view of a read-only array, copying only if it is strided.
-fn ro_slice<'a, T: Element + Copy>(arr: &'a PyReadonlyArray1<'_, T>) -> Cow<'a, [T]> {
-    match arr.as_slice() {
-        Ok(s) => Cow::Borrowed(s),
-        Err(_) => Cow::Owned(arr.as_array().to_vec()),
-    }
-}
 
 /// Runs `f` on the contents of a writable array. A strided array is copied
 /// out, updated, and written back.
@@ -641,28 +629,9 @@ fn subset_categorical_complex<'py>(
 // Module
 // ---------------------------------------------------------------------------
 
-/// Sizes rayon's global thread pool like OpenMP would: `RAYON_NUM_THREADS`
-/// wins, then `OMP_NUM_THREADS`, then one thread per core. A pool that
-/// another extension already built is left alone.
-fn init_thread_pool() {
-    if std::env::var_os("RAYON_NUM_THREADS").is_some() {
-        return;
-    }
-    let Some(n) = std::env::var("OMP_NUM_THREADS")
-        .ok()
-        .and_then(|v| v.trim().parse::<usize>().ok())
-        .filter(|&n| n > 0)
-    else {
-        return;
-    };
-    let _ = rayon::ThreadPoolBuilder::new()
-        .num_threads(n)
-        .build_global();
-}
-
-#[pymodule(gil_used = false)]
-fn categorical(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    init_thread_pool();
+/// Adds the functions of this module to the submodule
+/// `tabmat.ext._rust.categorical` (see `lib.rs`).
+pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(transpose_matvec_fast, m)?)?;
     m.add_function(wrap_pyfunction!(transpose_matvec_complex, m)?)?;
     m.add_function(wrap_pyfunction!(get_col_included, m)?)?;
