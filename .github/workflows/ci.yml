@@ -26,6 +26,10 @@ jobs:
           environments: lint default
       - name: pre-commit
         run: pixi run -e lint pre-commit-run --color=always --show-diff-on-failure
+      - name: cargo fmt
+        run: pixi run -e default cargo fmt --check
+      - name: cargo clippy
+        run: pixi run -e default cargo clippy --all-targets -- -D warnings
 
   unit-tests:
     name: Tests

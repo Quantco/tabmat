@@ -32,6 +32,13 @@ repos:
         language: system
         types: [python]
         require_serial: true
+      # rustfmt (clippy runs in CI, it needs a full build)
+      - id: cargo-fmt
+        name: cargo-fmt
+        entry: pixi run -e default cargo fmt --
+        language: system
+        types: [rust]
+        require_serial: true
       # cython-lint
       - id: cython-lint
         name: cython-lint

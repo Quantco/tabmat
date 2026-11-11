@@ -58,6 +58,13 @@ pixi shell
 pixi task list
 ```
 
+Compiled extensions
+-------------------
+
+The compiled kernels live in `src/tabmat/ext/`. The `dense`, `sparse` and `split` modules are Cython wrappers around C++17 templates; the `categorical` module is written in Rust (`src/tabmat/ext/categorical.rs`, built from the `Cargo.toml` at the repository root with [PyO3](https://pyo3.rs) and [setuptools-rust](https://setuptools-rust.readthedocs.io)). Building from source therefore needs a C++ compiler and a Rust toolchain; the pixi environments provide both, and `pixi run postinstall` builds everything. If you build outside pixi, install Rust with [rustup](https://rustup.rs) and make sure `cargo` is on your `PATH`.
+
+`pixi run cargo fmt` and `pixi run cargo clippy --all-targets -- -D warnings` format and lint the Rust code; CI runs both.
+
 Testing and continuous integration
 --------------------------------------------------
 The test suite is in ``tests/`` and can be run using ``pixi run test``.
