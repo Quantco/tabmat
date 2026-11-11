@@ -1,0 +1,23 @@
+[package]
+name = "tabmat-categorical"
+version = "0.0.0"
+edition = "2021"
+rust-version = "1.85"
+publish = false
+description = "Rust kernels for tabmat.CategoricalMatrix (the tabmat.ext.categorical extension module)"
+license = "BSD-3-Clause"
+
+[lib]
+name = "categorical"
+crate-type = ["cdylib"]
+path = "src/tabmat/ext/categorical.rs"
+
+[dependencies]
+pyo3 = { version = "0.30", features = ["extension-module"] }
+numpy = "0.30"
+rayon = "1.10"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1

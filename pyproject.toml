@@ -5,6 +5,7 @@ requires = [
   'wheel',
   'numpy>=1.25',
   'Cython>=3.1',
+  'setuptools-rust>=1.9',
 ]
 
 [tool.ruff]

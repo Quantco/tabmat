@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 from Cython.Build import cythonize
 from setuptools import Extension, find_packages, setup
+from setuptools_rust import RustExtension
 
 here = path.abspath(path.dirname(__file__))
 
@@ -92,11 +93,6 @@ ext_modules = [
         **extension_args,
     ),
     Extension(
-        name="tabmat.ext.categorical",
-        sources=["src/tabmat/ext/categorical.pyx"],
-        **extension_args,
-    ),
-    Extension(
         name="tabmat.ext.split",
         sources=["src/tabmat/ext/split.pyx"],
         **extension_args,
@@ -139,5 +135,11 @@ setup(
             "legacy_implicit_noexcept": True,
         },
     ),
+    rust_extensions=[
+        # Built from the Cargo.toml at the repository root. `debug` is passed
+        # explicitly because setuptools-rust would otherwise make in-place
+        # (editable) builds debug builds.
+        RustExtension("tabmat.ext.categorical", debug=debug_build),
+    ],
     zip_safe=False,
 )
