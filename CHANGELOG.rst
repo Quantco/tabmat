@@ -7,6 +7,19 @@
 Changelog
 =========
 
+4.3.2 - unreleased
+------------------
+
+**Bug fix:**
+
+- :meth:`tabmat.StandardizedMatrix.sandwich`, :meth:`~tabmat.StandardizedMatrix.matvec` and :meth:`~tabmat.StandardizedMatrix.transpose_matvec` are now accurate for dense columns whose means are large relative to their standard deviations, in a :class:`tabmat.DenseMatrix` or in the dense part of a :class:`tabmat.SplitMatrix` (`#414 <https://github.com/Quantco/tabmat/issues/414>`_). They used to expand the products into uncentered terms that nearly cancel, which could lose all significant digits. The kernels that read dense data now subtract the column means as they go, including the kernels for the products of the dense part with the sparse and categorical parts, so this costs no copy of the data. For a dense matrix the sandwich product also becomes 1.2-2x faster; the other products keep about their speed.
+- :meth:`tabmat.StandardizedMatrix.astype` no longer drops the scaling factors (``mult``) of the matrix.
+- :meth:`tabmat.DenseMatrix.transpose_matvec` and :meth:`tabmat.StandardizedMatrix.transpose_matvec` now return the columns in the order of ``cols`` if ``cols`` lists all columns in a different order. They used to return them in their original order.
+
+**Other changes:**
+
+- The dense matrix-vector kernels used for row or column restrictions are vectorized along the direction that is not restricted, which makes most restricted products on dense data faster, by up to 2x.
+
 4.3.1 - 2026-11-05
 ------------------
 

@@ -95,6 +95,8 @@ void _sandwich_cat_cat_${type}(
 
 
 <%def name="sandwich_cat_dense_tmpl(order, type)">
+// The optional per-column center mat_j_mu (nullptr means none) is subtracted from
+// the dense matrix mat_j as it is read.
 template <typename Int, typename F>
 void _sandwich_cat_dense${order}_${type}(
     F* d,
@@ -106,6 +108,7 @@ void _sandwich_cat_dense${order}_${type}(
     F* res,
     Int res_size,
     F* mat_j,
+    const F* mat_j_mu,
     Int mat_j_nrow,
     Int mat_j_ncol
     % if type == 'complex':
@@ -133,10 +136,14 @@ void _sandwich_cat_dense${order}_${type}(
                 for (Py_ssize_t j_idx = 0; j_idx < len_j_cols; j_idx++) {
                     Py_ssize_t j = j_cols[j_idx];
                     % if order == 'C':
-                        restemp[i * len_j_cols + j_idx] += d[k] * mat_j[k * mat_j_ncol + j];
+                        F value = mat_j[k * mat_j_ncol + j];
                     % else:
-                        restemp[i * len_j_cols + j_idx] += d[k] * mat_j[j * mat_j_nrow + k];
+                        F value = mat_j[j * mat_j_nrow + k];
                     % endif
+                    if (mat_j_mu != nullptr) {
+                        value -= mat_j_mu[j];
+                    }
+                    restemp[i * len_j_cols + j_idx] += d[k] * value;
                 }
             % if type == 'complex':
                 }

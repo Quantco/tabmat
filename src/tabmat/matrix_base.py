@@ -76,6 +76,21 @@ class MatrixBase(ABC):
         """
         pass
 
+    # Products with the dense columns centered by ``center`` (one value per column)
+    # inside the kernels, for StandardizedMatrix. ``center=None`` means no
+    # centering, which is all that matrices without dense columns support.
+    def _centered_sandwich(self, d, center, rows=None, cols=None):
+        assert center is None
+        return self.sandwich(d, rows, cols)
+
+    def _centered_matvec(self, vec, center, cols=None, out=None):
+        assert center is None
+        return self.matvec(vec, cols, out=out)
+
+    def _centered_transpose_matvec(self, vec, center, rows=None, cols=None, out=None):
+        assert center is None
+        return self.transpose_matvec(vec, rows, cols, out=out)
+
     def __matmul__(self, other):
         """Define the behavior of 'self @ other'."""
         return self.matvec(other)
@@ -164,7 +179,11 @@ class MatrixBase(ABC):
                 out_means = shifter
             mult = None
 
-        return StandardizedMatrix(self, shifter, mult), out_means, col_stds
+        out = StandardizedMatrix(self, shifter, mult)
+        # Keep the exact means, so that dense products can center the data with
+        # them instead of recovering them from shifter / mult.
+        out._center = np.array(out_means, copy=True)
+        return out, out_means, col_stds
 
     @abstractmethod
     def __getitem__(self, item):
