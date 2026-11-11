@@ -8,7 +8,7 @@ from libc.stdint cimport int64_t
 np.import_array()
 
 
-cdef extern from "dense_helpers.cpp":
+cdef extern from "dense_helpers.hpp":
     # The C++ kernels take the center as const F*. It is declared as F* here
     # because older Cython versions (e.g. 3.2) cannot deduce F from a const F*.
     void _denseC_sandwich[Int, F](Int*, Int*, F*, F*, F*, F*, Int, Int, Int, Int, Int, Int, Int) nogil

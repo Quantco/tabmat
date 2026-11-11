@@ -200,7 +200,7 @@ def csc_rmatvec(XT, floating[:] v, win_integral[:] rows, win_integral[:] cols):
             outp[Cj] = outp[Cj] + XTval * vval;
     return out
 
-cdef extern from "sparse_helpers.cpp":
+cdef extern from "sparse_helpers.hpp":
     # The C++ kernels take the center of B as const F*. It is declared as F* here
     # because older Cython versions (e.g. 3.2) cannot deduce F from a const F*.
     void _csr_denseC_sandwich[I, F](

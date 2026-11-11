@@ -22,7 +22,7 @@ ctypedef fused win_integral:
     long long
 
 
-cdef extern from "cat_split_helpers.cpp":
+cdef extern from "cat_split_helpers.hpp":
     # The C++ kernels take the center of the dense matrix as const F*. It is
     # declared as F* here because older Cython versions (e.g. 3.2) cannot deduce
     # F from a const F*.
