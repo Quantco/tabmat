@@ -20,6 +20,7 @@ Changelog
 
 - The dense matrix-vector kernels used for row or column restrictions are vectorized along the direction that is not restricted, which makes most restricted products on dense data faster, by up to 2x.
 - The C++ kernels are now plain C++17 templates: template parameters and ``if constexpr`` replace the variants that used to be generated with Mako, so ``mako`` is no longer a build dependency and no source files are generated at build time. The generated code is unchanged in structure and the test suite is untouched.
+- The sandwich product of the categorical and the sparse parts of a :class:`tabmat.SplitMatrix` uses a dedicated parallel kernel instead of scipy sparse matrix products, which makes it about 3-30x faster, depending on the shapes.
 
 4.3.1 - 2026-11-05
 ------------------

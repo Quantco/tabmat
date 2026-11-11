@@ -7,7 +7,9 @@ import polars as pl
 import polars.testing
 import pyarrow
 import pytest
+import scipy.sparse as sps
 
+from tabmat import SparseMatrix
 from tabmat.categorical_matrix import CategoricalMatrix, _extract_codes_and_categories
 
 
@@ -257,3 +259,47 @@ def test_polars_non_contiguous_codes():
 def test_shape_of_empty():
     cat_mat = CategoricalMatrix([], drop_first=True)
     assert cat_mat.shape == (0, 0)
+
+
+@pytest.mark.parametrize("drop_first", [True, False], ids=["drop_first", "no_drop"])
+@pytest.mark.parametrize("cat_missing_method", [None, "zero", "convert"])
+@pytest.mark.parametrize("dtype", [np.float64, np.float32])
+@pytest.mark.parametrize("index_dtype", [np.int32, np.int64])
+@pytest.mark.parametrize("restrict", [False, True], ids=["all", "restricted"])
+def test_cross_sandwich_sparse(
+    drop_first, cat_missing_method, dtype, index_dtype, restrict
+):
+    rng = np.random.default_rng(0)
+    n = 500
+    vals = rng.integers(0, 7, n).astype(float)
+    if cat_missing_method is not None:
+        vals[rng.random(n) < 0.1] = np.nan
+    cat = CategoricalMatrix(
+        pd.Categorical(vals),
+        drop_first=drop_first,
+        dtype=dtype,
+        cat_missing_method=cat_missing_method or "fail",
+    )
+    sparse = sps.random(n, 9, density=0.3, format="csc", rng=rng, dtype=dtype)
+    sparse.indices = sparse.indices.astype(index_dtype)
+    sparse.indptr = sparse.indptr.astype(index_dtype)
+    d = rng.uniform(size=n).astype(dtype)
+    if restrict:
+        rows = np.sort(rng.choice(n, n // 2, replace=False)).astype(np.int32)
+        L_cols = np.array([0, 2, 3], dtype=np.int32)
+        R_cols = np.array([1, 4, 5, 8], dtype=np.int32)
+    else:
+        rows = L_cols = R_cols = None
+
+    res = cat._cross_sandwich(SparseMatrix(sparse), d, rows, L_cols, R_cols)
+    res_t = SparseMatrix(sparse)._cross_sandwich(cat, d, rows, R_cols, L_cols)
+
+    cat_dense, sparse_dense = cat.toarray(), sparse.toarray()
+    r = slice(None) if rows is None else rows
+    expected = cat_dense[r].T @ (d[r, None] * sparse_dense[r])
+    if restrict:
+        expected = expected[np.ix_(L_cols, R_cols)]
+    tol = 1e-5 if dtype == np.float32 else 1e-12
+    assert res.dtype == dtype
+    np.testing.assert_allclose(res, expected, rtol=tol, atol=tol)
+    np.testing.assert_allclose(res_t, expected.T, rtol=tol, atol=tol)
