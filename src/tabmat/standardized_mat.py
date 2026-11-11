@@ -219,7 +219,8 @@ class StandardizedMatrix:
         limited_mult = None
         if self.mult is not None:
             limited_mult = self.mult[cols] if cols is not None else self.mult
-            term1 *= np.outer(limited_mult, limited_mult)
+            term1 *= limited_mult[:, np.newaxis]
+            term1 *= limited_mult[np.newaxis, :]
         limited_shift = shift[cols] if cols is not None else shift
         if not limited_shift.any():
             # (2) to (4) vanish without a shift.
@@ -228,12 +229,18 @@ class StandardizedMatrix:
         d_mat = self.mat._centered_transpose_matvec(d, center, rows, cols)
         if limited_mult is not None:
             d_mat *= limited_mult
-        term2 = np.outer(d_mat, limited_shift)
 
+        # (2) + (3) + (4) = outer(d_mat, shift) + outer(shift, d_mat)
+        #   + sum(d) * outer(shift, shift) = outer(a, shift) + outer(shift, a)
+        # with a = d_mat + sum(d) / 2 * shift, which needs a single outer product.
         limited_d = d[rows] if rows is not None else d
-        term3 = np.outer(limited_shift, d_mat)
-        term4 = np.outer(limited_shift, limited_shift) * np.sum(limited_d)
-        return term1 + term2 + term3 + term4
+        a = d_mat + 0.5 * np.sum(limited_d) * limited_shift
+        cross = np.outer(a, limited_shift)
+        # Keep the dtype that adding the terms out of place would give.
+        term1 = term1.astype(np.result_type(term1, cross), copy=False)
+        term1 += cross
+        term1 += cross.T
+        return term1
 
     def unstandardize(self) -> MatrixBase:
         """Get unstandardized (base) matrix."""
