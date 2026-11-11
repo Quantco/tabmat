@@ -34,7 +34,7 @@ We use [pixi](https://prefix.dev/) for setting up the project dependencies. [Ins
 git clone git@github.com:Quantco/tabmat.git
 cd tabmat
 
-# Set up our pre-commit hooks for ruff, mypy, and cython-lint.
+# Set up our pre-commit hooks for ruff, mypy and rustfmt.
 pixi run pre-commit-install
 
 # Set up a pixi environment with the dependencies and install the package in editable mode.
@@ -61,11 +61,13 @@ pixi task list
 Compiled extensions
 -------------------
 
-The compiled kernels are written in Rust and built with [PyO3](https://pyo3.rs) and [setuptools-rust](https://setuptools-rust.readthedocs.io). All Rust code is one crate (the `Cargo.toml` at the repository root, sources in `src/tabmat/ext/rust/`) that builds a single extension module, `tabmat.ext._rust`, so that every kernel shares one rayon thread pool; the kernels are plain Rust functions over slices and `ndarray` views in `src/tabmat/ext/rust/kernels/` (`kernels/mod.rs` holds what they share: element type traits, index validation, the thread pool setup and the deterministic parallel reductions; each kernel file carries a reference implementation that `cargo test` checks it against), and the binding modules next to that directory (`categorical.rs`, `dense.rs`, `sparse.rs`, `split.rs`, with the shared dtype dispatch and argument coercion in `boundary.rs`) only translate between numpy arrays and the kernels. The thin Python modules `tabmat.ext.categorical`, `tabmat.ext.dense`, `tabmat.ext.sparse` and `tabmat.ext.split` re-export the bindings' functions, so the rest of tabmat imports the kernels from the same places as before. Building from source therefore needs a C++ compiler and a Rust toolchain; the pixi environments provide both, and `pixi run postinstall` builds everything. If you build outside pixi, install Rust with [rustup](https://rustup.rs) and make sure `cargo` is on your `PATH`.
+The compiled kernels are written in Rust and built with [PyO3](https://pyo3.rs) and [setuptools-rust](https://setuptools-rust.readthedocs.io). All Rust code is one crate (the `Cargo.toml` at the repository root, sources in `src/tabmat/ext/rust/`) that builds a single extension module, `tabmat.ext._rust`, so that every kernel shares one rayon thread pool; the kernels are plain Rust functions over slices and `ndarray` views in `src/tabmat/ext/rust/kernels/` (`kernels/mod.rs` holds what they share: element type traits, index validation, the thread pool setup and the deterministic parallel reductions; each kernel file carries a reference implementation that `cargo test` checks it against), and the binding modules next to that directory (`categorical.rs`, `dense.rs`, `sparse.rs`, `split.rs`, with the shared dtype dispatch and argument coercion in `boundary.rs`) only translate between numpy arrays and the kernels. The thin Python modules `tabmat.ext.categorical`, `tabmat.ext.dense`, `tabmat.ext.sparse` and `tabmat.ext.split` re-export the bindings' functions, so the rest of tabmat imports the kernels from the same places as before. Building from source needs a Rust toolchain (and a C compiler as its linker); the pixi environments provide both, and `pixi run postinstall` builds everything. If you build outside pixi, install Rust with [rustup](https://rustup.rs) and make sure `cargo` is on your `PATH`.
 
-If you have an editable install from before the Rust kernels were merged into `tabmat.ext._rust`, delete the stale `src/tabmat/ext/categorical.*.so`, `dense.*.so`, `sparse.*.so` and `split.*.so` files: Python prefers an extension module over a `.py` file of the same name, so they would shadow the new Python modules.
+The kernels are parallelised with rayon. The number of threads follows `RAYON_NUM_THREADS`, then `OMP_NUM_THREADS`, then the number of cores. SIMD code uses the `pulp` crate, which detects the instruction set at run time.
 
 `pixi run cargo fmt` and `pixi run cargo clippy --all-targets -- -D warnings` format and lint the Rust code, and `pixi run cargo test` runs the kernels' reference tests; CI runs all three.
+
+If you have an editable install from before the kernels were moved to `tabmat.ext._rust`, delete the stale `src/tabmat/ext/categorical.*.so`, `dense.*.so`, `sparse.*.so` and `split.*.so` files: Python prefers an extension module over a `.py` file of the same name, so they would shadow the new Python modules.
 
 Testing and continuous integration
 --------------------------------------------------

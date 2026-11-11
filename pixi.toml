@@ -88,23 +88,16 @@ pandas = ">=1.4.4"
 scipy = ">=1.7.3"
 narwhals = ">=2.0.0"
 
-# build dependencies
+# build dependencies (the C compiler is the linker of the Rust toolchain)
 c-compiler = "*"
-cxx-compiler = "*"
-cython = ">=3.1"
-make = "*"
 rust = "*"
 setuptools = ">=62.0"
 setuptools-rust = ">=1.9"
 setuptools-scm = ">=8.1"
-xsimd = "<11|>12.1"
 
 # host dependencies
 pip = "*"
 wheel = "*"
-
-[target.unix.dependencies]
-jemalloc-local = "*"
 
 [feature.dev.dependencies]
 ipython = "*"
@@ -121,7 +114,6 @@ mypy = "*"
 [feature.lint.dependencies]
 pre-commit = "*"
 ruff = "*"
-cython-lint = "*"
 
 [feature.docs.dependencies]
 jupyterlab = "*"

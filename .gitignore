@@ -8,7 +8,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Cython extensions
+# Compiled extension modules
 *.so
 
 # Distribution / packaging
@@ -140,9 +140,6 @@ cache
 # pkgs
 pkgs/*
 
-# Ignore .c/.cpp files (cython-generated)
-*.c
-*.cpp
 # pixi environments
 .pixi
 *.egg-info

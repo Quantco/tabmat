@@ -39,16 +39,3 @@ repos:
         language: system
         types: [rust]
         require_serial: true
-      # cython-lint
-      - id: cython-lint
-        name: cython-lint
-        entry: pixi run -e lint cython-lint --no-pycodestyle
-        language: system
-        types: [cython]
-        require_serial: true
-      - id: cython-double-quote
-        name: cython-double-quote
-        entry: pixi run -e lint double-quote-cython-strings
-        language: system
-        types: [cython]
-        require_serial: true

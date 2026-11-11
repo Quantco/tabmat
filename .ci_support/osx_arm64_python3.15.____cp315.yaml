@@ -12,16 +12,8 @@ channel_sources:
 - conda-forge
 channel_targets:
 - conda-forge main
-cxx_compiler:
-- clangxx
-cxx_compiler_version:
-- '21'
-llvm_openmp:
-- '21'
 macos_machine:
 - arm64-apple-darwin20.0.0
-numpy:
-- '2'
 pin_run_as_build:
   python:
     min_pin: x.x
@@ -32,6 +24,3 @@ python_impl:
 - cpython
 target_platform:
 - osx-arm64
-zip_keys:
-- - c_compiler_version
-  - cxx_compiler_version

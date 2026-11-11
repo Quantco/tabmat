@@ -1,7 +1,7 @@
 # The Rust extension of tabmat: one cdylib, imported as `tabmat.ext._rust`,
 # with one submodule per kernel family (`categorical`, `dense`, ...) that the
 # Python modules `tabmat.ext.categorical`, `tabmat.ext.dense`, ... re-export.
-# The sources live next to the Cython modules in `src/tabmat/ext/rust/`.
+# The sources live in `src/tabmat/ext/rust/`.
 [package]
 name = "tabmat"
 description = "Rust kernels of tabmat (the tabmat.ext._rust extension module)"
