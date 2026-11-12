@@ -766,7 +766,9 @@ impl<F: SimdFloat> WithSimd for MatvecBlock<'_, '_, '_, F> {
                 let i = select(shape.rows, ci);
                 let row = x.x.row(i);
                 *o = match (shape.cols, row.as_slice()) {
-                    (None, Some(row)) => centered_dot_vc(simd, row, &center, v),
+                    // `v` may be longer than a row; the dot product needs
+                    // all three slices of the same length
+                    (None, Some(row)) => centered_dot_vc(simd, row, &center, &v[..row.len()]),
                     _ => {
                         let mut sum = F::default();
                         for cj in 0..shape.n_cols {
@@ -978,8 +980,10 @@ mod tests {
         let mut rng = Rng::new(12);
         for &(n, m) in &[(5000usize, 30usize), (300, 9), (2500, 257)] {
             let data = Array2::from_shape_vec((n, m), rng.values(n * m, 5.0)).unwrap();
-            let v_rows = rng.values(n, 0.0);
-            let v_cols = rng.values(m, 0.0);
+            // `v` may be longer than the axis it is multiplied with (the
+            // bindings only require "at least"): the extra entries are unused.
+            let v_rows = rng.values(n + 3, 0.0);
+            let v_cols = rng.values(m + 3, 0.0);
             let center: Vec<f64> = (0..m).map(|j| data.column(j).mean().unwrap()).collect();
             let sub_rows = rng.subset(n);
             let sub_cols = rng.subset(m);
