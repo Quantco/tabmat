@@ -3,7 +3,7 @@ import warnings
 
 import numpy as np
 
-from .ext.dense import (
+from .crabmat.dense import (
     dense_matvec,
     dense_rmatvec,
     dense_sandwich,

@@ -39,7 +39,7 @@ setup(
         # share one rayon thread pool. `debug` is passed explicitly because
         # setuptools-rust would otherwise make in-place (editable) builds
         # debug builds.
-        RustExtension("tabmat.ext.crabmat", path="Cargo.toml", debug=debug_build),
+        RustExtension("tabmat.crabmat", path="Cargo.toml", debug=debug_build),
     ],
     zip_safe=False,
 )

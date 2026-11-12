@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 import tabmat as tm
-from tabmat.ext.split import _sandwich_cat_cat_limited_rows_cols
+from tabmat.crabmat.split import _sandwich_cat_cat_limited_rows_cols
 
 
 def test_transpose_matvec_does_not_crash():

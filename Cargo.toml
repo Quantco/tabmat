@@ -1,10 +1,10 @@
-# The Rust extension of tabmat: one cdylib, imported as `tabmat.ext.crabmat`,
-# with one submodule per kernel family (`categorical`, `dense`, ...) that the
-# Python modules `tabmat.ext.categorical`, `tabmat.ext.dense`, ... re-export.
-# The sources live in `src/tabmat/ext/crabmat/`.
+# The Rust extension of tabmat: one cdylib, imported as `tabmat.crabmat`,
+# with one submodule per kernel family (`tabmat.crabmat.categorical`,
+# `tabmat.crabmat.dense`, ...) that the Python layer imports the kernels from.
+# The sources live in `src/tabmat/crabmat/`.
 [package]
 name = "tabmat"
-description = "Rust kernels of tabmat (the tabmat.ext.crabmat extension module)"
+description = "Rust kernels of tabmat (the tabmat.crabmat extension module)"
 version = "0.0.0"
 edition = "2021"
 rust-version = "1.85"
@@ -14,7 +14,7 @@ license = "BSD-3-Clause"
 [lib]
 name = "crabmat"
 crate-type = ["cdylib"]
-path = "src/tabmat/ext/crabmat/lib.rs"
+path = "src/tabmat/crabmat/lib.rs"
 
 [dependencies]
 pyo3 = { version = "0.30", features = ["extension-module"] }

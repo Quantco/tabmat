@@ -171,15 +171,15 @@ import numpy as np
 import numpy.typing
 from scipy import sparse as sps
 
-from .dense_matrix import DenseMatrix
-from .ext.categorical import (
+from .crabmat.categorical import (
     matvec,
     multiply,
     sandwich_categorical,
     subset_categorical,
     transpose_matvec,
 )
-from .ext.split import sandwich_cat_cat, sandwich_cat_dense
+from .crabmat.split import sandwich_cat_cat, sandwich_cat_dense
+from .dense_matrix import DenseMatrix
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .util import (

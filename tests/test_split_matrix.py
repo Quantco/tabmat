@@ -6,8 +6,8 @@ import scipy.sparse as sps
 import tabmat as tm
 from tabmat import from_pandas
 from tabmat.constructor_util import _split_sparse_and_dense_parts
+from tabmat.crabmat.sparse import csr_dense_sandwich
 from tabmat.dense_matrix import DenseMatrix
-from tabmat.ext.sparse import csr_dense_sandwich
 from tabmat.split_matrix import SplitMatrix
 
 N = 100

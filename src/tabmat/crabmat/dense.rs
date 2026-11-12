@@ -1,6 +1,5 @@
 //! Python bindings of the dense kernels, exposed as the submodule
-//! `tabmat.ext.crabmat.dense` and re-exported by `tabmat.ext.dense`; the
-//! kernels themselves are in `kernels/dense.rs`.
+//! `tabmat.crabmat.dense`; the kernels themselves are in `kernels/dense.rs`.
 
 use numpy::ndarray::Array2;
 use numpy::{IntoPyArray, PyReadonlyArray2, PyUntypedArrayMethods};
@@ -185,7 +184,7 @@ fn transpose_square_dot_weights<'py>(
 }
 
 /// Adds the functions of this module to the submodule
-/// `tabmat.ext.crabmat.dense` (see `lib.rs`).
+/// `tabmat.crabmat.dense` (see `lib.rs`).
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(dense_sandwich, m)?)?;
     m.add_function(wrap_pyfunction!(dense_rmatvec, m)?)?;

@@ -1,9 +1,9 @@
 //! Python bindings of the split kernels (the categorical cross products and
 //! the SplitMatrix column bookkeeping), exposed as the submodule
-//! `tabmat.ext.crabmat.split` and re-exported by `tabmat.ext.split`; the
-//! kernels themselves are in `kernels/split.rs`. The categorical matrices
-//! are passed as their `indices` with the `drop_first`/`has_missings` flags
-//! of `tabmat.ext.categorical`.
+//! `tabmat.crabmat.split`; the kernels themselves are in
+//! `kernels/split.rs`. The categorical matrices are passed as their
+//! `indices` with the `drop_first`/`has_missings` flags of
+//! `tabmat.crabmat.categorical`.
 
 use numpy::ndarray::Array2;
 use numpy::{
@@ -177,7 +177,7 @@ fn is_sorted(a: Arg<'_, i64>) -> bool {
 }
 
 /// Adds the functions of this module to the submodule
-/// `tabmat.ext.crabmat.split` (see `lib.rs`).
+/// `tabmat.crabmat.split` (see `lib.rs`).
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sandwich_cat_dense, m)?)?;
     m.add_function(wrap_pyfunction!(sandwich_cat_cat, m)?)?;

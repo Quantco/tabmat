@@ -76,10 +76,10 @@ jobs:
 
           assert sysconfig.get_config_var("Py_GIL_DISABLED") == 1
           import tabmat
-          import tabmat.ext.categorical
-          import tabmat.ext.dense
-          import tabmat.ext.sparse
-          import tabmat.ext.split
+          import tabmat.crabmat.categorical
+          import tabmat.crabmat.dense
+          import tabmat.crabmat.sparse
+          import tabmat.crabmat.split
 
           assert not sys._is_gil_enabled(), "Importing tabmat enabled the GIL"
           PY
