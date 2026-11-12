@@ -1,12 +1,12 @@
 """Kernels for :class:`tabmat.SparseMatrix`.
 
-The implementation lives in the Rust extension module ``tabmat.ext._rust``
-(see ``src/tabmat/ext/rust/sparse.rs`` for the bindings and
-``src/tabmat/ext/rust/kernels/sparse.rs`` for the kernels); this module only
+The implementation lives in the Rust extension module ``tabmat.ext.crabmat``
+(see ``src/tabmat/ext/crabmat/sparse.rs`` for the bindings and
+``src/tabmat/ext/crabmat/kernels/sparse.rs`` for the kernels); this module only
 re-exports its functions under their historical import path.
 """
 
-from ._rust.sparse import (
+from .crabmat.sparse import (
     csc_rmatvec,
     csc_rmatvec_unrestricted,
     csr_dense_sandwich,

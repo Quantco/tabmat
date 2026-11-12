@@ -1,12 +1,12 @@
 """Kernels for :class:`tabmat.CategoricalMatrix`.
 
-The implementation lives in the Rust extension module ``tabmat.ext._rust``
-(see ``src/tabmat/ext/rust/categorical.rs`` for the bindings and
-``src/tabmat/ext/rust/kernels/categorical.rs`` for the kernels); this module
+The implementation lives in the Rust extension module ``tabmat.ext.crabmat``
+(see ``src/tabmat/ext/crabmat/categorical.rs`` for the bindings and
+``src/tabmat/ext/crabmat/kernels/categorical.rs`` for the kernels); this module
 only re-exports its functions under their historical import path.
 """
 
-from ._rust.categorical import (
+from .crabmat.categorical import (
     get_col_included,
     matvec,
     multiply,

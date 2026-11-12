@@ -1,5 +1,5 @@
 //! Python bindings of the categorical kernels, exposed as the submodule
-//! `tabmat.ext._rust.categorical` and re-exported by `tabmat.ext.categorical`;
+//! `tabmat.ext.crabmat.categorical` and re-exported by `tabmat.ext.categorical`;
 //! the kernels themselves are in `kernels/categorical.rs`.
 //!
 //! A categorical matrix is passed as its `indices`: one category per row
@@ -188,7 +188,7 @@ fn subset_categorical<'py>(
 }
 
 /// Adds the functions of this module to the submodule
-/// `tabmat.ext._rust.categorical` (see `lib.rs`).
+/// `tabmat.ext.crabmat.categorical` (see `lib.rs`).
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(transpose_matvec, m)?)?;
     m.add_function(wrap_pyfunction!(matvec, m)?)?;

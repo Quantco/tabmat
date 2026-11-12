@@ -1,5 +1,5 @@
 //! Python bindings of the sparse kernels, exposed as the submodule
-//! `tabmat.ext._rust.sparse` and re-exported by `tabmat.ext.sparse`; the
+//! `tabmat.ext.crabmat.sparse` and re-exported by `tabmat.ext.sparse`; the
 //! kernels themselves are in `kernels/sparse.rs`.
 //!
 //! The sparse matrices arrive as scipy `csr_matrix`/`csc_matrix` objects
@@ -429,7 +429,7 @@ fn transpose_square_dot_weights<'py>(
 }
 
 /// Adds the functions of this module to the submodule
-/// `tabmat.ext._rust.sparse` (see `lib.rs`).
+/// `tabmat.ext.crabmat.sparse` (see `lib.rs`).
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(sparse_sandwich, m)?)?;
     m.add_function(wrap_pyfunction!(csr_dense_sandwich, m)?)?;

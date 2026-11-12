@@ -1,4 +1,4 @@
-//! The Rust extension module of tabmat, `tabmat.ext._rust`.
+//! The Rust extension module of tabmat, `tabmat.ext.crabmat`.
 //!
 //! All Rust kernels are built into this one shared library so that they share
 //! a single copy of rayon (and thus one thread pool, sized once at import) and
@@ -21,7 +21,7 @@ mod sparse;
 mod split;
 
 /// Creates the submodule `name`, lets `register` fill it, and makes it
-/// importable as `tabmat.ext._rust.<name>` (a submodule created from Rust is
+/// importable as `tabmat.ext.crabmat.<name>` (a submodule created from Rust is
 /// only an attribute of its parent until it is entered into `sys.modules`).
 fn add_submodule(
     parent: &Bound<'_, PyModule>,
@@ -29,7 +29,7 @@ fn add_submodule(
     register: fn(&Bound<'_, PyModule>) -> PyResult<()>,
 ) -> PyResult<()> {
     let py = parent.py();
-    let qualname = format!("tabmat.ext._rust.{name}");
+    let qualname = format!("tabmat.ext.crabmat.{name}");
     let module = PyModule::new(py, &qualname)?;
     register(&module)?;
     parent.add(name, &module)?;
@@ -40,7 +40,7 @@ fn add_submodule(
 }
 
 #[pymodule(gil_used = false)]
-fn _rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn crabmat(m: &Bound<'_, PyModule>) -> PyResult<()> {
     kernels::init_thread_pool();
     add_submodule(m, "categorical", categorical::register)?;
     add_submodule(m, "dense", dense::register)?;
