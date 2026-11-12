@@ -1,8 +1,9 @@
 """Kernels for :class:`tabmat.SparseMatrix`.
 
 The implementation lives in the Rust extension module ``tabmat.ext._rust``
-(see ``src/tabmat/ext/rust/sparse.rs``); this module only re-exports its
-functions under their historical import path.
+(see ``src/tabmat/ext/rust/sparse.rs`` for the bindings and
+``src/tabmat/ext/rust/kernels/sparse.rs`` for the kernels); this module only
+re-exports its functions under their historical import path.
 """
 
 from ._rust.sparse import (

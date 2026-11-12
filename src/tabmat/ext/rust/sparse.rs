@@ -1,9 +1,6 @@
 //! Python bindings of the sparse kernels, exposed as the submodule
-//! `tabmat.ext._rust.sparse` and re-exported by `tabmat.ext.sparse`. Every
-//! function keeps the signature of the Cython function it replaced
-//! (including the `B_center` argument of #560), so the Python side in
-//! `tabmat/sparse_matrix.py` is unchanged; the kernels themselves are in
-//! `kernels/sparse.rs`.
+//! `tabmat.ext._rust.sparse` and re-exported by `tabmat.ext.sparse`; the
+//! kernels themselves are in `kernels/sparse.rs`.
 //!
 //! The sparse matrices arrive as scipy `csr_matrix`/`csc_matrix` objects
 //! (or anything with `data`, `indices`, `indptr` and `shape` attributes).
@@ -286,34 +283,30 @@ fn matvec_unrestricted<'py>(
 }
 
 /// `out += X @ v` for `X` in CSR format, into `out` if it is given (it is
-/// returned) and a new zeroed array otherwise. `X_indices` is unused and
-/// kept for signature compatibility (the index dtype is that of `X`).
+/// returned) and a new zeroed array of the dtype of `X` otherwise.
 #[pyfunction]
+#[pyo3(signature = (X, v, out = None))]
 #[allow(non_snake_case)]
 fn csr_matvec_unrestricted<'py>(
     py: Python<'py>,
     X: &Bound<'py, PyAny>,
     v: &Bound<'py, PyAny>,
     out: Option<&Bound<'py, PyAny>>,
-    X_indices: &Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let _ = X_indices;
     matvec_unrestricted(py, X, v, out, MatVec::Csr)
 }
 
 /// `out += XT.T @ v` for `XT` in CSC format, into `out` if it is given (it
-/// is returned) and a new zeroed array otherwise. `XT_indices` is unused
-/// and kept for signature compatibility.
+/// is returned) and a new zeroed array of the dtype of `XT` otherwise.
 #[pyfunction]
+#[pyo3(signature = (XT, v, out = None))]
 #[allow(non_snake_case)]
 fn csc_rmatvec_unrestricted<'py>(
     py: Python<'py>,
     XT: &Bound<'py, PyAny>,
     v: &Bound<'py, PyAny>,
     out: Option<&Bound<'py, PyAny>>,
-    XT_indices: &Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let _ = XT_indices;
     matvec_unrestricted(py, XT, v, out, MatVec::Csc)
 }
 
@@ -392,8 +385,7 @@ fn csc_rmatvec<'py>(
 
 /// `out[j] = sum_k weights[indices[k]] * data[k]**2` over the entries `k`
 /// of column `j` of a CSC matrix given by its arrays, as a new array of
-/// `len(indptr) - 1` entries of the dtype of `data`. `dtype` is unused and
-/// kept for signature compatibility.
+/// `len(indptr) - 1` entries of the dtype of `data`.
 #[pyfunction]
 fn transpose_square_dot_weights<'py>(
     py: Python<'py>,
@@ -401,9 +393,7 @@ fn transpose_square_dot_weights<'py>(
     indices: &Bound<'py, PyAny>,
     indptr: &Bound<'py, PyAny>,
     weights: &Bound<'py, PyAny>,
-    dtype: &Bound<'py, PyAny>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let _ = dtype;
     for_float!(data, "data", F => for_index!(indices, "indices", I => {
         let data = data.extract::<PyReadonlyArray1<F>>()?;
         let indices = indices.extract::<PyReadonlyArray1<I>>()?;

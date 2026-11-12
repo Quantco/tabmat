@@ -1,8 +1,13 @@
 //! Python bindings of the categorical kernels, exposed as the submodule
-//! `tabmat.ext._rust.categorical` and re-exported by `tabmat.ext.categorical`.
-//! Every function keeps the signature of the Cython function it replaced, so
-//! the Python side in `tabmat/categorical_matrix.py` is unchanged; the
-//! kernels themselves are in `kernels/categorical.rs`.
+//! `tabmat.ext._rust.categorical` and re-exported by `tabmat.ext.categorical`;
+//! the kernels themselves are in `kernels/categorical.rs`.
+//!
+//! A categorical matrix is passed as its `indices`: one category per row
+//! (`-1` for a missing value). Every product takes `drop_first` (the first
+//! category is the dropped reference level: the categories are shifted down
+//! by one) and `has_missings` (some rows have no category); either selects
+//! the kernel that checks for and skips such rows, the plain kernel has no
+//! check at all.
 
 use numpy::{Complex32, Complex64, IntoPyArray, PyArray1, PyReadonlyArray1};
 use pyo3::exceptions::PyValueError;
@@ -13,84 +18,120 @@ use crate::kernels::categorical as kernels;
 
 type PyArrayI32<'py> = Bound<'py, PyArray1<i32>>;
 
-/// `drop_first` as the shift to subtract from the indices (`bint` in Cython).
-fn drop_shift(drop_first: &Bound<'_, PyAny>) -> PyResult<i32> {
-    Ok(drop_first.is_truthy()? as i32)
-}
-
-/// Shared implementation of the two `transpose_matvec` functions.
-fn transpose_matvec<'py, const DROP: bool>(
+/// `out += cat[rows, cols].T @ v[rows]`, in place.
+///
+/// `indices` are the categories of the rows, `out` has one entry per column
+/// of the matrix and the dtype of `v`. `rows` and `cols` restrict the
+/// product (`None` for all); the entries of `out` for columns not in `cols`
+/// are left as they are.
+#[pyfunction]
+#[pyo3(signature = (indices, v, out, rows = None, cols = None, drop_first = false, has_missings = false))]
+#[allow(clippy::too_many_arguments)]
+fn transpose_matvec<'py>(
     py: Python<'py>,
     indices: Arg<'py, i32>,
-    other: &Bound<'py, PyAny>,
+    v: &Bound<'py, PyAny>,
+    out: &Bound<'py, PyAny>,
     rows: Option<Arg<'py, i32>>,
     cols: Option<Arg<'py, i32>>,
-    out: &Bound<'py, PyAny>,
-    drop_first: i32,
+    drop_first: bool,
+    has_missings: bool,
 ) -> PyResult<()> {
     let indices = ro_slice(&indices);
     let rows = rows.as_ref().map(|a| ro_slice(a));
     let cols = cols.as_ref().map(|a| ro_slice(a));
-    for_float!(other, "other", F => {
-        let other = other.extract::<PyReadonlyArray1<F>>()?;
-        let other = ro_slice(&other);
+    let drop = drop_first || has_missings;
+    for_float!(v, "v", F => {
+        let v = v.extract::<PyReadonlyArray1<F>>()?;
+        let v = ro_slice(&v);
         let mut out = rw_array::<F>(out, "out")?;
         with_rw_slice(&mut out, |out| {
             py.detach(|| {
-                kernels::transpose_matvec::<F, DROP>(
-                    &indices,
-                    &other,
-                    out,
-                    rows.as_deref(),
-                    cols.as_deref(),
-                    drop_first,
-                )
+                let (rows, cols) = (rows.as_deref(), cols.as_deref());
+                if drop {
+                    kernels::transpose_matvec::<F, true>(&indices, &v, out, rows, cols, drop_first as i32)
+                } else {
+                    kernels::transpose_matvec::<F, false>(&indices, &v, out, rows, cols, 0)
+                }
             })
         })?;
         Ok(())
     })
 }
 
-/// `out += cat[rows, cols].T @ other[rows]` for a matrix without dropped or
-/// missing categories. `dtype` is unused and kept for signature compatibility.
+/// `out += cat[:, cols] @ v[cols]`, in place: with one-hot data this is
+/// `v[indices]`.
+///
+/// `out` has one entry per row of the matrix and the dtype of `v`; `cols`
+/// restricts the product (`None` for all columns).
 #[pyfunction]
-#[pyo3(signature = (indices, other, n_cols, dtype, rows, cols, out))]
-#[allow(clippy::too_many_arguments)]
-fn transpose_matvec_fast<'py>(
+#[pyo3(signature = (indices, v, out, cols = None, drop_first = false, has_missings = false))]
+fn matvec<'py>(
     py: Python<'py>,
     indices: Arg<'py, i32>,
-    other: &Bound<'py, PyAny>,
-    n_cols: usize,
-    dtype: &Bound<'py, PyAny>,
-    rows: Option<Arg<'py, i32>>,
-    cols: Option<Arg<'py, i32>>,
+    v: &Bound<'py, PyAny>,
     out: &Bound<'py, PyAny>,
+    cols: Option<Arg<'py, i32>>,
+    drop_first: bool,
+    has_missings: bool,
 ) -> PyResult<()> {
-    let _ = (n_cols, dtype);
-    transpose_matvec::<false>(py, indices, other, rows, cols, out, 0)
+    let indices = ro_slice(&indices);
+    let cols = cols.as_ref().map(|a| ro_slice(a));
+    let drop = drop_first || has_missings;
+    for_float!(v, "v", F => {
+        let v = v.extract::<PyReadonlyArray1<F>>()?;
+        let v = ro_slice(&v);
+        let mut out = rw_array::<F>(out, "out")?;
+        with_rw_slice(&mut out, |out| {
+            if out.len() != indices.len() {
+                return Err(PyValueError::new_err("out must have one entry per row of the matrix"));
+            }
+            py.detach(|| {
+                if drop {
+                    kernels::matvec::<F, true>(&indices, &v, out, cols.as_deref(), drop_first as i32)
+                } else {
+                    kernels::matvec::<F, false>(&indices, &v, out, cols.as_deref(), 0)
+                }
+            })?;
+            Ok(())
+        })
+    })
 }
 
-/// Like `transpose_matvec_fast`, but the column index is shifted by
-/// `drop_first` and negative (dropped or missing) indices are skipped.
+/// Diagonal of `cat[rows].T @ diag(d[rows]) @ cat[rows]`: the sum of `d`
+/// over the rows of each of the `n_cols` columns, as a new array of the
+/// dtype of `d`.
 #[pyfunction]
-#[pyo3(signature = (indices, other, n_cols, dtype, rows, cols, out, drop_first))]
-#[allow(clippy::too_many_arguments)]
-fn transpose_matvec_complex<'py>(
+#[pyo3(signature = (indices, d, rows, n_cols, drop_first = false, has_missings = false))]
+fn sandwich_categorical<'py>(
     py: Python<'py>,
     indices: Arg<'py, i32>,
-    other: &Bound<'py, PyAny>,
+    d: &Bound<'py, PyAny>,
+    rows: Arg<'py, i32>,
     n_cols: usize,
-    dtype: &Bound<'py, PyAny>,
-    rows: Option<Arg<'py, i32>>,
-    cols: Option<Arg<'py, i32>>,
-    out: &Bound<'py, PyAny>,
-    drop_first: &Bound<'py, PyAny>,
-) -> PyResult<()> {
-    let _ = (n_cols, dtype);
-    transpose_matvec::<true>(py, indices, other, rows, cols, out, drop_shift(drop_first)?)
+    drop_first: bool,
+    has_missings: bool,
+) -> PyResult<Bound<'py, PyAny>> {
+    let indices = ro_slice(&indices);
+    let rows = ro_slice(&rows);
+    let drop = drop_first || has_missings;
+    for_float!(d, "d", F => {
+        let d = d.extract::<PyReadonlyArray1<F>>()?;
+        let d = ro_slice(&d);
+        let mut res = vec![F::default(); n_cols];
+        py.detach(|| {
+            if drop {
+                kernels::sandwich::<F, true>(&indices, &d, &rows, &mut res, drop_first as i32)
+            } else {
+                kernels::sandwich::<F, false>(&indices, &d, &rows, &mut res, 0)
+            }
+        })?;
+        Ok(res.into_pyarray(py).into_any())
+    })
 }
 
-/// Indicator array of the columns listed in `cols`.
+/// Indicator array (`int32`, one entry per column) of the columns listed in
+/// `cols`.
 #[pyfunction]
 fn get_col_included<'py>(
     py: Python<'py>,
@@ -105,150 +146,19 @@ fn get_col_included<'py>(
         .into_pyarray(py))
 }
 
-/// Shared implementation of the two `matvec` functions.
-fn matvec<'py, const DROP: bool>(
-    py: Python<'py>,
-    indices: Arg<'py, i32>,
-    other: &Bound<'py, PyAny>,
-    n_rows: usize,
-    cols: Option<Arg<'py, i32>>,
-    out: &Bound<'py, PyAny>,
-    drop_first: i32,
-) -> PyResult<()> {
-    let indices = ro_slice(&indices);
-    let cols = cols.as_ref().map(|a| ro_slice(a));
-    let indices = indices
-        .get(..n_rows)
-        .ok_or_else(|| PyValueError::new_err("n_rows exceeds the length of indices"))?;
-    for_float!(other, "other", F => {
-        let other = other.extract::<PyReadonlyArray1<F>>()?;
-        let other = ro_slice(&other);
-        let mut out = rw_array::<F>(out, "out_vec")?;
-        with_rw_slice(&mut out, |out| {
-            let out = out
-                .get_mut(..n_rows)
-                .ok_or_else(|| PyValueError::new_err("n_rows exceeds the length of out_vec"))?;
-            py.detach(|| kernels::matvec::<F, DROP>(indices, &other, out, cols.as_deref(), drop_first))?;
-            Ok(())
-        })
-    })
-}
-
-/// `out_vec += cat[:, cols] @ other` for a matrix without dropped or missing
-/// categories: with one-hot data this is `other[indices]`.
+/// CSR `(data, indices, indptr)` of `diag(d) @ cat` for a matrix with a
+/// dropped reference category or missing values: one entry per row whose
+/// (shifted) category is non-negative. `data` has the dtype of `d`, which
+/// may be any signed integer, float or complex dtype.
 #[pyfunction]
-#[pyo3(signature = (indices, other, n_rows, cols, n_cols, out_vec))]
-fn matvec_fast<'py>(
-    py: Python<'py>,
-    indices: Arg<'py, i32>,
-    other: &Bound<'py, PyAny>,
-    n_rows: usize,
-    cols: Option<Arg<'py, i32>>,
-    n_cols: usize,
-    out_vec: &Bound<'py, PyAny>,
-) -> PyResult<()> {
-    let _ = n_cols;
-    matvec::<false>(py, indices, other, n_rows, cols, out_vec, 0)
-}
-
-/// Like `matvec_fast`, but the column index is shifted by `drop_first` and
-/// negative (dropped or missing) indices are skipped.
-#[pyfunction]
-#[pyo3(signature = (indices, other, n_rows, cols, n_cols, out_vec, drop_first))]
-#[allow(clippy::too_many_arguments)]
-fn matvec_complex<'py>(
-    py: Python<'py>,
-    indices: Arg<'py, i32>,
-    other: &Bound<'py, PyAny>,
-    n_rows: usize,
-    cols: Option<Arg<'py, i32>>,
-    n_cols: usize,
-    out_vec: &Bound<'py, PyAny>,
-    drop_first: &Bound<'py, PyAny>,
-) -> PyResult<()> {
-    let _ = n_cols;
-    matvec::<true>(
-        py,
-        indices,
-        other,
-        n_rows,
-        cols,
-        out_vec,
-        drop_shift(drop_first)?,
-    )
-}
-
-/// Shared implementation of the two `sandwich_categorical` functions: the
-/// diagonal of the sandwich product restricted to `rows`, as a new array of
-/// the dtype of `d`.
-fn sandwich<'py, const DROP: bool>(
+#[pyo3(signature = (indices, d, drop_first = false))]
+fn multiply<'py>(
     py: Python<'py>,
     indices: Arg<'py, i32>,
     d: &Bound<'py, PyAny>,
-    rows: Arg<'py, i32>,
-    n_cols: usize,
-    drop_first: i32,
-) -> PyResult<Bound<'py, PyAny>> {
-    let indices = ro_slice(&indices);
-    let rows = ro_slice(&rows);
-    for_float!(d, "d", F => {
-        let d = d.extract::<PyReadonlyArray1<F>>()?;
-        let d = ro_slice(&d);
-        let mut res = vec![F::default(); n_cols];
-        py.detach(|| kernels::sandwich::<F, DROP>(&indices, &d, &rows, &mut res, drop_first))?;
-        Ok(res.into_pyarray(py).into_any())
-    })
-}
-
-/// Diagonal of `cat[rows].T @ diag(d[rows]) @ cat[rows]` for a matrix without
-/// dropped or missing categories. `dtype` is unused and kept for signature
-/// compatibility; the result has the dtype of `d`.
-#[pyfunction]
-#[pyo3(signature = (indices, d, rows, dtype, n_cols))]
-fn sandwich_categorical_fast<'py>(
-    py: Python<'py>,
-    indices: Arg<'py, i32>,
-    d: &Bound<'py, PyAny>,
-    rows: Arg<'py, i32>,
-    dtype: &Bound<'py, PyAny>,
-    n_cols: usize,
-) -> PyResult<Bound<'py, PyAny>> {
-    let _ = dtype;
-    sandwich::<false>(py, indices, d, rows, n_cols, 0)
-}
-
-/// Like `sandwich_categorical_fast`, but the column index is shifted by
-/// `drop_first` and negative (dropped or missing) indices are skipped.
-#[pyfunction]
-#[pyo3(signature = (indices, d, rows, dtype, n_cols, drop_first))]
-fn sandwich_categorical_complex<'py>(
-    py: Python<'py>,
-    indices: Arg<'py, i32>,
-    d: &Bound<'py, PyAny>,
-    rows: Arg<'py, i32>,
-    dtype: &Bound<'py, PyAny>,
-    n_cols: usize,
-    drop_first: &Bound<'py, PyAny>,
-) -> PyResult<Bound<'py, PyAny>> {
-    let _ = dtype;
-    sandwich::<true>(py, indices, d, rows, n_cols, drop_shift(drop_first)?)
-}
-
-/// CSR `(data, indices, indptr)` of `diag(d) @ cat`, with the first
-/// `drop_first` categories dropped. `ncols` and `dtype` are unused and kept for
-/// signature compatibility; `data` has the dtype of `d`.
-#[pyfunction]
-#[pyo3(signature = (indices, d, ncols, dtype, drop_first))]
-fn multiply_complex<'py>(
-    py: Python<'py>,
-    indices: Arg<'py, i32>,
-    d: &Bound<'py, PyAny>,
-    ncols: usize,
-    dtype: &Bound<'py, PyAny>,
-    drop_first: &Bound<'py, PyAny>,
+    drop_first: bool,
 ) -> PyResult<(Bound<'py, PyAny>, PyArrayI32<'py>, PyArrayI32<'py>)> {
-    let _ = (ncols, dtype);
-    let drop_first = drop_shift(drop_first)?;
+    let drop_first = drop_first as i32;
     let indices = ro_slice(&indices);
     let (new_indices, indptr) = kernels::csr_structure(&indices, drop_first);
     // The dtypes of Cython's `numeric` fused type plus `long long`.
@@ -259,20 +169,17 @@ fn multiply_complex<'py>(
     Ok((data, new_indices.into_pyarray(py), indptr.into_pyarray(py)))
 }
 
-/// Number of nonzeros and CSR `indices` and `indptr` of the matrix with the
-/// first `drop_first` categories dropped and missing values skipped. `ncols`
-/// is unused and kept for signature compatibility.
+/// Number of nonzeros and CSR `indices` and `indptr` of a matrix with a
+/// dropped reference category or missing values: one entry per row whose
+/// (shifted) category is non-negative.
 #[pyfunction]
-#[pyo3(signature = (indices, ncols, drop_first))]
-fn subset_categorical_complex<'py>(
+#[pyo3(signature = (indices, drop_first = false))]
+fn subset_categorical<'py>(
     py: Python<'py>,
     indices: Arg<'py, i32>,
-    ncols: usize,
-    drop_first: &Bound<'py, PyAny>,
+    drop_first: bool,
 ) -> PyResult<(usize, PyArrayI32<'py>, PyArrayI32<'py>)> {
-    let _ = ncols;
-    let (new_indices, indptr) =
-        kernels::csr_structure(&ro_slice(&indices), drop_shift(drop_first)?);
+    let (new_indices, indptr) = kernels::csr_structure(&ro_slice(&indices), drop_first as i32);
     Ok((
         new_indices.len(),
         new_indices.into_pyarray(py),
@@ -283,14 +190,11 @@ fn subset_categorical_complex<'py>(
 /// Adds the functions of this module to the submodule
 /// `tabmat.ext._rust.categorical` (see `lib.rs`).
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(transpose_matvec_fast, m)?)?;
-    m.add_function(wrap_pyfunction!(transpose_matvec_complex, m)?)?;
+    m.add_function(wrap_pyfunction!(transpose_matvec, m)?)?;
+    m.add_function(wrap_pyfunction!(matvec, m)?)?;
+    m.add_function(wrap_pyfunction!(sandwich_categorical, m)?)?;
     m.add_function(wrap_pyfunction!(get_col_included, m)?)?;
-    m.add_function(wrap_pyfunction!(matvec_fast, m)?)?;
-    m.add_function(wrap_pyfunction!(matvec_complex, m)?)?;
-    m.add_function(wrap_pyfunction!(sandwich_categorical_fast, m)?)?;
-    m.add_function(wrap_pyfunction!(sandwich_categorical_complex, m)?)?;
-    m.add_function(wrap_pyfunction!(multiply_complex, m)?)?;
-    m.add_function(wrap_pyfunction!(subset_categorical_complex, m)?)?;
+    m.add_function(wrap_pyfunction!(multiply, m)?)?;
+    m.add_function(wrap_pyfunction!(subset_categorical, m)?)?;
     Ok(())
 }

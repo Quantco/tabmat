@@ -173,14 +173,11 @@ from scipy import sparse as sps
 
 from .dense_matrix import DenseMatrix
 from .ext.categorical import (
-    matvec_complex,
-    matvec_fast,
-    multiply_complex,
-    sandwich_categorical_complex,
-    sandwich_categorical_fast,
-    subset_categorical_complex,
-    transpose_matvec_complex,
-    transpose_matvec_fast,
+    matvec,
+    multiply,
+    sandwich_categorical,
+    subset_categorical,
+    transpose_matvec,
 )
 from .ext.split import sandwich_cat_cat, sandwich_cat_dense
 from .matrix_base import MatrixBase
@@ -525,18 +522,14 @@ class CategoricalMatrix(MatrixBase):
         if out is None:
             out = np.zeros(self.shape[0], dtype=other_m.dtype)
 
-        if self.drop_first or self._has_missings:
-            matvec_complex(
-                self.indices,
-                other_m,
-                self.shape[0],
-                cols,
-                self.shape[1],
-                out,
-                self.drop_first,
-            )
-        else:
-            matvec_fast(self.indices, other_m, self.shape[0], cols, self.shape[1], out)
+        matvec(
+            self.indices,
+            other_m,
+            out,
+            cols,
+            drop_first=self.drop_first,
+            has_missings=self._has_missings,
+        )
 
         if is_int:
             return out.astype(int)
@@ -597,21 +590,15 @@ class CategoricalMatrix(MatrixBase):
         if cols is not None:
             cols = set_up_rows_or_cols(cols, self.shape[1])
 
-        if self.drop_first or self._has_missings:
-            transpose_matvec_complex(
-                self.indices,
-                vec,
-                self.shape[1],
-                vec.dtype,
-                rows,
-                cols,
-                out,
-                self.drop_first,
-            )
-        else:
-            transpose_matvec_fast(
-                self.indices, vec, self.shape[1], vec.dtype, rows, cols, out
-            )
+        transpose_matvec(
+            self.indices,
+            vec,
+            out,
+            rows,
+            cols,
+            drop_first=self.drop_first,
+            has_missings=self._has_missings,
+        )
 
         if out_is_none and cols is not None:
             return out[cols, ...]  # type: ignore
@@ -641,14 +628,14 @@ class CategoricalMatrix(MatrixBase):
         d = np.asarray(d)
         check_sandwich_compatible(self, d)
         rows = set_up_rows_or_cols(rows, self.shape[0])
-        if self.drop_first or self._has_missings:
-            res_diag = sandwich_categorical_complex(
-                self.indices, d, rows, d.dtype, self.shape[1], self.drop_first
-            )
-        else:
-            res_diag = sandwich_categorical_fast(
-                self.indices, d, rows, d.dtype, self.shape[1]
-            )
+        res_diag = sandwich_categorical(
+            self.indices,
+            d,
+            rows,
+            self.shape[1],
+            drop_first=self.drop_first,
+            has_missings=self._has_missings,
+        )
 
         if cols is not None and len(cols) < self.shape[1]:
             res_diag = res_diag[cols]
@@ -698,8 +685,8 @@ class CategoricalMatrix(MatrixBase):
     def tocsr(self) -> sps.csr_matrix:
         """Return scipy csr representation of matrix."""
         if self.drop_first or self._has_missings:
-            nnz, indices, indptr = subset_categorical_complex(
-                self.indices, self.shape[1], self.drop_first
+            nnz, indices, indptr = subset_categorical(
+                self.indices, drop_first=self.drop_first
             )
             return sps.csr_matrix(
                 (np.ones(nnz, dtype=int), indices, indptr), shape=self.shape
@@ -774,15 +761,6 @@ class CategoricalMatrix(MatrixBase):
         dense_center: np.ndarray | None = None,
     ) -> np.ndarray:
         # dense_center (one value per column of other) centers other in the kernel.
-        if other.flags["C_CONTIGUOUS"]:
-            is_c_contiguous = True
-        elif other.flags["F_CONTIGUOUS"]:
-            is_c_contiguous = False
-        else:
-            raise ValueError(
-                "Input array needs to be either C-contiguous or F-contiguous."
-            )
-
         rows, R_cols = setup_restrictions((self.shape[0], other.shape[1]), rows, R_cols)
 
         res = sandwich_cat_dense(
@@ -792,9 +770,8 @@ class CategoricalMatrix(MatrixBase):
             other,
             rows,
             R_cols,
-            is_c_contiguous,
-            has_missings=self._has_missings,
             drop_first=self.drop_first,
+            has_missings=self._has_missings,
             dense_center=dense_center,
         )
 
@@ -823,11 +800,10 @@ class CategoricalMatrix(MatrixBase):
             other.shape[1],
             d,
             rows,
-            d.dtype,
-            self.drop_first,
-            other.drop_first,
-            self._has_missings,
-            other._has_missings,
+            i_drop_first=self.drop_first,
+            j_drop_first=other.drop_first,
+            i_has_missings=self._has_missings,
+            j_has_missings=other._has_missings,
         )
 
         res = _row_col_indexing(res, L_cols, R_cols)
@@ -862,11 +838,9 @@ class CategoricalMatrix(MatrixBase):
         if self.drop_first or self._has_missings:
             return SparseMatrix(
                 sps.csr_matrix(
-                    multiply_complex(
-                        indices=self.indices,
-                        d=np.atleast_1d(np.squeeze(other)),
-                        ncols=self.shape[1],
-                        dtype=other.dtype,
+                    multiply(
+                        self.indices,
+                        np.atleast_1d(np.squeeze(other)),
                         drop_first=self.drop_first,
                     ),
                     shape=self.shape,

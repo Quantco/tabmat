@@ -1,10 +1,9 @@
 //! Python bindings of the split kernels (the categorical cross products and
 //! the SplitMatrix column bookkeeping), exposed as the submodule
-//! `tabmat.ext._rust.split` and re-exported by `tabmat.ext.split`. Every
-//! function keeps the signature of the Cython function it replaced
-//! (including the `dense_center` argument of #560), so the Python side in
-//! `tabmat/categorical_matrix.py` and `tabmat/split_matrix.py` is unchanged;
-//! the kernels themselves are in `kernels/split.rs`.
+//! `tabmat.ext._rust.split` and re-exported by `tabmat.ext.split`; the
+//! kernels themselves are in `kernels/split.rs`. The categorical matrices
+//! are passed as their `indices` with the `drop_first`/`has_missings` flags
+//! of `tabmat.ext.categorical`.
 
 use numpy::ndarray::Array2;
 use numpy::{
@@ -28,21 +27,14 @@ fn into_array2<'py, F: numpy::Element>(
         .into_pyarray(py)
 }
 
-/// A Python object's truth value, as Cython converts a `bint` or `bool`
-/// argument (so numpy booleans and integers are accepted as well).
-fn truthy(obj: &Bound<'_, PyAny>) -> PyResult<bool> {
-    obj.is_truthy()
-}
-
 /// `cat[rows].T @ diag(d[rows]) @ (mat_j - dense_center)[rows, j_cols]` as a
 /// new `(i_ncol, len(j_cols))` array of the dtype of `mat_j`, for a
-/// categorical matrix with the row categories `i_indices`. `is_c_contiguous`
-/// is unused (`mat_j` is read in place through its strides, whatever its
-/// layout) and kept for signature compatibility; `has_missings` and
-/// `drop_first` select the complex kernel; `dense_center` is an optional
-/// vector with one entry per column of `mat_j` (`None` means no centering).
+/// categorical matrix with the row categories `i_indices` and `i_ncol`
+/// columns. `mat_j` is read in place whatever its layout; `dense_center` is
+/// an optional vector with one entry per column of `mat_j` (`None` means no
+/// centering).
 #[pyfunction]
-#[pyo3(signature = (i_indices, i_ncol, d, mat_j, rows, j_cols, is_c_contiguous, has_missings, drop_first, dense_center = None))]
+#[pyo3(signature = (i_indices, i_ncol, d, mat_j, rows, j_cols, drop_first = false, has_missings = false, dense_center = None))]
 #[allow(clippy::too_many_arguments)]
 fn sandwich_cat_dense<'py>(
     py: Python<'py>,
@@ -52,17 +44,14 @@ fn sandwich_cat_dense<'py>(
     mat_j: &Bound<'py, PyAny>,
     rows: Arg<'py, i32>,
     j_cols: Arg<'py, i32>,
-    is_c_contiguous: &Bound<'py, PyAny>,
-    has_missings: &Bound<'py, PyAny>,
-    drop_first: &Bound<'py, PyAny>,
+    drop_first: bool,
+    has_missings: bool,
     dense_center: Option<&Bound<'py, PyAny>>,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let _ = is_c_contiguous;
     let indices = ro_slice(&i_indices);
     let rows = ro_slice(&rows);
     let j_cols = ro_slice(&j_cols);
-    let drop_first = truthy(drop_first)?;
-    let drop = drop_first || truthy(has_missings)?;
+    let drop = drop_first || has_missings;
     for_float!(mat_j, "mat_j", F => {
         let mat_j = mat_j.extract::<PyReadonlyArray2<F>>()?;
         let d = d.extract::<Arg<'py, F>>()?;
@@ -88,10 +77,9 @@ fn sandwich_cat_dense<'py>(
 
 /// `cat_i[rows].T @ diag(d[rows]) @ cat_j[rows]` as a new `(i_ncol, j_ncol)`
 /// array of the dtype of `d`, for categorical matrices with the row
-/// categories `i_indices` and `j_indices`. `dtype` is unused and kept for
-/// signature compatibility; the `drop_first` and `has_missings` flags
-/// select the complex kernel.
+/// categories `i_indices` and `j_indices`.
 #[pyfunction]
+#[pyo3(signature = (i_indices, j_indices, i_ncol, j_ncol, d, rows, i_drop_first = false, j_drop_first = false, i_has_missings = false, j_has_missings = false))]
 #[allow(clippy::too_many_arguments)]
 fn sandwich_cat_cat<'py>(
     py: Python<'py>,
@@ -101,19 +89,15 @@ fn sandwich_cat_cat<'py>(
     j_ncol: usize,
     d: &Bound<'py, PyAny>,
     rows: Arg<'py, i32>,
-    dtype: &Bound<'py, PyAny>,
-    i_drop_first: &Bound<'py, PyAny>,
-    j_drop_first: &Bound<'py, PyAny>,
-    i_has_missings: &Bound<'py, PyAny>,
-    j_has_missings: &Bound<'py, PyAny>,
+    i_drop_first: bool,
+    j_drop_first: bool,
+    i_has_missings: bool,
+    j_has_missings: bool,
 ) -> PyResult<Bound<'py, PyAny>> {
-    let _ = dtype;
     let i_indices = ro_slice(&i_indices);
     let j_indices = ro_slice(&j_indices);
     let rows = ro_slice(&rows);
-    let i_drop_first = truthy(i_drop_first)?;
-    let j_drop_first = truthy(j_drop_first)?;
-    let drop = i_drop_first || j_drop_first || truthy(i_has_missings)? || truthy(j_has_missings)?;
+    let drop = i_drop_first || j_drop_first || i_has_missings || j_has_missings;
     for_float!(d, "d", F => {
         let d = d.extract::<PyReadonlyArray1<F>>()?;
         let d = ro_slice(&d);

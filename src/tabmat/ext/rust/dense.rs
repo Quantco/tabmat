@@ -1,9 +1,6 @@
 //! Python bindings of the dense kernels, exposed as the submodule
-//! `tabmat.ext._rust.dense` and re-exported by `tabmat.ext.dense`. Every
-//! function keeps the signature of the Cython function it replaced (including
-//! the `center` argument and the `rows=None`/`cols=None` conventions of #560),
-//! so the Python side in `tabmat/dense_matrix.py` is unchanged; the kernels
-//! themselves are in `kernels/dense.rs`.
+//! `tabmat.ext._rust.dense` and re-exported by `tabmat.ext.dense`; the
+//! kernels themselves are in `kernels/dense.rs`.
 
 use numpy::ndarray::Array2;
 use numpy::{IntoPyArray, PyReadonlyArray2, PyUntypedArrayMethods};

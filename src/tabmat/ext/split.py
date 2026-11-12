@@ -2,8 +2,9 @@
 :class:`tabmat.CategoricalMatrix`.
 
 The implementation lives in the Rust extension module ``tabmat.ext._rust``
-(see ``src/tabmat/ext/rust/split.rs``); this module only re-exports its
-functions under their historical import path.
+(see ``src/tabmat/ext/rust/split.rs`` for the bindings and
+``src/tabmat/ext/rust/kernels/split.rs`` for the kernels); this module only
+re-exports its functions under their historical import path.
 """
 
 from ._rust.split import (
