@@ -20,7 +20,7 @@ use crate::boundary::{
 use crate::kernels::sparse::{
     self as kernels, included_mask, position_map, Compressed, FormatError,
 };
-use crate::kernels::{check_indices, Centered, Index};
+use crate::kernels::{check_indices, Centered, Float, Index};
 
 /// The arrays of a scipy compressed sparse matrix, borrowed from Python.
 struct SparseArrays<'py, I: Index + numpy::Element, F: PyFloat> {
@@ -67,16 +67,21 @@ impl<'py, I: Index + numpy::Element, F: PyFloat> SparseArrays<'py, I, F> {
             indptr: ro_slice(&self.indptr),
             shape: self.shape,
         };
-        owned.view().check(n_major).map_err(|e| match e {
-            FormatError::IndptrLength { expected } => PyValueError::new_err(format!(
-                "{what}.indptr has {} entries, expected {expected}",
-                owned.indptr.len()
-            )),
-            FormatError::IndptrEntries => PyValueError::new_err(format!(
-                "{what}.indptr must be non-decreasing from 0, with data and indices holding its last entry's worth of values"
-            )),
-        })?;
+        owned
+            .view(n_major)
+            .map_err(|e| format_error(e, what, owned.indptr.len()))?;
         Ok(owned)
+    }
+}
+
+fn format_error(e: FormatError, what: &str, indptr_len: usize) -> PyErr {
+    match e {
+        FormatError::IndptrLength { expected } => PyValueError::new_err(format!(
+            "{what}.indptr has {indptr_len} entries, expected {expected}"
+        )),
+        FormatError::IndptrEntries => PyValueError::new_err(format!(
+            "{what}.indptr must be non-decreasing from 0, with data and indices holding its last entry's worth of values"
+        )),
     }
 }
 
@@ -88,14 +93,18 @@ struct Owned<'a, I: Index, F: Clone> {
     shape: (usize, usize),
 }
 
-impl<I: Index, F: Clone> Owned<'_, I, F> {
-    fn view(&self) -> Compressed<'_, I, F> {
-        Compressed {
+impl<I: Index, F: Float> Owned<'_, I, F> {
+    /// The [`Compressed`] view, checked for `n_major` compressed rows or
+    /// columns.
+    fn view(&self, n_major: usize) -> Result<Compressed<'_, I, F>, FormatError> {
+        let c = Compressed {
             data: &self.data,
             indices: &self.indices,
             indptr: &self.indptr,
             shape: self.shape,
-        }
+        };
+        c.check(n_major)?;
+        Ok(c)
     }
 }
 
@@ -135,7 +144,7 @@ fn sparse_sandwich<'py>(
         let (n, n_cols) = a.shape;
         let a = a.view(n_cols, "A")?;
         let at = at.view(n, "AT")?;
-        let (a, at) = (a.view(), at.view());
+        let (a, at) = (a.view(n_cols).expect("checked"), at.view(n).expect("checked"));
         let d = ro_slice(&d);
         let rows = ro_slice(&rows);
         let cols = ro_slice(&cols);
@@ -148,8 +157,8 @@ fn sparse_sandwich<'py>(
             if d.len() < n {
                 return Err(PyValueError::new_err("d must have one entry per row of A"));
             }
-            check_indices(&a.indices[..a.nnz()], n, "A.indices")?;
-            check_indices(&at.indices[..at.nnz()], n_cols, "AT.indices")?;
+            check_indices(a.indices(), n, "A.indices")?;
+            check_indices(at.indices(), n_cols, "AT.indices")?;
             check_indices(&rows, n, "row")?;
             check_indices(&cols, n_cols, "column")?;
             let row_included = included_mask(&rows, n);
@@ -191,7 +200,7 @@ fn csr_dense_sandwich<'py>(
         let center = extract_center::<F>(B_center, b.shape()[1], "B_center")?;
         let (n, m) = a.shape;
         let a = a.view(n, "A")?;
-        let a = a.view();
+        let a = a.view(n).expect("checked");
         let d = ro_slice(&d);
         let rows = ro_slice(&rows);
         let a_cols = ro_slice(&a_cols);
@@ -206,7 +215,7 @@ fn csr_dense_sandwich<'py>(
             check_indices(&rows, n_rows, "row")?;
             check_indices(&a_cols, m, "A column")?;
             check_indices(&b_cols, b.shape()[1], "B column")?;
-            check_indices(&a.indices[..a.nnz()], m, "A.indices")?;
+            check_indices(a.indices(), m, "A.indices")?;
             let acol_map = position_map(&a_cols, m);
             let center = center.as_ref().map(|c| ro_slice(c));
             let b = Centered { x: b.as_array(), center: center.as_deref() };
@@ -251,7 +260,7 @@ fn matvec_unrestricted<'py>(
             MatVec::Csc => (n_cols, n_rows),
         };
         let x = x.view(n_major, "X")?;
-        let x = x.view();
+        let x = x.view(n_major).expect("checked");
         let v = ro_slice(&v);
         if v.len() < n_minor {
             return Err(PyValueError::new_err(format!(
@@ -336,14 +345,14 @@ fn matvec_restricted<'py>(
                 let x = x.view(n_rows, "X")?;
                 let col_included = included_mask(&cols, n_cols);
                 let mut out = vec![F::default(); rows.len()];
-                py.detach(|| kernels::matvec::<I, F, true>(x.view(), &v, &rows, &col_included, &mut out))?;
+                py.detach(|| kernels::matvec::<I, F, true>(x.view(n_rows).expect("checked"), &v, &rows, &col_included, &mut out))?;
                 out
             }
             MatVec::Csc => {
                 let x = x.view(n_cols, "X")?;
                 let row_included = included_mask(&rows, n_rows);
                 let mut out = vec![F::default(); cols.len()];
-                py.detach(|| kernels::matvec::<I, F, true>(x.view(), &v, &cols, &row_included, &mut out))?;
+                py.detach(|| kernels::matvec::<I, F, true>(x.view(n_cols).expect("checked"), &v, &cols, &row_included, &mut out))?;
                 out
             }
         };
@@ -407,8 +416,9 @@ fn transpose_square_dot_weights<'py>(
             indptr: ro_slice(&indptr),
             shape: (weights.len(), n_cols),
         };
-        let x = x.view();
-        x.check(n_cols).map_err(|_| PyValueError::new_err("indptr, indices and data do not form a valid CSC matrix"))?;
+        let x = x
+            .view(n_cols)
+            .map_err(|e| format_error(e, "the matrix", x.indptr.len()))?;
         let mut out = vec![F::default(); n_cols];
         py.detach(|| kernels::transpose_square_dot_weights(x, &weights, &mut out))?;
         Ok(out.into_pyarray(py).into_any())

@@ -27,11 +27,41 @@ use super::{category_column, checked_chunks, scatter_add, Centered, Float, Index
 // sandwich_cat_dense: cat.T @ diag(d) @ (mat_j - center)[:, j_cols]
 // ---------------------------------------------------------------------------
 
+/// `res[k * nj + j] += d[k] * (mat_j[k, j_cols[j]] - mu[j_cols[j]])` for one
+/// row `k`, `mu` the center vector or `None`. Two instantiations, so that
+/// the uncentered product does not subtract zeros in its inner loop (which
+/// measured 25% slower on a 5-column `mat_j`).
+///
+/// # Safety
+/// `k` is a row of `mat_j`, every entry of `j_cols` a column, and `mu`
+/// (if any) has one entry per column.
+#[inline(always)]
+unsafe fn add_row<F: Float, const CENTERED: bool>(
+    mat_j: Centered<'_, F>,
+    mu: &[F],
+    k: usize,
+    dk: F,
+    j_cols: &[i32],
+    res_row: &mut [F],
+) {
+    for (dst, &j) in res_row.iter_mut().zip(j_cols) {
+        let j = j as usize;
+        // SAFETY: the caller's contract.
+        let v = unsafe { mat_j.get(k, j) };
+        *dst += dk
+            * if CENTERED {
+                v - unsafe { *mu.get_unchecked(j) }
+            } else {
+                v
+            };
+    }
+}
+
 /// `res[cat[k], :] += d[k] * (mat_j - center)[k, j_cols]` over the rows `k`
 /// in `rows`, for `mat_j` any strided view with an optional per-column
 /// center. `res` is `i_ncol x len(j_cols)`, row-major and zeroed; `j_cols`
-/// has been checked against the columns of `mat_j`, and the result rows
-/// (the categories) are checked in the loop.
+/// has been checked against the columns of `mat_j`, `rows` and the
+/// categories are checked chunk by chunk.
 pub fn sandwich_cat_dense<F: Float, const DROP: bool>(
     mat_j: Centered<'_, F>,
     indices: &[i32],
@@ -44,27 +74,32 @@ pub fn sandwich_cat_dense<F: Float, const DROP: bool>(
     let nj = j_cols.len();
     let n_rows = indices.len().min(d.len()).min(mat_j.nrows());
     let n_cats = res.len() / nj.max(1);
+    let centered = mat_j.center.is_some();
+    let mu = mat_j.center.unwrap_or(&[]);
     let category = IndexError {
         what: "category",
         len: n_cats,
     };
-    let mu = mat_j.center_vec();
-    scatter_add(rows.len(), res, |r, res| {
+    scatter_add(rows.len(), res, move |r, res| {
         for rows in checked_chunks(&rows[r], n_rows, "row") {
             for &k in rows? {
                 let k = k as usize;
-                // SAFETY (all three): the chunk of `rows` was just checked
-                // against the lengths of `indices` and `d` and the rows of
-                // `mat_j`; `j_cols` was checked by the caller, and `mu` has an
-                // entry per column of `mat_j`.
+                // SAFETY (all unchecked loads in this loop): the chunk of
+                // `rows` was just checked against the lengths of `indices`
+                // and `d` and the rows of `mat_j`; `j_cols` was checked by
+                // the caller, and `mu` has an entry per column of `mat_j`.
                 let (index, dk) = unsafe { (*indices.get_unchecked(k), *d.get_unchecked(k)) };
                 let Some(i) = category_column::<DROP>(index, drop_first) else {
                     continue;
                 };
-                let res_row = res.get_mut(i * nj..(i + 1) * nj).ok_or(category)?;
-                for (dst, &j) in res_row.iter_mut().zip(j_cols) {
-                    let j = j as usize;
-                    *dst += dk * unsafe { mat_j.get(k, j) - *mu.get_unchecked(j) };
+                if i >= n_cats {
+                    return Err(category);
+                }
+                let res_row = &mut res[i * nj..(i + 1) * nj];
+                if centered {
+                    unsafe { add_row::<F, true>(mat_j, mu, k, dk, j_cols, res_row) };
+                } else {
+                    unsafe { add_row::<F, false>(mat_j, mu, k, dk, j_cols, res_row) };
                 }
             }
         }
@@ -102,7 +137,7 @@ pub fn sandwich_cat_cat<F: Float, const DROP: bool>(
             len: j_ncol,
         },
     );
-    scatter_add(rows.len(), res, |r, res| {
+    scatter_add(rows.len(), res, move |r, res| {
         for rows in checked_chunks(&rows[r], n_rows, "row") {
             for &k in rows? {
                 let k = k as usize;

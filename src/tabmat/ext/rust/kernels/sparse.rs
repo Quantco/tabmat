@@ -82,7 +82,8 @@ pub enum FormatError {
 impl<I: Index, F: Float> Compressed<'_, I, F> {
     /// Checks that `indptr` has `n_major + 1` non-decreasing entries from
     /// zero and that `data` and `indices` hold the `indptr[-1]` nonzeros, so
-    /// that [`Self::entries`] can slice without further checks.
+    /// that [`Self::entries`] cannot fail afterwards. (Slicing without the
+    /// checks after this measured no faster.)
     pub fn check(&self, n_major: usize) -> Result<(), FormatError> {
         if self.indptr.len() != n_major + 1 {
             return Err(FormatError::IndptrLength {
@@ -99,6 +100,11 @@ impl<I: Index, F: Float> Compressed<'_, I, F> {
             return Err(FormatError::IndptrEntries);
         }
         Ok(())
+    }
+
+    /// The stored indices (the first `nnz()` entries of the `indices` array).
+    pub fn indices(&self) -> &[I] {
+        &self.indices[..self.nnz()]
     }
 
     /// The indices and values of compressed row or column `p`.
@@ -347,11 +353,17 @@ pub fn matvec<I: Index, F: Float, const RESTRICTED: bool>(
     included: &[bool],
     out: &mut [F],
 ) -> Result<(), IndexError> {
+    // Sliced to the same length, so that the one bounds check of `v.get`
+    // covers `included` too.
     let n_minor = if RESTRICTED {
         v.len().min(included.len())
     } else {
         v.len()
     };
+    let (v, included) = (
+        &v[..n_minor],
+        &included[..if RESTRICTED { n_minor } else { 0 }],
+    );
     let minor = IndexError {
         what: "stored",
         len: n_minor,
@@ -359,17 +371,17 @@ pub fn matvec<I: Index, F: Float, const RESTRICTED: bool>(
     out.par_iter_mut()
         .enumerate()
         .with_min_len(x.task_len())
-        .try_for_each(|(p, o)| {
+        .try_for_each(move |(p, o)| {
             let p = if RESTRICTED { major[p].as_usize() } else { p };
             let (minor_idx, vals) = x.entries(p);
             let mut acc = *o;
             for (&q, &xv) in minor_idx.iter().zip(vals) {
                 let q = q.as_usize();
-                if q >= n_minor {
+                let Some(&vq) = v.get(q) else {
                     return Err(minor);
-                }
+                };
                 if !RESTRICTED || included[q] {
-                    acc += xv * v[q];
+                    acc += xv * vq;
                 }
             }
             *o = acc;
@@ -392,7 +404,7 @@ pub fn transpose_square_dot_weights<I: Index, F: Float>(
     out.par_iter_mut()
         .enumerate()
         .with_min_len(x.task_len())
-        .try_for_each(|(j, o)| {
+        .try_for_each(move |(j, o)| {
             let (rows, vals) = x.entries(j);
             let mut acc = F::default();
             for (&i, &v) in rows.iter().zip(vals) {

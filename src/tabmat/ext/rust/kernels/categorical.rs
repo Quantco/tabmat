@@ -11,12 +11,21 @@
 //! results).
 //!
 //! The categories are part of the data the kernels stream through, so they
-//! are bounds-checked in the loop; the scatter kernels are parallelised with
-//! [`scatter_add`], the gather of `matvec` with a plain parallel iterator.
+//! are checked in the loop, as one comparison against the number of columns
+//! that also lets the compiler drop the bounds check of the scatter (an
+//! `Option`-returning lookup in its place measured up to 30% slower, and
+//! validating gathered chunks of categories up front up to 2x slower, on
+//! cache-resident results). The scatter kernels are parallelised with
+//! [`scatter_add`], the gather of `matvec` over chunks of rows. The closures
+//! capture by value: captured references made the compiler reload every
+//! invariant from memory on each row.
 
 use rayon::prelude::*;
 
-use super::{category_column, check_indices, scatter_add, Float, IndexError, PARALLEL_MIN_ROWS};
+use super::{
+    category_column, check_indices, scatter_add, Float, IndexError, PARALLEL_MIN_ROWS,
+    VALIDATE_CHUNK,
+};
 
 /// Indicator of the columns listed in `cols` (`get_col_included` in Cython).
 pub fn col_mask(cols: &[i32], n_cols: usize) -> Result<Vec<bool>, IndexError> {
@@ -54,16 +63,19 @@ pub fn transpose_matvec<F: Float, const DROP: bool>(
     };
 
     match rows {
-        None => scatter_add(indices.len(), out, |r, res| {
+        None => scatter_add(indices.len(), out, move |r, res| {
             let other = other.get(r.clone()).ok_or(IndexError {
                 what: "row",
                 len: other.len(),
             })?;
+            let res = &mut res[..n_cols];
             for (&index, &val) in indices[r].iter().zip(other) {
                 if let Some(col) = category_column::<DROP>(index, drop_first) {
-                    let slot = res.get_mut(col).ok_or(category)?;
+                    if col >= n_cols {
+                        return Err(category);
+                    }
                     if mask.is_none_or(|m| m[col]) {
-                        *slot += val;
+                        res[col] += val;
                     }
                 }
             }
@@ -71,20 +83,24 @@ pub fn transpose_matvec<F: Float, const DROP: bool>(
         }),
         Some(rows) => {
             let n_rows = indices.len().min(other.len());
+            let (indices, other) = (&indices[..n_rows], &other[..n_rows]);
             let row = IndexError {
                 what: "row",
                 len: n_rows,
             };
-            scatter_add(rows.len(), out, |r, res| {
+            scatter_add(rows.len(), out, move |r, res| {
+                let res = &mut res[..n_cols];
                 for &k in &rows[r] {
                     let k = k as usize;
                     if k >= n_rows {
                         return Err(row);
                     }
                     if let Some(col) = category_column::<DROP>(indices[k], drop_first) {
-                        let slot = res.get_mut(col).ok_or(category)?;
+                        if col >= n_cols {
+                            return Err(category);
+                        }
                         if mask.is_none_or(|m| m[col]) {
-                            *slot += other[k];
+                            res[col] += other[k];
                         }
                     }
                 }
@@ -106,17 +122,22 @@ pub fn matvec<F: Float, const DROP: bool>(
     let n_cols = other.len();
     let mask = cols.map(|c| col_mask(c, n_cols)).transpose()?;
     let mask = mask.as_deref();
-    out.par_iter_mut()
-        .zip(indices)
-        .with_min_len(PARALLEL_MIN_ROWS)
-        .try_for_each(|(o, &index)| {
-            if let Some(col) = category_column::<DROP>(index, drop_first) {
-                let val = *other.get(col).ok_or(IndexError {
-                    what: "category",
-                    len: n_cols,
-                })?;
-                if mask.is_none_or(|m| m[col]) {
-                    *o += val;
+    let category = IndexError {
+        what: "category",
+        len: n_cols,
+    };
+    out.par_chunks_mut(VALIDATE_CHUNK)
+        .zip(indices.par_chunks(VALIDATE_CHUNK))
+        .with_min_len(PARALLEL_MIN_ROWS / VALIDATE_CHUNK)
+        .try_for_each(move |(out, indices)| {
+            for (o, &index) in out.iter_mut().zip(indices) {
+                if let Some(col) = category_column::<DROP>(index, drop_first) {
+                    if col >= n_cols {
+                        return Err(category);
+                    }
+                    if mask.is_none_or(|m| m[col]) {
+                        *o += other[col];
+                    }
                 }
             }
             Ok(())
@@ -133,22 +154,28 @@ pub fn sandwich<F: Float, const DROP: bool>(
     drop_first: i32,
 ) -> Result<(), IndexError> {
     let n_rows = indices.len().min(d.len());
+    let (indices, d) = (&indices[..n_rows], &d[..n_rows]);
+    let n_cols = res.len();
     let row = IndexError {
         what: "row",
         len: n_rows,
     };
     let category = IndexError {
         what: "category",
-        len: res.len(),
+        len: n_cols,
     };
-    scatter_add(rows.len(), res, |r, res| {
+    scatter_add(rows.len(), res, move |r, res| {
+        let res = &mut res[..n_cols];
         for &k in &rows[r] {
             let k = k as usize;
             if k >= n_rows {
                 return Err(row);
             }
             if let Some(col) = category_column::<DROP>(indices[k], drop_first) {
-                *res.get_mut(col).ok_or(category)? += d[k];
+                if col >= n_cols {
+                    return Err(category);
+                }
+                res[col] += d[k];
             }
         }
         Ok(())
