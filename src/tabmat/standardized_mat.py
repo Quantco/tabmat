@@ -281,26 +281,33 @@ class StandardizedMatrix:
         center, shift = self._dense_centering()
         res = self.mat._centered_transpose_matvec(other, center, rows, cols)
 
-        rows, cols = setup_restrictions(self.shape, rows, cols)
-        other_sum = np.sum(other[rows], 0)
+        # Index only if restricted; fancy indexing copies the whole vector.
+        if rows is not None:
+            other = other[set_up_rows_or_cols(rows, self.shape[0])]
+        if cols is not None:
+            cols = set_up_rows_or_cols(cols, self.shape[1])
+            shift = shift[cols]
+        other_sum = np.sum(other, 0)
 
-        shift_part_tmp = np.outer(shift[cols], other_sum)
+        shift_part_tmp = np.outer(shift, other_sum)
         output_shape = ((self.shape[1] if cols is None else len(cols)),) + res.shape[1:]
         shift_part = np.reshape(shift_part_tmp, output_shape)
 
         if self.mult is not None:
-            mult = self.mult
+            mult = self.mult if cols is None else self.mult[cols]
             # Avoiding an outer product by matching dimensions.
             for _ in range(res.ndim - 1):
                 mult = mult[:, np.newaxis]
-            res *= mult[cols]
+            res *= mult
         res += shift_part
 
         if out is None:
             return res
+        elif cols is None:
+            out += res
         else:
             out[cols] += res
-            return out
+        return out
 
     def __rmatmul__(self, other: np.ndarray | list) -> np.ndarray:
         """
