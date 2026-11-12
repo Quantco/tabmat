@@ -219,7 +219,8 @@ class StandardizedMatrix:
         limited_mult = None
         if self.mult is not None:
             limited_mult = self.mult[cols] if cols is not None else self.mult
-            term1 *= np.outer(limited_mult, limited_mult)
+            term1 *= limited_mult[:, np.newaxis]
+            term1 *= limited_mult[np.newaxis, :]
         limited_shift = shift[cols] if cols is not None else shift
         if not limited_shift.any():
             # (2) to (4) vanish without a shift.
@@ -228,12 +229,18 @@ class StandardizedMatrix:
         d_mat = self.mat._centered_transpose_matvec(d, center, rows, cols)
         if limited_mult is not None:
             d_mat *= limited_mult
-        term2 = np.outer(d_mat, limited_shift)
 
+        # (2) + (3) + (4) = outer(d_mat, shift) + outer(shift, d_mat)
+        #   + sum(d) * outer(shift, shift) = outer(a, shift) + outer(shift, a)
+        # with a = d_mat + sum(d) / 2 * shift, which needs a single outer product.
         limited_d = d[rows] if rows is not None else d
-        term3 = np.outer(limited_shift, d_mat)
-        term4 = np.outer(limited_shift, limited_shift) * np.sum(limited_d)
-        return term1 + term2 + term3 + term4
+        a = d_mat + 0.5 * np.sum(limited_d) * limited_shift
+        cross = np.outer(a, limited_shift)
+        # Keep the dtype that adding the terms out of place would give.
+        term1 = term1.astype(np.result_type(term1, cross), copy=False)
+        term1 += cross
+        term1 += cross.T
+        return term1
 
     def unstandardize(self) -> MatrixBase:
         """Get unstandardized (base) matrix."""
@@ -274,26 +281,33 @@ class StandardizedMatrix:
         center, shift = self._dense_centering()
         res = self.mat._centered_transpose_matvec(other, center, rows, cols)
 
-        rows, cols = setup_restrictions(self.shape, rows, cols)
-        other_sum = np.sum(other[rows], 0)
+        # Index only if restricted; fancy indexing copies the whole vector.
+        if rows is not None:
+            other = other[set_up_rows_or_cols(rows, self.shape[0])]
+        if cols is not None:
+            cols = set_up_rows_or_cols(cols, self.shape[1])
+            shift = shift[cols]
+        other_sum = np.sum(other, 0)
 
-        shift_part_tmp = np.outer(shift[cols], other_sum)
+        shift_part_tmp = np.outer(shift, other_sum)
         output_shape = ((self.shape[1] if cols is None else len(cols)),) + res.shape[1:]
         shift_part = np.reshape(shift_part_tmp, output_shape)
 
         if self.mult is not None:
-            mult = self.mult
+            mult = self.mult if cols is None else self.mult[cols]
             # Avoiding an outer product by matching dimensions.
             for _ in range(res.ndim - 1):
                 mult = mult[:, np.newaxis]
-            res *= mult[cols]
+            res *= mult
         res += shift_part
 
         if out is None:
             return res
+        elif cols is None:
+            out += res
         else:
             out[cols] += res
-            return out
+        return out
 
     def __rmatmul__(self, other: np.ndarray | list) -> np.ndarray:
         """
