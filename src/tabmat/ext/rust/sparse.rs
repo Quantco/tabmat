@@ -145,6 +145,8 @@ fn sparse_sandwich<'py>(
         let a = a.view(n_cols, "A")?;
         let at = at.view(n, "AT")?;
         let (a, at) = (a.view(n_cols).expect("checked"), at.view(n).expect("checked"));
+        a.check_monotone().map_err(|e| format_error(e, "A", a.n_major() + 1))?;
+        at.check_monotone().map_err(|e| format_error(e, "AT", at.n_major() + 1))?;
         let d = ro_slice(&d);
         let rows = ro_slice(&rows);
         let cols = ro_slice(&cols);
@@ -201,6 +203,7 @@ fn csr_dense_sandwich<'py>(
         let (n, m) = a.shape;
         let a = a.view(n, "A")?;
         let a = a.view(n).expect("checked");
+        a.check_monotone().map_err(|e| format_error(e, "A", n + 1))?;
         let d = ro_slice(&d);
         let rows = ro_slice(&rows);
         let a_cols = ro_slice(&a_cols);

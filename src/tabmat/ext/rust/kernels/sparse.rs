@@ -80,26 +80,39 @@ pub enum FormatError {
 }
 
 impl<I: Index, F: Float> Compressed<'_, I, F> {
-    /// Checks that `indptr` has `n_major + 1` non-decreasing entries from
-    /// zero and that `data` and `indices` hold the `indptr[-1]` nonzeros, so
-    /// that [`Self::entries`] cannot fail afterwards. (Slicing without the
-    /// checks after this measured no faster.)
+    /// Checks that `indptr` has `n_major + 1` entries and that `data` and
+    /// `indices` hold the `indptr[-1]` nonzeros: the O(1) part of the
+    /// structure. Whether `indptr` is non-decreasing is left to
+    /// [`Self::check_monotone`] (a pass over `indptr`, worth it for the
+    /// sandwich kernels) or to [`Self::entries_checked`] (row by row, for
+    /// the single-pass kernels, where the separate pass measured 1.5x
+    /// slower at 12 threads on rows with three nonzeros).
     pub fn check(&self, n_major: usize) -> Result<(), FormatError> {
         if self.indptr.len() != n_major + 1 {
             return Err(FormatError::IndptrLength {
                 expected: n_major + 1,
             });
         }
-        let monotone = self.indptr.windows(2).all(|w| w[0] <= w[1]);
         let nnz = self.nnz();
-        if !monotone
-            || self.indptr[0] < I::default()
-            || nnz > self.indices.len()
-            || nnz > self.data.len()
-        {
+        if self.indptr[0] < I::default() || nnz > self.indices.len() || nnz > self.data.len() {
             return Err(FormatError::IndptrEntries);
         }
         Ok(())
+    }
+
+    /// Checks (in parallel) that `indptr` is non-decreasing, so that
+    /// [`Self::entries`] cannot fail afterwards.
+    pub fn check_monotone(&self) -> Result<(), FormatError> {
+        let indptr = self.indptr;
+        let monotone = (1..indptr.len())
+            .into_par_iter()
+            .with_min_len(1 << 16)
+            .all(|i| indptr[i - 1] <= indptr[i]);
+        if monotone {
+            Ok(())
+        } else {
+            Err(FormatError::IndptrEntries)
+        }
     }
 
     /// The stored indices (the first `nnz()` entries of the `indices` array).
@@ -107,12 +120,22 @@ impl<I: Index, F: Float> Compressed<'_, I, F> {
         &self.indices[..self.nnz()]
     }
 
-    /// The indices and values of compressed row or column `p`.
+    /// The indices and values of compressed row or column `p`, for a matrix
+    /// that passed [`Self::check_monotone`].
     #[inline(always)]
     pub fn entries(&self, p: usize) -> (&[I], &[F]) {
         let start = self.indptr[p].as_usize();
         let end = self.indptr[p + 1].as_usize();
         (&self.indices[start..end], &self.data[start..end])
+    }
+
+    /// The indices and values of compressed row or column `p`, or `None`
+    /// if `indptr` is malformed there (decreasing, or beyond the arrays).
+    #[inline(always)]
+    pub fn entries_checked(&self, p: usize) -> Option<(&[I], &[F])> {
+        let start = self.indptr.get(p)?.as_usize();
+        let end = self.indptr.get(p + 1)?.as_usize();
+        Some((self.indices.get(start..end)?, self.data.get(start..end)?))
     }
 
     /// Number of stored entries, `indptr[-1]`.
@@ -345,7 +368,8 @@ pub fn csr_dense_sandwich<I: Index, F: SimdFloat>(
 /// (in order) and all entries take part and `major` and `included` are
 /// unused, so that the unrestricted products compile to the plain loop.
 /// `major` has been checked against the compressed dimension; the stored
-/// indices are checked against `v` (and `included`) in the loop.
+/// indices are checked against `v` (and `included`) in the loop, and the
+/// structure of `indptr` row by row.
 pub fn matvec<I: Index, F: Float, const RESTRICTED: bool>(
     x: Compressed<'_, I, F>,
     v: &[F],
@@ -368,23 +392,32 @@ pub fn matvec<I: Index, F: Float, const RESTRICTED: bool>(
         what: "stored",
         len: n_minor,
     };
-    out.par_iter_mut()
+    let indptr = IndexError {
+        what: "indptr",
+        len: x.nnz(),
+    };
+    let task_len = x.task_len();
+    out.par_chunks_mut(task_len)
         .enumerate()
-        .with_min_len(x.task_len())
-        .try_for_each(move |(p, o)| {
-            let p = if RESTRICTED { major[p].as_usize() } else { p };
-            let (minor_idx, vals) = x.entries(p);
-            let mut acc = *o;
-            for (&q, &xv) in minor_idx.iter().zip(vals) {
-                let q = q.as_usize();
-                let Some(&vq) = v.get(q) else {
-                    return Err(minor);
+        .try_for_each(move |(c, out)| {
+            for (k, o) in out.iter_mut().enumerate() {
+                let p = c * task_len + k;
+                let p = if RESTRICTED { major[p].as_usize() } else { p };
+                let Some((minor_idx, vals)) = x.entries_checked(p) else {
+                    return Err(indptr);
                 };
-                if !RESTRICTED || included[q] {
-                    acc += xv * vq;
+                let mut acc = *o;
+                for (&q, &xv) in minor_idx.iter().zip(vals) {
+                    let q = q.as_usize();
+                    let Some(&vq) = v.get(q) else {
+                        return Err(minor);
+                    };
+                    if !RESTRICTED || included[q] {
+                        acc += xv * vq;
+                    }
                 }
+                *o = acc;
             }
-            *o = acc;
             Ok(())
         })
 }
@@ -401,16 +434,24 @@ pub fn transpose_square_dot_weights<I: Index, F: Float>(
         what: "stored",
         len: weights.len(),
     };
-    out.par_iter_mut()
+    let indptr = IndexError {
+        what: "indptr",
+        len: x.nnz(),
+    };
+    let task_len = x.task_len();
+    out.par_chunks_mut(task_len)
         .enumerate()
-        .with_min_len(x.task_len())
-        .try_for_each(move |(j, o)| {
-            let (rows, vals) = x.entries(j);
-            let mut acc = F::default();
-            for (&i, &v) in rows.iter().zip(vals) {
-                acc += *weights.get(i.as_usize()).ok_or(row)? * (v * v);
+        .try_for_each(move |(c, out)| {
+            for (k, o) in out.iter_mut().enumerate() {
+                let Some((rows, vals)) = x.entries_checked(c * task_len + k) else {
+                    return Err(indptr);
+                };
+                let mut acc = F::default();
+                for (&i, &v) in rows.iter().zip(vals) {
+                    acc += *weights.get(i.as_usize()).ok_or(row)? * (v * v);
+                }
+                *o = acc;
             }
-            *o = acc;
             Ok(())
         })
 }
@@ -478,6 +519,7 @@ mod tests {
             shape,
         };
         c.check(arrays.2.len() - 1).unwrap();
+        c.check_monotone().unwrap();
         c
     }
 
@@ -668,6 +710,7 @@ mod tests {
         };
         assert_eq!(x.check(3), Err(FormatError::IndptrLength { expected: 4 }));
         assert!(x.check(2).is_ok());
+        assert!(x.check_monotone().is_ok());
         let bad = [0i32, 2, 1];
         let y = Compressed {
             data: &data,
@@ -675,9 +718,18 @@ mod tests {
             indptr: &bad,
             shape: (2, 2),
         };
-        assert_eq!(y.check(2), Err(FormatError::IndptrEntries));
+        assert!(y.check(2).is_ok());
+        assert_eq!(y.check_monotone(), Err(FormatError::IndptrEntries));
         let mut out = [0.0; 2];
         assert!(matvec::<i32, f64, false>(x, &[1.0, 1.0], &[], &[], &mut out).is_err());
         assert!(transpose_square_dot_weights(x, &[1.0, 1.0], &mut out).is_err());
+        assert_eq!(
+            matvec::<i32, f64, false>(y, &[1.0; 6], &[], &[], &mut out),
+            Err(IndexError {
+                what: "indptr",
+                len: 1
+            })
+        );
+        assert!(transpose_square_dot_weights(y, &[1.0; 6], &mut out).is_err());
     }
 }
