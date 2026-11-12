@@ -2,8 +2,9 @@
 //! numpy types, so that they can be read, tested and benchmarked on their
 //! own. The binding modules next to this directory extract the Python
 //! arguments and call them. This module holds what the kernel families share:
-//! the element type traits, index validation, the categorical index helper,
-//! the thread pool setup and the deterministic parallel reductions.
+//! the element type traits and SIMD helpers, index validation, the dense
+//! operand with an optional center, the categorical index helper, the thread
+//! pool setup and the deterministic parallel reductions.
 //!
 //! # Conventions
 //!
@@ -35,9 +36,13 @@
 //! counts, and checks that repeated runs agree bit for bit.
 
 pub mod categorical;
+pub mod dense;
 
+use std::borrow::Cow;
 use std::ops::{Add, AddAssign, Mul, Range, Sub};
 
+use ndarray::{ArrayView2, ArrayViewMut2, Axis, Zip};
+use pulp::Simd;
 use rayon::prelude::*;
 
 // ---------------------------------------------------------------------------
@@ -93,6 +98,221 @@ mod private {
     impl Sealed for f64 {}
     impl Sealed for i32 {}
     impl Sealed for i64 {}
+}
+
+/// What the SIMD kernels need from the element type: its vector type for the
+/// instruction set `S`, and splat, arithmetic, fused multiply-add and
+/// horizontal sum on it. `pulp` names these per element type; this trait
+/// lets one kernel be written for both `f32` and `f64`.
+pub trait SimdFloat: Float {
+    type Vec<S: Simd>: Copy + Send + Sync;
+
+    /// Number of lanes of `Vec<S>`.
+    fn lanes<S: Simd>() -> usize {
+        std::mem::size_of::<Self::Vec<S>>() / std::mem::size_of::<Self>()
+    }
+    fn splat<S: Simd>(simd: S, v: Self) -> Self::Vec<S>;
+    fn zero<S: Simd>(simd: S) -> Self::Vec<S> {
+        Self::splat(simd, Self::default())
+    }
+    /// Splits a slice into whole vectors and a scalar tail.
+    fn as_simd<S: Simd>(slice: &[Self]) -> (&[Self::Vec<S>], &[Self]);
+    /// Splits a mutable slice into whole vectors and a scalar tail.
+    fn as_mut_simd<S: Simd>(slice: &mut [Self]) -> (&mut [Self::Vec<S>], &mut [Self]);
+    fn vadd<S: Simd>(simd: S, a: Self::Vec<S>, b: Self::Vec<S>) -> Self::Vec<S>;
+    fn vsub<S: Simd>(simd: S, a: Self::Vec<S>, b: Self::Vec<S>) -> Self::Vec<S>;
+    /// `a * b + c`, fused where the hardware has FMA.
+    fn mul_add<S: Simd>(simd: S, a: Self::Vec<S>, b: Self::Vec<S>, c: Self::Vec<S>)
+        -> Self::Vec<S>;
+    fn reduce_sum<S: Simd>(simd: S, v: Self::Vec<S>) -> Self;
+}
+
+macro_rules! impl_simd_float {
+    ($t:ty, $vec:ident, $splat:ident, $as_simd:ident, $as_mut_simd:ident, $add:ident, $sub:ident, $mul_add:ident, $reduce:ident) => {
+        impl SimdFloat for $t {
+            type Vec<S: Simd> = S::$vec;
+
+            #[inline(always)]
+            fn splat<S: Simd>(simd: S, v: $t) -> S::$vec {
+                simd.$splat(v)
+            }
+            #[inline(always)]
+            fn as_simd<S: Simd>(slice: &[$t]) -> (&[S::$vec], &[$t]) {
+                S::$as_simd(slice)
+            }
+            #[inline(always)]
+            fn as_mut_simd<S: Simd>(slice: &mut [$t]) -> (&mut [S::$vec], &mut [$t]) {
+                S::$as_mut_simd(slice)
+            }
+            #[inline(always)]
+            fn vadd<S: Simd>(simd: S, a: S::$vec, b: S::$vec) -> S::$vec {
+                simd.$add(a, b)
+            }
+            #[inline(always)]
+            fn vsub<S: Simd>(simd: S, a: S::$vec, b: S::$vec) -> S::$vec {
+                simd.$sub(a, b)
+            }
+            #[inline(always)]
+            fn mul_add<S: Simd>(simd: S, a: S::$vec, b: S::$vec, c: S::$vec) -> S::$vec {
+                simd.$mul_add(a, b, c)
+            }
+            #[inline(always)]
+            fn reduce_sum<S: Simd>(simd: S, v: S::$vec) -> $t {
+                simd.$reduce(v)
+            }
+        }
+    };
+}
+
+impl_simd_float!(
+    f64,
+    f64s,
+    splat_f64s,
+    as_simd_f64s,
+    as_mut_simd_f64s,
+    add_f64s,
+    sub_f64s,
+    mul_add_e_f64s,
+    reduce_sum_f64s
+);
+impl_simd_float!(
+    f32,
+    f32s,
+    splat_f32s,
+    as_simd_f32s,
+    as_mut_simd_f32s,
+    add_f32s,
+    sub_f32s,
+    mul_add_e_f32s,
+    reduce_sum_f32s
+);
+
+// ---------------------------------------------------------------------------
+// SIMD vector kernels
+// ---------------------------------------------------------------------------
+//
+// The inner loops of the matrix-vector products and of the sparse x dense
+// sandwich, written once against `pulp` so that they run with the vector
+// width and FMA of the instruction set detected at run time. The `centered`
+// variants subtract a per-column center from `x` as they read it, which is
+// how the kernels compute with `X - center` without copying `X` (expanding
+// into `X @ v - center @ v` would cancel for a large center). Within a
+// variant the summation order is fixed, so results are deterministic.
+
+/// `y[k] += (x[k] - c) * a` for a scalar center `c`.
+#[inline(always)]
+pub fn centered_axpy<S: Simd, F: SimdFloat>(simd: S, x: &[F], c: F, a: F, y: &mut [F]) {
+    let (xv, xt) = F::as_simd::<S>(x);
+    let (yv, yt) = F::as_mut_simd::<S>(y);
+    let (av, cv) = (F::splat(simd, a), F::splat(simd, c));
+    for (y, &x) in yv.iter_mut().zip(xv) {
+        *y = F::mul_add(simd, F::vsub(simd, x, cv), av, *y);
+    }
+    for (y, &x) in yt.iter_mut().zip(xt) {
+        *y += (x - c) * a;
+    }
+}
+
+/// `y[k] += (x[k] - c[k]) * a` for a per-element center `c`.
+#[inline(always)]
+pub fn centered_axpy_vc<S: Simd, F: SimdFloat>(simd: S, x: &[F], c: &[F], a: F, y: &mut [F]) {
+    let (xv, xt) = F::as_simd::<S>(x);
+    let (cv, ct) = F::as_simd::<S>(c);
+    let (yv, yt) = F::as_mut_simd::<S>(y);
+    let av = F::splat(simd, a);
+    for ((y, &x), &c) in yv.iter_mut().zip(xv).zip(cv) {
+        *y = F::mul_add(simd, F::vsub(simd, x, c), av, *y);
+    }
+    for ((y, &x), &c) in yt.iter_mut().zip(xt).zip(ct) {
+        *y += (x - c) * a;
+    }
+}
+
+/// `y[k] += sum_t (x[t][k] - c[t]) * a[t]` for four columns at once, which
+/// reads and writes `y` once for the four.
+#[inline(always)]
+pub fn centered_axpy4<S: Simd, F: SimdFloat>(
+    simd: S,
+    x: [&[F]; 4],
+    c: [F; 4],
+    a: [F; 4],
+    y: &mut [F],
+) {
+    let xs = x.map(|x| F::as_simd::<S>(x));
+    let (yv, yt) = F::as_mut_simd::<S>(y);
+    let cv = c.map(|c| F::splat(simd, c));
+    let av = a.map(|a| F::splat(simd, a));
+    let nvec = yv.len();
+    let xv = xs.map(|(v, _)| &v[..nvec]);
+    for (k, y) in yv.iter_mut().enumerate() {
+        let mut yk = *y;
+        for t in 0..4 {
+            yk = F::mul_add(simd, F::vsub(simd, xv[t][k], cv[t]), av[t], yk);
+        }
+        *y = yk;
+    }
+    let xt = xs.map(|(_, t)| t);
+    for (k, y) in yt.iter_mut().enumerate() {
+        let mut yk = *y;
+        for t in 0..4 {
+            yk += (xt[t][k] - c[t]) * a[t];
+        }
+        *y = yk;
+    }
+}
+
+/// `sum_k (x[k] - c) * y[k]` for a scalar center `c`, with two independent
+/// accumulators.
+#[inline(always)]
+pub fn centered_dot<S: Simd, F: SimdFloat>(simd: S, x: &[F], c: F, y: &[F]) -> F {
+    let (xv, xt) = F::as_simd::<S>(x);
+    let (yv, yt) = F::as_simd::<S>(y);
+    let cv = F::splat(simd, c);
+    let (mut acc0, mut acc1) = (F::zero(simd), F::zero(simd));
+    let mut xp = xv.chunks_exact(2);
+    let mut yp = yv.chunks_exact(2);
+    for (x, y) in (&mut xp).zip(&mut yp) {
+        acc0 = F::mul_add(simd, F::vsub(simd, x[0], cv), y[0], acc0);
+        acc1 = F::mul_add(simd, F::vsub(simd, x[1], cv), y[1], acc1);
+    }
+    for (&x, &y) in xp.remainder().iter().zip(yp.remainder()) {
+        acc0 = F::mul_add(simd, F::vsub(simd, x, cv), y, acc0);
+    }
+    let mut total = F::reduce_sum(simd, F::vadd(simd, acc0, acc1));
+    for (&x, &y) in xt.iter().zip(yt) {
+        total += (x - c) * y;
+    }
+    total
+}
+
+/// `sum_k (x[k] - c[k]) * y[k]` for a per-element center `c`, with two
+/// independent accumulators.
+#[inline(always)]
+pub fn centered_dot_vc<S: Simd, F: SimdFloat>(simd: S, x: &[F], c: &[F], y: &[F]) -> F {
+    let (xv, xt) = F::as_simd::<S>(x);
+    let (cv, ct) = F::as_simd::<S>(c);
+    let (yv, yt) = F::as_simd::<S>(y);
+    let (mut acc0, mut acc1) = (F::zero(simd), F::zero(simd));
+    let mut xp = xv.chunks_exact(2);
+    let mut cp = cv.chunks_exact(2);
+    let mut yp = yv.chunks_exact(2);
+    for ((x, c), y) in (&mut xp).zip(&mut cp).zip(&mut yp) {
+        acc0 = F::mul_add(simd, F::vsub(simd, x[0], c[0]), y[0], acc0);
+        acc1 = F::mul_add(simd, F::vsub(simd, x[1], c[1]), y[1], acc1);
+    }
+    for ((&x, &c), &y) in xp
+        .remainder()
+        .iter()
+        .zip(cp.remainder())
+        .zip(yp.remainder())
+    {
+        acc0 = F::mul_add(simd, F::vsub(simd, x, c), y, acc0);
+    }
+    let mut total = F::reduce_sum(simd, F::vadd(simd, acc0, acc1));
+    for ((&x, &c), &y) in xt.iter().zip(ct).zip(yt) {
+        total += (x - c) * y;
+    }
+    total
 }
 
 // ---------------------------------------------------------------------------
@@ -166,6 +386,135 @@ pub fn category_column<const DROP: bool>(index: i32, drop_first: i32) -> Option<
     } else {
         Some(index as usize)
     }
+}
+
+// ---------------------------------------------------------------------------
+// Dense operands with an optional center
+// ---------------------------------------------------------------------------
+
+/// A dense matrix operand `X - center`: a view of `X` with any strides (C
+/// order, Fortran order or non-contiguous, read in place) and an optional
+/// per-column center, indexed by the original column index like `X`. The
+/// kernels that read dense data subtract the center as they go, so that
+/// `StandardizedMatrix` can compute with centered data without copying it.
+/// Without a center the operand is `X` itself; subtracting a zero center
+/// gives exactly the same values.
+#[derive(Clone, Copy)]
+pub struct Centered<'a, F> {
+    pub x: ArrayView2<'a, F>,
+    pub center: Option<&'a [F]>,
+}
+
+impl<'a, F: Float> Centered<'a, F> {
+    pub fn nrows(&self) -> usize {
+        self.x.nrows()
+    }
+
+    pub fn ncols(&self) -> usize {
+        self.x.ncols()
+    }
+
+    /// The center of column `col`: zero without a center.
+    #[inline(always)]
+    pub fn center_of(&self, col: usize) -> F {
+        self.center.map_or(F::default(), |c| c[col])
+    }
+
+    /// The center as a vector with one entry per column: zeros without a
+    /// center.
+    pub fn center_vec(&self) -> Cow<'a, [F]> {
+        match self.center {
+            Some(c) => Cow::Borrowed(c),
+            None => Cow::Owned(vec![F::default(); self.ncols()]),
+        }
+    }
+
+    /// Gathers `X[rows[k], col] - center[col]` into `dst[k]`, times
+    /// `d[rows[k]]` when `SCALE`: the column packing of the sandwich panels.
+    ///
+    /// # Safety
+    /// `col < ncols()`, every row index is below `nrows()`, and `d` has one
+    /// entry per row of `X` when `SCALE`.
+    #[inline(always)]
+    pub unsafe fn gather_column<I: Index, const SCALE: bool>(
+        &self,
+        col: usize,
+        rows: &[I],
+        d: &[F],
+        dst: &mut [F],
+    ) {
+        let mu = self.center_of(col);
+        let column = self.x.column(col);
+        let dst = &mut dst[..rows.len()];
+        // SAFETY (both branches): the caller's contract.
+        match column.as_slice() {
+            // a contiguous column: let the compiler see the unit stride
+            Some(column) => {
+                gather::<F, I, SCALE>(dst, rows, d, mu, |k| unsafe { *column.get_unchecked(k) })
+            }
+            None => gather::<F, I, SCALE>(dst, rows, d, mu, |k| unsafe { *column.uget(k) }),
+        }
+    }
+}
+
+/// `dst[k] = get(rows[k]) - mu`, times `d[rows[k]]` when `SCALE`; `get` is
+/// the element accessor of one column of `X`.
+#[inline(always)]
+fn gather<F: Float, I: Index, const SCALE: bool>(
+    dst: &mut [F],
+    rows: &[I],
+    d: &[F],
+    mu: F,
+    get: impl Fn(usize) -> F,
+) {
+    for (dst, &k) in dst.iter_mut().zip(rows) {
+        let k = k.as_usize();
+        let v = get(k) - mu;
+        *dst = if SCALE {
+            // SAFETY: the caller's contract, `d` has an entry per row.
+            unsafe { *d.get_unchecked(k) * v }
+        } else {
+            v
+        };
+    }
+}
+
+/// Copies the lower triangle of the square matrix `a` into its upper one.
+///
+/// The matrix is split into quadrants: the upper right one is the
+/// transpose of the lower left one (copied with a parallel `Zip`), and the
+/// two diagonal ones are mirrored recursively under `rayon::join`, down to
+/// `LEAF`-sized blocks done by one task.
+pub fn mirror_lower_triangle<F: Float>(a: ArrayViewMut2<'_, F>) {
+    /// Below this edge length a block is mirrored by one task.
+    const LEAF: usize = 64;
+    let n = a.nrows();
+    if n <= LEAF {
+        let mut a = a;
+        for i in 0..n {
+            for j in i + 1..n {
+                a[[i, j]] = a[[j, i]];
+            }
+        }
+        return;
+    }
+    let mid = n / 2;
+    let (top, bottom) = a.split_at(Axis(0), mid);
+    let (top_left, mut top_right) = top.split_at(Axis(1), mid);
+    let (bottom_left, bottom_right) = bottom.split_at(Axis(1), mid);
+    rayon::join(
+        || {
+            Zip::from(top_right.rows_mut())
+                .and(bottom_left.columns())
+                .par_for_each(|mut row, col| row.assign(&col));
+        },
+        || {
+            rayon::join(
+                || mirror_lower_triangle(top_left),
+                || mirror_lower_triangle(bottom_right),
+            );
+        },
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -400,6 +749,79 @@ mod tests {
             partial_sums::<f64, &str>(3, &mut out, |w, _| if w == 1 { Err("bad") } else { Ok(()) }),
             Err("bad")
         );
+    }
+
+    #[test]
+    fn simd_kernels_match_scalar() {
+        use pulp::Arch;
+        struct Check;
+        impl pulp::WithSimd for Check {
+            type Output = ();
+            #[inline(always)]
+            fn with_simd<S: Simd>(self, simd: S) {
+                let n = 37;
+                let x: Vec<f64> = (0..n).map(|k| k as f64 * 0.5 + 1.0).collect();
+                let y: Vec<f64> = (0..n).map(|k| (k % 7) as f64 - 3.0).collect();
+                let c: Vec<f64> = (0..n).map(|k| (k % 3) as f64).collect();
+                let dot_ref: f64 = (0..n).map(|k| (x[k] - 2.0) * y[k]).sum();
+                assert!((centered_dot(simd, &x, 2.0, &y) - dot_ref).abs() < 1e-9);
+                let dot_vc_ref: f64 = (0..n).map(|k| (x[k] - c[k]) * y[k]).sum();
+                assert!((centered_dot_vc(simd, &x, &c, &y) - dot_vc_ref).abs() < 1e-9);
+                let mut out = y.clone();
+                centered_axpy(simd, &x, 2.0, 1.5, &mut out);
+                assert!((0..n).all(|k| (out[k] - (y[k] + (x[k] - 2.0) * 1.5)).abs() < 1e-12));
+                let mut out = y.clone();
+                centered_axpy_vc(simd, &x, &c, 1.5, &mut out);
+                assert!((0..n).all(|k| (out[k] - (y[k] + (x[k] - c[k]) * 1.5)).abs() < 1e-12));
+                let mut out = y.clone();
+                centered_axpy4(
+                    simd,
+                    [&x, &y, &c, &x],
+                    [1.0, 0.0, 2.0, 3.0],
+                    [1.0, 2.0, 3.0, 4.0],
+                    &mut out,
+                );
+                assert!((0..n).all(|k| {
+                    let e =
+                        y[k] + (x[k] - 1.0) + 2.0 * y[k] + 3.0 * (c[k] - 2.0) + 4.0 * (x[k] - 3.0);
+                    (out[k] - e).abs() < 1e-12
+                }));
+            }
+        }
+        Arch::new().dispatch(Check);
+    }
+
+    #[test]
+    fn centered_gather_and_pack() {
+        let data: Vec<f64> = (0..12).map(|v| v as f64).collect();
+        let x = ArrayView2::from_shape((4, 3), &data).unwrap();
+        let center = [1.0, 2.0, 3.0];
+        let d = [1.0, 10.0, 100.0, 1000.0];
+        let op = Centered {
+            x,
+            center: Some(&center),
+        };
+        let mut dst = [0.0; 2];
+        unsafe { op.gather_column::<i32, true>(1, &[3, 0], &d, &mut dst) };
+        assert_eq!(dst, [1000.0 * (10.0 - 2.0), 1.0 * (1.0 - 2.0)]);
+        let plain = Centered { x, center: None };
+        assert_eq!(plain.center_of(2), 0.0);
+        assert_eq!(&*plain.center_vec(), &[0.0; 3]);
+    }
+
+    #[test]
+    fn mirror_fills_upper_triangle() {
+        for m in [3usize, 150] {
+            let mut out: Vec<f64> = (0..m * m)
+                .map(|k| if k / m >= k % m { k as f64 } else { 0.0 })
+                .collect();
+            mirror_lower_triangle(ArrayViewMut2::from_shape((m, m), &mut out[..]).unwrap());
+            for i in 0..m {
+                for j in 0..m {
+                    assert_eq!(out[i * m + j], out[j * m + i]);
+                }
+            }
+        }
     }
 
     #[test]

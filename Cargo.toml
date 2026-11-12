@@ -1,7 +1,7 @@
 # The Rust extension of tabmat: one cdylib, imported as `tabmat.ext._rust`,
-# with one submodule per kernel family (`categorical`, ...) that the Python
-# modules `tabmat.ext.categorical`, ... re-export. The sources live next to
-# the Cython modules in `src/tabmat/ext/rust/`.
+# with one submodule per kernel family (`categorical`, `dense`, ...) that the
+# Python modules `tabmat.ext.categorical`, `tabmat.ext.dense`, ... re-export.
+# The sources live next to the Cython modules in `src/tabmat/ext/rust/`.
 [package]
 name = "tabmat"
 description = "Rust kernels of tabmat (the tabmat.ext._rust extension module)"
@@ -19,9 +19,15 @@ path = "src/tabmat/ext/rust/lib.rs"
 [dependencies]
 pyo3 = { version = "0.30", features = ["extension-module"] }
 numpy = "0.30"
+ndarray = { version = "0.17", features = ["rayon"] } # the version numpy uses; rayon for Zip::par_for_each
 rayon = "1.10"
+pulp = "0.22"
 
 [profile.release]
 opt-level = 3
 lto = "fat"
 codegen-units = 1
+# Cargo's default of stripping the debuginfo produced a dylib that the dynamic
+# loader of macOS 27 rejects ("mis-aligned LINKEDIT string pool"); there is no
+# debuginfo in a release build anyway.
+strip = "none"

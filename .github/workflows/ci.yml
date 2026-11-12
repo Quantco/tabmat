@@ -30,6 +30,8 @@ jobs:
         run: pixi run -e default cargo fmt --check
       - name: cargo clippy
         run: pixi run -e default cargo clippy --all-targets -- -D warnings
+      - name: cargo test
+        run: pixi run -e default cargo test
 
   unit-tests:
     name: Tests

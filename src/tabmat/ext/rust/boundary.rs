@@ -21,10 +21,16 @@ use numpy::{
     AllowTypeChange, Element, PyArrayDescr, PyArrayLike1, PyReadonlyArray1, PyReadwriteArray1,
     PyUntypedArray, PyUntypedArrayMethods,
 };
-use pyo3::exceptions::{PyIndexError, PyTypeError};
+use pyo3::exceptions::{PyIndexError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 
-use crate::kernels::IndexError;
+use crate::kernels::{Float, IndexError};
+
+/// A kernel element type as seen from Python: a numpy element that PyO3
+/// can extract.
+pub trait PyFloat: Float + Element + for<'a, 'py> FromPyObject<'a, 'py> {}
+impl PyFloat for f32 {}
+impl PyFloat for f64 {}
 
 /// The dtype of the numpy array `arr`, for dispatching on it.
 pub fn dtype_of<'py>(arr: &Bound<'py, PyAny>, what: &str) -> PyResult<Bound<'py, PyArrayDescr>> {
@@ -109,6 +115,26 @@ pub fn with_rw_slice<T: Element + Copy, R>(
     let r = f(&mut v);
     arr.as_array_mut().assign(&ArrayView1::from(&v));
     r
+}
+
+/// Extracts the optional `center` argument of a kernel as a vector with
+/// one entry per column of the dense operand (`None` stays `None`).
+pub fn extract_center<'py, F: PyFloat>(
+    center: Option<&Bound<'py, PyAny>>,
+    n_cols: usize,
+    what: &str,
+) -> PyResult<Option<Arg<'py, F>>> {
+    let Some(center) = center.filter(|c| !c.is_none()) else {
+        return Ok(None);
+    };
+    let center = center.extract::<Arg<'py, F>>()?;
+    if center.len() != n_cols {
+        return Err(PyValueError::new_err(format!(
+            "{what} must have length {n_cols}, got {}.",
+            center.len()
+        )));
+    }
+    Ok(Some(center))
 }
 
 impl From<IndexError> for PyErr {
