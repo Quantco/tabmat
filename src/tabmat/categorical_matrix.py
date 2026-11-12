@@ -182,7 +182,7 @@ from .ext.categorical import (
     transpose_matvec_complex,
     transpose_matvec_fast,
 )
-from .ext.split import sandwich_cat_cat, sandwich_cat_dense
+from .ext.split import sandwich_cat_cat, sandwich_cat_dense, sandwich_cat_sparse
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .util import (
@@ -841,12 +841,27 @@ class CategoricalMatrix(MatrixBase):
         L_cols: np.ndarray | None,
         R_cols: np.ndarray | None,
     ) -> np.ndarray:
-        term_1 = self.multiply(d)  # multiply will deal with drop_first
+        if d.dtype != other.dtype or d.dtype not in (np.float32, np.float64):
+            term_1 = self.multiply(d)  # multiply will deal with drop_first
+            term_1 = _row_col_indexing(term_1, rows, L_cols)
+            return term_1.T.dot(_row_col_indexing(other, rows, R_cols)).toarray()
 
-        term_1 = _row_col_indexing(term_1, rows, L_cols)
-
-        res = term_1.T.dot(_row_col_indexing(other, rows, R_cols)).toarray()
-        return res
+        # The kernel skips negative codes, i.e. missing values and, after
+        # subtracting drop_first, the dropped category.
+        idx_dtype = np.result_type(other.indices.dtype, other.indptr.dtype)
+        R_cols = set_up_rows_or_cols(R_cols, other.shape[1], dtype=idx_dtype)
+        res = sandwich_cat_sparse(
+            self.indices,
+            self.shape[1],
+            d,
+            other.data,
+            other.indices.astype(idx_dtype, copy=False),
+            other.indptr.astype(idx_dtype, copy=False),
+            rows,
+            R_cols,
+            self.drop_first,
+        )
+        return _row_col_indexing(res, L_cols, None)
 
     def multiply(self, other) -> SparseMatrix:
         """Element-wise multiplication.
