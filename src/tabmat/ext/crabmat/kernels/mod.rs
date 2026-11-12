@@ -430,31 +430,32 @@ pub fn category_column<const DROP: bool>(index: i32, drop_first: i32) -> Option<
     }
 }
 
-/// The column a row with category `$index` contributes to, in the body of
-/// a loop over rows inside a function returning `Result<_, IndexError>`:
-/// `continue`s past a skipped row ([`category_column`]) and returns
-/// `Err($err)` for a column at or beyond `$n_cols`.
-///
-/// This is the one check the scatter kernels do per row. Written out like
-/// this, the comparison against `$n_cols` is also what lets the compiler
-/// drop the bounds check of the scatter into a result sliced to `$n_cols`
+/// The column a row with category `index` contributes to: `Ok(None)` for
+/// a skipped row ([`category_column`]), `Err(err)` for a column at or
+/// beyond `n_cols`. This is the one check the scatter kernels do per row,
+/// and the comparison against `n_cols` is also what lets the compiler drop
+/// the bounds check of the scatter into a result sliced to `n_cols`
 /// beforehand (`&mut res[..n_cols]` in the callers, which is why those
-/// reslices are there); an `Option`- or `Result`-returning helper in its
-/// place measured up to 30% slower, and validating gathered chunks of
-/// categories up front up to 2x slower, on cache-resident results. `$err`
-/// is an [`IndexError`] built outside the loop.
-macro_rules! checked_category {
-    ($DROP:ident, $index:expr, $drop_first:expr, $n_cols:expr, $err:expr) => {{
-        let Some(col) = $crate::kernels::category_column::<$DROP>($index, $drop_first) else {
-            continue;
-        };
-        if col >= $n_cols {
-            return Err($err);
-        }
-        col
-    }};
+/// reslices are there).
+///
+/// `err` is an [`IndexError`] built once outside the loop and passed in by
+/// value: this inlines to the same dozen instructions per row as the
+/// hand-written compare (checked against the assembly). Building the error
+/// in the loop instead, as `res.get(col).ok_or(IndexError { .. })?`,
+/// measured up to 30% slower on cache-resident results, and validating
+/// gathered chunks of categories up front up to 2x slower.
+#[inline(always)]
+pub fn checked_category<const DROP: bool>(
+    index: i32,
+    drop_first: i32,
+    n_cols: usize,
+    err: IndexError,
+) -> Result<Option<usize>, IndexError> {
+    match category_column::<DROP>(index, drop_first) {
+        Some(col) if col >= n_cols => Err(err),
+        col => Ok(col),
+    }
 }
-pub(crate) use checked_category;
 
 // ---------------------------------------------------------------------------
 // Dense operands with an optional center

@@ -11,7 +11,7 @@
 //! results).
 //!
 //! The categories are part of the data the kernels stream through, so they
-//! are checked in the loop ([`checked_category!`]), and the data arrays and
+//! are checked in the loop ([`checked_category`]), and the data arrays and
 //! the result are sliced to the checked lengths beforehand so that the one
 //! comparison per row elides the bounds checks of the loads and the
 //! scatter. The scatter kernels are parallelised with [`row_partials`] (with
@@ -63,7 +63,10 @@ pub fn transpose_matvec<F: Float, const DROP: bool>(
                 .ok_or(IndexError::new("row", other.len()))?;
             let res = &mut res[..n_cols];
             for (&index, &val) in indices[r].iter().zip(other) {
-                let col = checked_category!(DROP, index, drop_first, n_cols, category);
+                let Some(col) = checked_category::<DROP>(index, drop_first, n_cols, category)?
+                else {
+                    continue;
+                };
                 if mask.is_none_or(|m| m[col]) {
                     res[col] += val;
                 }
@@ -81,7 +84,11 @@ pub fn transpose_matvec<F: Float, const DROP: bool>(
                     if k >= n_rows {
                         return Err(row);
                     }
-                    let col = checked_category!(DROP, indices[k], drop_first, n_cols, category);
+                    let Some(col) =
+                        checked_category::<DROP>(indices[k], drop_first, n_cols, category)?
+                    else {
+                        continue;
+                    };
                     if mask.is_none_or(|m| m[col]) {
                         res[col] += other[k];
                     }
@@ -110,7 +117,10 @@ pub fn matvec<F: Float, const DROP: bool>(
         .with_min_len(PARALLEL_MIN_ROWS / VALIDATE_CHUNK)
         .try_for_each(move |(out, indices)| {
             for (o, &index) in out.iter_mut().zip(indices) {
-                let col = checked_category!(DROP, index, drop_first, n_cols, category);
+                let Some(col) = checked_category::<DROP>(index, drop_first, n_cols, category)?
+                else {
+                    continue;
+                };
                 if mask.is_none_or(|m| m[col]) {
                     *o += other[col];
                 }
@@ -140,7 +150,10 @@ pub fn sandwich<F: Float, const DROP: bool>(
             if k >= n_rows {
                 return Err(row);
             }
-            let col = checked_category!(DROP, indices[k], drop_first, n_cols, category);
+            let Some(col) = checked_category::<DROP>(indices[k], drop_first, n_cols, category)?
+            else {
+                continue;
+            };
             res[col] += d[k];
         }
         Ok(())

@@ -86,7 +86,9 @@ pub fn sandwich_cat_dense<F: Float, const DROP: bool>(
                 // and `d` and the rows of `mat_j`; `j_cols` was checked by
                 // the caller, and `mu` has an entry per column of `mat_j`.
                 let (index, dk) = unsafe { (*indices.get_unchecked(k), *d.get_unchecked(k)) };
-                let i = checked_category!(DROP, index, drop_first, n_cats, category);
+                let Some(i) = checked_category::<DROP>(index, drop_first, n_cats, category)? else {
+                    continue;
+                };
                 let res_row = &mut res[i * nj..(i + 1) * nj];
                 if centered {
                     unsafe { add_row::<F, true>(mat_j, mu, k, dk, j_cols, res_row) };
@@ -134,8 +136,12 @@ pub fn sandwich_cat_cat<F: Float, const DROP: bool>(
                         *d.get_unchecked(k),
                     )
                 };
-                let i = checked_category!(DROP, ii, i_drop_first, i_ncol, i_cat);
-                let j = checked_category!(DROP, jj, j_drop_first, j_ncol, j_cat);
+                let Some(i) = checked_category::<DROP>(ii, i_drop_first, i_ncol, i_cat)? else {
+                    continue;
+                };
+                let Some(j) = checked_category::<DROP>(jj, j_drop_first, j_ncol, j_cat)? else {
+                    continue;
+                };
                 res[i * j_ncol + j] += dk;
             }
         }
