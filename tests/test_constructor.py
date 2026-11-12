@@ -269,18 +269,17 @@ def test_from_pandas_sparse_nonzero_fill_is_stored_dense(fill_value):
 
 def test_from_pandas_sparse_nonzero_fill_warns_once_for_many_columns():
     # Several non-zero-fill columns must produce a single warning naming all of
-    # them, not one warning per column.
+    # them, not one warning per column. They share one fill value, as pandas warns
+    # when it combines sparse columns with different fill values into the dense
+    # block.
     n = 20
-    df = pd.DataFrame(
-        {
-            "a": pd.Series(pd.arrays.SparseArray(np.ones(n), fill_value=1.0)),
-            "b": pd.Series(pd.arrays.SparseArray(np.full(n, 2.0), fill_value=2.0)),
-            "c": pd.Series(
-                pd.arrays.SparseArray(np.full(n, np.nan), fill_value=np.nan)
-            ),
-            "d": np.arange(n, dtype=float),
-        }
-    )
+    values = {"a": 2.0, "b": 3.0, "c": np.nan}
+    columns = {}
+    for colname, value in values.items():
+        column = np.ones(n)
+        column[[2, 5]] = value
+        columns[colname] = pd.Series(pd.arrays.SparseArray(column, fill_value=1.0))
+    df = pd.DataFrame({**columns, "d": np.arange(n, dtype=float)})
     with pytest.warns(UserWarning, match="fill_value") as record:
         mat = tm.from_pandas(df, dtype=np.float64)
 
