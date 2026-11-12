@@ -2,15 +2,19 @@
 //!
 //! All Rust kernels are built into this one shared library so that they share
 //! a single copy of rayon (and thus one thread pool, sized once at import) and
-//! of PyO3. Each kernel family is a submodule of its own (`categorical` for
-//! now), and a thin Python module per family (`tabmat.ext.categorical`)
+//! of PyO3. The kernels themselves are plain Rust in the `kernels` directory,
+//! with no PyO3 types; `boundary.rs` holds what the bindings share (dtype
+//! dispatch, argument coercion, error conversion), and each kernel family has
+//! a binding module of its own (`categorical` for now) that is a submodule of
+//! this one. A thin Python module per family (`tabmat.ext.categorical`)
 //! re-exports its functions under the names the rest of tabmat has always
 //! imported them by.
 
 use pyo3::prelude::*;
 
+mod boundary;
 mod categorical;
-mod common;
+mod kernels;
 
 /// Creates the submodule `name`, lets `register` fill it, and makes it
 /// importable as `tabmat.ext._rust.<name>` (a submodule created from Rust is
@@ -33,7 +37,7 @@ fn add_submodule(
 
 #[pymodule(gil_used = false)]
 fn _rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    common::init_thread_pool();
+    kernels::init_thread_pool();
     add_submodule(m, "categorical", categorical::register)?;
     Ok(())
 }
