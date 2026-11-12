@@ -11,20 +11,17 @@
 //! results).
 //!
 //! The categories are part of the data the kernels stream through, so they
-//! are checked in the loop, as one comparison against the number of columns
-//! that also lets the compiler drop the bounds check of the scatter (an
-//! `Option`-returning lookup in its place measured up to 30% slower, and
-//! validating gathered chunks of categories up front up to 2x slower, on
-//! cache-resident results). The scatter kernels are parallelised with
-//! [`row_partials`], the gather of `matvec` over chunks of rows. The closures
-//! capture by value: captured references made the compiler reload every
-//! invariant from memory on each row.
+//! are checked in the loop ([`checked_category!`]), and the data arrays and
+//! the result are sliced to the checked lengths beforehand so that the one
+//! comparison per row elides the bounds checks of the loads and the
+//! scatter. The scatter kernels are parallelised with [`row_partials`] (with
+//! `move` closures, see there), the gather of `matvec` over chunks of rows.
 
 use rayon::prelude::*;
 
 use super::{
-    category_column, check_indices, row_partials, Float, IndexError, PARALLEL_MIN_ROWS,
-    VALIDATE_CHUNK,
+    category_column, check_indices, checked_category, row_partials, Float, IndexError,
+    PARALLEL_MIN_ROWS, VALIDATE_CHUNK,
 };
 
 /// Indicator of the columns listed in `cols` (`get_col_included` in Cython).
@@ -66,13 +63,9 @@ pub fn transpose_matvec<F: Float, const DROP: bool>(
                 .ok_or(IndexError::new("row", other.len()))?;
             let res = &mut res[..n_cols];
             for (&index, &val) in indices[r].iter().zip(other) {
-                if let Some(col) = category_column::<DROP>(index, drop_first) {
-                    if col >= n_cols {
-                        return Err(category);
-                    }
-                    if mask.is_none_or(|m| m[col]) {
-                        res[col] += val;
-                    }
+                let col = checked_category!(DROP, index, drop_first, n_cols, category);
+                if mask.is_none_or(|m| m[col]) {
+                    res[col] += val;
                 }
             }
             Ok(())
@@ -88,13 +81,9 @@ pub fn transpose_matvec<F: Float, const DROP: bool>(
                     if k >= n_rows {
                         return Err(row);
                     }
-                    if let Some(col) = category_column::<DROP>(indices[k], drop_first) {
-                        if col >= n_cols {
-                            return Err(category);
-                        }
-                        if mask.is_none_or(|m| m[col]) {
-                            res[col] += other[k];
-                        }
+                    let col = checked_category!(DROP, indices[k], drop_first, n_cols, category);
+                    if mask.is_none_or(|m| m[col]) {
+                        res[col] += other[k];
                     }
                 }
                 Ok(())
@@ -121,13 +110,9 @@ pub fn matvec<F: Float, const DROP: bool>(
         .with_min_len(PARALLEL_MIN_ROWS / VALIDATE_CHUNK)
         .try_for_each(move |(out, indices)| {
             for (o, &index) in out.iter_mut().zip(indices) {
-                if let Some(col) = category_column::<DROP>(index, drop_first) {
-                    if col >= n_cols {
-                        return Err(category);
-                    }
-                    if mask.is_none_or(|m| m[col]) {
-                        *o += other[col];
-                    }
+                let col = checked_category!(DROP, index, drop_first, n_cols, category);
+                if mask.is_none_or(|m| m[col]) {
+                    *o += other[col];
                 }
             }
             Ok(())
@@ -155,12 +140,8 @@ pub fn sandwich<F: Float, const DROP: bool>(
             if k >= n_rows {
                 return Err(row);
             }
-            if let Some(col) = category_column::<DROP>(indices[k], drop_first) {
-                if col >= n_cols {
-                    return Err(category);
-                }
-                res[col] += d[k];
-            }
+            let col = checked_category!(DROP, indices[k], drop_first, n_cols, category);
+            res[col] += d[k];
         }
         Ok(())
     })

@@ -21,7 +21,7 @@
 //! fits the cache, and a validation pass over the whole array cost 20% of
 //! memory traffic in the parallel, bandwidth-bound case.
 
-use super::{category_column, checked_chunks, row_partials, Centered, Float, IndexError};
+use super::{checked_category, checked_chunks, row_partials, Centered, Float, IndexError};
 
 // ---------------------------------------------------------------------------
 // sandwich_cat_dense: cat.T @ diag(d) @ (mat_j - center)[:, j_cols]
@@ -86,12 +86,7 @@ pub fn sandwich_cat_dense<F: Float, const DROP: bool>(
                 // and `d` and the rows of `mat_j`; `j_cols` was checked by
                 // the caller, and `mu` has an entry per column of `mat_j`.
                 let (index, dk) = unsafe { (*indices.get_unchecked(k), *d.get_unchecked(k)) };
-                let Some(i) = category_column::<DROP>(index, drop_first) else {
-                    continue;
-                };
-                if i >= n_cats {
-                    return Err(category);
-                }
+                let i = checked_category!(DROP, index, drop_first, n_cats, category);
                 let res_row = &mut res[i * nj..(i + 1) * nj];
                 if centered {
                     unsafe { add_row::<F, true>(mat_j, mu, k, dk, j_cols, res_row) };
@@ -139,18 +134,8 @@ pub fn sandwich_cat_cat<F: Float, const DROP: bool>(
                         *d.get_unchecked(k),
                     )
                 };
-                let Some(i) = category_column::<DROP>(ii, i_drop_first) else {
-                    continue;
-                };
-                let Some(j) = category_column::<DROP>(jj, j_drop_first) else {
-                    continue;
-                };
-                if i >= i_ncol {
-                    return Err(i_cat);
-                }
-                if j >= j_ncol {
-                    return Err(j_cat);
-                }
+                let i = checked_category!(DROP, ii, i_drop_first, i_ncol, i_cat);
+                let j = checked_category!(DROP, jj, j_drop_first, j_ncol, j_cat);
                 res[i * j_ncol + j] += dk;
             }
         }
