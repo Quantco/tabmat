@@ -34,16 +34,20 @@
 //!   sweep over tile columns is clipped at `i + IB` so that only the lower
 //!   triangle is accumulated.
 //!
-//! Which loop the threads split depends on the shape: when `X` is tall and
-//! narrow (`in_n / kstep > out_m / thresh1d`, "k-parallel") the threads split
-//! the `Rk` blocks statically, each with its own `R` and `L` panels and its
-//! own partial `out`, and the partials are summed at the end in worker order
-//! ([`partial_sums`]); otherwise ("column parallel") the `R` panel is shared
-//! and packed in parallel, and the threads split the row blocks `Ci`, each
-//! with its own `L` panel from a pool. The C++ version that this replaces
-//! accumulated the k-parallel partial sums into one `out` with atomic adds;
-//! per-thread partials make the result independent of thread timing at the
-//! cost of one `out`-sized buffer per thread.
+//! The kernel is written as three stages: the block walk ([`walk`] over a
+//! [`SandwichPlan`] of the `(Cj, Rk, Ci)` blocks), the packing of the
+//! panels ([`PanelSource`]) and the arithmetic ([`dense_base`] and the
+//! tile). The walk is the same whichever level the threads split
+//! ([`Split`]), which depends on the shape: when `X` is tall and narrow
+//! (`in_n / kstep > out_m / thresh1d`, "k-parallel") the threads split the
+//! `Rk` blocks statically, each walking its share with its own `R` and `L`
+//! panels into its own partial `out`, and the partials are summed at the end
+//! in worker order ([`partial_sums`]); otherwise ("column parallel") the
+//! `R` panel is shared and packed in parallel, and the threads split the row
+//! blocks `Ci`, each with its own `L` panel from a pool. The C++ version
+//! that this replaces accumulated the k-parallel partial sums into one
+//! `out` with atomic adds; per-thread partials make the result independent
+//! of thread timing at the cost of one `out`-sized buffer per thread.
 //!
 //! The register tile is written against the `pulp` crate: portable SIMD
 //! with runtime dispatch (NEON on aarch64, SSE/AVX2 chosen at run time on
@@ -73,7 +77,7 @@ use rayon::prelude::*;
 
 use super::{
     centered_axpy, centered_axpy4, centered_axpy_vc, centered_dot, centered_dot_vc,
-    mirror_lower_triangle, partial_sums, Centered, Float, SimdFloat,
+    mirror_lower_triangle, partial_sums, Blocks, Centered, Float, PanelSource, SimdFloat,
 };
 
 // ---------------------------------------------------------------------------
@@ -293,101 +297,146 @@ impl<F: SimdFloat> WithSimd for DenseBase<'_, '_, F> {
 }
 
 // ---------------------------------------------------------------------------
-// Sandwich: packing and the blocked drivers
+// Sandwich: the block walk
 // ---------------------------------------------------------------------------
 
-/// Packs the `R` panel for the `out` columns `cols` and the rows `rk`.
-#[inline(always)]
-fn pack_r<F: Float>(
-    x: Centered<'_, F>,
-    d: &[F],
-    rows: &[i32],
-    cols: &[i32],
-    rk: Range<usize>,
-    r: &mut [F],
-    kstep: usize,
-) {
-    for (rcol, &jj) in r.chunks_mut(kstep).zip(cols) {
-        // SAFETY: `rows` and `cols` were checked against the shape of `X`
-        // at the Python boundary, and `d` has an entry per row.
-        unsafe { x.gather_column::<i32, true>(jj as usize, &rows[rk.clone()], d, rcol) };
-    }
-}
-
-/// The shape of the sandwich product and its blocking parameters.
+/// The block plan of the sandwich product: the column blocks `Cj` of `out`
+/// and the blocks `Rk` of the selected rows of `X`, both `kstep` long, and,
+/// for each `Cj`, the row blocks `Ci` of `out` of `thresh1d` rows from the
+/// diagonal down ([`Self::out_rows`]). The walk visits the
+/// `(Cj, Rk, Ci)` triples with `Cj` outermost.
 #[derive(Clone, Copy)]
-struct Blocking {
-    in_n: usize,
+struct SandwichPlan {
+    out_cols: Blocks,
+    x_rows: Blocks,
     out_m: usize,
     thresh1d: usize,
-    innerblock: usize,
     kstep: usize,
+    innerblock: usize,
 }
 
-/// Packs the `L` panel for the `out` rows `[ci, ci + thresh1d)` into `l` and
-/// multiplies it against the `R` panel of the `out` columns `[cj, cjmax2)`.
-#[inline(always)]
-#[allow(clippy::too_many_arguments)]
-fn dense_row_block<F: SimdFloat>(
-    arch: Arch,
-    x: Centered<'_, F>,
-    rows: &[i32],
-    cols: &[i32],
-    b: Blocking,
-    r: &[F],
-    l: &mut [F],
-    out: &mut OutBlock<'_, F>,
-    ci: usize,
-    cj: usize,
-    cjmax2: usize,
-    rk: Range<usize>,
-) {
-    let cimax2 = (ci + b.thresh1d).min(b.out_m);
-    for (lcol, &ii) in l.chunks_mut(b.kstep).zip(&cols[ci..cimax2]) {
-        // SAFETY: as in `pack_r`.
-        unsafe { x.gather_column::<i32, false>(ii as usize, &rows[rk.clone()], &[], lcol) };
+impl SandwichPlan {
+    /// The row blocks `Ci` of `out` at or below the diagonal block of `cj`;
+    /// `kstep` is a multiple of `thresh1d`, so they are the global
+    /// `thresh1d`-blocks of the rows of `out` from `cj.start` on.
+    fn out_rows(&self, cj: &Range<usize>) -> Blocks {
+        Blocks::new(cj.start..self.out_m, self.thresh1d)
     }
-    arch.dispatch(DenseBase {
-        p: Panels {
-            r,
-            l,
-            imin2: ci,
-            jmin2: cj,
-            klen: rk.len(),
-            kstep: b.kstep,
-        },
-        out,
-        rows: ci..cimax2,
-        cols: cj..cjmax2,
-        innerblock: b.innerblock,
-    });
 }
 
-/// A free list of `L` panels for the column-parallel row-block loop: a row
-/// block takes a panel, uses it, and gives it back, so one panel per
-/// concurrently running thread is allocated per call and reused.
-struct PanelPool<F: Float> {
-    free: Mutex<Vec<Vec<F>>>,
-    len: usize,
+/// Which level of the sandwich walk the threads split.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Split {
+    /// "k-parallel", for a tall and narrow `X`: every worker takes a
+    /// static share of the `Rk` blocks ([`Blocks::part`]) and walks the
+    /// rest of the plan alone, with its own panels and into its own copy
+    /// of `out`; the copies are summed in worker order ([`partial_sums`]).
+    XRows,
+    /// "column parallel": one walk, in which the columns of each `R` panel
+    /// are packed in parallel and the `Ci` blocks of each `(Cj, Rk)` step,
+    /// which own disjoint rows of `out`, are split between the threads,
+    /// each taking an `L` panel source from a pool.
+    OutRows,
 }
 
-impl<F: Float> PanelPool<F> {
-    fn new(len: usize) -> Self {
+/// A free list of scratch objects for a parallel loop: an iteration takes
+/// one, uses it and gives it back, so that one object per concurrently
+/// running thread is made (by `make`) per call and reused. The sandwich
+/// keeps its `L` panel sources here.
+struct PanelPool<T, M> {
+    free: Mutex<Vec<T>>,
+    make: M,
+}
+
+impl<T, M: Fn() -> T> PanelPool<T, M> {
+    fn new(make: M) -> Self {
         Self {
             free: Mutex::new(Vec::new()),
-            len,
+            make,
         }
     }
 
-    fn with(&self, f: impl FnOnce(&mut [F])) {
-        let mut buf = self
-            .free
-            .lock()
-            .unwrap()
-            .pop()
-            .unwrap_or_else(|| vec![F::default(); self.len]);
-        f(&mut buf);
-        self.free.lock().unwrap().push(buf);
+    fn with<R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
+        let popped = self.free.lock().unwrap().pop();
+        let mut item = popped.unwrap_or_else(&self.make);
+        let result = f(&mut item);
+        self.free.lock().unwrap().push(item);
+        result
+    }
+}
+
+/// The walk of the sandwich over the `Rk` blocks `x_rows` (all of them, or
+/// one worker's share): for each `Cj` and each `Rk`, pack the d-scaled `R`
+/// panel of `(Rk, Cj)`, then for each `Ci` from `Cj` down pack the `L`
+/// panel of `(Rk, Ci)` and accumulate the lower triangle of `out[Ci, Cj]`
+/// over `Rk` with [`dense_base`]. With [`Split::OutRows`] the `R` packing
+/// and the `Ci` loop run in parallel; the order in which the `Rk` blocks
+/// contribute to an entry of `out` is the same either way.
+fn walk<'x, 'a, F: SimdFloat, M>(
+    arch: Arch,
+    plan: &SandwichPlan,
+    x_rows: Blocks,
+    split: Split,
+    r: &mut PanelSource<'x, 'a, i32, F>,
+    l_pool: &PanelPool<PanelSource<'x, 'a, i32, F>, M>,
+    out: &mut [F],
+) where
+    M: Fn() -> PanelSource<'x, 'a, i32, F> + Sync,
+{
+    let SandwichPlan {
+        out_m,
+        thresh1d,
+        kstep,
+        innerblock,
+        ..
+    } = *plan;
+    let parallel = split == Split::OutRows;
+    for cj in plan.out_cols.iter() {
+        let out_rows = plan.out_rows(&cj);
+        for rk in x_rows.iter() {
+            let r = if parallel {
+                r.fill_par(rk.clone(), cj.clone())
+            } else {
+                r.fill(rk.clone(), cj.clone())
+            };
+            let row_block = |(ci, data): (Range<usize>, &mut [F])| {
+                l_pool.with(|l| {
+                    let l = l.fill(rk.clone(), ci.clone());
+                    arch.dispatch(DenseBase {
+                        p: Panels {
+                            r,
+                            l,
+                            imin2: ci.start,
+                            jmin2: cj.start,
+                            klen: rk.len(),
+                            kstep,
+                        },
+                        out: &mut OutBlock {
+                            data,
+                            out_m,
+                            row0: ci.start,
+                        },
+                        rows: ci,
+                        cols: cj.clone(),
+                        innerblock,
+                    });
+                });
+            };
+            // The `Ci` blocks own consecutive `thresh1d`-row slices of `out`
+            // from row `cj.start` on.
+            let out = &mut out[cj.start * out_m..];
+            if parallel {
+                out_rows
+                    .par_iter()
+                    .zip(out.par_chunks_mut(thresh1d * out_m))
+                    .for_each(row_block);
+            } else {
+                out_rows
+                    .iter()
+                    .zip(out.chunks_mut(thresh1d * out_m))
+                    .for_each(row_block);
+            }
+        }
     }
 }
 
@@ -405,111 +454,46 @@ pub fn sandwich<F: SimdFloat>(
     kratio: usize,
     innerblock: usize,
 ) {
-    let b = Blocking {
-        in_n: rows.len(),
-        out_m: cols.len(),
+    let (in_n, out_m) = (rows.len(), cols.len());
+    let kstep = kratio * thresh1d;
+    let plan = SandwichPlan {
+        out_cols: Blocks::new(0..out_m, kstep),
+        x_rows: Blocks::new(0..in_n, kstep),
+        out_m,
         thresh1d,
+        kstep,
         innerblock,
-        kstep: kratio * thresh1d,
     };
-    let Blocking {
-        in_n, out_m, kstep, ..
-    } = b;
-    let arch = Arch::new();
-    // An R panel holds the columns of one kstep-wide block of out.
-    let r_len = out_m.min(kstep) * kstep;
-    let l_len = thresh1d * kstep;
-
-    let kparallel = in_n / kstep > out_m / thresh1d;
-    if kparallel {
-        // Each worker takes a contiguous range of the Rk blocks (OpenMP's
-        // static schedule) and accumulates into its own copy of out.
-        let n_blocks = in_n.div_ceil(kstep);
-        let n_workers = n_blocks.min(rayon::current_num_threads()).max(1);
-        // Worker w gets the blocks [w * n_blocks / n_workers, (w + 1) * ...),
-        // i.e. floor or ceil of the average, every worker busy.
-        let worker_blocks = |w: usize| w * n_blocks / n_workers..(w + 1) * n_blocks / n_workers;
-        partial_sums::<F, ()>(n_workers, out, |w, out| {
-            let mut r = vec![F::default(); r_len];
-            let mut l = vec![F::default(); l_len];
-            let mut out = OutBlock {
-                data: out,
-                out_m,
-                row0: 0,
-            };
-            for cj in (0..out_m).step_by(kstep) {
-                let cjmax2 = (cj + kstep).min(out_m);
-                for block in worker_blocks(w) {
-                    let rk = block * kstep..((block + 1) * kstep).min(in_n);
-                    pack_r(x, d, rows, &cols[cj..cjmax2], rk.clone(), &mut r, kstep);
-                    for ci in (cj..out_m).step_by(thresh1d) {
-                        dense_row_block(
-                            arch,
-                            x,
-                            rows,
-                            cols,
-                            b,
-                            &r,
-                            &mut l,
-                            &mut out,
-                            ci,
-                            cj,
-                            cjmax2,
-                            rk.clone(),
-                        );
-                    }
-                }
-            }
-            Ok(())
-        })
-        .expect("the workers cannot fail");
+    let split = if in_n / kstep > out_m / thresh1d {
+        Split::XRows
     } else {
-        // One shared R panel, packed in parallel over its columns; the
-        // threads split the row blocks of out, each with its own L panel.
-        let mut r = vec![F::default(); r_len];
-        let l_pool = PanelPool::new(l_len);
-        for cj in (0..out_m).step_by(kstep) {
-            let cjmax2 = (cj + kstep).min(out_m);
-            for rk_start in (0..in_n).step_by(kstep) {
-                let rk = rk_start..(rk_start + kstep).min(in_n);
-                r.par_chunks_mut(kstep)
-                    .zip(cols[cj..cjmax2].par_iter())
-                    .for_each(|(rcol, &jj)| {
-                        // SAFETY: as in `pack_r`.
-                        unsafe {
-                            x.gather_column::<i32, true>(jj as usize, &rows[rk.clone()], d, rcol)
-                        };
-                    });
-                let r = &r[..];
-                out[cj * out_m..]
-                    .par_chunks_mut(thresh1d * out_m)
-                    .enumerate()
-                    .for_each(|(block, data)| {
-                        let ci = cj + block * thresh1d;
-                        let mut out = OutBlock {
-                            data,
-                            out_m,
-                            row0: ci,
-                        };
-                        l_pool.with(|l| {
-                            dense_row_block(
-                                arch,
-                                x,
-                                rows,
-                                cols,
-                                b,
-                                r,
-                                l,
-                                &mut out,
-                                ci,
-                                cj,
-                                cjmax2,
-                                rk.clone(),
-                            );
-                        });
-                    });
-            }
+        Split::OutRows
+    };
+    let arch = Arch::new();
+    // One walk over the given Rk blocks with its own panel sources: an R
+    // panel holds the columns of one Cj block, an L panel those of one Ci
+    // block.
+    let run = move |x_rows: Blocks, out: &mut [F]| {
+        // SAFETY: `rows` and `cols` were checked against the shape of `X` at
+        // the Python boundary, and `d` has an entry per row.
+        let mut r =
+            unsafe { PanelSource::columns(x, rows, cols, Some(d), kstep, out_m.min(kstep)) };
+        // SAFETY: as for `r`.
+        let l_pool = PanelPool::new(|| unsafe {
+            PanelSource::columns(x, rows, cols, None, kstep, thresh1d)
+        });
+        walk(arch, &plan, x_rows, split, &mut r, &l_pool, out);
+    };
+    match split {
+        Split::XRows => {
+            let n_workers = plan.x_rows.len().min(rayon::current_num_threads()).max(1);
+            partial_sums::<F, ()>(n_workers, out, |w, out| {
+                run(plan.x_rows.part(w, n_workers), out);
+                Ok(())
+            })
+            .expect("the workers cannot fail");
         }
+        Split::OutRows => run(plan.x_rows, out),
     }
 
     mirror_lower_triangle(ArrayViewMut2::from_shape((out_m, out_m), out).expect("square"));

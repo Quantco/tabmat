@@ -19,8 +19,9 @@
 //! `out[A_cols, B_cols] = A[rows, A_cols].T @ diag(d[rows]) @ (B - center)[rows, B_cols]`
 //! is the one kernel with a SIMD inner loop. The rows are processed in
 //! blocks of [`KBLOCK`] and the dense columns in blocks of [`JBLOCK`]; for
-//! each block pair the d-scaled, centered dense block is packed into a
-//! row-major panel `R` ([`Centered::pack_block`]), then every nonzero
+//! each block pair (a [`Blocks`] plan per axis) the d-scaled, centered
+//! dense block is packed into a row-major panel `R` (a row [`PanelSource`]
+//! per worker), then every nonzero
 //! `A[k, i]` of the block adds `A[k, i] * R[k, :]` into row `i` of the
 //! worker's private copy of `out`, an axpy over the dense columns written
 //! with `pulp` (portable SIMD with runtime dispatch). The workers split the
@@ -35,7 +36,8 @@ use pulp::{Arch, Simd, WithSimd};
 use rayon::prelude::*;
 
 use super::{
-    axpy, mirror_lower_triangle, partial_sums, Centered, Float, Index, IndexError, SimdFloat,
+    axpy, mirror_lower_triangle, partial_sums, Blocks, Centered, Float, Index, IndexError,
+    PanelSource, SimdFloat,
 };
 
 /// Rows per block of `csr_dense_sandwich`.
@@ -238,57 +240,37 @@ pub fn sandwich<I: Index, F: Float>(
 // csr_dense_sandwich: A.T @ diag(d) @ (B - center)
 // ---------------------------------------------------------------------------
 
-/// One `(row block, dense column block)` step of `csr_dense_sandwich`, as
-/// the operation `pulp` dispatches to the instruction set detected at run
-/// time: pack the d-scaled, centered dense block into `r`, then do the axpy
-/// of every nonzero of the block into `outtemp`.
-struct CsrDenseBlock<'a, 'b, I, F> {
+/// The arithmetic of one `(Rk, Cj)` step of `csr_dense_sandwich`, as the
+/// operation `pulp` dispatches to the instruction set detected at run time:
+/// every nonzero `A[k, i]` of the block's rows `rows` adds `A[k, i] * R[k, :]`
+/// to row `i` of `outtemp` (columns `cj`), an axpy over the packed panel `r`
+/// of the d-scaled, centered dense block.
+struct CsrDenseBlock<'a, I, F> {
     a: Compressed<'a, I, F>,
-    b: Centered<'b, F>,
-    mu: &'a [F],
-    d: &'a [F],
     rows: &'a [I],
-    b_cols: &'a [I],
     acol_map: &'a [u32],
-    r: &'a mut [F],
+    r: &'a [F],
     outtemp: &'a mut [F],
     out_stride: usize,
-    ck: Range<usize>,
     cj: Range<usize>,
 }
 
-impl<I: Index, F: SimdFloat> WithSimd for CsrDenseBlock<'_, '_, I, F> {
+impl<I: Index, F: SimdFloat> WithSimd for CsrDenseBlock<'_, I, F> {
     type Output = ();
 
     #[inline(always)]
     fn with_simd<S: Simd>(self, simd: S) {
         let CsrDenseBlock {
             a,
-            b,
-            mu,
-            d,
             rows,
-            b_cols,
             acol_map,
             r,
             outtemp,
             out_stride,
-            ck,
             cj,
         } = self;
         let jlen = cj.len();
-        let block_rows = &rows[ck];
-        let block_cols = &b_cols[cj.clone()];
-
-        // Pack the d-scaled, centered dense block row-major through the
-        // view's strides (for an F-ordered b this reads one element of each
-        // of the block's columns per row, which the cache handles better than
-        // packing column by column did).
-        // SAFETY: `rows` was checked against the rows of `b` and `d`,
-        // `b_cols` against its columns, by the caller.
-        unsafe { b.pack_block(block_rows, block_cols, d, mu, r, JBLOCK) };
-
-        for (rrow, &k) in r.chunks(JBLOCK).zip(block_rows) {
+        for (rrow, &k) in r.chunks(JBLOCK).zip(rows) {
             let rrow = &rrow[..jlen];
             let (a_cols, a_vals) = a.entries(k.as_usize());
             for (&i, &q) in a_cols.iter().zip(a_vals) {
@@ -319,35 +301,36 @@ pub fn csr_dense_sandwich<I: Index, F: SimdFloat>(
     n_a_cols: usize,
     out: &mut [F],
 ) {
-    let (nr, nbc) = (rows.len(), b_cols.len());
     // the per-thread partial results have the layout of out
-    let out_stride = nbc;
+    let out_stride = b_cols.len();
     let arch = Arch::new();
     let mu = b.center_vec();
 
-    // Each worker takes a contiguous range of the row blocks (OpenMP's
-    // static schedule) and accumulates into its own copy of out.
-    let n_blocks = nr.div_ceil(KBLOCK);
-    let n_workers = n_blocks.min(rayon::current_num_threads()).max(1);
-    let worker_blocks = |w: usize| w * n_blocks / n_workers..(w + 1) * n_blocks / n_workers;
+    // The block plan: the row blocks Rk, split statically between the
+    // workers (OpenMP's static schedule), each accumulating into its own
+    // copy of out, and within each the dense column blocks Cj.
+    let x_rows = Blocks::new(0..rows.len(), KBLOCK);
+    let b_blocks = Blocks::new(0..b_cols.len(), JBLOCK);
+    let n_workers = x_rows.len().min(rayon::current_num_threads()).max(1);
     partial_sums::<F, ()>(n_workers, out, |w, outtemp| {
-        let mut r = vec![F::default(); KBLOCK * JBLOCK];
-        for block in worker_blocks(w) {
-            let ck = block * KBLOCK..((block + 1) * KBLOCK).min(nr);
-            for cjj in (0..nbc).step_by(JBLOCK) {
-                let cj = cjj..(cjj + JBLOCK).min(nbc);
+        // SAFETY: `rows` was checked against the rows of `b` and `d`,
+        // `b_cols` against its columns, by the caller, and `mu` has an entry
+        // per column of `b`.
+        let mut panels = unsafe { PanelSource::rows(b, rows, b_cols, d, &mu, JBLOCK, KBLOCK) };
+        for rk in x_rows.part(w, n_workers).iter() {
+            for cj in b_blocks.iter() {
+                // Packed row-major through the view's strides (for an
+                // F-ordered b this reads one element of each of the block's
+                // columns per row, which the cache handles better than
+                // packing column by column did).
+                let r = panels.fill(rk.clone(), cj.clone());
                 arch.dispatch(CsrDenseBlock {
                     a,
-                    b,
-                    mu: &mu,
-                    d,
-                    rows,
-                    b_cols,
+                    rows: &rows[rk.clone()],
                     acol_map,
-                    r: &mut r,
+                    r,
                     outtemp,
                     out_stride,
-                    ck: ck.clone(),
                     cj,
                 });
             }

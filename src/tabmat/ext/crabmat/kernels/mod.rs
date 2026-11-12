@@ -593,6 +593,241 @@ pub fn mirror_lower_triangle<F: Float>(a: ArrayViewMut2<'_, F>) {
 }
 
 // ---------------------------------------------------------------------------
+// Block plans and panels
+// ---------------------------------------------------------------------------
+//
+// The blocked kernels (the dense sandwich, the sparse x dense sandwich and
+// the dense matrix-vector products) are written as separate stages: a walk
+// over a plan of [`Blocks`], which fixes the order of the blocks and which
+// level of the walk the threads split; a packing stage, which copies the
+// dense operand of one block into a contiguous panel ([`PanelSource`]); and
+// the arithmetic kernel, which only ever sees whole panels or slices. The
+// order in which the blocks contribute to an entry of the result is fixed
+// by the plan and the split, so the results are deterministic for a given
+// thread count.
+
+/// The block plan of one axis: the index range `start..end` cut into
+/// consecutive blocks of `step` indices, the last one possibly shorter.
+///
+/// A kernel's walk is a nest of these, one per blocked axis. The blocks are
+/// indexed, so that a level of the walk can be iterated in order
+/// ([`Self::iter`]), split between rayon's threads ([`Self::par_iter`], an
+/// indexed parallel iterator that zips with the matching chunks of an
+/// output), or split statically into contiguous shares, one per worker
+/// ([`Self::part`]), for the walks whose workers accumulate private partial
+/// results ([`partial_sums`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Blocks {
+    start: usize,
+    end: usize,
+    step: usize,
+}
+
+impl Blocks {
+    /// `range` in blocks of `step` indices (`step > 0`).
+    pub fn new(range: Range<usize>, step: usize) -> Self {
+        assert!(step > 0, "the block length must be positive");
+        Self {
+            start: range.start,
+            end: range.end.max(range.start),
+            step,
+        }
+    }
+
+    /// The number of blocks.
+    pub fn len(&self) -> usize {
+        (self.end - self.start).div_ceil(self.step)
+    }
+
+    /// Block `b` (`b < len()`).
+    #[inline(always)]
+    pub fn get(&self, b: usize) -> Range<usize> {
+        let lo = self.start + b * self.step;
+        lo..(lo + self.step).min(self.end)
+    }
+
+    /// The blocks in order.
+    pub fn iter(self) -> impl ExactSizeIterator<Item = Range<usize>> {
+        (0..self.len()).map(move |b| self.get(b))
+    }
+
+    /// The blocks as an indexed parallel iterator.
+    pub fn par_iter(self) -> impl IndexedParallelIterator<Item = Range<usize>> {
+        (0..self.len()).into_par_iter().map(move |b| self.get(b))
+    }
+
+    /// Share `w` of `n_parts` (OpenMP's static schedule): the blocks
+    /// `[w * n / n_parts, (w + 1) * n / n_parts)` of the `n` blocks, i.e.
+    /// the floor or the ceiling of the average, every share busy when
+    /// `n_parts <= n`. The shares are adjacent and together cover the plan
+    /// once, and their blocks are blocks of the plan.
+    pub fn part(&self, w: usize, n_parts: usize) -> Self {
+        let n = self.len();
+        let at = |b: usize| (self.start + b * self.step).min(self.end);
+        Self {
+            start: at(w * n / n_parts),
+            end: at((w + 1) * n / n_parts),
+            step: self.step,
+        }
+    }
+}
+
+/// The packing stage of the blocked sandwich kernels: owns a scratch buffer
+/// and fills it with one block of the dense operand
+/// `(X - center)[rows, cols]`, scaled by `d[rows]` where the kernel needs
+/// it, as a panel of `stride`-long runs that the arithmetic kernel reads
+/// with unit stride whatever the layout of `X`.
+///
+/// The walk calls [`Self::fill`] for every block it visits and uses the
+/// returned panel until the next fill (an iterator lending the panels is not
+/// expressible in stable Rust). A source belongs to one thread at a time;
+/// [`Self::fill_par`] packs one panel with all of them. (`'x` is the
+/// lifetime of the view of `X`, `'a` that of the other arrays: views are
+/// invariant in their lifetime, so the two cannot be merged.)
+pub struct PanelSource<'x, 'a, I, F> {
+    x: Centered<'x, F>,
+    rows: &'a [I],
+    cols: &'a [I],
+    layout: PanelLayout<'a, F>,
+    stride: usize,
+    buf: Vec<F>,
+}
+
+/// How a [`PanelSource`] lays out a block.
+#[derive(Clone, Copy)]
+enum PanelLayout<'a, F> {
+    /// One run per column (k-contiguous), times `d` if given: the panels of
+    /// the dense sandwich ([`Centered::gather_column`]).
+    Columns { d: Option<&'a [F]> },
+    /// One run per row, times `d` and centered with the center vector `mu`:
+    /// the dense block of the sparse x dense sandwich
+    /// ([`Centered::pack_block`]).
+    Rows { d: &'a [F], mu: &'a [F] },
+}
+
+impl<'x, 'a, I: Index, F: Float> PanelSource<'x, 'a, I, F> {
+    /// A source of column panels: [`Self::fill`] writes
+    /// `d[rows[k]] * (X[rows[k], cols[j]] - center[cols[j]])` (without the
+    /// `d` factor when it is `None`) to `panel[(j - cb.start) * stride + (k - rk.start)]`
+    /// for the blocks `rk` of at most `stride` rows and `cb` of at most
+    /// `max_cols` columns.
+    ///
+    /// # Safety
+    /// Every entry of `rows` is below `x.nrows()`, every entry of `cols`
+    /// below `x.ncols()`, and `d` has an entry per row of `X`: the fills
+    /// read without bounds checks.
+    pub unsafe fn columns(
+        x: Centered<'x, F>,
+        rows: &'a [I],
+        cols: &'a [I],
+        d: Option<&'a [F]>,
+        stride: usize,
+        max_cols: usize,
+    ) -> Self {
+        Self {
+            x,
+            rows,
+            cols,
+            layout: PanelLayout::Columns { d },
+            stride,
+            buf: vec![F::default(); max_cols * stride],
+        }
+    }
+
+    /// A source of row panels: [`Self::fill`] writes
+    /// `d[rows[k]] * (X[rows[k], cols[j]] - mu[cols[j]])` to
+    /// `panel[(k - rk.start) * stride + (j - cb.start)]` for the blocks `rk`
+    /// of at most `max_rows` rows and `cb` of at most `stride` columns. `mu`
+    /// is the center as a vector ([`Centered::center_vec`]), computed once
+    /// by the caller rather than per source.
+    ///
+    /// # Safety
+    /// As for [`Self::columns`], and `mu` has an entry per column of `X`.
+    pub unsafe fn rows(
+        x: Centered<'x, F>,
+        rows: &'a [I],
+        cols: &'a [I],
+        d: &'a [F],
+        mu: &'a [F],
+        stride: usize,
+        max_rows: usize,
+    ) -> Self {
+        Self {
+            x,
+            rows,
+            cols,
+            layout: PanelLayout::Rows { d, mu },
+            stride,
+            buf: vec![F::default(); max_rows * stride],
+        }
+    }
+
+    /// The number of runs of the block `rk x cb` and their length in use.
+    fn runs(&self, rk: &Range<usize>, cb: &Range<usize>) -> (usize, usize) {
+        match self.layout {
+            PanelLayout::Columns { .. } => (cb.len(), rk.len()),
+            PanelLayout::Rows { .. } => (rk.len(), cb.len()),
+        }
+    }
+
+    /// Packs the block of the selected rows `rk` and the selected columns
+    /// `cb` (positions in `rows` and `cols`) and returns the panel.
+    #[inline(always)]
+    pub fn fill(&mut self, rk: Range<usize>, cb: Range<usize>) -> &[F] {
+        let (n_runs, run_len) = self.runs(&rk, &cb);
+        debug_assert!(n_runs * self.stride <= self.buf.len() && run_len <= self.stride);
+        let (x, rows, cols) = (self.x, &self.rows[rk], &self.cols[cb]);
+        // SAFETY (all three arms): the indices and `d` (and `mu`) satisfy the
+        // contract of the constructor.
+        match self.layout {
+            PanelLayout::Columns { d: Some(d) } => {
+                for (run, &j) in self.buf.chunks_mut(self.stride).zip(cols) {
+                    unsafe { x.gather_column::<I, true>(j.as_usize(), rows, d, run) };
+                }
+            }
+            PanelLayout::Columns { d: None } => {
+                for (run, &j) in self.buf.chunks_mut(self.stride).zip(cols) {
+                    unsafe { x.gather_column::<I, false>(j.as_usize(), rows, &[], run) };
+                }
+            }
+            PanelLayout::Rows { d, mu } => unsafe {
+                x.pack_block(rows, cols, d, mu, &mut self.buf, self.stride)
+            },
+        }
+        &self.buf
+    }
+
+    /// [`Self::fill`] with the runs packed in parallel; the panel is the
+    /// same.
+    pub fn fill_par(&mut self, rk: Range<usize>, cb: Range<usize>) -> &[F] {
+        let (n_runs, run_len) = self.runs(&rk, &cb);
+        debug_assert!(n_runs * self.stride <= self.buf.len() && run_len <= self.stride);
+        let (x, rows, cols) = (self.x, &self.rows[rk], &self.cols[cb]);
+        let stride = self.stride;
+        let runs = self.buf.par_chunks_mut(stride);
+        // SAFETY (all three arms): as in `fill`.
+        match self.layout {
+            PanelLayout::Columns { d: Some(d) } => {
+                runs.zip(cols.par_iter()).for_each(|(run, &j)| unsafe {
+                    x.gather_column::<I, true>(j.as_usize(), rows, d, run)
+                });
+            }
+            PanelLayout::Columns { d: None } => {
+                runs.zip(cols.par_iter()).for_each(|(run, &j)| unsafe {
+                    x.gather_column::<I, false>(j.as_usize(), rows, &[], run)
+                });
+            }
+            PanelLayout::Rows { d, mu } => {
+                runs.zip(rows.par_iter()).for_each(|(run, k)| unsafe {
+                    x.pack_block(std::slice::from_ref(k), cols, d, mu, run, stride)
+                });
+            }
+        }
+        &self.buf
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Thread pool
 // ---------------------------------------------------------------------------
 
@@ -876,6 +1111,62 @@ mod tests {
             }
         }
         Arch::new().dispatch(Check);
+    }
+
+    #[test]
+    fn blocks_cover_the_range_and_split_into_shares() {
+        let plan = Blocks::new(3..20, 5);
+        assert_eq!(plan.len(), 4);
+        assert_eq!(
+            plan.iter().collect::<Vec<_>>(),
+            [3..8, 8..13, 13..18, 18..20]
+        );
+        assert_eq!(
+            plan.par_iter().collect::<Vec<_>>(),
+            plan.iter().collect::<Vec<_>>()
+        );
+        assert_eq!(Blocks::new(4..4, 5).len(), 0);
+        for n_parts in 1..7 {
+            let shares: Vec<Range<usize>> = (0..n_parts)
+                .flat_map(|w| plan.part(w, n_parts).iter())
+                .collect();
+            assert_eq!(shares, plan.iter().collect::<Vec<_>>(), "{n_parts} parts");
+        }
+        // as many parts as blocks: one block each
+        assert_eq!(plan.part(2, 4), Blocks::new(13..18, 5));
+    }
+
+    #[test]
+    fn panel_sources_pack_both_layouts() {
+        let data: Vec<f64> = (0..30).map(|v| v as f64).collect();
+        let x = ArrayView2::from_shape((6, 5), &data).unwrap();
+        let center = [1.0, 2.0, 3.0, 4.0, 5.0];
+        let d: Vec<f64> = (0..6).map(|k| 10f64.powi(k)).collect();
+        let op = Centered {
+            x,
+            center: Some(&center),
+        };
+        let (rows, cols) = ([5i32, 0, 3, 2], [4i32, 1, 2]);
+        let want = |k: usize, j: usize, scale: bool| {
+            let (r, c) = (rows[k] as usize, cols[j] as usize);
+            (x[[r, c]] - center[c]) * if scale { d[r] } else { 1.0 }
+        };
+        let (rk, cb) = (1..4, 0..2);
+        for scale in [true, false] {
+            let mut src =
+                unsafe { PanelSource::columns(op, &rows, &cols, scale.then_some(&d[..]), 4, 2) };
+            let panel = src.fill(rk.clone(), cb.clone()).to_vec();
+            for (j, k) in cb.clone().flat_map(|j| rk.clone().map(move |k| (j, k))) {
+                assert_eq!(panel[j * 4 + k - 1], want(k, j, scale));
+            }
+            assert_eq!(src.fill_par(rk.clone(), cb.clone()), &panel[..]);
+        }
+        let mut src = unsafe { PanelSource::rows(op, &rows, &cols, &d, &center, 3, 3) };
+        let panel = src.fill(rk.clone(), cb.clone()).to_vec();
+        for (k, j) in rk.clone().flat_map(|k| cb.clone().map(move |j| (k, j))) {
+            assert_eq!(panel[(k - 1) * 3 + j], want(k, j, true));
+        }
+        assert_eq!(src.fill_par(rk, cb), &panel[..]);
     }
 
     #[test]
