@@ -1,10 +1,7 @@
 import os
-import sys
 from os import path
 
-import numpy as np
-from Cython.Build import cythonize
-from setuptools import Extension, find_packages, setup
+from setuptools import find_packages, setup
 from setuptools_rust import RustExtension
 
 here = path.abspath(path.dirname(__file__))
@@ -12,36 +9,9 @@ here = path.abspath(path.dirname(__file__))
 with open(path.join(here, "README.md")) as f:
     long_description = f.read()
 
-# add numpy headers
-include_dirs = [np.get_include()]
-
 # check if debug build
 debug_build = os.getenv("TABMAT_DEBUG", "0").lower() in ("true", "1")
 print(f"Debug Build: {debug_build}")
-
-if sys.platform == "win32":
-    extra_compile_args = ["/openmp", "/O2", "/std:c++17"]
-    extra_link_args = ["/openmp"]
-elif sys.platform == "darwin":
-    extra_compile_args = ["-Xpreprocessor", "-fopenmp", "-O3", "--std=c++17"]
-    extra_link_args = ["-lomp"]
-else:
-    extra_compile_args = ["-fopenmp", "-O3", "--std=c++17"]
-    extra_link_args = ["-fopenmp"]
-
-extension_args = dict(
-    include_dirs=include_dirs,
-    extra_compile_args=extra_compile_args,
-    extra_link_args=extra_link_args,
-    language="c++",
-)
-ext_modules = [
-    Extension(
-        name="tabmat.ext.split",
-        sources=["src/tabmat/ext/split.pyx"],
-        **extension_args,
-    ),
-]
 
 setup(
     name="tabmat",
@@ -64,26 +34,11 @@ setup(
     packages=find_packages(where="src"),
     install_requires=["formulaic>=1.2", "narwhals", "numpy", "scipy"],
     python_requires=">=3.11",
-    ext_modules=cythonize(
-        ext_modules,
-        annotate=False,
-        compiler_directives={
-            "language_level": "3",
-            "freethreading_compatible": True,
-            "boundscheck": debug_build,
-            "wraparound": debug_build,
-            "initializedcheck": False,
-            "nonecheck": False,
-            "cdivision": True,
-            "cpow": True,
-            "legacy_implicit_noexcept": True,
-        },
-    ),
     rust_extensions=[
-        # All Rust kernels are one extension module (see Cargo.toml) so that
-        # they share one rayon thread pool. `debug` is passed explicitly
-        # because setuptools-rust would otherwise make in-place (editable)
-        # builds debug builds.
+        # All kernels are one extension module (see Cargo.toml) so that they
+        # share one rayon thread pool. `debug` is passed explicitly because
+        # setuptools-rust would otherwise make in-place (editable) builds
+        # debug builds.
         RustExtension("tabmat.ext._rust", path="Cargo.toml", debug=debug_build),
     ],
     zip_safe=False,

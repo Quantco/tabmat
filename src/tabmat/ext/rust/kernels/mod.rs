@@ -38,6 +38,7 @@
 pub mod categorical;
 pub mod dense;
 pub mod sparse;
+pub mod split;
 
 use std::borrow::Cow;
 use std::ops::{Add, AddAssign, Mul, Range, Sub};
@@ -381,6 +382,24 @@ pub fn check_indices<I: Index>(
     } else {
         Err(IndexError { what, len })
     }
+}
+
+/// Length of the sub-chunks in which a kernel validates its index array
+/// before using it unchecked: small enough to stay in L1, so that the
+/// validation pass costs no memory traffic, large enough to amortise its
+/// setup.
+pub const VALIDATE_CHUNK: usize = 1024;
+
+/// The entries of `idx` in sub-chunks of [`VALIDATE_CHUNK`], each checked
+/// against `len` just before it is yielded, so that the caller can index
+/// with it unchecked.
+pub fn checked_chunks<'a, I: Index>(
+    idx: &'a [I],
+    len: usize,
+    what: &'static str,
+) -> impl Iterator<Item = Result<&'a [I], IndexError>> {
+    idx.chunks(VALIDATE_CHUNK)
+        .map(move |chunk| check_indices(chunk, len, what).map(|()| chunk))
 }
 
 // ---------------------------------------------------------------------------
@@ -777,6 +796,15 @@ mod tests {
         );
         assert!(check_indices(&[-1i32], 3, "row").is_err());
         assert!(check_indices::<i32>(&[], 0, "row").is_ok());
+    }
+
+    #[test]
+    fn checked_chunks_report_the_bad_chunk() {
+        let mut idx = vec![0i32; 3 * VALIDATE_CHUNK];
+        idx[2 * VALIDATE_CHUNK + 5] = 10;
+        let results: Vec<_> = checked_chunks(&idx, 10, "row").collect();
+        assert_eq!(results.len(), 3);
+        assert!(results[0].is_ok() && results[1].is_ok() && results[2].is_err());
     }
 
     #[test]

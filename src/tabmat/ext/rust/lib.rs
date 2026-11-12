@@ -5,10 +5,10 @@
 //! of PyO3. The kernels themselves are plain Rust in the `kernels` directory,
 //! with no PyO3 types; `boundary.rs` holds what the bindings share (dtype
 //! dispatch, argument coercion, error conversion), and each kernel family has
-//! a binding module of its own (`categorical`, `dense`, `sparse`) that is a
-//! submodule of this one. A thin Python module per family
-//! (`tabmat.ext.categorical`, `tabmat.ext.dense`, `tabmat.ext.sparse`)
-//! re-exports its functions under the names the rest of tabmat has always
+//! a binding module of its own (`categorical`, `dense`, `sparse`, `split`)
+//! that is a submodule of this one. A thin Python module per family
+//! (`tabmat.ext.categorical`, `tabmat.ext.dense`, `tabmat.ext.sparse`,
+//! `tabmat.ext.split`) re-exports its functions under the names the rest of tabmat has always
 //! imported them by.
 
 use pyo3::prelude::*;
@@ -18,6 +18,7 @@ mod categorical;
 mod dense;
 mod kernels;
 mod sparse;
+mod split;
 
 /// Creates the submodule `name`, lets `register` fill it, and makes it
 /// importable as `tabmat.ext._rust.<name>` (a submodule created from Rust is
@@ -44,5 +45,6 @@ fn _rust(m: &Bound<'_, PyModule>) -> PyResult<()> {
     add_submodule(m, "categorical", categorical::register)?;
     add_submodule(m, "dense", dense::register)?;
     add_submodule(m, "sparse", sparse::register)?;
+    add_submodule(m, "split", split::register)?;
     Ok(())
 }
