@@ -271,16 +271,17 @@ def test_cross_sandwich_sparse(
 ):
     rng = np.random.default_rng(0)
     n = 500
-    vals = rng.integers(0, 7, n).astype(float)
+    vals = np.array([f"c{code}" for code in rng.integers(0, 7, n)], dtype=object)
     if cat_missing_method is not None:
-        vals[rng.random(n) < 0.1] = np.nan
+        vals[rng.random(n) < 0.1] = None
     cat = CategoricalMatrix(
         pd.Categorical(vals),
         drop_first=drop_first,
         dtype=dtype,
         cat_missing_method=cat_missing_method or "fail",
     )
-    sparse = sps.random(n, 9, density=0.3, format="csc", rng=rng, dtype=dtype)
+    values = rng.uniform(size=(n, 9)) * (rng.uniform(size=(n, 9)) < 0.3)
+    sparse = sps.csc_matrix(values.astype(dtype))
     sparse.indices = sparse.indices.astype(index_dtype)
     sparse.indptr = sparse.indptr.astype(index_dtype)
     d = rng.uniform(size=n).astype(dtype)
