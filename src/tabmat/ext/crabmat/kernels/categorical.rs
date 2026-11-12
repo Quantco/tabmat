@@ -57,17 +57,13 @@ pub fn transpose_matvec<F: Float, const DROP: bool>(
         .map(|c| col_mask(c, n_cols))
         .transpose()?;
     let mask = mask.as_deref();
-    let category = IndexError {
-        what: "category",
-        len: n_cols,
-    };
+    let category = IndexError::new("category", n_cols);
 
     match rows {
         None => row_partials(indices.len(), out, move |r, res| {
-            let other = other.get(r.clone()).ok_or(IndexError {
-                what: "row",
-                len: other.len(),
-            })?;
+            let other = other
+                .get(r.clone())
+                .ok_or(IndexError::new("row", other.len()))?;
             let res = &mut res[..n_cols];
             for (&index, &val) in indices[r].iter().zip(other) {
                 if let Some(col) = category_column::<DROP>(index, drop_first) {
@@ -84,10 +80,7 @@ pub fn transpose_matvec<F: Float, const DROP: bool>(
         Some(rows) => {
             let n_rows = indices.len().min(other.len());
             let (indices, other) = (&indices[..n_rows], &other[..n_rows]);
-            let row = IndexError {
-                what: "row",
-                len: n_rows,
-            };
+            let row = IndexError::new("row", n_rows);
             row_partials(rows.len(), out, move |r, res| {
                 let res = &mut res[..n_cols];
                 for &k in &rows[r] {
@@ -122,10 +115,7 @@ pub fn matvec<F: Float, const DROP: bool>(
     let n_cols = other.len();
     let mask = cols.map(|c| col_mask(c, n_cols)).transpose()?;
     let mask = mask.as_deref();
-    let category = IndexError {
-        what: "category",
-        len: n_cols,
-    };
+    let category = IndexError::new("category", n_cols);
     out.par_chunks_mut(VALIDATE_CHUNK)
         .zip(indices.par_chunks(VALIDATE_CHUNK))
         .with_min_len(PARALLEL_MIN_ROWS / VALIDATE_CHUNK)
@@ -156,14 +146,8 @@ pub fn sandwich<F: Float, const DROP: bool>(
     let n_rows = indices.len().min(d.len());
     let (indices, d) = (&indices[..n_rows], &d[..n_rows]);
     let n_cols = res.len();
-    let row = IndexError {
-        what: "row",
-        len: n_rows,
-    };
-    let category = IndexError {
-        what: "category",
-        len: n_cols,
-    };
+    let row = IndexError::new("row", n_rows);
+    let category = IndexError::new("category", n_cols);
     row_partials(rows.len(), res, move |r, res| {
         let res = &mut res[..n_cols];
         for &k in &rows[r] {

@@ -298,7 +298,6 @@ pub fn csr_dense_sandwich<I: Index, F: SimdFloat>(
     rows: &[I],
     acol_map: &[u32],
     b_cols: &[I],
-    n_a_cols: usize,
     out: &mut [F],
 ) {
     // the per-thread partial results have the layout of out
@@ -312,7 +311,7 @@ pub fn csr_dense_sandwich<I: Index, F: SimdFloat>(
     let x_rows = Blocks::new(0..rows.len(), KBLOCK);
     let b_blocks = Blocks::new(0..b_cols.len(), JBLOCK);
     let n_workers = x_rows.len().min(rayon::current_num_threads()).max(1);
-    partial_sums::<F, ()>(n_workers, out, |w, outtemp| {
+    partial_sums(n_workers, out, |w, outtemp| {
         // SAFETY: `rows` was checked against the rows of `b` and `d`,
         // `b_cols` against its columns, by the caller, and `mu` has an entry
         // per column of `b`.
@@ -335,10 +334,7 @@ pub fn csr_dense_sandwich<I: Index, F: SimdFloat>(
                 });
             }
         }
-        debug_assert_eq!(n_a_cols * out_stride, outtemp.len());
-        Ok(())
-    })
-    .expect("the workers cannot fail");
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -360,25 +356,17 @@ pub fn matvec<I: Index, F: Float, const RESTRICTED: bool>(
     included: &[bool],
     out: &mut [F],
 ) -> Result<(), IndexError> {
-    // Sliced to the same length, so that the one bounds check of `v.get`
-    // covers `included` too.
-    let n_minor = if RESTRICTED {
-        v.len().min(included.len())
+    // `v` and `included` sliced to one length, so that the bounds check of
+    // `v.get` covers `included` too; `included` is unused (and left empty)
+    // without `RESTRICTED`.
+    let (v, included) = if RESTRICTED {
+        let n_minor = v.len().min(included.len());
+        (&v[..n_minor], &included[..n_minor])
     } else {
-        v.len()
+        (v, &included[..0])
     };
-    let (v, included) = (
-        &v[..n_minor],
-        &included[..if RESTRICTED { n_minor } else { 0 }],
-    );
-    let minor = IndexError {
-        what: "stored",
-        len: n_minor,
-    };
-    let indptr = IndexError {
-        what: "indptr",
-        len: x.nnz(),
-    };
+    let minor = IndexError::new("stored", v.len());
+    let indptr = IndexError::new("indptr", x.nnz());
     let task_len = x.task_len();
     out.par_chunks_mut(task_len)
         .enumerate()
@@ -413,14 +401,8 @@ pub fn transpose_square_dot_weights<I: Index, F: Float>(
     weights: &[F],
     out: &mut [F],
 ) -> Result<(), IndexError> {
-    let row = IndexError {
-        what: "stored",
-        len: weights.len(),
-    };
-    let indptr = IndexError {
-        what: "indptr",
-        len: x.nnz(),
-    };
+    let row = IndexError::new("stored", weights.len());
+    let indptr = IndexError::new("indptr", x.nnz());
     let task_len = x.task_len();
     out.par_chunks_mut(task_len)
         .enumerate()
@@ -595,9 +577,7 @@ mod tests {
                         for _ in 0..2 {
                             let mut out = vec![0.0; mc * nbc];
                             with_threads(threads, || {
-                                csr_dense_sandwich(
-                                    at, bop, &d, rows, &acol_map, b_cols, mc, &mut out,
-                                )
+                                csr_dense_sandwich(at, bop, &d, rows, &acol_map, b_cols, &mut out)
                             });
                             assert_close(
                                 &out,
@@ -708,10 +688,7 @@ mod tests {
         assert!(transpose_square_dot_weights(x, &[1.0, 1.0], &mut out).is_err());
         assert_eq!(
             matvec::<i32, f64, false>(y, &[1.0; 6], &[], &[], &mut out),
-            Err(IndexError {
-                what: "indptr",
-                len: 1
-            })
+            Err(IndexError::new("indptr", 1))
         );
         assert!(transpose_square_dot_weights(y, &[1.0; 6], &mut out).is_err());
     }

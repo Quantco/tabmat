@@ -41,6 +41,7 @@ pub mod sparse;
 pub mod split;
 
 use std::borrow::Cow;
+use std::convert::Infallible;
 use std::ops::{Add, AddAssign, Mul, Range, Sub};
 
 use ndarray::{ArrayView2, ArrayViewMut2, Axis, Zip};
@@ -344,6 +345,13 @@ pub struct IndexError {
     pub len: usize,
 }
 
+impl IndexError {
+    /// The error for an index into `what`, an axis of length `len`.
+    pub const fn new(what: &'static str, len: usize) -> Self {
+        Self { what, len }
+    }
+}
+
 /// The smallest and largest entry of `idx` (zeros if it is empty): a
 /// min/max reduction rather than an early-exit scan, written with eight
 /// independent accumulators so that the compiler vectorises it.
@@ -380,7 +388,7 @@ pub fn check_indices<I: Index>(
     if idx.is_empty() || (lo >= I::default() && hi.as_usize() < len) {
         Ok(())
     } else {
-        Err(IndexError { what, len })
+        Err(IndexError::new(what, len))
     }
 }
 
@@ -452,6 +460,22 @@ impl<'a, F: Float> Centered<'a, F> {
     #[inline(always)]
     pub fn center_of(&self, col: usize) -> F {
         self.center.map_or(F::default(), |c| c[col])
+    }
+
+    /// Whether the columns of `X` are contiguous (Fortran order, or a view
+    /// with unit row stride), so that [`Self::column_slice`] is available.
+    pub fn col_contiguous(&self) -> bool {
+        self.x.strides()[0] == 1 && self.nrows() > 1
+    }
+
+    /// Column `col` of `X` as a slice, for a column-contiguous `X`
+    /// ([`Self::col_contiguous`]).
+    #[inline(always)]
+    pub fn column_slice(&self, col: usize) -> &'a [F] {
+        self.x
+            .index_axis_move(Axis(1), col)
+            .to_slice()
+            .expect("the columns of X are contiguous")
     }
 
     /// The center as a vector with one entry per column: zeros without a
@@ -637,6 +661,11 @@ impl Blocks {
     /// The number of blocks.
     pub fn len(&self) -> usize {
         (self.end - self.start).div_ceil(self.step)
+    }
+
+    /// The length of the blocks (the last one may be shorter).
+    pub fn step(&self) -> usize {
+        self.step
     }
 
     /// Block `b` (`b < len()`).
@@ -869,8 +898,23 @@ pub const REDUCE_BLOCK: usize = 4096;
 /// The summation order, and hence the result, only depends on
 /// `n_workers`, never on thread timing. This is the one way the kernels
 /// combine per-thread results: a static split of the work over the workers
-/// and this reduction in a fixed order.
-pub fn partial_sums<F: Float, E: Send>(
+/// and this reduction in a fixed order. [`try_partial_sums`] is the same
+/// for workers that can fail.
+pub fn partial_sums<F: Float>(
+    n_workers: usize,
+    out: &mut [F],
+    work: impl Fn(usize, &mut [F]) + Sync,
+) {
+    try_partial_sums(n_workers, out, |w, partial| {
+        work(w, partial);
+        Ok::<(), Infallible>(())
+    })
+    .unwrap_or_else(|never| match never {})
+}
+
+/// [`partial_sums`] for workers that can fail: the first error in worker
+/// order is returned and `out` is left untouched.
+pub fn try_partial_sums<F: Float, E: Send>(
     n_workers: usize,
     out: &mut [F],
     work: impl Fn(usize, &mut [F]) -> Result<(), E> + Sync,
@@ -928,7 +972,7 @@ pub fn row_partials<F: Float, E: Send>(
         return accumulate(0..n, res);
     }
     let chunk = n.div_ceil(n_threads);
-    partial_sums(n.div_ceil(chunk), res, |w, local| {
+    try_partial_sums(n.div_ceil(chunk), res, |w, local| {
         accumulate(w * chunk..((w + 1) * chunk).min(n), local)
     })
 }
@@ -1028,10 +1072,7 @@ mod tests {
         assert!(check_indices(&[0i32, 1, 2], 3, "row").is_ok());
         assert_eq!(
             check_indices(&[0i32, 3], 3, "row"),
-            Err(IndexError {
-                what: "row",
-                len: 3
-            })
+            Err(IndexError::new("row", 3))
         );
         assert!(check_indices(&[-1i32], 3, "row").is_err());
         assert!(check_indices::<i32>(&[], 0, "row").is_ok());
@@ -1057,19 +1098,21 @@ mod tests {
     #[test]
     fn partial_sums_accumulate_in_worker_order() {
         let mut out = vec![1.0f64; 10_000];
-        partial_sums::<_, ()>(5, &mut out, |w, partial| {
+        partial_sums(5, &mut out, |w, partial| {
             for (i, p) in partial.iter_mut().enumerate() {
                 *p += (w * 10_000 + i) as f64;
             }
-            Ok(())
-        })
-        .unwrap();
+        });
         for (i, &o) in out.iter().enumerate() {
             let expected: f64 = 1.0 + (0..5).map(|w| (w * 10_000 + i) as f64).sum::<f64>();
             assert_eq!(o, expected);
         }
         assert_eq!(
-            partial_sums::<f64, &str>(3, &mut out, |w, _| if w == 1 { Err("bad") } else { Ok(()) }),
+            try_partial_sums::<f64, &str>(3, &mut out, |w, _| if w == 1 {
+                Err("bad")
+            } else {
+                Ok(())
+            }),
             Err("bad")
         );
     }

@@ -76,10 +76,7 @@ pub fn sandwich_cat_dense<F: Float, const DROP: bool>(
     let n_cats = res.len() / nj.max(1);
     let centered = mat_j.center.is_some();
     let mu = mat_j.center.unwrap_or(&[]);
-    let category = IndexError {
-        what: "category",
-        len: n_cats,
-    };
+    let category = IndexError::new("category", n_cats);
     row_partials(rows.len(), res, move |r, res| {
         for rows in checked_chunks(&rows[r], n_rows, "row") {
             for &k in rows? {
@@ -127,16 +124,8 @@ pub fn sandwich_cat_cat<F: Float, const DROP: bool>(
 ) -> Result<(), IndexError> {
     let n_rows = i_indices.len().min(j_indices.len()).min(d.len());
     let i_ncol = res.len() / j_ncol.max(1);
-    let (i_cat, j_cat) = (
-        IndexError {
-            what: "category",
-            len: i_ncol,
-        },
-        IndexError {
-            what: "category",
-            len: j_ncol,
-        },
-    );
+    let i_cat = IndexError::new("category", i_ncol);
+    let j_cat = IndexError::new("category", j_ncol);
     row_partials(rows.len(), res, move |r, res| {
         for rows in checked_chunks(&rows[r], n_rows, "row") {
             for &k in rows? {
@@ -187,27 +176,22 @@ pub fn sandwich_cat_cat_limited_rows_cols(
 ) -> Result<Vec<f64>, IndexError> {
     let mut i_included = vec![false; i_ncol];
     for &c in i_cols {
-        *i_included.get_mut(c as usize).ok_or(IndexError {
-            what: "column",
-            len: i_ncol,
-        })? = true;
+        *i_included
+            .get_mut(c as usize)
+            .ok_or(IndexError::new("column", i_ncol))? = true;
     }
     let mut j_included = vec![false; j_ncol];
     for &c in j_cols {
-        *j_included.get_mut(c as usize).ok_or(IndexError {
-            what: "column",
-            len: j_ncol,
-        })? = true;
+        *j_included
+            .get_mut(c as usize)
+            .ok_or(IndexError::new("column", j_ncol))? = true;
     }
     let n_rows = i_indices.len().min(j_indices.len()).min(d.len());
     let mut res = vec![0.0f64; i_ncol * j_ncol];
     for &k in rows {
         let k = k as usize;
         if k >= n_rows {
-            return Err(IndexError {
-                what: "row",
-                len: n_rows,
-            });
+            return Err(IndexError::new("row", n_rows));
         }
         let i = i_indices[k] as usize;
         if i_included.get(i).copied().unwrap_or(false) {

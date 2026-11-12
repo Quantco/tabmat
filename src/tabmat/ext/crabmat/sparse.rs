@@ -223,7 +223,7 @@ fn csr_dense_sandwich<'py>(
             let center = center.as_ref().map(|c| ro_slice(c));
             let b = Centered { x: b.as_array(), center: center.as_deref() };
             py.detach(|| {
-                kernels::csr_dense_sandwich(a, b, &d, &rows, &acol_map, &b_cols, nac, &mut out)
+                kernels::csr_dense_sandwich(a, b, &d, &rows, &acol_map, &b_cols, &mut out)
             });
         }
         let out = Array2::from_shape_vec((nac, nbc), out).expect("shape matches length");

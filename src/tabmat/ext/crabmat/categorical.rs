@@ -48,6 +48,10 @@ fn transpose_matvec<'py>(
         with_rw_slice(&mut out, |out| {
             py.detach(|| {
                 let (rows, cols) = (rows.as_deref(), cols.as_deref());
+                // The plain kernel gets a literal 0 here and below: a macro
+                // passing `drop_first` to both instantiations measured 1.2x
+                // slower at one thread (the extra live value spilled the
+                // loop's invariants).
                 if drop {
                     kernels::transpose_matvec::<F, true>(&indices, &v, out, rows, cols, drop_first as i32)
                 } else {

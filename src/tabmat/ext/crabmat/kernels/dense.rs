@@ -487,11 +487,9 @@ pub fn sandwich<F: SimdFloat>(
     match split {
         Split::XRows => {
             let n_workers = plan.x_rows.len().min(rayon::current_num_threads()).max(1);
-            partial_sums::<F, ()>(n_workers, out, |w, out| {
-                run(plan.x_rows.part(w, n_workers), out);
-                Ok(())
-            })
-            .expect("the workers cannot fail");
+            partial_sums(n_workers, out, |w, out| {
+                run(plan.x_rows.part(w, n_workers), out)
+            });
         }
         Split::OutRows => run(plan.x_rows, out),
     }
@@ -522,57 +520,70 @@ fn select(sel: Option<&[i32]>, k: usize) -> usize {
 }
 
 /// The shape of a matrix-vector product: the selected rows and columns
-/// (`None` for all), and the blocking that follows from the layout of `X`.
+/// (`None` for all), and the row blocks that follow from the layout of `X`.
 #[derive(Clone, Copy)]
 struct MatvecShape<'a> {
     rows: Option<&'a [i32]>,
     cols: Option<&'a [i32]>,
     n_rows: usize,
     n_cols: usize,
-    /// Whether the columns of `X` are contiguous (Fortran order); otherwise
-    /// the kernels walk along the rows.
+    /// Whether the columns of `X` are contiguous (Fortran order), so that
+    /// the kernels walk down the columns; otherwise they walk along the
+    /// rows.
     col_contiguous: bool,
-    row_block: usize,
+    /// The blocks of the selected rows, split between the threads.
+    blocks: Blocks,
 }
 
 impl<'a> MatvecShape<'a> {
     fn new<F: Float>(x: Centered<'_, F>, rows: Option<&'a [i32]>, cols: Option<&'a [i32]>) -> Self {
-        let col_contiguous = x.x.strides()[0] == 1 && x.nrows() > 1;
+        let col_contiguous = x.col_contiguous();
+        let n_rows = rows.map_or(x.nrows(), |r| r.len());
+        let row_block = if col_contiguous {
+            ROW_BLOCK_F
+        } else {
+            ROW_BLOCK_C
+        };
         Self {
             rows,
             cols,
-            n_rows: rows.map_or(x.nrows(), |r| r.len()),
+            n_rows,
             n_cols: cols.map_or(x.ncols(), |c| c.len()),
             col_contiguous,
-            row_block: if col_contiguous {
-                ROW_BLOCK_F
-            } else {
-                ROW_BLOCK_C
-            },
+            blocks: Blocks::new(0..n_rows, row_block),
         }
-    }
-
-    fn n_blocks(&self) -> usize {
-        self.n_rows.div_ceil(self.row_block)
-    }
-
-    fn block(&self, b: usize) -> Range<usize> {
-        b * self.row_block..((b + 1) * self.row_block).min(self.n_rows)
     }
 
     /// Number of workers: one when the product is small.
     fn n_workers(&self) -> usize {
         if self.n_rows * self.n_cols > PARALLEL_MIN_WORK {
-            self.n_blocks().min(rayon::current_num_threads()).max(1)
+            self.blocks.len().min(rayon::current_num_threads()).max(1)
         } else {
             1
         }
     }
+}
 
-    /// The row blocks of worker `w` of `n_workers` (a static split).
-    fn worker_blocks(&self, w: usize, n_workers: usize) -> Range<usize> {
-        let n_blocks = self.n_blocks();
-        w * n_blocks / n_workers..(w + 1) * n_blocks / n_workers
+/// One selected column of a column-contiguous `X` as the matrix-vector
+/// kernels read it: its data, its center and its entry of `v`.
+#[derive(Clone, Copy)]
+struct Column<'a, F> {
+    x: &'a [F],
+    mu: F,
+    vj: F,
+}
+
+impl<'x, F: Float> Centered<'x, F> {
+    /// The `cj`-th selected column of a column-contiguous `X`, with its
+    /// entry of `v`; `v` has an entry per column of `X`.
+    #[inline(always)]
+    fn selected_column(&self, cols: Option<&[i32]>, cj: usize, v: &[F]) -> Column<'x, F> {
+        let j = select(cols, cj);
+        Column {
+            x: self.column_slice(j),
+            mu: self.center_of(j),
+            vj: v[j],
+        }
     }
 }
 
@@ -601,26 +612,24 @@ impl<F: SimdFloat> WithSimd for RmatvecBlock<'_, '_, '_, F> {
         // SAFETY (all unchecked loads below): `rows`, `cols` and the lengths
         // of `v` and `center` were checked at the Python boundary.
         if shape.col_contiguous {
-            // One (centered) dot product per column; a contiguous column
-            // over all rows is vectorised.
+            // One (centered) dot product per column; a column over all rows
+            // is vectorised.
             for (cj, o) in out.iter_mut().enumerate() {
                 let j = select(shape.cols, cj);
                 let mu = x.center_of(j);
-                let column = x.x.column(j);
-                match (shape.rows, column.as_slice()) {
-                    (None, Some(column)) => {
-                        *o += centered_dot(simd, &column[block.clone()], mu, &v[block.clone()]);
-                    }
-                    _ => {
+                let column = x.column_slice(j);
+                *o += match shape.rows {
+                    None => centered_dot(simd, &column[block.clone()], mu, &v[block.clone()]),
+                    Some(rows) => {
                         let mut sum = F::default();
-                        for ci in block.clone() {
-                            let i = select(shape.rows, ci);
-                            sum +=
-                                (unsafe { *column.uget(i) } - mu) * unsafe { *v.get_unchecked(i) };
+                        for &i in &rows[block.clone()] {
+                            let i = i as usize;
+                            sum += (unsafe { *column.get_unchecked(i) } - mu)
+                                * unsafe { *v.get_unchecked(i) };
                         }
-                        *o += sum;
+                        sum
                     }
-                }
+                };
             }
         } else {
             // Scale each row by its v entry and add it to out; a contiguous
@@ -658,27 +667,25 @@ pub fn rmatvec<F: SimdFloat>(
     let shape = MatvecShape::new(x, rows, cols);
     let arch = Arch::new();
     let n_workers = shape.n_workers();
-    partial_sums::<F, ()>(n_workers, out, |w, out| {
+    partial_sums(n_workers, out, |w, out| {
         // Each row block is summed into its own buffer first, like the C++
         // (which added it to the shared result atomically): the two-level
         // sum keeps the rounding error of a long row range small.
         let mut local = vec![F::default(); out.len()];
-        for b in shape.worker_blocks(w, n_workers) {
+        for block in shape.blocks.part(w, n_workers).iter() {
             local.fill(F::default());
             arch.dispatch(RmatvecBlock {
                 x,
                 v,
                 shape,
-                block: shape.block(b),
+                block,
                 out: &mut local,
             });
             for (o, &l) in out.iter_mut().zip(&local) {
                 *o += l;
             }
         }
-        Ok(())
-    })
-    .expect("the workers cannot fail");
+    });
 }
 
 /// `out[Ci] = sum_Cj (X - center)[rows[Ci], cols[Cj]] * v[cols[Cj]]` for
@@ -706,38 +713,28 @@ impl<F: SimdFloat> WithSimd for MatvecBlock<'_, '_, '_, F> {
         } = self;
         // SAFETY (all unchecked loads below): as in `RmatvecBlock`.
         if shape.col_contiguous {
-            // Add the columns to out, four at a time where all rows are
-            // used and the columns are contiguous.
-            let column = |cj: usize| {
-                let j = select(shape.cols, cj);
-                (j, x.x.column(j), x.center_of(j), unsafe {
-                    *v.get_unchecked(j)
-                })
-            };
-            let mut cj = 0;
-            if shape.rows.is_none() {
-                while cj + 4 <= shape.n_cols {
-                    let cols: [_; 4] = std::array::from_fn(|t| column(cj + t));
-                    let slices = cols.each_ref().map(|(_, c, _, _)| c.as_slice());
-                    if slices.iter().all(|s| s.is_some()) {
-                        let xs = slices.map(|s| &s.unwrap()[block.clone()]);
-                        centered_axpy4(simd, xs, cols.map(|c| c.2), cols.map(|c| c.3), out);
+            let column = |cj: usize| x.selected_column(shape.cols, cj, v);
+            match shape.rows {
+                // Add the columns to out, four at a time where possible.
+                None => {
+                    let mut cj = 0;
+                    while cj + 4 <= shape.n_cols {
+                        let cols: [Column<F>; 4] = std::array::from_fn(|t| column(cj + t));
+                        let xs = cols.map(|c| &c.x[block.clone()]);
+                        centered_axpy4(simd, xs, cols.map(|c| c.mu), cols.map(|c| c.vj), out);
                         cj += 4;
-                    } else {
-                        break;
+                    }
+                    for cj in cj..shape.n_cols {
+                        let c = column(cj);
+                        centered_axpy(simd, &c.x[block.clone()], c.mu, c.vj, out);
                     }
                 }
-            }
-            for cj in cj..shape.n_cols {
-                let (_, column, mu, vj) = column(cj);
-                match (shape.rows, column.as_slice()) {
-                    (None, Some(column)) => {
-                        centered_axpy(simd, &column[block.clone()], mu, vj, out)
-                    }
-                    _ => {
-                        for (ci, o) in block.clone().zip(out.iter_mut()) {
-                            let i = select(shape.rows, ci);
-                            *o += (unsafe { *column.uget(i) } - mu) * vj;
+                Some(rows) => {
+                    for cj in 0..shape.n_cols {
+                        let c = column(cj);
+                        for (&i, o) in rows[block.clone()].iter().zip(out.iter_mut()) {
+                            let i = i as usize;
+                            *o += (unsafe { *c.x.get_unchecked(i) } - c.mu) * c.vj;
                         }
                     }
                 }
@@ -780,23 +777,28 @@ pub fn matvec<F: SimdFloat>(
 ) {
     let shape = MatvecShape::new(x, rows, cols);
     let arch = Arch::new();
-    let run = |b: usize, out: &mut [F]| {
+    let run = |(block, out): (Range<usize>, &mut [F])| {
         arch.dispatch(MatvecBlock {
             x,
             v,
             shape,
-            block: shape.block(b),
+            block,
             out,
         })
     };
+    let out_blocks = shape.blocks.step();
     if shape.n_workers() > 1 {
-        out.par_chunks_mut(shape.row_block)
-            .enumerate()
-            .for_each(|(b, out)| run(b, out));
+        shape
+            .blocks
+            .par_iter()
+            .zip(out.par_chunks_mut(out_blocks))
+            .for_each(run);
     } else {
-        out.chunks_mut(shape.row_block)
-            .enumerate()
-            .for_each(|(b, out)| run(b, out));
+        shape
+            .blocks
+            .iter()
+            .zip(out.chunks_mut(out_blocks))
+            .for_each(run);
     }
 }
 
