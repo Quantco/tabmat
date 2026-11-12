@@ -76,6 +76,28 @@ macro_rules! for_float {
 }
 pub(crate) use for_float;
 
+/// Evaluates `$body` with the const `$DROP` bound to the value of `$drop`:
+/// the dispatch of the categorical kernels to their plain (`false`) or
+/// `drop_first`/missing-value-aware (`true`) instantiation. The `$shift`
+/// flags are rebound as `i32` in the `true` branch and as the literal `0`
+/// in the `false` one, which ignores them: passing the runtime value to
+/// the plain kernel too measured 1.2x slower at one thread (the extra live
+/// value spilled the loop's invariants).
+macro_rules! with_drop {
+    ($drop:expr, $DROP:ident, $($shift:ident),+ => $body:expr) => {
+        if $drop {
+            const $DROP: bool = true;
+            $(let $shift = $shift as i32;)+
+            $body
+        } else {
+            const $DROP: bool = false;
+            $(let $shift = 0i32;)+
+            $body
+        }
+    };
+}
+pub(crate) use with_drop;
+
 /// Evaluates `$body` with `$I` bound to `i32` or `i64`, the dtype of the
 /// index array `$arr`.
 macro_rules! for_index {

@@ -12,7 +12,7 @@ use numpy::{
 use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::prelude::*;
 
-use crate::boundary::{extract_center, for_float, ro_slice, Arg};
+use crate::boundary::{extract_center, for_float, ro_slice, with_drop, Arg};
 use crate::kernels::split as kernels;
 use crate::kernels::{check_indices, Centered};
 
@@ -64,11 +64,7 @@ fn sandwich_cat_dense<'py>(
             let center = center.as_ref().map(|c| ro_slice(c));
             let mat_j = Centered { x: mat_j.as_array(), center: center.as_deref() };
             py.detach(|| {
-                if drop {
-                    kernels::sandwich_cat_dense::<F, true>(mat_j, &indices, &d, &rows, &j_cols, drop_first as i32, &mut res)
-                } else {
-                    kernels::sandwich_cat_dense::<F, false>(mat_j, &indices, &d, &rows, &j_cols, 0, &mut res)
-                }
+                with_drop!(drop, DROP, drop_first => kernels::sandwich_cat_dense::<F, DROP>(mat_j, &indices, &d, &rows, &j_cols, drop_first, &mut res))
             })?;
         }
         Ok(into_array2(py, (i_ncol, nj), res).into_any())
@@ -104,11 +100,7 @@ fn sandwich_cat_cat<'py>(
         let mut res = vec![F::default(); i_ncol * j_ncol];
         if !rows.is_empty() && !res.is_empty() {
             py.detach(|| {
-                if drop {
-                    kernels::sandwich_cat_cat::<F, true>(&i_indices, &j_indices, &d, &rows, j_ncol, i_drop_first as i32, j_drop_first as i32, &mut res)
-                } else {
-                    kernels::sandwich_cat_cat::<F, false>(&i_indices, &j_indices, &d, &rows, j_ncol, 0, 0, &mut res)
-                }
+                with_drop!(drop, DROP, i_drop_first, j_drop_first => kernels::sandwich_cat_cat::<F, DROP>(&i_indices, &j_indices, &d, &rows, j_ncol, i_drop_first, j_drop_first, &mut res))
             })?;
         }
         Ok(into_array2(py, (i_ncol, j_ncol), res).into_any())

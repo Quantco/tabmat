@@ -13,7 +13,7 @@ use numpy::{Complex32, Complex64, IntoPyArray, PyArray1, PyReadonlyArray1};
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 
-use crate::boundary::{for_float, ro_slice, rw_array, with_dtype, with_rw_slice, Arg};
+use crate::boundary::{for_float, ro_slice, rw_array, with_drop, with_dtype, with_rw_slice, Arg};
 use crate::kernels::categorical as kernels;
 
 type PyArrayI32<'py> = Bound<'py, PyArray1<i32>>;
@@ -48,15 +48,7 @@ fn transpose_matvec<'py>(
         with_rw_slice(&mut out, |out| {
             py.detach(|| {
                 let (rows, cols) = (rows.as_deref(), cols.as_deref());
-                // The plain kernel gets a literal 0 here and below: a macro
-                // passing `drop_first` to both instantiations measured 1.2x
-                // slower at one thread (the extra live value spilled the
-                // loop's invariants).
-                if drop {
-                    kernels::transpose_matvec::<F, true>(&indices, &v, out, rows, cols, drop_first as i32)
-                } else {
-                    kernels::transpose_matvec::<F, false>(&indices, &v, out, rows, cols, 0)
-                }
+                with_drop!(drop, DROP, drop_first => kernels::transpose_matvec::<F, DROP>(&indices, &v, out, rows, cols, drop_first))
             })
         })?;
         Ok(())
@@ -91,11 +83,7 @@ fn matvec<'py>(
                 return Err(PyValueError::new_err("out must have one entry per row of the matrix"));
             }
             py.detach(|| {
-                if drop {
-                    kernels::matvec::<F, true>(&indices, &v, out, cols.as_deref(), drop_first as i32)
-                } else {
-                    kernels::matvec::<F, false>(&indices, &v, out, cols.as_deref(), 0)
-                }
+                with_drop!(drop, DROP, drop_first => kernels::matvec::<F, DROP>(&indices, &v, out, cols.as_deref(), drop_first))
             })?;
             Ok(())
         })
@@ -124,11 +112,7 @@ fn sandwich_categorical<'py>(
         let d = ro_slice(&d);
         let mut res = vec![F::default(); n_cols];
         py.detach(|| {
-            if drop {
-                kernels::sandwich::<F, true>(&indices, &d, &rows, &mut res, drop_first as i32)
-            } else {
-                kernels::sandwich::<F, false>(&indices, &d, &rows, &mut res, 0)
-            }
+            with_drop!(drop, DROP, drop_first => kernels::sandwich::<F, DROP>(&indices, &d, &rows, &mut res, drop_first))
         })?;
         Ok(res.into_pyarray(py).into_any())
     })
