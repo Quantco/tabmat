@@ -25,7 +25,7 @@
 //! The kernels run on rayon's global thread pool (the bindings release the
 //! GIL around them). Where threads accumulate into the same output, each gets
 //! a private copy that is summed afterwards in thread order
-//! ([`partial_sums`]): the result then only depends on the number of threads,
+//! ([`partial_sums`], and [`row_partials`] over row ranges): the result then only depends on the number of threads,
 //! not on their timing (the C++ kernels used atomic adds). Measured against
 //! rayon's own `fold`/`reduce` this costs nothing and is deterministic by
 //! construction.
@@ -901,31 +901,35 @@ pub fn partial_sums<F: Float, E: Send>(
     Ok(())
 }
 
-/// Below this many rows the scatter kernels run single-threaded: the
-/// per-thread result copies and the thread wake-up would cost more than
-/// they save.
+/// Below this many rows [`row_partials`] runs on one thread: the per-thread
+/// result copies and the thread wake-up would cost more than they save.
 pub const PARALLEL_MIN_ROWS: usize = 1 << 14;
 
-/// Calls `scatter(range, res)`, which must do `res[col] += val` for the rows
-/// in `range`, over sub-ranges of `0..n` that together cover it once.
+/// [`partial_sums`] over the rows `0..n`: calls `accumulate(rows, res)`,
+/// which must only add into `res` what the rows in `rows` contribute, on
+/// sub-ranges that together cover `0..n` once, one contiguous range per
+/// thread, each into a private copy of `res` that is summed back in range
+/// order. This is how the kernels that scatter row contributions into a
+/// result (the categorical products) run in parallel without atomics and
+/// with a result that only depends on the thread count.
 ///
-/// Each thread scatters a contiguous range of rows into its own copy of
-/// `res` ([`partial_sums`]). The scatter runs on one thread when there are
-/// few rows, or when `res` has more entries than there are rows to scatter:
-/// summing the per-thread copies would then cost more than the scatter
-/// itself.
-pub fn scatter_add<F: Float, E: Send>(
+/// It runs on one thread, directly on `res`, when there are fewer than
+/// [`PARALLEL_MIN_ROWS`] rows, when the pool has one thread, or when `res`
+/// has more entries than there are rows: zeroing and summing a copy of
+/// `res` per thread would then cost more than the rows themselves (measured
+/// 30x on a 1e5 x 1e3 categorical cross product over 1e6 rows).
+pub fn row_partials<F: Float, E: Send>(
     n: usize,
     res: &mut [F],
-    scatter: impl Fn(Range<usize>, &mut [F]) -> Result<(), E> + Sync,
+    accumulate: impl Fn(Range<usize>, &mut [F]) -> Result<(), E> + Sync,
 ) -> Result<(), E> {
     let n_threads = rayon::current_num_threads();
     if n < PARALLEL_MIN_ROWS || n_threads == 1 || res.len() > n {
-        return scatter(0..n, res);
+        return accumulate(0..n, res);
     }
     let chunk = n.div_ceil(n_threads);
     partial_sums(n.div_ceil(chunk), res, |w, local| {
-        scatter(w * chunk..((w + 1) * chunk).min(n), local)
+        accumulate(w * chunk..((w + 1) * chunk).min(n), local)
     })
 }
 
@@ -1206,7 +1210,7 @@ mod tests {
     }
 
     #[test]
-    fn scatter_add_matches_serial() {
+    fn row_partials_match_serial() {
         let n = 100_000;
         let idx: Vec<usize> = (0..n).map(|i| (i * 7919) % 1000).collect();
         let mut serial = vec![0.0f64; 1000];
@@ -1216,7 +1220,7 @@ mod tests {
         for threads in testing::THREADS {
             let mut res = vec![0.0f64; 1000];
             testing::with_threads(threads, || {
-                scatter_add::<_, ()>(n, &mut res, |r, res| {
+                row_partials::<_, ()>(n, &mut res, |r, res| {
                     for &i in &idx[r] {
                         res[i] += 1.0;
                     }

@@ -12,7 +12,7 @@
 //!
 //! The sandwich products scatter `d[k]` (times a row of the dense matrix)
 //! into the result row of each selected row's category. They are
-//! parallelised with [`scatter_add`]: every thread scatters a contiguous
+//! parallelised with [`row_partials`]: every thread scatters a contiguous
 //! range of rows into its own copy of the result and the copies are summed
 //! afterwards, in place of the atomic adds of the C++ version, so the result
 //! does not depend on thread timing. The kernels validate `rows` in L1-sized
@@ -21,7 +21,7 @@
 //! fits the cache, and a validation pass over the whole array cost 20% of
 //! memory traffic in the parallel, bandwidth-bound case.
 
-use super::{category_column, checked_chunks, scatter_add, Centered, Float, IndexError};
+use super::{category_column, checked_chunks, row_partials, Centered, Float, IndexError};
 
 // ---------------------------------------------------------------------------
 // sandwich_cat_dense: cat.T @ diag(d) @ (mat_j - center)[:, j_cols]
@@ -80,7 +80,7 @@ pub fn sandwich_cat_dense<F: Float, const DROP: bool>(
         what: "category",
         len: n_cats,
     };
-    scatter_add(rows.len(), res, move |r, res| {
+    row_partials(rows.len(), res, move |r, res| {
         for rows in checked_chunks(&rows[r], n_rows, "row") {
             for &k in rows? {
                 let k = k as usize;
@@ -137,7 +137,7 @@ pub fn sandwich_cat_cat<F: Float, const DROP: bool>(
             len: j_ncol,
         },
     );
-    scatter_add(rows.len(), res, move |r, res| {
+    row_partials(rows.len(), res, move |r, res| {
         for rows in checked_chunks(&rows[r], n_rows, "row") {
             for &k in rows? {
                 let k = k as usize;

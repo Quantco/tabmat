@@ -16,14 +16,14 @@
 //! `Option`-returning lookup in its place measured up to 30% slower, and
 //! validating gathered chunks of categories up front up to 2x slower, on
 //! cache-resident results). The scatter kernels are parallelised with
-//! [`scatter_add`], the gather of `matvec` over chunks of rows. The closures
+//! [`row_partials`], the gather of `matvec` over chunks of rows. The closures
 //! capture by value: captured references made the compiler reload every
 //! invariant from memory on each row.
 
 use rayon::prelude::*;
 
 use super::{
-    category_column, check_indices, scatter_add, Float, IndexError, PARALLEL_MIN_ROWS,
+    category_column, check_indices, row_partials, Float, IndexError, PARALLEL_MIN_ROWS,
     VALIDATE_CHUNK,
 };
 
@@ -63,7 +63,7 @@ pub fn transpose_matvec<F: Float, const DROP: bool>(
     };
 
     match rows {
-        None => scatter_add(indices.len(), out, move |r, res| {
+        None => row_partials(indices.len(), out, move |r, res| {
             let other = other.get(r.clone()).ok_or(IndexError {
                 what: "row",
                 len: other.len(),
@@ -88,7 +88,7 @@ pub fn transpose_matvec<F: Float, const DROP: bool>(
                 what: "row",
                 len: n_rows,
             };
-            scatter_add(rows.len(), out, move |r, res| {
+            row_partials(rows.len(), out, move |r, res| {
                 let res = &mut res[..n_cols];
                 for &k in &rows[r] {
                     let k = k as usize;
@@ -164,7 +164,7 @@ pub fn sandwich<F: Float, const DROP: bool>(
         what: "category",
         len: n_cols,
     };
-    scatter_add(rows.len(), res, move |r, res| {
+    row_partials(rows.len(), res, move |r, res| {
         let res = &mut res[..n_cols];
         for &k in &rows[r] {
             let k = k as usize;
