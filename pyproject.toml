@@ -3,7 +3,6 @@ requires = [
   'setuptools',
   'setuptools-scm',
   'wheel',
-  'mako',
   'numpy>=1.25',
   'Cython>=3.1',
 ]

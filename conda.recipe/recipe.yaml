@@ -40,7 +40,6 @@ requirements:
     - if: osx
       then:
         - llvm-openmp
-    - mako
     - numpy
     - pip
     - setuptools-scm
