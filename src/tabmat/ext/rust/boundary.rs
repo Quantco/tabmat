@@ -76,6 +76,15 @@ macro_rules! for_float {
 }
 pub(crate) use for_float;
 
+/// Evaluates `$body` with `$I` bound to `i32` or `i64`, the dtype of the
+/// index array `$arr`.
+macro_rules! for_index {
+    ($arr:expr, $what:expr, $I:ident => $body:expr) => {
+        $crate::boundary::with_dtype!($arr, $what, $I in [i32, i64] => $body)
+    };
+}
+pub(crate) use for_index;
+
 /// A one-dimensional argument array of element type `T`: any array (or
 /// array-like) numpy can convert to that dtype is accepted. The conversion
 /// is a copy, but the Python layer passes the right dtype already.

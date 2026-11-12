@@ -37,6 +37,7 @@
 
 pub mod categorical;
 pub mod dense;
+pub mod sparse;
 
 use std::borrow::Cow;
 use std::ops::{Add, AddAssign, Mul, Range, Sub};
@@ -198,6 +199,20 @@ impl_simd_float!(
 // how the kernels compute with `X - center` without copying `X` (expanding
 // into `X @ v - center @ v` would cancel for a large center). Within a
 // variant the summation order is fixed, so results are deterministic.
+
+/// `y += a * x` over the whole slices.
+#[inline(always)]
+pub fn axpy<S: Simd, F: SimdFloat>(simd: S, a: F, x: &[F], y: &mut [F]) {
+    let (xv, xt) = F::as_simd::<S>(x);
+    let (yv, yt) = F::as_mut_simd::<S>(y);
+    let av = F::splat(simd, a);
+    for (y, &x) in yv.iter_mut().zip(xv) {
+        *y = F::mul_add(simd, av, x, *y);
+    }
+    for (y, &x) in yt.iter_mut().zip(xt) {
+        *y += a * x;
+    }
+}
 
 /// `y[k] += (x[k] - c) * a` for a scalar center `c`.
 #[inline(always)]
@@ -426,6 +441,47 @@ impl<'a, F: Float> Centered<'a, F> {
         match self.center {
             Some(c) => Cow::Borrowed(c),
             None => Cow::Owned(vec![F::default(); self.ncols()]),
+        }
+    }
+
+    /// Element `(row, col)` of `X` without a bounds check.
+    ///
+    /// # Safety
+    /// `row < nrows()` and `col < ncols()`. The kernels rely on having
+    /// validated their index arrays ([`check_indices`]) so that their inner
+    /// loops are plain loads.
+    #[inline(always)]
+    pub unsafe fn get(&self, row: usize, col: usize) -> F {
+        debug_assert!(row < self.nrows() && col < self.ncols());
+        unsafe { *self.x.uget((row, col)) }
+    }
+
+    /// Packs `d[rows[k]] * (X[rows[k], cols[j]] - mu[cols[j]])` into
+    /// `dst[k * stride + j]`, row-major, for `mu` the center as a vector
+    /// ([`Self::center_vec`]): the block packing of the sparse x dense
+    /// sandwich.
+    ///
+    /// # Safety
+    /// As for [`Self::gather_column`], for every row and column index, and
+    /// `mu` has one entry per column.
+    #[inline(always)]
+    pub unsafe fn pack_block<I: Index>(
+        &self,
+        rows: &[I],
+        cols: &[I],
+        d: &[F],
+        mu: &[F],
+        dst: &mut [F],
+        stride: usize,
+    ) {
+        for (drow, &k) in dst.chunks_mut(stride).zip(rows) {
+            let k = k.as_usize();
+            // SAFETY: the caller's contract.
+            let dk = unsafe { *d.get_unchecked(k) };
+            for (dst, &j) in drow.iter_mut().zip(cols) {
+                let j = j.as_usize();
+                *dst = dk * (unsafe { self.get(k, j) - *mu.get_unchecked(j) });
+            }
         }
     }
 
@@ -768,6 +824,9 @@ mod tests {
                 let dot_vc_ref: f64 = (0..n).map(|k| (x[k] - c[k]) * y[k]).sum();
                 assert!((centered_dot_vc(simd, &x, &c, &y) - dot_vc_ref).abs() < 1e-9);
                 let mut out = y.clone();
+                axpy(simd, 1.5, &x, &mut out);
+                assert!((0..n).all(|k| (out[k] - (y[k] + 1.5 * x[k])).abs() < 1e-12));
+                let mut out = y.clone();
                 centered_axpy(simd, &x, 2.0, 1.5, &mut out);
                 assert!((0..n).all(|k| (out[k] - (y[k] + (x[k] - 2.0) * 1.5)).abs() < 1e-12));
                 let mut out = y.clone();
@@ -804,6 +863,9 @@ mod tests {
         let mut dst = [0.0; 2];
         unsafe { op.gather_column::<i32, true>(1, &[3, 0], &d, &mut dst) };
         assert_eq!(dst, [1000.0 * (10.0 - 2.0), 1.0 * (1.0 - 2.0)]);
+        let mut block = [0.0; 4];
+        unsafe { op.pack_block(&[1i64, 2], &[0i64, 2], &d, &center, &mut block, 2) };
+        assert_eq!(block, [10.0 * 2.0, 10.0 * 2.0, 100.0 * 5.0, 100.0 * 5.0]);
         let plain = Centered { x, center: None };
         assert_eq!(plain.center_of(2), 0.0);
         assert_eq!(&*plain.center_vec(), &[0.0; 3]);

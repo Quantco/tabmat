@@ -1,8 +1,6 @@
 import os
-import shutil
 import sys
 from os import path
-from pathlib import Path
 
 import numpy as np
 from Cython.Build import cythonize
@@ -22,55 +20,13 @@ debug_build = os.getenv("TABMAT_DEBUG", "0").lower() in ("true", "1")
 print(f"Debug Build: {debug_build}")
 
 if sys.platform == "win32":
-    allocator_libs = []  # type: ignore
     extra_compile_args = ["/openmp", "/O2", "/std:c++17"]
     extra_link_args = ["/openmp"]
-    # make sure we can find xsimd headers
-    include_dirs.append(os.path.join(sys.prefix, "Library", "include"))
 elif sys.platform == "darwin":
-    jemalloc_config = shutil.which("jemalloc-config")
-    if "JE_INSTALL_SUFFIX" in os.environ:
-        je_install_suffix = os.environ["JE_INSTALL_SUFFIX"]
-    elif jemalloc_config is None:
-        je_install_suffix = ""
-    else:
-        pkg_info = (
-            Path(jemalloc_config).parent.parent / "lib" / "pkgconfig" / "jemalloc.pc"
-        ).read_text()
-        je_install_suffix = [
-            i.split("=")[1]
-            for i in pkg_info.split("\n")
-            if i.startswith("install_suffix=")
-        ].pop()
-    allocator_libs = [f"jemalloc{je_install_suffix}"]
-    extra_compile_args = [
-        "-Xpreprocessor",
-        "-fopenmp",
-        "-O3",
-        "--std=c++17",
-        f"-DJEMALLOC_INSTALL_SUFFIX={je_install_suffix}",
-    ]
+    extra_compile_args = ["-Xpreprocessor", "-fopenmp", "-O3", "--std=c++17"]
     extra_link_args = ["-lomp"]
 else:
-    jemalloc_config = shutil.which("jemalloc-config")
-    if jemalloc_config is None:
-        je_install_suffix = ""
-    else:
-        pkg_info = (
-            Path(jemalloc_config).parent.parent / "lib" / "pkgconfig" / "jemalloc.pc"
-        ).read_text()
-        je_install_suffix = [
-            i.split("=")[1]
-            for i in pkg_info.split("\n")
-            if i.startswith("install_suffix=")
-        ].pop()
-    allocator_libs = [f"jemalloc{je_install_suffix}"]
-    extra_compile_args = [
-        "-fopenmp",
-        "-O3",
-        "--std=c++17",
-        f"-DJEMALLOC_INSTALL_SUFFIX={je_install_suffix}",
-    ]
+    extra_compile_args = ["-fopenmp", "-O3", "--std=c++17"]
     extra_link_args = ["-fopenmp"]
 
 extension_args = dict(
@@ -80,12 +36,6 @@ extension_args = dict(
     language="c++",
 )
 ext_modules = [
-    Extension(
-        name="tabmat.ext.sparse",
-        sources=["src/tabmat/ext/sparse.pyx"],
-        libraries=allocator_libs,
-        **extension_args,
-    ),
     Extension(
         name="tabmat.ext.split",
         sources=["src/tabmat/ext/split.pyx"],
