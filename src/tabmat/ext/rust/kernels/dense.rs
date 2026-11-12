@@ -663,7 +663,7 @@ impl<F: SimdFloat> WithSimd for RmatvecBlock<'_, '_, '_, F> {
 
 /// `out = (X - center)[rows, cols].T @ v[rows]`; `out` has `n_cols` zeroed
 /// entries. The row blocks are split statically between the workers, each
-/// accumulating into its own copy of `out`.
+/// accumulating its blocks' sums into its own copy of `out`.
 pub fn rmatvec<F: SimdFloat>(
     x: Centered<'_, F>,
     v: &[F],
@@ -675,14 +675,22 @@ pub fn rmatvec<F: SimdFloat>(
     let arch = Arch::new();
     let n_workers = shape.n_workers();
     partial_sums::<F, ()>(n_workers, out, |w, out| {
+        // Each row block is summed into its own buffer first, like the C++
+        // (which added it to the shared result atomically): the two-level
+        // sum keeps the rounding error of a long row range small.
+        let mut local = vec![F::default(); out.len()];
         for b in shape.worker_blocks(w, n_workers) {
+            local.fill(F::default());
             arch.dispatch(RmatvecBlock {
                 x,
                 v,
                 shape,
                 block: shape.block(b),
-                out,
+                out: &mut local,
             });
+            for (o, &l) in out.iter_mut().zip(&local) {
+                *o += l;
+            }
         }
         Ok(())
     })
