@@ -5,6 +5,8 @@ from cython cimport floating, integral
 from cython.parallel import prange
 from libc.stdint cimport int64_t
 
+from .dense import _check_center
+
 
 np.import_array()
 
@@ -198,13 +200,15 @@ def csc_rmatvec(XT, floating[:] v, win_integral[:] rows, win_integral[:] cols):
             outp[Cj] = outp[Cj] + XTval * vval;
     return out
 
-cdef extern from "sparse_helpers.cpp":
+cdef extern from "sparse_helpers.hpp":
+    # The C++ kernels take the center of B as const F*. It is declared as F* here
+    # because older Cython versions (e.g. 3.2) cannot deduce F from a const F*.
     void _csr_denseC_sandwich[I, F](
-        F*, I*, I*, F*, F*, F*, I, I, I,
+        F*, I*, I*, F*, F*, F*, F*, I, I, I,
         I*, I*, I*, I, I, I
     ) nogil
     void _csr_denseF_sandwich[I, F](
-        F*, I*, I*, F*, F*, F*, I, I, I,
+        F*, I*, I*, F*, F*, F*, F*, I, I, I,
         I*, I*, I*, I, I, I
     ) nogil
 
@@ -214,10 +218,13 @@ def csr_dense_sandwich(
         floating[:] d,
         win_integral[:] rows,
         win_integral[:] A_cols,
-        win_integral[:] B_cols
+        win_integral[:] B_cols,
+        B_center=None
     ):
-    # computes where (A.T * d) @ B
-    # assumes that A is in csr form
+    # computes where (A.T * d) @ (B - B_center)
+    # assumes that A is in csr form; B_center=None means no centering
+    cdef const floating[::1] B_mu = _check_center(B_center, B.shape[1], B.dtype, "B_center")
+
     cdef floating[:] Adata = A.data
     cdef win_integral[:] Aindices = A.indices
     cdef win_integral[:] Aindptr = A.indptr
@@ -244,15 +251,18 @@ def csr_dense_sandwich(
     cdef win_integral* rowsp = &rows[0];
     cdef win_integral* A_colsp = &A_cols[0];
     cdef win_integral* B_colsp = &B_cols[0];
+    cdef floating* B_mup = NULL
+    if B_mu is not None:
+        B_mup = <floating*>&B_mu[0]
 
     if B.flags["C_CONTIGUOUS"]:
         _csr_denseC_sandwich(
-            &Adata[0], &Aindices[0], &Aindptr[0], Bp, &d[0], outp, m, n, r,
+            &Adata[0], &Aindices[0], &Aindptr[0], Bp, B_mup, &d[0], outp, m, n, r,
             rowsp, A_colsp, B_colsp, nr, nAc, nBc
         )
     elif B.flags["F_CONTIGUOUS"]:
         _csr_denseF_sandwich(
-            &Adata[0], &Aindices[0], &Aindptr[0], Bp, &d[0], outp, m, n, r,
+            &Adata[0], &Aindices[0], &Aindptr[0], Bp, B_mup, &d[0], outp, m, n, r,
             rowsp, A_colsp, B_colsp, nr, nAc, nBc
         )
     else:

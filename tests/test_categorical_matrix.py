@@ -154,6 +154,16 @@ def test_multiply(cat_vec, drop_first, missing, cat_missing_method):
     np.testing.assert_allclose(actual.toarray(), expected)
 
 
+@pytest.mark.parametrize("column_vector", [False, True])
+@pytest.mark.parametrize("drop_first", [False, True])
+def test_multiply_single_row(column_vector, drop_first):
+    mat = CategoricalMatrix(
+        pd.Categorical(["b"], categories=["a", "b"]), drop_first=drop_first
+    )
+    weights = np.array([[2.0]]) if column_vector else np.array([2.0])
+    np.testing.assert_allclose(mat.multiply(weights).toarray(), mat.toarray() * 2)
+
+
 @pytest.mark.parametrize("mi_element", [np.nan, None])
 def test_nulls(mi_element):
     vec = [0, mi_element, 1]
@@ -235,9 +245,10 @@ def test_extract_codes_and_categories(input_type, narwhals_input):
 
 def test_polars_non_contiguous_codes():
     str_series = ["labrador", "boxer", "beagle"]
-    with pl.StringCache():
-        _ = pl.Series(["beagle", "poodle", "labrador"], dtype=pl.Categorical)
-        cat_series = pl.Series(str_series, dtype=pl.Categorical)
+    # Share one set of categories so that the physical codes are non-contiguous.
+    dtype = pl.Categorical(pl.Categories.random())
+    _ = pl.Series(["beagle", "poodle", "labrador"], dtype=dtype)
+    cat_series = pl.Series(str_series, dtype=dtype)
 
     indices, categories = _extract_codes_and_categories(cat_series)
     np.testing.assert_array_equal(str_series, categories[indices].tolist())

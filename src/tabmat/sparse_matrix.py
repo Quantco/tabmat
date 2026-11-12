@@ -1,5 +1,3 @@
-from typing import Optional, Union
-
 import numpy as np
 from scipy import sparse as sps
 
@@ -175,8 +173,8 @@ class SparseMatrix(MatrixBase):
     def sandwich(
         self,
         d: np.ndarray,
-        rows: Optional[np.ndarray] = None,
-        cols: Optional[np.ndarray] = None,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
         d = np.asarray(d)
@@ -188,16 +186,22 @@ class SparseMatrix(MatrixBase):
         self,
         other: MatrixBase,
         d: np.ndarray,
-        rows: Optional[np.ndarray],
-        L_cols: Optional[np.ndarray] = None,
-        R_cols: Optional[np.ndarray] = None,
+        rows: np.ndarray | None,
+        L_cols: np.ndarray | None = None,
+        R_cols: np.ndarray | None = None,
+        dense_center: np.ndarray | None = None,
     ):
-        """Perform a sandwich product: X.T @ diag(d) @ Y."""
+        """Perform a sandwich product: X.T @ diag(d) @ Y.
+
+        If ``other`` is dense, ``dense_center`` centers it, see :meth:`sandwich_dense`.
+        """
         from .categorical_matrix import CategoricalMatrix
         from .dense_matrix import DenseMatrix
 
         if isinstance(other, DenseMatrix):
-            return self.sandwich_dense(other._array, d, rows, L_cols, R_cols)
+            return self.sandwich_dense(
+                other._array, d, rows, L_cols, R_cols, B_center=dense_center
+            )
 
         if isinstance(other, CategoricalMatrix):
             return other._cross_sandwich(self, d, rows, R_cols, L_cols).T
@@ -207,11 +211,16 @@ class SparseMatrix(MatrixBase):
         self,
         B: np.ndarray,
         d: np.ndarray,
-        rows: Optional[np.ndarray],
-        L_cols: Optional[np.ndarray],
-        R_cols: Optional[np.ndarray],
+        rows: np.ndarray | None,
+        L_cols: np.ndarray | None,
+        R_cols: np.ndarray | None,
+        B_center: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Perform a sandwich product: self.T @ diag(d) @ B."""
+        """Perform a sandwich product: self.T @ diag(d) @ B.
+
+        If ``B_center`` (one value per column of ``B``) is given, compute
+        ``self.T @ diag(d) @ (B - B_center)`` instead, centering ``B`` in the kernel.
+        """
         if not hasattr(d, "dtype"):
             d = np.asarray(d)
 
@@ -226,14 +235,16 @@ class SparseMatrix(MatrixBase):
 
         rows, L_cols = setup_restrictions(self.shape, rows, L_cols)
         R_cols = set_up_rows_or_cols(R_cols, B.shape[1])
-        return csr_dense_sandwich(self.array_csr, B, d, rows, L_cols, R_cols)
+        return csr_dense_sandwich(
+            self.array_csr, B, d, rows, L_cols, R_cols, B_center=B_center
+        )
 
     def _matvec_helper(
         self,
-        vec: Union[list, np.ndarray],
-        rows: Optional[np.ndarray],
-        cols: Optional[np.ndarray],
-        out: Optional[np.ndarray],
+        vec: list | np.ndarray,
+        rows: np.ndarray | None,
+        cols: np.ndarray | None,
+        out: np.ndarray | None,
         transpose: bool,
     ):
         vec = np.asarray(vec)
@@ -275,7 +286,7 @@ class SparseMatrix(MatrixBase):
         return out
 
     def matvec(
-        self, vec, cols: Optional[np.ndarray] = None, out: Optional[np.ndarray] = None
+        self, vec, cols: np.ndarray | None = None, out: np.ndarray | None = None
     ):
         """Perform self[:, cols] @ other[cols]."""
         check_matvec_out_shape(self, out)
@@ -283,10 +294,10 @@ class SparseMatrix(MatrixBase):
 
     def transpose_matvec(
         self,
-        vec: Union[np.ndarray, list],
-        rows: Optional[np.ndarray] = None,
-        cols: Optional[np.ndarray] = None,
-        out: Optional[np.ndarray] = None,
+        vec: np.ndarray | list,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform: self[rows, cols].T @ vec[rows]."""
         check_transpose_matvec_out_shape(self, out)
@@ -336,9 +347,9 @@ class SparseMatrix(MatrixBase):
     def get_names(
         self,
         type: str = "column",
-        missing_prefix: Optional[str] = None,
-        indices: Optional[list[int]] = None,
-    ) -> list[Optional[str]]:
+        missing_prefix: str | None = None,
+        indices: list[int] | None = None,
+    ) -> list[str | None]:
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
@@ -380,7 +391,7 @@ class SparseMatrix(MatrixBase):
 
         return names.tolist()
 
-    def set_names(self, names: Union[str, list[Optional[str]]], type: str = "column"):
+    def set_names(self, names: str | list[str | None], type: str = "column"):
         """Set column names.
 
         Parameters

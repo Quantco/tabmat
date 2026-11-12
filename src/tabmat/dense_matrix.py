@@ -1,6 +1,5 @@
 import textwrap
 import warnings
-from typing import Optional, Union
 
 import numpy as np
 
@@ -17,6 +16,7 @@ from .util import (
     check_matvec_out_shape,
     check_sandwich_compatible,
     check_transpose_matvec_out_shape,
+    set_up_rows_or_cols,
     setup_restrictions,
 )
 
@@ -81,9 +81,13 @@ class DenseMatrix(MatrixBase):
         colnames = np.array(self.column_names)[col].ravel().tolist()
         terms = np.array(self.term_names)[col].ravel().tolist()
 
-        return type(self)(
-            self._array.__getitem__((row, col)), column_names=colnames, term_names=terms
-        )
+        sliced = self._array.__getitem__((row, col))
+        # Slicing may yield a non-contiguous view; make it contiguous here so that
+        # the constructor does not warn about an input the user did not provide.
+        # Only copy when needed, to avoid a performance cost.
+        if not (sliced.flags["C_CONTIGUOUS"] or sliced.flags["F_CONTIGUOUS"]):
+            sliced = np.asfortranarray(sliced)
+        return type(self)(sliced, column_names=colnames, term_names=terms)
 
     __array_ufunc__ = None
 
@@ -153,22 +157,67 @@ class DenseMatrix(MatrixBase):
     def sandwich(
         self,
         d: np.ndarray,
-        rows: Optional[np.ndarray] = None,
-        cols: Optional[np.ndarray] = None,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
+        return self._centered_sandwich(d, None, rows, cols)
+
+    def _centered_sandwich(
+        self,
+        d: np.ndarray,
+        center: np.ndarray | None,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Compute ``(X - center).T @ diag(d) @ (X - center)`` without copying X.
+
+        ``center`` has length ``self.shape[1]``; ``None`` means no centering. The
+        subtraction is fused into the panel packing of the sandwich kernel.
+        """
         d = np.asarray(d)
         check_sandwich_compatible(self, d)
         rows, cols = setup_restrictions(self.shape, rows, cols)
-        return dense_sandwich(self._array, d, rows, cols)
+        return dense_sandwich(self._array, d, rows, cols, center=center)
+
+    def _centered_transpose_matvec(
+        self,
+        vec: np.ndarray | list,
+        center: np.ndarray | None,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Compute ``(X - center)[rows, cols].T @ vec[rows]``.
+
+        ``center`` has length ``self.shape[1]``; ``None`` means no centering. The
+        subtraction happens inside the kernel, so that a large center does not
+        cancel against ``X.T @ vec``.
+        """
+        check_transpose_matvec_out_shape(self, out)
+        return self._matvec_helper(vec, rows, cols, out, True, center)
+
+    def _centered_matvec(
+        self,
+        vec: np.ndarray | list,
+        center: np.ndarray | None,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Compute ``(X - center)[:, cols] @ vec[cols]``.
+
+        See :meth:`_centered_transpose_matvec`.
+        """
+        check_matvec_out_shape(self, out)
+        return self._matvec_helper(vec, None, cols, out, False, center)
 
     def _cross_sandwich(
         self,
         other: MatrixBase,
         d: np.ndarray,
-        rows: Optional[np.ndarray] = None,
-        L_cols: Optional[np.ndarray] = None,
-        R_cols: Optional[np.ndarray] = None,
+        rows: np.ndarray | None = None,
+        L_cols: np.ndarray | None = None,
+        R_cols: np.ndarray | None = None,
     ):
         from .categorical_matrix import CategoricalMatrix
         from .sparse_matrix import SparseMatrix
@@ -188,59 +237,89 @@ class DenseMatrix(MatrixBase):
 
     def _matvec_helper(
         self,
-        vec: Union[list, np.ndarray],
-        rows: Optional[np.ndarray],
-        cols: Optional[np.ndarray],
-        out: Optional[np.ndarray],
+        vec: list | np.ndarray,
+        rows: np.ndarray | None,
+        cols: np.ndarray | None,
+        out: np.ndarray | None,
         transpose: bool,
+        center: np.ndarray | None = None,
     ):
         # Because the dense_rmatvec takes a row array and col array, it has
         # added overhead compared to a raw matrix vector product. So, when
-        # we're not filtering at all, let's just use default numpy dot product.
-        #
-        # TODO: related to above, it could be nice to have a version that only
-        # filters rows and a version that only filters columns. How do we do
-        # this without an explosion of code?
+        # we're not filtering or centering at all, let's just use default numpy
+        # dot product.
         vec = np.asarray(vec)
         check_matvec_dimensions(self, vec, transpose=transpose)
         X = self._array.T if transpose else self._array
 
-        # NOTE: We assume that rows and cols are unique
+        # NOTE: We assume that rows and cols are unique. All rows in any order
+        # give the same result, but the order of cols is the output order of
+        # transpose_matvec, so only the identity counts as unrestricted.
         unrestricted_rows = rows is None or len(rows) == self.shape[0]
-        unrestricted_cols = cols is None or len(cols) == self.shape[1]
+        unrestricted_cols = cols is None or np.array_equal(
+            cols, np.arange(self.shape[1])
+        )
 
-        if unrestricted_rows and unrestricted_cols:
+        if center is None and unrestricted_rows and unrestricted_cols:
             if out is None:
                 out = X.dot(vec)
             else:
                 out += X.dot(vec)
             return out
-        else:
-            rows, cols = setup_restrictions(self.shape, rows, cols)
-            # TODO: should take 'out' parameter
-            fast_fnc = dense_rmatvec if transpose else dense_matvec
-            if vec.ndim == 1:
-                res = fast_fnc(self._array, vec, rows, cols)
-            elif vec.ndim == 2 and vec.shape[1] == 1:
-                res = fast_fnc(self._array, vec[:, 0], rows, cols)[:, None]
-            else:
-                subset = self._array[np.ix_(rows, cols)]
-                res = subset.T.dot(vec[rows]) if transpose else subset.dot(vec[cols])
-            if out is None:
-                return res
+
+        if center is not None and vec.dtype != self.dtype:
+            # The kernels need matching dtypes, so expand the centered product
+            # instead. This can cancel if the center is large.
+            res = self._matvec_helper(vec, rows, cols, None, transpose)
+            all_rows, all_cols = setup_restrictions(self.shape, rows, cols)
             if transpose:
-                out[cols] += res
+                res -= np.multiply.outer(center[all_cols], vec[all_rows].sum(axis=0))
             else:
-                # Note that currently 'rows' will always be all rows
-                out[rows] += res
-            return out
+                res -= center[all_cols] @ vec[all_cols]
+        else:
+            # The kernels vectorize along rows or columns that are not restricted.
+            kernel_rows = None if unrestricted_rows else rows
+            kernel_cols = None if unrestricted_cols else cols
+            if kernel_rows is not None:
+                kernel_rows = set_up_rows_or_cols(kernel_rows, self.shape[0])
+            if kernel_cols is not None:
+                kernel_cols = set_up_rows_or_cols(kernel_cols, self.shape[1])
+            fast_fnc = dense_rmatvec if transpose else dense_matvec
+
+            def kernel(v):
+                v = np.ascontiguousarray(v)
+                return fast_fnc(self._array, v, kernel_rows, kernel_cols, center=center)
+
+            # TODO: should take 'out' parameter
+            if vec.ndim == 1:
+                res = kernel(vec)
+            elif vec.ndim == 2 and vec.shape[1] == 1:
+                res = kernel(vec[:, 0])[:, None]
+            elif vec.ndim == 2 and vec.shape[1] > 1 and center is not None:
+                res = np.stack([kernel(v) for v in vec.T], axis=1)
+            else:
+                all_rows, all_cols = setup_restrictions(self.shape, rows, cols)
+                subset = self._array[np.ix_(all_rows, all_cols)]
+                if transpose:
+                    res = subset.T.dot(vec[all_rows])
+                else:
+                    res = subset.dot(vec[all_cols])
+
+        if out is None:
+            return res
+        if transpose and not unrestricted_cols:
+            out[set_up_rows_or_cols(cols, self.shape[1])] += res
+        else:
+            # Note that matvec currently always uses all rows.
+            out += res
+        return out
 
     def transpose_matvec(
         self,
-        vec: Union[np.ndarray, list],
-        rows: Optional[np.ndarray] = None,
-        cols: Optional[np.ndarray] = None,
-        out: Optional[np.ndarray] = None,
+        vec: np.ndarray | list,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform: self[rows, cols].T @ vec[rows]."""
         check_transpose_matvec_out_shape(self, out)
@@ -248,9 +327,9 @@ class DenseMatrix(MatrixBase):
 
     def matvec(
         self,
-        vec: Union[np.ndarray, list],
-        cols: Optional[np.ndarray] = None,
-        out: Optional[np.ndarray] = None,
+        vec: np.ndarray | list,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform self[:, cols] @ other[cols]."""
         check_matvec_out_shape(self, out)
@@ -276,9 +355,9 @@ class DenseMatrix(MatrixBase):
     def get_names(
         self,
         type: str = "column",
-        missing_prefix: Optional[str] = None,
-        indices: Optional[list[int]] = None,
-    ) -> list[Optional[str]]:
+        missing_prefix: str | None = None,
+        indices: list[int] | None = None,
+    ) -> list[str | None]:
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
@@ -320,7 +399,7 @@ class DenseMatrix(MatrixBase):
 
         return names.tolist()
 
-    def set_names(self, names: Union[str, list[Optional[str]]], type: str = "column"):
+    def set_names(self, names: str | list[str | None], type: str = "column"):
         """Set column names.
 
         Parameters

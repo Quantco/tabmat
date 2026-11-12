@@ -10,6 +10,7 @@ postinstall = "pip install --no-build-isolation --no-deps --disable-pip-version-
 cmd = """
     PRE_WHEELS="https://pypi.anaconda.org/scientific-python-nightly-wheels/simple/" &&
     pip install --pre --no-deps --only-binary :all: --upgrade --timeout=60 -i $PRE_WHEELS numpy &&
+    pip install --pre --no-deps --only-binary :all: --upgrade --timeout=60 -i $PRE_WHEELS scipy &&
     pip install --pre --no-deps --only-binary :all: --upgrade --timeout=60 -i $PRE_WHEELS pandas &&
     pip install --pre --no-deps --only-binary :all: --upgrade --timeout=60 -i https://pypi.fury.io/arrow-nightlies/ pyarrow &&
     pip install --no-deps git+https://github.com/matthewwardrop/formulaic
@@ -79,30 +80,29 @@ inputs = [
 pre-commit-install = "pre-commit install"
 pre-commit-run = "pre-commit run -a"
 
-[build-dependencies]
-c-compiler = "*"
-cxx-compiler = "*"
-cython = "*"
-make = "*"
-mako = "*"
-setuptools = ">=62.0"
-setuptools-scm = ">=8.1"
-xsimd = "<11|>12.1"
-[target.unix.dependencies]
-jemalloc-local = "*"
-
-[host-dependencies]
-python = ">=3.10"
-pip = "*"
-setuptools = "*"
-wheel = "*"
-
 [dependencies]
+python = ">=3.11"
 formulaic = ">=1.2.0"
 numpy = ">=1.24.0"
 pandas = ">=1.4.4"
 scipy = ">=1.7.3"
 narwhals = ">=2.0.0"
+
+# build dependencies
+c-compiler = "*"
+cxx-compiler = "*"
+cython = ">=3.1"
+make = "*"
+setuptools = ">=62.0"
+setuptools-scm = ">=8.1"
+xsimd = "<11|>12.1"
+
+# host dependencies
+pip = "*"
+wheel = "*"
+
+[target.unix.dependencies]
+jemalloc-local = "*"
 
 [feature.dev.dependencies]
 ipython = "*"
@@ -140,8 +140,6 @@ blas = { build = "*mkl" }
 [feature.benchmark.target.linux-64.dependencies]
 blas = { build = "*mkl" }
 
-[feature.py310.dependencies]
-python = "3.10.*"
 [feature.py311.dependencies]
 python = "3.11.*"
 [feature.py312.dependencies]
@@ -150,13 +148,28 @@ python = "3.12.*"
 python = "3.13.*"
 [feature.py314.dependencies]
 python = "3.14.*"
+[feature.py314t.dependencies]
+python = "3.14.*"
+python-freethreading = "3.14.*"
+[feature.py314t.tasks]
+test = "python -X gil=0 -m pytest tests --doctest-modules src"
+[feature.py315.dependencies]
+python = "3.15.*"
+
+[feature.nightly.tasks]
+# Nightly dependencies may emit new warnings; do not treat them as errors.
+test = "pytest tests --doctest-modules src -W default"
+
+[feature.oldies.tasks]
+# Old dependencies may emit warnings we cannot fix; do not treat them as errors.
+test = "pytest tests --doctest-modules src -W default"
 
 [feature.oldies.dependencies]
-setuptools = "64.*"
-python = "=3.10"
+setuptools = "65.*"
+python = "=3.11"
 numpy = "=1.24.0"
-pandas = "=1.4.4"
-scipy = "=1.7.3"
+pandas = "=1.5.3"
+scipy = "=1.9.3"
 formulaic = "1.2.*"
 narwhals = "2.0.*"
 
@@ -164,11 +177,12 @@ narwhals = "2.0.*"
 default = ["dev", "test"]
 docs = ["docs"]
 benchmark = ["benchmark"]
-py310 = ["py310", "test"]
 py311 = ["py311", "test"]
 py312 = ["py312", "test"]
 py313 = ["py313", "test"]
 py314 = ["py314", "test"]
+py314t = ["py314t", "test"]
+py315 = ["py315", "test"]
 oldies = ["oldies", "test"]
 lint = { features = ["lint"], no-default-feature = true}
-nightly = ["py314", "test"]
+nightly = ["nightly", "py314", "test"]

@@ -165,7 +165,6 @@ This is `ext/split/sandwich_cat_dense`
 import importlib.util
 import re
 import warnings
-from typing import Optional, Union
 
 import narwhals.stable.v2 as nw
 import numpy as np
@@ -207,7 +206,7 @@ else:
     pl = None  # type: ignore
 
 
-def _is_indexer_full_length(full_length: int, indexer: Union[slice, np.ndarray]):
+def _is_indexer_full_length(full_length: int, indexer: slice | np.ndarray):
     if isinstance(indexer, np.ndarray):
         if (indexer > full_length - 1).any():
             raise IndexError("Index out-of-range.")
@@ -243,14 +242,14 @@ def _extract_codes_and_categories_pandas(cat_vec) -> tuple[np.ndarray, np.ndarra
 def _extract_codes_and_categories_polars(cat_vec) -> tuple[np.ndarray, np.ndarray]:
     dtype = cat_vec.dtype
     if isinstance(dtype, pl.Enum):
-        categories = cat_vec.cat.get_categories().to_numpy()
+        categories = dtype.categories.to_numpy()
         indices = cat_vec.to_physical().fill_null(-1).to_numpy()
         return indices, categories
 
     if not isinstance(cat_vec.dtype, pl.Categorical):
         cat_vec = cat_vec.cast(pl.Categorical)
-    # as of polars 1.32, `get_categories()` won't yield a useful result as
-    # this is "not per column" anymore.
+    # as of polars 1.32, `Series.cat.get_categories()` won't yield a useful
+    # result as this is "not per column" anymore (and it is removed in 2.0).
     mask = cat_vec.is_null()
     categories = cat_vec.filter(~mask).unique().sort().to_numpy()
     indices = np.nan_to_num(cat_vec.rank("dense").to_numpy() - 1, nan=-1)
@@ -294,9 +293,9 @@ def _extract_codes_and_categories(cat_vec) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _row_col_indexing(
-    arr: Union[np.ndarray, sps.spmatrix],
-    rows: Optional[np.ndarray],
-    cols: Optional[np.ndarray],
+    arr: np.ndarray | sps.spmatrix,
+    rows: np.ndarray | None,
+    cols: np.ndarray | None,
 ) -> np.ndarray:
     if isinstance(rows, slice) and rows == slice(None, None, None):
         rows = None
@@ -351,11 +350,11 @@ class CategoricalMatrix(MatrixBase):
     def __init__(
         self,
         cat_vec,
-        categories: Optional[np.ndarray] = None,
+        categories: np.ndarray | None = None,
         drop_first: bool = False,
         dtype: numpy.typing.DTypeLike = np.float64,
-        column_name: Optional[str] = None,
-        term_name: Optional[str] = None,
+        column_name: str | None = None,
+        term_name: str | None = None,
         column_name_format: str = "{name}[{category}]",
         cat_missing_method: str = "fail",
         cat_missing_name: str = "(MISSING)",
@@ -441,6 +440,9 @@ class CategoricalMatrix(MatrixBase):
             "This property will be removed in the next major release.",
             category=DeprecationWarning,
         )
+        return self._to_pandas_categorical()
+
+    def _to_pandas_categorical(self):
         if pd:
             return pd.Categorical.from_codes(self.indices, categories=self.categories)
         else:
@@ -471,9 +473,9 @@ class CategoricalMatrix(MatrixBase):
 
     def _matvec_setup(
         self,
-        other: Union[list, np.ndarray],
-        cols: Optional[np.ndarray] = None,
-    ) -> tuple[np.ndarray, Optional[np.ndarray]]:
+        other: list | np.ndarray,
+        cols: np.ndarray | None = None,
+    ) -> tuple[np.ndarray, np.ndarray | None]:
         other = np.asarray(other)
         if other.ndim > 1:
             raise NotImplementedError(
@@ -494,9 +496,9 @@ class CategoricalMatrix(MatrixBase):
 
     def matvec(
         self,
-        other: Union[list, np.ndarray],
-        cols: Optional[np.ndarray] = None,
-        out: Optional[np.ndarray] = None,
+        other: list | np.ndarray,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
     ) -> np.ndarray:
         """
         Multiply self with vector 'other', and add vector 'out' if it is present.
@@ -542,10 +544,10 @@ class CategoricalMatrix(MatrixBase):
 
     def transpose_matvec(
         self,
-        vec: Union[np.ndarray, list],
-        rows: Optional[np.ndarray] = None,
-        cols: Optional[np.ndarray] = None,
-        out: Optional[np.ndarray] = None,
+        vec: np.ndarray | list,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
     ) -> np.ndarray:
         """
 
@@ -617,9 +619,9 @@ class CategoricalMatrix(MatrixBase):
 
     def sandwich(
         self,
-        d: Union[np.ndarray, list],
-        rows: Optional[np.ndarray] = None,
-        cols: Optional[np.ndarray] = None,
+        d: np.ndarray | list,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
     ) -> sps.dia_matrix:
         """
         Perform a sandwich product: X.T @ diag(d) @ X.
@@ -656,13 +658,19 @@ class CategoricalMatrix(MatrixBase):
         self,
         other: MatrixBase,
         d: np.ndarray,
-        rows: Optional[np.ndarray] = None,
-        L_cols: Optional[np.ndarray] = None,
-        R_cols: Optional[np.ndarray] = None,
+        rows: np.ndarray | None = None,
+        L_cols: np.ndarray | None = None,
+        R_cols: np.ndarray | None = None,
+        dense_center: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Perform a sandwich product: X.T @ diag(d) @ Y."""
+        """Perform a sandwich product: X.T @ diag(d) @ Y.
+
+        If ``other`` is dense, ``dense_center`` centers it, see :meth:`_cross_dense`.
+        """
         if isinstance(other, DenseMatrix):
-            return self._cross_dense(other._array, d, rows, L_cols, R_cols)
+            return self._cross_dense(
+                other._array, d, rows, L_cols, R_cols, dense_center
+            )
         if isinstance(other, SparseMatrix):
             return self._cross_sparse(other.array_csc, d, rows, L_cols, R_cols)
         if isinstance(other, CategoricalMatrix):
@@ -718,7 +726,7 @@ class CategoricalMatrix(MatrixBase):
 
     def unpack(self):
         """Return the underlying pandas.Categorical."""
-        return self.cat
+        return self._to_pandas_categorical()
 
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
         """Return CategoricalMatrix cast to new type."""
@@ -760,10 +768,12 @@ class CategoricalMatrix(MatrixBase):
         self,
         other: np.ndarray,
         d: np.ndarray,
-        rows: Optional[np.ndarray],
-        L_cols: Optional[np.ndarray],
-        R_cols: Optional[np.ndarray],
+        rows: np.ndarray | None,
+        L_cols: np.ndarray | None,
+        R_cols: np.ndarray | None,
+        dense_center: np.ndarray | None = None,
     ) -> np.ndarray:
+        # dense_center (one value per column of other) centers other in the kernel.
         if other.flags["C_CONTIGUOUS"]:
             is_c_contiguous = True
         elif other.flags["F_CONTIGUOUS"]:
@@ -785,6 +795,7 @@ class CategoricalMatrix(MatrixBase):
             is_c_contiguous,
             has_missings=self._has_missings,
             drop_first=self.drop_first,
+            dense_center=dense_center,
         )
 
         res = _row_col_indexing(res, L_cols, None)
@@ -794,9 +805,9 @@ class CategoricalMatrix(MatrixBase):
         self,
         other,
         d: np.ndarray,
-        rows: Optional[np.ndarray],
-        L_cols: Optional[np.ndarray],
-        R_cols: Optional[np.ndarray],
+        rows: np.ndarray | None,
+        L_cols: np.ndarray | None,
+        R_cols: np.ndarray | None,
     ) -> np.ndarray:
         if not isinstance(other, CategoricalMatrix):
             raise TypeError
@@ -826,9 +837,9 @@ class CategoricalMatrix(MatrixBase):
         self,
         other: sps.csc_matrix,
         d: np.ndarray,
-        rows: Optional[np.ndarray],
-        L_cols: Optional[np.ndarray],
-        R_cols: Optional[np.ndarray],
+        rows: np.ndarray | None,
+        L_cols: np.ndarray | None,
+        R_cols: np.ndarray | None,
     ) -> np.ndarray:
         term_1 = self.multiply(d)  # multiply will deal with drop_first
 
@@ -853,7 +864,7 @@ class CategoricalMatrix(MatrixBase):
                 sps.csr_matrix(
                     multiply_complex(
                         indices=self.indices,
-                        d=np.squeeze(other),
+                        d=np.atleast_1d(np.squeeze(other)),
                         ncols=self.shape[1],
                         dtype=other.dtype,
                         drop_first=self.drop_first,
@@ -865,7 +876,7 @@ class CategoricalMatrix(MatrixBase):
         return SparseMatrix(
             sps.csr_matrix(
                 (
-                    np.squeeze(other),
+                    np.atleast_1d(np.squeeze(other)),
                     self.indices,
                     np.arange(self.shape[0] + 1, dtype=int),
                 ),
@@ -881,9 +892,9 @@ class CategoricalMatrix(MatrixBase):
     def get_names(
         self,
         type: str = "column",
-        missing_prefix: Optional[str] = None,
-        indices: Optional[list[int]] = None,
-    ) -> list[Optional[str]]:
+        missing_prefix: str | None = None,
+        indices: list[int] | None = None,
+    ) -> list[str | None]:
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
@@ -931,7 +942,7 @@ class CategoricalMatrix(MatrixBase):
         else:
             return [name] * (len(self.categories) - self.drop_first)
 
-    def set_names(self, names: Union[str, list[Optional[str]]], type: str = "column"):
+    def set_names(self, names: str | list[str | None], type: str = "column"):
         """Set column names.
 
         Parameters

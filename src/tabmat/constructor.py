@@ -1,7 +1,7 @@
 import sys
 import warnings
 from collections.abc import Mapping
-from typing import Any, Optional, Union
+from typing import Any
 
 import narwhals.stable.v2 as nw
 import numpy as np
@@ -49,8 +49,9 @@ def from_df(
     dtype : np.dtype, default np.float64
         dtype of all sub-matrices of the resulting SplitMatrix.
     sparse_threshold : float, default 0.1
-        Density threshold below which numerical columns will be stored in a sparse
-        format.
+        Density threshold at or below which numerical columns that are not already
+        sparse will be stored in a sparse format. This threshold is not used to
+        densify columns that are already sparse.
     cat_threshold : int, default 4
         Number of levels of a categorical column under which the column will be stored
         as sparse one-hot-encoded columns instead of CategoricalMatrix
@@ -79,7 +80,7 @@ def from_df(
     -------
     SplitMatrix
     """
-    matrices: list[Union[DenseMatrix, SparseMatrix, CategoricalMatrix]] = []
+    matrices: list[DenseMatrix | SparseMatrix | CategoricalMatrix] = []
     indices: list[np.ndarray] = []
     is_cat: list[bool] = []
 
@@ -286,8 +287,9 @@ def from_pandas(
     dtype : np.dtype, default np.float64
         dtype of all sub-matrices of the resulting SplitMatrix.
     sparse_threshold : float, default 0.1
-        Density threshold below which numerical columns will be stored in a sparse
-        format.
+        Density threshold at or below which numerical columns that are not already
+        sparse will be stored in a sparse format. This threshold is not used to
+        densify columns that are already sparse.
     cat_threshold : int, default 4
         Number of levels of a categorical column under which the column will be stored
         as sparse one-hot-encoded columns instead of CategoricalMatrix
@@ -353,10 +355,10 @@ def from_csc(mat: sps.csc_matrix, threshold=0.1, column_names=None, term_names=N
 
 
 def from_formula(
-    formula: Union[str, Formula],
+    formula: str | Formula,
     data,
     ensure_full_rank: bool = False,
-    na_action: Union[str, NAAction] = NAAction.IGNORE,
+    na_action: str | NAAction = NAAction.IGNORE,
     dtype: numpy.typing.DTypeLike = np.float64,
     sparse_threshold: float = 0.1,
     cat_threshold: int = 4,
@@ -367,7 +369,7 @@ def from_formula(
     intercept_name: str = "Intercept",
     include_intercept: bool = False,
     add_column_for_intercept: bool = True,
-    context: Optional[Union[int, Mapping[str, Any]]] = None,
+    context: int | Mapping[str, Any] | None = None,
 ) -> SplitMatrix:
     """
     Transform a pandas data frame to a SplitMatrix using a Wilkinson formula.

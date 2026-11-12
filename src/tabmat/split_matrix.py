@@ -1,6 +1,5 @@
 import warnings
 from collections.abc import Sequence
-from typing import Optional, Union
 
 import numpy as np
 from scipy import sparse as sps
@@ -19,7 +18,7 @@ from .util import (
 )
 
 
-def as_tabmat(a: Union[MatrixBase, StandardizedMatrix, np.ndarray, sps.spmatrix]):
+def as_tabmat(a: MatrixBase | StandardizedMatrix | np.ndarray | sps.spmatrix):
     """Convert an array to a corresponding MatrixBase type.
 
     If the input is already a MatrixBase, return untouched.
@@ -37,7 +36,7 @@ def as_tabmat(a: Union[MatrixBase, StandardizedMatrix, np.ndarray, sps.spmatrix]
         raise ValueError(f"Cannot convert type {type(a)} to Matrix.")
 
 
-def hstack(tup: Sequence[Union[MatrixBase, np.ndarray, sps.spmatrix]]) -> MatrixBase:
+def hstack(tup: Sequence[MatrixBase | np.ndarray | sps.spmatrix]) -> MatrixBase:
     """Stack arrays in sequence horizontally (column wise).
 
     This is equivalent to concatenation along the second axis,
@@ -61,7 +60,7 @@ def hstack(tup: Sequence[Union[MatrixBase, np.ndarray, sps.spmatrix]]) -> Matrix
         return SplitMatrix(matrices)
 
 
-def _prepare_out_array(out: Optional[np.ndarray], out_shape, out_dtype) -> np.ndarray:
+def _prepare_out_array(out: np.ndarray | None, out_shape, out_dtype) -> np.ndarray:
     if out is None:
         out = np.zeros(out_shape, out_dtype)
     else:
@@ -171,7 +170,7 @@ class SplitMatrix(MatrixBase):
     def __init__(
         self,
         matrices: Sequence[MatrixBase],
-        indices: Optional[list[np.ndarray]] = None,
+        indices: list[np.ndarray] | None = None,
     ):
         flatten_matrices = []
         index_corrections = []
@@ -267,8 +266,8 @@ class SplitMatrix(MatrixBase):
         assert self.shape[1] > 0
 
     def _split_col_subsets(
-        self, cols: Optional[np.ndarray]
-    ) -> tuple[list[np.ndarray], Union[list[np.ndarray], list[None]], int]:
+        self, cols: np.ndarray | None
+    ) -> tuple[list[np.ndarray], list[np.ndarray] | list[None], int]:
         """
         Return tuple of things helpful for applying column restrictions to sub-matrices.
 
@@ -311,7 +310,7 @@ class SplitMatrix(MatrixBase):
             out[:, idx] = mat.toarray()
         return out
 
-    def getcol(self, i: int) -> Union[np.ndarray, sps.csr_matrix]:
+    def getcol(self, i: int) -> np.ndarray | sps.csr_matrix:
         """Return matrix column at specified index."""
         # wrap-around indexing
         i %= self.shape[1]
@@ -323,21 +322,47 @@ class SplitMatrix(MatrixBase):
 
     def sandwich(
         self,
-        d: Union[np.ndarray, list],
-        rows: Optional[np.ndarray] = None,
-        cols: Optional[np.ndarray] = None,
+        d: np.ndarray | list,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
+        return self._centered_sandwich(d, None, rows, cols)
+
+    def _part_centers(self, center: np.ndarray | None) -> list[np.ndarray | None]:
+        """Split ``center`` (one value per column) into one center per part.
+
+        Only the dense part is centered; the other parts get ``None``.
+        """
+        return [
+            center[idx] if center is not None and isinstance(mat, DenseMatrix) else None
+            for mat, idx in zip(self.matrices, self.indices)
+        ]
+
+    def _centered_sandwich(
+        self,
+        d: np.ndarray | list,
+        center: np.ndarray | None,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Like :meth:`sandwich`, with the dense part centered by ``center``.
+
+        The dense columns are centered inside the kernels, both for their own
+        block and for their cross blocks with the other parts, so that a large
+        center does not cancel. ``center=None`` means no centering.
+        """
         d = np.asarray(d)
         check_sandwich_compatible(self, d)
 
         subset_cols_indices, subset_cols, n_cols = self._split_col_subsets(cols)
+        centers = self._part_centers(center)
 
         out = np.zeros((n_cols, n_cols))
         for i in range(len(self.indices)):
             idx_i = subset_cols_indices[i]
             mat_i = self.matrices[i]
-            res = mat_i.sandwich(d, rows, subset_cols[i])
+            res = mat_i._centered_sandwich(d, centers[i], rows, subset_cols[i])
             if isinstance(res, sps.dia_matrix):
                 out[(idx_i, idx_i)] += np.squeeze(res.data)
             else:
@@ -346,9 +371,29 @@ class SplitMatrix(MatrixBase):
             for j in range(i + 1, len(self.indices)):
                 idx_j = subset_cols_indices[j]
                 mat_j = self.matrices[j]
-                res = mat_i._cross_sandwich(
-                    mat_j, d, rows, subset_cols[i], subset_cols[j]
-                )
+                # A centered dense part goes on the right, as the other matrix.
+                if centers[i] is not None:
+                    res = mat_j._cross_sandwich(
+                        mat_i,
+                        d,
+                        rows,
+                        subset_cols[j],
+                        subset_cols[i],
+                        dense_center=centers[i],
+                    ).T
+                elif centers[j] is not None:
+                    res = mat_i._cross_sandwich(
+                        mat_j,
+                        d,
+                        rows,
+                        subset_cols[i],
+                        subset_cols[j],
+                        dense_center=centers[j],
+                    )
+                else:
+                    res = mat_i._cross_sandwich(
+                        mat_j, d, rows, subset_cols[i], subset_cols[j]
+                    )
 
                 out[np.ix_(idx_i, idx_j)] = res
                 out[np.ix_(idx_j, idx_i)] = res.T
@@ -373,10 +418,22 @@ class SplitMatrix(MatrixBase):
     def matvec(
         self,
         v: np.ndarray,
-        cols: Optional[np.ndarray] = None,
-        out: Optional[np.ndarray] = None,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform self[:, cols] @ other[cols]."""
+        return self._centered_matvec(v, None, cols, out)
+
+    def _centered_matvec(
+        self,
+        v: np.ndarray,
+        center: np.ndarray | None,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Like :meth:`matvec`, with the dense part centered by ``center`` (one
+        value per column) inside the kernels. ``center=None`` means no centering.
+        """
         assert not isinstance(v, sps.spmatrix)
         v = np.asarray(v)
         check_matvec_dimensions(self, v, transpose=False)
@@ -386,6 +443,7 @@ class SplitMatrix(MatrixBase):
             raise ValueError(f"shapes {self.shape} and {v.shape} not aligned")
 
         _, subset_cols, n_cols = self._split_col_subsets(cols)
+        centers = self._part_centers(center)
 
         out_shape = [self.shape[0]] + ([] if v.ndim == 1 else list(v.shape[1:]))
         out_dtype = np.result_type(self.dtype, v.dtype)
@@ -398,14 +456,15 @@ class SplitMatrix(MatrixBase):
         # as the target for storing the final output. This reduces the number
         # of output arrays allocated from 2 to 1.
         is_matrix_dense = [isinstance(m, DenseMatrix) for m in self.matrices]
-        dense_matrix_idx: Union[int, np.intp]
+        dense_matrix_idx: int | np.intp
         if np.any(is_matrix_dense):
             dense_matrix_idx = np.argmax(is_matrix_dense)
             sub_cols = subset_cols[dense_matrix_idx]
             idx = self.indices[dense_matrix_idx]
             mat = self.matrices[dense_matrix_idx]
             in_vec = v[idx, ...]
-            out = np.asarray(mat.matvec(in_vec, sub_cols, out), dtype=out_dtype)
+            res = mat._centered_matvec(in_vec, centers[dense_matrix_idx], sub_cols, out)
+            out = np.asarray(res, dtype=out_dtype)
         else:
             dense_matrix_idx = -1
             out = _prepare_out_array(out, out_shape, out_dtype)
@@ -421,10 +480,10 @@ class SplitMatrix(MatrixBase):
 
     def transpose_matvec(
         self,
-        v: Union[np.ndarray, list],
-        rows: Optional[np.ndarray] = None,
-        cols: Optional[np.ndarray] = None,
-        out: Optional[np.ndarray] = None,
+        v: np.ndarray | list,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
     ) -> np.ndarray:
         """
         Perform: self[rows, cols].T @ vec[rows].
@@ -437,7 +496,20 @@ class SplitMatrix(MatrixBase):
                 = sum_{j in rows} sum_{mat in self.matrices} 1(cols[i] in mat)
                                                             self[j, cols[i]] v[j]
         """
+        return self._centered_transpose_matvec(v, None, rows, cols, out)
 
+    def _centered_transpose_matvec(
+        self,
+        v: np.ndarray | list,
+        center: np.ndarray | None,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
+    ) -> np.ndarray:
+        """Like :meth:`transpose_matvec`, with the dense part centered by
+        ``center`` (one value per column) inside the kernels. ``center=None``
+        means no centering.
+        """
         v = np.asarray(v)
         check_matvec_dimensions(self, v, transpose=True)
         check_transpose_matvec_out_shape(self, out)
@@ -451,8 +523,10 @@ class SplitMatrix(MatrixBase):
         if cols is not None:
             cols = np.asarray(cols, dtype=np.int32)
 
-        for idx, sub_cols, mat in zip(subset_cols_indices, subset_cols, self.matrices):
-            res = mat.transpose_matvec(v, rows=rows, cols=sub_cols)
+        for idx, sub_cols, mat, mat_center in zip(
+            subset_cols_indices, subset_cols, self.matrices, self._part_centers(center)
+        ):
+            res = mat._centered_transpose_matvec(v, mat_center, rows, sub_cols)
             if out_is_none or cols is None:
                 out[idx, ...] += res
             else:
@@ -499,9 +573,9 @@ class SplitMatrix(MatrixBase):
     def get_names(
         self,
         type: str = "column",
-        missing_prefix: Optional[str] = None,
-        indices: Optional[list[int]] = None,
-    ) -> list[Optional[str]]:
+        missing_prefix: str | None = None,
+        indices: list[int] | None = None,
+    ) -> list[str | None]:
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
@@ -532,7 +606,7 @@ class SplitMatrix(MatrixBase):
             names[idx] = mat.get_names(type, missing_prefix, idx)
         return names.tolist()
 
-    def set_names(self, names: Union[str, list[Optional[str]]], type: str = "column"):
+    def set_names(self, names: str | list[str | None], type: str = "column"):
         """Set column names.
 
         Parameters

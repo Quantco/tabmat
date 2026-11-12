@@ -1,11 +1,9 @@
-import io
 import os
 import shutil
 import sys
 from os import path
 from pathlib import Path
 
-import mako.template
 import numpy as np
 from Cython.Build import cythonize
 from setuptools import Extension, find_packages, setup
@@ -14,37 +12,6 @@ here = path.abspath(path.dirname(__file__))
 
 with open(path.join(here, "README.md")) as f:
     long_description = f.read()
-
-# TODO: this should be moved inside the compilation of the extension
-print("templating C source")
-templates = [
-    "src/tabmat/ext/dense_helpers-tmpl.cpp",
-    "src/tabmat/ext/sparse_helpers-tmpl.cpp",
-    "src/tabmat/ext/cat_split_helpers-tmpl.cpp",
-]
-
-for fn in templates:
-    tmpl = mako.template.Template(filename=fn)
-
-    buf = io.StringIO()
-    ctx = mako.runtime.Context(buf)
-    tmpl.render_context(ctx)
-    rendered_src = buf.getvalue()
-
-    out_fn = fn.split("-tmpl")[0] + ".cpp"
-
-    # When the templated source code hasn't changed, we don't want to write the
-    # file again because that'll touch the file and result in a rebuild
-    write = True
-    if path.exists(out_fn):
-        with open(out_fn) as f:
-            out_fn_src = f.read()
-            if out_fn_src == rendered_src:
-                write = False
-
-    if write:
-        with open(out_fn, "w") as f:
-            f.write(rendered_src)
 
 # add numpy headers
 include_dirs = [np.get_include()]
@@ -55,7 +22,7 @@ print(f"Debug Build: {debug_build}")
 
 if sys.platform == "win32":
     allocator_libs = []  # type: ignore
-    extra_compile_args = ["/openmp", "/O2"]
+    extra_compile_args = ["/openmp", "/O2", "/std:c++17"]
     extra_link_args = ["/openmp"]
     # make sure we can find xsimd headers
     include_dirs.append(os.path.join(sys.prefix, "Library", "include"))
@@ -147,20 +114,22 @@ setup(
     author_email="noreply@quantco.com",
     classifiers=[  # Optional
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
     ],
     package_dir={"": "src"},
     packages=find_packages(where="src"),
     install_requires=["formulaic>=1.2", "narwhals", "numpy", "scipy"],
-    python_requires=">=3.10",
+    python_requires=">=3.11",
     ext_modules=cythonize(
         ext_modules,
         annotate=False,
         compiler_directives={
             "language_level": "3",
+            "freethreading_compatible": True,
             "boundscheck": debug_build,
             "wraparound": debug_build,
             "initializedcheck": False,

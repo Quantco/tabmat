@@ -3,14 +3,13 @@ requires = [
   'setuptools',
   'setuptools-scm',
   'wheel',
-  'mako',
   'numpy>=1.25',
-  'Cython != 3.0.4',
+  'Cython>=3.1',
 ]
 
 [tool.ruff]
 line-length = 88
-target-version = "py39"
+target-version = "py311"
 
 [tool.ruff.lint]
 ignore = ["E731", "N802", "N803", "N806"]
@@ -31,7 +30,7 @@ select = [
 known-first-party = ["tabmat"]
 
 [tool.mypy]
-python_version = '3.12'
+python_version = '3.11'
 exclude = [
   "tests/",
 ]
@@ -40,23 +39,35 @@ check_untyped_defs = true
 namespace_packages = true
 ignore_missing_imports = true
 
+[tool.pytest.ini_options]
+addopts = "-s --tb=short"
+norecursedirs = ["__pycache__", "build", "src/tabmat/benchmark"]
+markers = [
+  "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+  "high_memory: high memory consumption (deselect with '-m \"not high_memory\"')",
+]
+# Filters are standard python warning filters as described here:
+# https://docs.python.org/3/library/warnings.html#the-warnings-filter
+# The oldies and nightly environments override this with `-W default` (see pixi.toml).
+filterwarnings = [
+  # Treat any warning as an error by default; add specific `ignore` filters
+  # below for unavoidable third-party warnings.
+  "error",
+]
+
 [tool.cibuildwheel]
+build-frontend = "build[uv]"
 skip = [
   "*-win32",
   "*-manylinux_i686",
-  "pp*",
   "*-musllinux_*",
-  "cp36*",
-  "cp37*",
-  "cp38*",
 ]
 test-requires = ["pytest", "pytest-xdist"]
 test-command = "pytest {package}/tests/test_matrices.py"
-# note: ARCHS_LINUX defined in build_wheels.yml file.
 
 [tool.cibuildwheel.macos]
-before-build = [
-  "/Users/runner/micromamba-bin/micromamba create -y -p $MAMBA_ROOT_PREFIX/envs/build -c conda-forge jemalloc-local \"xsimd<11|>12.1\" llvm-openmp",
+before-all = [
+  "micromamba create -y -p \"$MAMBA_ROOT_PREFIX/envs/build\" -c conda-forge jemalloc-local \"xsimd<11|>12.1\" llvm-openmp",
 ]
 
 [tool.cibuildwheel.macos.environment]
@@ -70,11 +81,11 @@ MACOSX_DEPLOYMENT_TARGET="12.0"
 
 [tool.cibuildwheel.windows]
 before-all = [
-  "C:\\Users\\runneradmin\\micromamba-bin\\micromamba.exe create -y -p envs\\build -c conda-forge \"xsimd<11|>12.1\""
+  "micromamba create -y -p envs\\build -c conda-forge \"xsimd<11|>12.1\""
 ]
 
 [tool.cibuildwheel.windows.environment]
-INCLUDE="D:\\\\a\\\\tabmat\\\\tabmat\\\\envs\\\\build\\\\Library\\\\include"
+INCLUDE='$GITHUB_WORKSPACE/envs/build/Library/include;$INCLUDE'
 
 [tool.cibuildwheel.linux]
 before-all = [

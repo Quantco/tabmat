@@ -15,7 +15,7 @@ ctypedef fused win_numeric:
     numeric
     long long
 
-cdef extern from "cat_split_helpers.cpp":
+cdef extern from "cat_split_helpers.hpp":
     void _transpose_matvec_all_rows_fast[Int, F](Int, const int*, F*, F*, Int)
     void _transpose_matvec_all_rows_complex[Int, F](Int, const int*, F*, F*, Int, bool)
 

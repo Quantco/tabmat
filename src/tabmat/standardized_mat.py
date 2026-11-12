@@ -1,5 +1,3 @@
-from typing import Optional, Union
-
 import numpy as np
 from scipy import sparse as sps
 
@@ -33,11 +31,16 @@ class StandardizedMatrix:
 
     __array_priority__ = 11
 
+    # The unscaled column centers c, with shift == -c * mult, if known exactly.
+    # MatrixBase.standardize sets them; otherwise they are recovered from shift
+    # and mult when needed (see _dense_centering).
+    _center: np.ndarray | None = None
+
     def __init__(
         self,
         mat: MatrixBase,
-        shift: Union[np.ndarray, list],
-        mult: Optional[Union[np.ndarray, list]] = None,
+        shift: np.ndarray | list,
+        mult: np.ndarray | list | None = None,
     ):
         shift_arr = np.atleast_1d(np.squeeze(shift))
         expected_shape = (mat.shape[1],)
@@ -68,9 +71,9 @@ class StandardizedMatrix:
 
     def matvec(
         self,
-        other_mat: Union[np.ndarray, list],
-        cols: Optional[np.ndarray] = None,
-        out: Optional[np.ndarray] = None,
+        other_mat: np.ndarray | list,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
     ) -> np.ndarray:
         """
         Perform self[:, cols] @ other[cols].
@@ -89,10 +92,12 @@ class StandardizedMatrix:
             for _ in range(len(other_mat.shape) - 1):
                 mult = mult[:, np.newaxis]
             mult_other = mult * other_mat
-        mat_part = self.mat.matvec(mult_other, cols, out=out)
+        # Center the dense columns inside the kernels, see sandwich.
+        center, shift = self._dense_centering()
+        mat_part = self.mat._centered_matvec(mult_other, center, cols, out=out)
 
         # Add shift part to mat_part
-        shift_part = self.shift[cols].dot(other_mat[cols, ...])  # scalar
+        shift_part = shift[cols].dot(other_mat[cols, ...])  # scalar
         mat_part += shift_part
         return mat_part
 
@@ -112,19 +117,73 @@ class StandardizedMatrix:
                [2.],
                [1.]])
         """
-        mult = None
-        if self.mult is not None:
-            mult = [self.mult[i]]
         col = self.mat.getcol(i)
         if isinstance(col, sps.csc_matrix) and not isinstance(col, MatrixBase):
             col = SparseMatrix(col)
-        return StandardizedMatrix(col, [self.shift[i]], mult)
+        return self._with_cols(col, i)
+
+    def _with_cols(self, mat: MatrixBase, col) -> "StandardizedMatrix":
+        """Wrap ``mat`` with the shift, mult and center of the columns ``col``."""
+        mult = None if self.mult is None else np.atleast_1d(self.mult[col])
+        out = StandardizedMatrix(mat, np.atleast_1d(self.shift[col]), mult)
+        if self._center is not None:
+            # Squeezed like shift and mult in the constructor, e.g. for the (1, k)
+            # column indexer of np.ix_.
+            out._center = np.atleast_1d(np.squeeze(self._center[col]))
+        return out
+
+    def _dense_centering(self) -> tuple[np.ndarray | None, np.ndarray]:
+        """Return ``(center, shift)`` for centering the dense columns in the kernels.
+
+        ``center`` holds the unscaled means of the columns stored in a dense
+        matrix and zero for the others, so that
+        ``self.toarray() == (self.mat.toarray() - center) * mult + shift``.
+        Centering a column absorbs its shift, so ``shift`` is zero for the
+        centered columns. The exact means from :meth:`MatrixBase.standardize` are
+        used while they still match ``self.shift``; otherwise they are recovered
+        from ``self.shift`` and ``self.mult``. Columns whose mean cannot be
+        recovered (a zero multiplier) or is zero keep their shift. ``center`` is
+        ``None`` if no column is centered.
+        """
+        from .split_matrix import SplitMatrix
+
+        dense = np.zeros(self.shape[1], dtype=bool)
+        if isinstance(self.mat, DenseMatrix):
+            dense[:] = True
+        elif isinstance(self.mat, SplitMatrix):
+            for mat, idx in zip(self.mat.matrices, self.mat.indices):
+                dense[idx] = isinstance(mat, DenseMatrix)
+        if not dense.any():
+            return None, self.shift
+
+        center = self._center
+        if center is not None:
+            # Allow for rounding, e.g. after astype casts shift and center
+            # separately. A larger difference means shift was changed since.
+            expected = -center if self.mult is None else -center * self.mult
+            # Same as np.allclose(expected, self.shift, rtol=4 * eps, atol=0), but
+            # cheaper; this runs for every product.
+            eps = np.finfo(np.result_type(expected, self.shift)).eps
+            if not np.all(
+                np.abs(expected - self.shift) <= 4 * eps * np.abs(self.shift)
+            ):
+                center = None
+        if center is None:
+            if self.mult is None:
+                center = -self.shift
+            else:
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    center = -self.shift / self.mult
+        centered = dense & np.isfinite(center) & (center != 0)
+        if not centered.any():
+            return None, self.shift
+        return np.where(centered, center, 0.0), np.where(centered, 0.0, self.shift)
 
     def sandwich(
         self,
         d: np.ndarray,
-        rows: Optional[np.ndarray] = None,
-        cols: Optional[np.ndarray] = None,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
         if not hasattr(d, "dtype"):
@@ -146,30 +205,42 @@ class StandardizedMatrix:
             if cols is not None:
                 cols = setup_cols
 
-        term1 = self.mat.sandwich(d, rows, cols)
-        d_mat = self.mat.transpose_matvec(d, rows, cols)
+        # The dense columns are centered inside the kernels, without copying the
+        # data: for a DenseMatrix, (1) becomes
+        # (mat - center).T @ diag(d) @ (mat - center) and (2) to (4) vanish.
+        # Expanding the uncentered product instead forms terms that nearly cancel
+        # when a column's mean is large relative to its standard deviation,
+        # losing most significant digits.
+        center, shift = self._dense_centering()
+        term1 = self.mat._centered_sandwich(d, center, rows, cols)
+        if isinstance(term1, sps.dia_matrix):
+            term1 = np.diag(term1.data[0, :])
+
+        limited_mult = None
         if self.mult is not None:
             limited_mult = self.mult[cols] if cols is not None else self.mult
-            d_mat *= limited_mult
-        term2 = np.outer(d_mat, self.shift[cols])
+            term1 *= limited_mult[:, np.newaxis]
+            term1 *= limited_mult[np.newaxis, :]
+        limited_shift = shift[cols] if cols is not None else shift
+        if not limited_shift.any():
+            # (2) to (4) vanish without a shift.
+            return term1
 
-        limited_shift = self.shift[cols] if cols is not None else self.shift
+        d_mat = self.mat._centered_transpose_matvec(d, center, rows, cols)
+        if limited_mult is not None:
+            d_mat *= limited_mult
+
+        # (2) + (3) + (4) = outer(d_mat, shift) + outer(shift, d_mat)
+        #   + sum(d) * outer(shift, shift) = outer(a, shift) + outer(shift, a)
+        # with a = d_mat + sum(d) / 2 * shift, which needs a single outer product.
         limited_d = d[rows] if rows is not None else d
-        term3 = np.outer(limited_shift, d_mat)
-        term4 = np.outer(limited_shift, limited_shift) * np.sum(limited_d)
-        res = term2 + term3 + term4
-        if isinstance(term1, sps.dia_matrix):
-            idx = np.arange(res.shape[0])
-            to_add = term1.data[0, :]
-            if self.mult is not None:
-                to_add *= limited_mult**2
-            res[idx, idx] += to_add
-        else:
-            to_add = term1
-            if self.mult is not None:
-                to_add *= np.outer(limited_mult, limited_mult)
-            res += to_add
-        return res
+        a = d_mat + 0.5 * np.sum(limited_d) * limited_shift
+        cross = np.outer(a, limited_shift)
+        # Keep the dtype that adding the terms out of place would give.
+        term1 = term1.astype(np.result_type(term1, cross), copy=False)
+        term1 += cross
+        term1 += cross.T
+        return term1
 
     def unstandardize(self) -> MatrixBase:
         """Get unstandardized (base) matrix."""
@@ -177,10 +248,10 @@ class StandardizedMatrix:
 
     def transpose_matvec(
         self,
-        other: Union[np.ndarray, list],
-        rows: Optional[np.ndarray] = None,
-        cols: Optional[np.ndarray] = None,
-        out: Optional[np.ndarray] = None,
+        other: np.ndarray | list,
+        rows: np.ndarray | None = None,
+        cols: np.ndarray | None = None,
+        out: np.ndarray | None = None,
     ) -> np.ndarray:
         """
         Perform: self[rows, cols].T @ vec[rows].
@@ -206,30 +277,39 @@ class StandardizedMatrix:
         check_transpose_matvec_out_shape(self, out)
         other = np.asarray(other)
         check_matvec_dimensions(self, other, transpose=True)
-        res = self.mat.transpose_matvec(other, rows, cols)
+        # Center the dense columns inside the kernels, see sandwich.
+        center, shift = self._dense_centering()
+        res = self.mat._centered_transpose_matvec(other, center, rows, cols)
 
-        rows, cols = setup_restrictions(self.shape, rows, cols)
-        other_sum = np.sum(other[rows], 0)
+        # Index only if restricted; fancy indexing copies the whole vector.
+        if rows is not None:
+            other = other[set_up_rows_or_cols(rows, self.shape[0])]
+        if cols is not None:
+            cols = set_up_rows_or_cols(cols, self.shape[1])
+            shift = shift[cols]
+        other_sum = np.sum(other, 0)
 
-        shift_part_tmp = np.outer(self.shift[cols], other_sum)
+        shift_part_tmp = np.outer(shift, other_sum)
         output_shape = ((self.shape[1] if cols is None else len(cols)),) + res.shape[1:]
         shift_part = np.reshape(shift_part_tmp, output_shape)
 
         if self.mult is not None:
-            mult = self.mult
+            mult = self.mult if cols is None else self.mult[cols]
             # Avoiding an outer product by matching dimensions.
             for _ in range(res.ndim - 1):
                 mult = mult[:, np.newaxis]
-            res *= mult[cols]
+            res *= mult
         res += shift_part
 
         if out is None:
             return res
+        elif cols is None:
+            out += res
         else:
             out[cols] += res
-            return out
+        return out
 
-    def __rmatmul__(self, other: Union[np.ndarray, list]) -> np.ndarray:
+    def __rmatmul__(self, other: np.ndarray | list) -> np.ndarray:
         """
         Return matrix multiplication with other.
 
@@ -275,10 +355,19 @@ class StandardizedMatrix:
 
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
         """Return StandardizedMatrix cast to new type."""
-        return type(self)(
+        mult = None
+        if self.mult is not None:
+            mult = self.mult.astype(dtype, order=order, casting=casting, copy=copy)
+        out = type(self)(
             self.mat.astype(dtype, casting=casting, copy=copy),
             self.shift.astype(dtype, order=order, casting=casting, copy=copy),
+            mult,
         )
+        if self._center is not None:
+            out._center = self._center.astype(
+                dtype, order=order, casting=casting, copy=copy
+            )
+        return out
 
     def __getitem__(self, item):
         if isinstance(item, tuple):
@@ -287,19 +376,9 @@ class StandardizedMatrix:
             row = item
             col = slice(None, None, None)
 
-        mat_part = self.mat.__getitem__(item)
-        shift_part = self.shift[col]
-        mult_part = self.mult
-        if mult_part is not None:
-            mult_part = np.atleast_1d(mult_part[col])
-
-        if isinstance(row, int):
-            out = mat_part.toarray()
-            if mult_part is not None:
-                out = out * mult_part
-            return out + shift_part
-
-        return StandardizedMatrix(mat_part, np.atleast_1d(shift_part), mult_part)
+        out = self._with_cols(self.mat.__getitem__(item), col)
+        # A single row is returned as an array.
+        return out.toarray() if isinstance(row, int) else out
 
     def __repr__(self):
         out = f"""StandardizedMat. Mat: {type(self.mat)} of shape {self.mat.shape}.
@@ -311,9 +390,9 @@ class StandardizedMatrix:
     def get_names(
         self,
         type: str = "column",
-        missing_prefix: Optional[str] = None,
-        indices: Optional[list[int]] = None,
-    ) -> list[Optional[str]]:
+        missing_prefix: str | None = None,
+        indices: list[int] | None = None,
+    ) -> list[str | None]:
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
@@ -341,7 +420,7 @@ class StandardizedMatrix:
         """
         return self.mat.get_names(type, missing_prefix, indices)
 
-    def set_names(self, names: Union[str, list[Optional[str]]], type: str = "column"):
+    def set_names(self, names: str | list[str | None], type: str = "column"):
         """Set column names.
 
         Parameters
@@ -362,7 +441,7 @@ class StandardizedMatrix:
         return self.get_names(type="column")
 
     @column_names.setter
-    def column_names(self, names: list[Optional[str]]):
+    def column_names(self, names: list[str | None]):
         self.set_names(names, type="column")
 
     @property
@@ -374,5 +453,5 @@ class StandardizedMatrix:
         return self.get_names(type="term")
 
     @term_names.setter
-    def term_names(self, names: list[Optional[str]]):
+    def term_names(self, names: list[str | None]):
         self.set_names(names, type="term")

@@ -7,11 +7,53 @@
 Changelog
 =========
 
-4.2.2 - unreleased
+4.3.2 - unreleased
 ------------------
+
+**Bug fix:**
+
+- :meth:`tabmat.StandardizedMatrix.sandwich`, :meth:`~tabmat.StandardizedMatrix.matvec` and :meth:`~tabmat.StandardizedMatrix.transpose_matvec` are now accurate for dense columns whose means are large relative to their standard deviations, in a :class:`tabmat.DenseMatrix` or in the dense part of a :class:`tabmat.SplitMatrix` (`#414 <https://github.com/Quantco/tabmat/issues/414>`_). They used to expand the products into uncentered terms that nearly cancel, which could lose all significant digits. The kernels that read dense data now subtract the column means as they go, including the kernels for the products of the dense part with the sparse and categorical parts, so this costs no copy of the data. For a dense matrix the sandwich product also becomes 1.2-2x faster; the other products keep about their speed.
+- :meth:`tabmat.StandardizedMatrix.astype` no longer drops the scaling factors (``mult``) of the matrix.
+- :meth:`tabmat.DenseMatrix.transpose_matvec` and :meth:`tabmat.StandardizedMatrix.transpose_matvec` now return the columns in the order of ``cols`` if ``cols`` lists all columns in a different order. They used to return them in their original order.
 
 **Other changes:**
 
+- The dense matrix-vector kernels used for row or column restrictions are vectorized along the direction that is not restricted, which makes most restricted products on dense data faster, by up to 2x.
+- The C++ kernels are now plain C++17 templates: template parameters and ``if constexpr`` replace the variants that used to be generated with Mako, so ``mako`` is no longer a build dependency and no source files are generated at build time. The generated code is unchanged in structure and the test suite is untouched.
+- :meth:`tabmat.StandardizedMatrix.sandwich` forms one outer product for the terms from the shift, added in place, instead of four ``n_cols x n_cols`` temporaries, which makes it faster for wide matrices.
+- :meth:`tabmat.StandardizedMatrix.transpose_matvec` no longer copies the vector and the shift and scaling factors with fancy indexing when ``rows`` or ``cols`` is ``None``, which makes it about 1.25x faster for a :class:`tabmat.SplitMatrix`.
+
+4.3.1 - 2026-11-05
+------------------
+
+**Bug fix:**
+
+- Fixed :meth:`tabmat.CategoricalMatrix.multiply` for matrices with a single row, which failed because ``np.squeeze`` reduced the multiplier to a 0-d array.
+- :meth:`tabmat.CategoricalMatrix.unpack` no longer emits a ``DeprecationWarning`` caused by internally accessing the deprecated ``cat`` property.
+- Slicing a :class:`tabmat.DenseMatrix` no longer emits a spurious warning about non-contiguous input.
+
+**Other changes:**
+
+- Require Python>=3.11, since conda-forge no longer supports Python 3.10. No Python 3.10 wheels are built or uploaded to PyPI any more.
+- Added ``py315`` test environment and a conda package build for Python 3.15, and added the Python 3.14 and 3.15 classifiers.
+- Removed the ``py310`` test environment and moved the ``oldies`` environment and the conda package builds from Python 3.10 to 3.11. The ``oldies`` pins for pandas (1.5.3), scipy (1.9.3) and setuptools (65) were raised to the oldest releases with Python 3.11 builds.
+- Raised ruff's target version to Python 3.11 and modernized type annotations.
+
+
+4.3.0 - 2026-10-30
+------------------
+
+**New feature:**
+
+- Numerical factors now record formulaic's ``spans_intercept`` in the model spec's ``encoder_state``. For example, this shows whether ``bs()`` dropped its first basis function.
+
+**Bug fixes:**
+
+- Fixed compatibility with polars 2.0, which removed ``Series.cat.get_categories()``.
+
+**Other changes:**
+
+- Clarified that ``sparse_threshold`` is used to sparsify numerical columns and is not used to densify columns that are already sparse.
 - Fixed the benchmark harness silently recording zero timings and memory under pandas 3, where the chained assignment it used is rejected by copy-on-write.
 - :func:`from_df` now builds its sparse block directly from pandas sparse columns instead of densifying them first, which makes construction much faster and uses memory proportional to the number of stored values rather than to the full block. Sparse columns whose fill value is not 0 are now stored as dense with a warning, since :class:`SparseMatrix` only represents a fill value of 0.
 - We disabled fast math to avoid invalid results (e.g., when dividing by zero).
