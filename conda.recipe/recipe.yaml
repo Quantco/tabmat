@@ -20,35 +20,17 @@ requirements:
       then:
         - python
         - cross-python_${{ target_platform }}
-        - cython !=3.0.4
-        - numpy
     - ${{ compiler("c") }}
     - ${{ stdlib("c") }}
-    - ${{ compiler("cxx") }}
     - ${{ compiler("rust") }}
-    - if: osx
-      then:
-        - llvm-openmp
-    - if: linux
-      then:
-        - libgomp
   host:
     - python
-    - cython !=3.0.4
-    - if: not win
-      then:
-        - jemalloc-local
-    - if: osx
-      then:
-        - llvm-openmp
-    - numpy
     - pip
     - setuptools-rust
     - setuptools-scm
-    - xsimd <11|>12.1
   run:
     - python
-    - ${{ pin_compatible('numpy') }}
+    - numpy
     - formulaic >=1.2
     - scipy
     - narwhals >=2

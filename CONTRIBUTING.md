@@ -67,6 +67,8 @@ The kernels are parallelised with rayon. The number of threads follows `RAYON_NU
 
 `pixi run cargo fmt` and `pixi run cargo clippy --all-targets -- -D warnings` format and lint the Rust code, and `pixi run cargo test` runs the kernels' reference tests; CI runs all three.
 
+If you have an editable install from before the kernels were moved to `tabmat.crabmat`, delete the leftover `src/tabmat/ext/` directory: git does not remove the compiled modules in it, since they are untracked.
+
 Testing and continuous integration
 --------------------------------------------------
 The test suite is in ``tests/`` and can be run using ``pixi run test``.

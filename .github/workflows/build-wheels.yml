@@ -21,9 +21,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Set up micromamba
-        if: runner.os != 'Linux'
-        uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39
       - name: Set up Rust
         # On Linux, cibuildwheel installs Rust inside the manylinux container
         # instead (see `before-all` in pyproject.toml).
