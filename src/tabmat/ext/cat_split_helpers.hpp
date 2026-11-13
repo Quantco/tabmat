@@ -10,59 +10,6 @@
 // skipped); the fast one is the same kernel with that check compiled out.
 
 // ---------------------------------------------------------------------------
-// res[indices[i]] += other[i] for every row, i.e. res = cat.T @ other.
-// Each thread scatters into its own copy of res, then the copies are summed.
-// ---------------------------------------------------------------------------
-template <bool drop, typename Int, typename F>
-void transpose_matvec_all_rows(
-    Int n_rows,
-    const Int* indices,
-    const F* other,
-    F* res,
-    Int res_size,
-    bool drop_first
-) {
-    int num_threads = omp_get_max_threads();
-    std::vector<F> all_res(num_threads * res_size, 0.0);
-    #pragma omp parallel shared(all_res)
-    {
-        int tid = omp_get_thread_num();
-        F* res_slice = &all_res[tid * res_size];
-        #pragma omp for
-        for (Py_ssize_t i = 0; i < n_rows; i++) {
-            if constexpr (drop) {
-                Py_ssize_t col_idx = indices[i] - drop_first;
-                if (col_idx >= 0) {
-                    res_slice[col_idx] += other[i];
-                }
-            } else {
-                res_slice[indices[i]] += other[i];
-            }
-        }
-        #pragma omp for
-        for (Py_ssize_t i = 0; i < res_size; ++i) {
-            for (int tid = 0; tid < num_threads; ++tid) {
-                res[i] += all_res[tid * res_size + i];
-            }
-        }
-    }
-}
-
-template <typename Int, typename F>
-void _transpose_matvec_all_rows_fast(
-    Int n_rows, const Int* indices, F* other, F* res, Int res_size
-) {
-    transpose_matvec_all_rows<false>(n_rows, indices, other, res, res_size, false);
-}
-
-template <typename Int, typename F>
-void _transpose_matvec_all_rows_complex(
-    Int n_rows, const Int* indices, F* other, F* res, Int res_size, bool drop_first
-) {
-    transpose_matvec_all_rows<true>(n_rows, indices, other, res, res_size, drop_first);
-}
-
-// ---------------------------------------------------------------------------
 // res[i, j] += d[k] for every row k with i_indices[k] == i, j_indices[k] == j,
 // i.e. res = cat_i.T @ diag(d) @ cat_j, res being res_n_col wide, row-major.
 // ---------------------------------------------------------------------------

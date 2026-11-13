@@ -74,7 +74,7 @@ instance/
 docs/_build/
 docs/api/
 
-# PyBuilder
+# PyBuilder, cargo
 target/
 
 # Jupyter Notebook

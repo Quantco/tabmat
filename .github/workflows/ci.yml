@@ -70,7 +70,7 @@ jobs:
 
           assert sysconfig.get_config_var("Py_GIL_DISABLED") == 1
           import tabmat
-          import tabmat.ext.categorical
+          import tabmat.crabmat.categorical
           import tabmat.ext.dense
           import tabmat.ext.sparse
           import tabmat.ext.split
