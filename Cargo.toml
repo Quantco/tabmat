@@ -1,6 +1,6 @@
 # The Rust extension of tabmat: one cdylib, imported as `tabmat.crabmat`,
-# with one submodule per kernel family (`tabmat.crabmat.categorical`, ...)
-# that the Python layer imports the kernels from.
+# with one submodule per kernel family (`tabmat.crabmat.categorical`,
+# `tabmat.crabmat.dense`, ...) that the Python layer imports the kernels from.
 # The sources live in `src/tabmat/crabmat/`.
 [package]
 name = "tabmat"
@@ -19,7 +19,9 @@ path = "src/tabmat/crabmat/lib.rs"
 [dependencies]
 pyo3 = { version = "0.30", features = ["extension-module"] }
 numpy = "0.30"
+ndarray = { version = "0.17", features = ["rayon"] } # the version numpy uses; rayon for Zip::par_for_each
 rayon = "1.10"
+pulp = "0.22"
 
 [profile.release]
 opt-level = 3

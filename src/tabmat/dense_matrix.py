@@ -3,10 +3,10 @@ import warnings
 
 import numpy as np
 
+from .crabmat.dense import dense_sandwich
 from .ext.dense import (
     dense_matvec,
     dense_rmatvec,
-    dense_sandwich,
     transpose_square_dot_weights,
 )
 from .matrix_base import MatrixBase

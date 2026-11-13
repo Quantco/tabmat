@@ -54,7 +54,7 @@ jobs:
       - name: Check that the Rust sources are in the sdist
         run: |
           tar -tzf dist/*.tar.gz > sdist-files.txt
-          for f in Cargo.toml Cargo.lock src/tabmat/crabmat/lib.rs src/tabmat/crabmat/boundary.rs src/tabmat/crabmat/kernels/mod.rs src/tabmat/crabmat/kernels/categorical.rs src/tabmat/crabmat/categorical.rs; do
+          for f in Cargo.toml Cargo.lock src/tabmat/crabmat/lib.rs src/tabmat/crabmat/boundary.rs src/tabmat/crabmat/kernels/mod.rs src/tabmat/crabmat/kernels/categorical.rs src/tabmat/crabmat/kernels/dense.rs src/tabmat/crabmat/categorical.rs src/tabmat/crabmat/dense.rs; do
             grep -q "/$f\$" sdist-files.txt || { echo "$f missing from sdist"; exit 1; }
           done
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

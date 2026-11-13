@@ -2,8 +2,9 @@
 //! numpy types, so that they can be read, tested and benchmarked on their
 //! own. The binding modules next to this directory extract the Python
 //! arguments and call them. This module holds what the kernel families share:
-//! the element type traits, index validation, the categorical index helper,
-//! the thread pool setup and the deterministic parallel reductions.
+//! the element type traits and SIMD helpers, index validation, the dense
+//! operand with an optional center, the categorical index helper, the thread
+//! pool setup and the deterministic parallel reductions.
 //!
 //! # Conventions
 //!
@@ -24,7 +25,7 @@
 //! The kernels run on rayon's global thread pool (the bindings release the
 //! GIL around them). Where threads accumulate into the same output, each gets
 //! a private copy that is summed afterwards in thread order
-//! ([`try_partial_sums`], and [`row_partials`] over row ranges): the result then only depends on the number of threads,
+//! ([`partial_sums`], and [`row_partials`] over row ranges): the result then only depends on the number of threads,
 //! not on their timing (the C++ kernels used atomic adds). Measured against
 //! rayon's own `fold`/`reduce` this costs nothing and is deterministic by
 //! construction.
@@ -35,9 +36,13 @@
 //! counts, and checks that repeated runs agree bit for bit.
 
 pub mod categorical;
+pub mod dense;
 
+use std::convert::Infallible;
 use std::ops::{Add, AddAssign, Mul, Range, Sub};
 
+use ndarray::{ArrayView2, ArrayViewMut2, Axis, Zip};
+use pulp::Simd;
 use rayon::prelude::*;
 
 // ---------------------------------------------------------------------------
@@ -94,6 +99,71 @@ mod private {
     impl Sealed for i32 {}
     impl Sealed for i64 {}
 }
+
+/// What the SIMD kernels need from the element type: its vector type for the
+/// instruction set `S`, and splat, arithmetic, fused multiply-add and
+/// horizontal sum on it. `pulp` names these per element type; this trait
+/// lets one kernel be written for both `f32` and `f64`.
+pub trait SimdFloat: Float {
+    type Vec<S: Simd>: Copy + Send + Sync;
+
+    /// Number of lanes of `Vec<S>`.
+    fn lanes<S: Simd>() -> usize {
+        std::mem::size_of::<Self::Vec<S>>() / std::mem::size_of::<Self>()
+    }
+    fn splat<S: Simd>(simd: S, v: Self) -> Self::Vec<S>;
+    fn zero<S: Simd>(simd: S) -> Self::Vec<S> {
+        Self::splat(simd, Self::default())
+    }
+    /// Splits a slice into whole vectors and a scalar tail.
+    fn as_simd<S: Simd>(slice: &[Self]) -> (&[Self::Vec<S>], &[Self]);
+    /// `a * b + c`, fused where the hardware has FMA.
+    fn mul_add<S: Simd>(simd: S, a: Self::Vec<S>, b: Self::Vec<S>, c: Self::Vec<S>)
+        -> Self::Vec<S>;
+    fn reduce_sum<S: Simd>(simd: S, v: Self::Vec<S>) -> Self;
+}
+
+macro_rules! impl_simd_float {
+    ($t:ty, $vec:ident, $splat:ident, $as_simd:ident, $mul_add:ident, $reduce:ident) => {
+        impl SimdFloat for $t {
+            type Vec<S: Simd> = S::$vec;
+
+            #[inline(always)]
+            fn splat<S: Simd>(simd: S, v: $t) -> S::$vec {
+                simd.$splat(v)
+            }
+            #[inline(always)]
+            fn as_simd<S: Simd>(slice: &[$t]) -> (&[S::$vec], &[$t]) {
+                S::$as_simd(slice)
+            }
+            #[inline(always)]
+            fn mul_add<S: Simd>(simd: S, a: S::$vec, b: S::$vec, c: S::$vec) -> S::$vec {
+                simd.$mul_add(a, b, c)
+            }
+            #[inline(always)]
+            fn reduce_sum<S: Simd>(simd: S, v: S::$vec) -> $t {
+                simd.$reduce(v)
+            }
+        }
+    };
+}
+
+impl_simd_float!(
+    f64,
+    f64s,
+    splat_f64s,
+    as_simd_f64s,
+    mul_add_e_f64s,
+    reduce_sum_f64s
+);
+impl_simd_float!(
+    f32,
+    f32s,
+    splat_f32s,
+    as_simd_f32s,
+    mul_add_e_f32s,
+    reduce_sum_f32s
+);
 
 // ---------------------------------------------------------------------------
 // Index validation
@@ -209,6 +279,311 @@ pub fn checked_category<const DROP: bool>(
 }
 
 // ---------------------------------------------------------------------------
+// Dense operands with an optional center
+// ---------------------------------------------------------------------------
+
+/// A dense matrix operand `X - center`: a view of `X` with any strides (C
+/// order, Fortran order or non-contiguous, read in place) and an optional
+/// per-column center, indexed by the original column index like `X`. The
+/// kernels that read dense data subtract the center as they go, so that
+/// `StandardizedMatrix` can compute with centered data without copying it.
+/// Without a center the operand is `X` itself; subtracting a zero center
+/// gives exactly the same values.
+#[derive(Clone, Copy)]
+pub struct Centered<'a, F> {
+    pub x: ArrayView2<'a, F>,
+    pub center: Option<&'a [F]>,
+}
+
+impl<'a, F: Float> Centered<'a, F> {
+    /// The center of column `col`: zero without a center.
+    #[inline(always)]
+    pub fn center_of(&self, col: usize) -> F {
+        self.center.map_or(F::default(), |c| c[col])
+    }
+
+    /// Gathers `X[rows[k], col] - center[col]` into `dst[k]`, times
+    /// `d[rows[k]]` when `SCALE`: the column packing of the sandwich panels.
+    ///
+    /// # Safety
+    /// `col < ncols()`, every row index is below `nrows()`, and `d` has one
+    /// entry per row of `X` when `SCALE`.
+    #[inline(always)]
+    pub unsafe fn gather_column<I: Index, const SCALE: bool>(
+        &self,
+        col: usize,
+        rows: &[I],
+        d: &[F],
+        dst: &mut [F],
+    ) {
+        let mu = self.center_of(col);
+        let column = self.x.column(col);
+        let dst = &mut dst[..rows.len()];
+        // SAFETY (both branches): the caller's contract.
+        match column.as_slice() {
+            // a contiguous column: let the compiler see the unit stride
+            Some(column) => {
+                gather::<F, I, SCALE>(dst, rows, d, mu, |k| unsafe { *column.get_unchecked(k) })
+            }
+            None => gather::<F, I, SCALE>(dst, rows, d, mu, |k| unsafe { *column.uget(k) }),
+        }
+    }
+}
+
+/// `dst[k] = get(rows[k]) - mu`, times `d[rows[k]]` when `SCALE`; `get` is
+/// the element accessor of one column of `X`.
+#[inline(always)]
+fn gather<F: Float, I: Index, const SCALE: bool>(
+    dst: &mut [F],
+    rows: &[I],
+    d: &[F],
+    mu: F,
+    get: impl Fn(usize) -> F,
+) {
+    for (dst, &k) in dst.iter_mut().zip(rows) {
+        let k = k.as_usize();
+        let v = get(k) - mu;
+        *dst = if SCALE {
+            // SAFETY: the caller's contract, `d` has an entry per row.
+            unsafe { *d.get_unchecked(k) * v }
+        } else {
+            v
+        };
+    }
+}
+
+/// Copies the lower triangle of the square matrix `a` into its upper one.
+///
+/// The matrix is split into quadrants: the upper right one is the
+/// transpose of the lower left one (copied with a parallel `Zip`), and the
+/// two diagonal ones are mirrored recursively under `rayon::join`, down to
+/// `LEAF`-sized blocks done by one task.
+pub fn mirror_lower_triangle<F: Float>(a: ArrayViewMut2<'_, F>) {
+    /// Below this edge length a block is mirrored by one task.
+    const LEAF: usize = 64;
+    let n = a.nrows();
+    if n <= LEAF {
+        let mut a = a;
+        for i in 0..n {
+            for j in i + 1..n {
+                a[[i, j]] = a[[j, i]];
+            }
+        }
+        return;
+    }
+    let mid = n / 2;
+    let (top, bottom) = a.split_at(Axis(0), mid);
+    let (top_left, mut top_right) = top.split_at(Axis(1), mid);
+    let (bottom_left, bottom_right) = bottom.split_at(Axis(1), mid);
+    rayon::join(
+        || {
+            Zip::from(top_right.rows_mut())
+                .and(bottom_left.columns())
+                .par_for_each(|mut row, col| row.assign(&col));
+        },
+        || {
+            rayon::join(
+                || mirror_lower_triangle(top_left),
+                || mirror_lower_triangle(bottom_right),
+            );
+        },
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Block plans and panels
+// ---------------------------------------------------------------------------
+//
+// The blocked kernels (so far the dense sandwich) are written as separate
+// stages: a walk over a plan of [`Blocks`], which fixes the order of the
+// blocks and which level of the walk the threads split; a packing stage, which
+// copies the dense operand of one block into a contiguous panel
+// ([`PanelSource`]); and the arithmetic kernel, which only ever sees whole
+// panels or slices. The order in which the blocks contribute to an entry of
+// the result is fixed by the plan and the split, so the results are
+// deterministic for a given thread count.
+
+/// The block plan of one axis: the index range `start..end` cut into
+/// consecutive blocks of `step` indices, the last one possibly shorter.
+///
+/// A kernel's walk is a nest of these, one per blocked axis. The blocks are
+/// indexed, so that a level of the walk can be iterated in order
+/// ([`Self::iter`]), split between rayon's threads ([`Self::par_iter`], an
+/// indexed parallel iterator that zips with the matching chunks of an
+/// output), or split statically into contiguous shares, one per worker
+/// ([`Self::part`]), for the walks whose workers accumulate private partial
+/// results ([`partial_sums`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Blocks {
+    start: usize,
+    end: usize,
+    step: usize,
+}
+
+impl Blocks {
+    /// `range` in blocks of `step` indices (`step > 0`).
+    pub fn new(range: Range<usize>, step: usize) -> Self {
+        assert!(step > 0, "the block length must be positive");
+        Self {
+            start: range.start,
+            end: range.end.max(range.start),
+            step,
+        }
+    }
+
+    /// The number of blocks.
+    pub fn len(&self) -> usize {
+        (self.end - self.start).div_ceil(self.step)
+    }
+
+    /// Block `b` (`b < len()`).
+    #[inline(always)]
+    pub fn get(&self, b: usize) -> Range<usize> {
+        let lo = self.start + b * self.step;
+        lo..(lo + self.step).min(self.end)
+    }
+
+    /// The blocks in order.
+    pub fn iter(self) -> impl ExactSizeIterator<Item = Range<usize>> {
+        (0..self.len()).map(move |b| self.get(b))
+    }
+
+    /// The blocks as an indexed parallel iterator.
+    pub fn par_iter(self) -> impl IndexedParallelIterator<Item = Range<usize>> {
+        (0..self.len()).into_par_iter().map(move |b| self.get(b))
+    }
+
+    /// Share `w` of `n_parts` (OpenMP's static schedule): the blocks
+    /// `[w * n / n_parts, (w + 1) * n / n_parts)` of the `n` blocks, i.e.
+    /// the floor or the ceiling of the average, every share busy when
+    /// `n_parts <= n`. The shares are adjacent and together cover the plan
+    /// once, and their blocks are blocks of the plan.
+    pub fn part(&self, w: usize, n_parts: usize) -> Self {
+        let n = self.len();
+        let at = |b: usize| (self.start + b * self.step).min(self.end);
+        Self {
+            start: at(w * n / n_parts),
+            end: at((w + 1) * n / n_parts),
+            step: self.step,
+        }
+    }
+}
+
+/// The packing stage of the blocked sandwich kernels: owns a scratch buffer
+/// and fills it with one block of the dense operand
+/// `(X - center)[rows, cols]`, scaled by `d[rows]` where the kernel needs
+/// it, as a panel of `stride`-long runs that the arithmetic kernel reads
+/// with unit stride whatever the layout of `X`.
+///
+/// The walk calls [`Self::fill`] for every block it visits and uses the
+/// returned panel until the next fill (an iterator lending the panels is not
+/// expressible in stable Rust). A source belongs to one thread at a time;
+/// [`Self::fill_par`] packs one panel with all of them. (`'x` is the
+/// lifetime of the view of `X`, `'a` that of the other arrays: views are
+/// invariant in their lifetime, so the two cannot be merged.)
+pub struct PanelSource<'x, 'a, I, F> {
+    x: Centered<'x, F>,
+    rows: &'a [I],
+    cols: &'a [I],
+    layout: PanelLayout<'a, F>,
+    stride: usize,
+    buf: Vec<F>,
+}
+
+/// How a [`PanelSource`] lays out a block.
+#[derive(Clone, Copy)]
+enum PanelLayout<'a, F> {
+    /// One run per column (k-contiguous), times `d` if given: the panels of
+    /// the dense sandwich ([`Centered::gather_column`]).
+    Columns { d: Option<&'a [F]> },
+}
+
+impl<'x, 'a, I: Index, F: Float> PanelSource<'x, 'a, I, F> {
+    /// A source of column panels: [`Self::fill`] writes
+    /// `d[rows[k]] * (X[rows[k], cols[j]] - center[cols[j]])` (without the
+    /// `d` factor when it is `None`) to `panel[(j - cb.start) * stride + (k - rk.start)]`
+    /// for the blocks `rk` of at most `stride` rows and `cb` of at most
+    /// `max_cols` columns.
+    ///
+    /// # Safety
+    /// Every entry of `rows` is below `x.nrows()`, every entry of `cols`
+    /// below `x.ncols()`, and `d` has an entry per row of `X`: the fills
+    /// read without bounds checks.
+    pub unsafe fn columns(
+        x: Centered<'x, F>,
+        rows: &'a [I],
+        cols: &'a [I],
+        d: Option<&'a [F]>,
+        stride: usize,
+        max_cols: usize,
+    ) -> Self {
+        Self {
+            x,
+            rows,
+            cols,
+            layout: PanelLayout::Columns { d },
+            stride,
+            buf: vec![F::default(); max_cols * stride],
+        }
+    }
+
+    /// The number of runs of the block `rk x cb` and their length in use.
+    fn runs(&self, rk: &Range<usize>, cb: &Range<usize>) -> (usize, usize) {
+        match self.layout {
+            PanelLayout::Columns { .. } => (cb.len(), rk.len()),
+        }
+    }
+
+    /// Packs the block of the selected rows `rk` and the selected columns
+    /// `cb` (positions in `rows` and `cols`) and returns the panel.
+    #[inline(always)]
+    pub fn fill(&mut self, rk: Range<usize>, cb: Range<usize>) -> &[F] {
+        let (n_runs, run_len) = self.runs(&rk, &cb);
+        debug_assert!(n_runs * self.stride <= self.buf.len() && run_len <= self.stride);
+        let (x, rows, cols) = (self.x, &self.rows[rk], &self.cols[cb]);
+        // SAFETY (both arms): the indices and `d` satisfy the contract of the
+        // constructor.
+        match self.layout {
+            PanelLayout::Columns { d: Some(d) } => {
+                for (run, &j) in self.buf.chunks_mut(self.stride).zip(cols) {
+                    unsafe { x.gather_column::<I, true>(j.as_usize(), rows, d, run) };
+                }
+            }
+            PanelLayout::Columns { d: None } => {
+                for (run, &j) in self.buf.chunks_mut(self.stride).zip(cols) {
+                    unsafe { x.gather_column::<I, false>(j.as_usize(), rows, &[], run) };
+                }
+            }
+        }
+        &self.buf
+    }
+
+    /// [`Self::fill`] with the runs packed in parallel; the panel is the
+    /// same.
+    pub fn fill_par(&mut self, rk: Range<usize>, cb: Range<usize>) -> &[F] {
+        let (n_runs, run_len) = self.runs(&rk, &cb);
+        debug_assert!(n_runs * self.stride <= self.buf.len() && run_len <= self.stride);
+        let (x, rows, cols) = (self.x, &self.rows[rk], &self.cols[cb]);
+        let stride = self.stride;
+        let runs = self.buf.par_chunks_mut(stride);
+        // SAFETY (both arms): as in `fill`.
+        match self.layout {
+            PanelLayout::Columns { d: Some(d) } => {
+                runs.zip(cols.par_iter()).for_each(|(run, &j)| unsafe {
+                    x.gather_column::<I, true>(j.as_usize(), rows, d, run)
+                });
+            }
+            PanelLayout::Columns { d: None } => {
+                runs.zip(cols.par_iter()).for_each(|(run, &j)| unsafe {
+                    x.gather_column::<I, false>(j.as_usize(), rows, &[], run)
+                });
+            }
+        }
+        &self.buf
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Thread pool
 // ---------------------------------------------------------------------------
 
@@ -245,13 +620,27 @@ pub const REDUCE_BLOCK: usize = 4096;
 /// `out` afterwards, entry by entry in worker order (block-parallel over the
 /// entries). `work` must only accumulate (`+=`) into its buffer: with a
 /// single worker it runs on `out` itself, and the sum of the partials is
-/// then what it would have produced on `out` directly. The first error in
-/// worker order is returned and `out` is left untouched.
+/// then what it would have produced on `out` directly.
 ///
 /// The summation order, and hence the result, only depends on
 /// `n_workers`, never on thread timing. This is the one way the kernels
 /// combine per-thread results: a static split of the work over the workers
-/// and this reduction in a fixed order.
+/// and this reduction in a fixed order. [`try_partial_sums`] is the same
+/// for workers that can fail.
+pub fn partial_sums<F: Float>(
+    n_workers: usize,
+    out: &mut [F],
+    work: impl Fn(usize, &mut [F]) + Sync,
+) {
+    try_partial_sums(n_workers, out, |w, partial| {
+        work(w, partial);
+        Ok::<(), Infallible>(())
+    })
+    .unwrap_or_else(|never| match never {})
+}
+
+/// [`partial_sums`] for workers that can fail: the first error in worker
+/// order is returned and `out` is left untouched.
 pub fn try_partial_sums<F: Float, E: Send>(
     n_workers: usize,
     out: &mut [F],
@@ -287,7 +676,7 @@ pub fn try_partial_sums<F: Float, E: Send>(
 /// result copies and the thread wake-up would cost more than they save.
 pub const PARALLEL_MIN_ROWS: usize = 1 << 14;
 
-/// [`try_partial_sums`] over the rows `0..n`: calls `accumulate(rows, res)`,
+/// [`partial_sums`] over the rows `0..n`: calls `accumulate(rows, res)`,
 /// which must only add into `res` what the rows in `rows` contribute, on
 /// sub-ranges that together cover `0..n` once, one contiguous range per
 /// thread, each into a private copy of `res` that is summed back in range
@@ -432,13 +821,11 @@ mod tests {
     #[test]
     fn partial_sums_accumulate_in_worker_order() {
         let mut out = vec![1.0f64; 10_000];
-        try_partial_sums::<f64, ()>(5, &mut out, |w, partial| {
+        partial_sums(5, &mut out, |w, partial| {
             for (i, p) in partial.iter_mut().enumerate() {
                 *p += (w * 10_000 + i) as f64;
             }
-            Ok(())
-        })
-        .unwrap();
+        });
         for (i, &o) in out.iter().enumerate() {
             let expected: f64 = 1.0 + (0..5).map(|w| (w * 10_000 + i) as f64).sum::<f64>();
             assert_eq!(o, expected);
@@ -451,6 +838,88 @@ mod tests {
             }),
             Err("bad")
         );
+    }
+
+    #[test]
+    fn blocks_cover_the_range_and_split_into_shares() {
+        let plan = Blocks::new(3..20, 5);
+        assert_eq!(plan.len(), 4);
+        assert_eq!(
+            plan.iter().collect::<Vec<_>>(),
+            [3..8, 8..13, 13..18, 18..20]
+        );
+        assert_eq!(
+            plan.par_iter().collect::<Vec<_>>(),
+            plan.iter().collect::<Vec<_>>()
+        );
+        assert_eq!(Blocks::new(4..4, 5).len(), 0);
+        for n_parts in 1..7 {
+            let shares: Vec<Range<usize>> = (0..n_parts)
+                .flat_map(|w| plan.part(w, n_parts).iter())
+                .collect();
+            assert_eq!(shares, plan.iter().collect::<Vec<_>>(), "{n_parts} parts");
+        }
+        // as many parts as blocks: one block each
+        assert_eq!(plan.part(2, 4), Blocks::new(13..18, 5));
+    }
+
+    #[test]
+    fn panel_sources_pack_column_panels() {
+        let data: Vec<f64> = (0..30).map(|v| v as f64).collect();
+        let x = ArrayView2::from_shape((6, 5), &data).unwrap();
+        let center = [1.0, 2.0, 3.0, 4.0, 5.0];
+        let d: Vec<f64> = (0..6).map(|k| 10f64.powi(k)).collect();
+        let op = Centered {
+            x,
+            center: Some(&center),
+        };
+        let (rows, cols) = ([5i32, 0, 3, 2], [4i32, 1, 2]);
+        let want = |k: usize, j: usize, scale: bool| {
+            let (r, c) = (rows[k] as usize, cols[j] as usize);
+            (x[[r, c]] - center[c]) * if scale { d[r] } else { 1.0 }
+        };
+        let (rk, cb) = (1..4, 0..2);
+        for scale in [true, false] {
+            let mut src =
+                unsafe { PanelSource::columns(op, &rows, &cols, scale.then_some(&d[..]), 4, 2) };
+            let panel = src.fill(rk.clone(), cb.clone()).to_vec();
+            for (j, k) in cb.clone().flat_map(|j| rk.clone().map(move |k| (j, k))) {
+                assert_eq!(panel[j * 4 + k - 1], want(k, j, scale));
+            }
+            assert_eq!(src.fill_par(rk.clone(), cb.clone()), &panel[..]);
+        }
+    }
+
+    #[test]
+    fn centered_gather() {
+        let data: Vec<f64> = (0..12).map(|v| v as f64).collect();
+        let x = ArrayView2::from_shape((4, 3), &data).unwrap();
+        let center = [1.0, 2.0, 3.0];
+        let d = [1.0, 10.0, 100.0, 1000.0];
+        let op = Centered {
+            x,
+            center: Some(&center),
+        };
+        let mut dst = [0.0; 2];
+        unsafe { op.gather_column::<i32, true>(1, &[3, 0], &d, &mut dst) };
+        assert_eq!(dst, [1000.0 * (10.0 - 2.0), 1.0 * (1.0 - 2.0)]);
+        let plain = Centered { x, center: None };
+        assert_eq!(plain.center_of(2), 0.0);
+    }
+
+    #[test]
+    fn mirror_fills_upper_triangle() {
+        for m in [3usize, 150] {
+            let mut out: Vec<f64> = (0..m * m)
+                .map(|k| if k / m >= k % m { k as f64 } else { 0.0 })
+                .collect();
+            mirror_lower_triangle(ArrayViewMut2::from_shape((m, m), &mut out[..]).unwrap());
+            for i in 0..m {
+                for j in 0..m {
+                    assert_eq!(out[i * m + j], out[j * m + i]);
+                }
+            }
+        }
     }
 
     #[test]
