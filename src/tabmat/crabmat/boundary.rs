@@ -4,13 +4,15 @@
 //! [`crate::kernels`] and know nothing about Python.
 //!
 //! Every function dispatches on the dtype of one array (the matrix, or the
-//! weights `d` where there is no matrix) with [`for_float!`], so each kernel
-//! is compiled once per element type like Cython's fused types. The other
-//! one-dimensional arguments are accepted as anything numpy can convert to
-//! that dtype ([`Arg`]): the Python layer passes matching dtypes on every hot
-//! path, so the conversion only ever costs something for callers that do not,
-//! and never raises. Output arrays and two-dimensional arrays must match the
-//! dtype exactly, since converting them would silently copy the data.
+//! weights `d` where there is no matrix) with [`for_float!`] (and
+//! [`for_index!`] where the index type matters), so each kernel is compiled
+//! once per element type like Cython's fused types. The other one-dimensional
+//! arguments are accepted as anything numpy can convert to that dtype
+//! ([`Arg`]): the Python layer passes matching dtypes on every hot path, so
+//! the conversion only ever costs something for callers that do not, and
+//! never raises. Output arrays, two-dimensional arrays and sparse matrices
+//! must match the dtype exactly, since converting them would silently copy
+//! the data.
 
 use std::borrow::Cow;
 
@@ -95,6 +97,16 @@ macro_rules! with_drop {
     };
 }
 pub(crate) use with_drop;
+
+/// Evaluates `$body` with `$I` bound to `i32` or `i64`, the dtype of the
+/// index array `$arr`.
+macro_rules! for_index {
+    ($arr:expr, $what:expr, $I:ident => $body:expr) => {
+        $crate::boundary::with_dtype!($arr, $what, $I in [i32, i64] => $body)
+    };
+}
+pub(crate) use for_index;
+
 /// A one-dimensional argument array of element type `T`: any array (or
 /// array-like) numpy can convert to that dtype is accepted. The conversion
 /// is a copy, but the Python layer passes the right dtype already.

@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import sparse as sps
 
-from .ext.sparse import (
+from .crabmat.sparse import (
     csc_rmatvec,
     csc_rmatvec_unrestricted,
     csr_dense_sandwich,
@@ -254,11 +254,9 @@ class SparseMatrix(MatrixBase):
         unrestricted_cols = cols is None or len(cols) == self.shape[1]
         if unrestricted_rows and unrestricted_cols and vec.ndim == 1:
             if transpose:
-                return csc_rmatvec_unrestricted(self.array_csc, vec, out, self.indices)
+                return csc_rmatvec_unrestricted(self.array_csc, vec, out)
             else:
-                return csr_matvec_unrestricted(
-                    self.array_csr, vec, out, self.array_csr.indices
-                )
+                return csr_matvec_unrestricted(self.array_csr, vec, out)
 
         matrix_matvec = lambda x, v: sps.csc_matrix.dot(x, v)
         if transpose:
@@ -307,11 +305,7 @@ class SparseMatrix(MatrixBase):
         """Get standard deviations of columns."""
         sqrt_arg = (
             transpose_square_dot_weights(
-                self._array.data,
-                self._array.indices,
-                self._array.indptr,
-                weights,
-                weights.dtype,
+                self._array.data, self._array.indices, self._array.indptr, weights
             )
             - col_means**2
         )

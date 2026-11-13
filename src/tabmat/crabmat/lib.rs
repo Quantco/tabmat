@@ -5,7 +5,8 @@
 //! of PyO3. The kernels themselves are plain Rust in the `kernels` directory,
 //! with no PyO3 types; `boundary.rs` holds what the bindings share (dtype
 //! dispatch, argument coercion, error conversion), and each kernel family has
-//! a binding module of its own (so far `categorical` and `dense`) that is a submodule of
+//! a binding module of its own (so far `categorical`, `dense` and
+//! `sparse`) that is a submodule of
 //! this one, `tabmat.crabmat.categorical` and so on, which the Python layer
 //! imports the kernels from.
 
@@ -15,6 +16,7 @@ mod boundary;
 mod categorical;
 mod dense;
 mod kernels;
+mod sparse;
 
 /// Creates the submodule `name` with the docstring `doc`, lets `register`
 /// fill it, and makes it importable as `tabmat.crabmat.<name>` (a submodule
@@ -54,6 +56,12 @@ fn crabmat(m: &Bound<'_, PyModule>) -> PyResult<()> {
         "dense",
         "Kernels for :class:`tabmat.DenseMatrix` (src/tabmat/crabmat/dense.rs).",
         dense::register,
+    )?;
+    add_submodule(
+        m,
+        "sparse",
+        "Kernels for :class:`tabmat.SparseMatrix` (src/tabmat/crabmat/sparse.rs).",
+        sparse::register,
     )?;
     Ok(())
 }

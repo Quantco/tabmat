@@ -18,9 +18,9 @@
 //! the kernel does only a few operations per entry, where a separate pass over
 //! the whole array was measured to cost 20% of the memory traffic; and as a
 //! bounds check in the loop when the index is part of the data stream the loop
-//! reads anyway (the categories of a categorical matrix). `unsafe` is used
-//! only for the unchecked loads that follow such a validation, each with a
-//! `SAFETY` comment naming it.
+//! reads anyway (the indices of a sparse matrix, the categories of a
+//! categorical matrix). `unsafe` is used only for the unchecked loads that
+//! follow such a validation, each with a `SAFETY` comment naming it.
 //!
 //! The kernels run on rayon's global thread pool (the bindings release the
 //! GIL around them). Where threads accumulate into the same output, each gets
@@ -37,6 +37,7 @@
 
 pub mod categorical;
 pub mod dense;
+pub mod sparse;
 
 use std::borrow::Cow;
 use std::convert::Infallible;
@@ -192,13 +193,27 @@ impl_simd_float!(
 // SIMD vector kernels
 // ---------------------------------------------------------------------------
 //
-// The inner loops of the matrix-vector products, written once against `pulp`
-// so that they run with the vector width and FMA of the instruction set
-// detected at run time. The `centered` variants subtract a per-column center
-// from `x` as they read it, which is how the kernels compute with `X - center`
-// without copying `X` (expanding into `X @ v - center @ v` would cancel for a
-// large center). Within a variant the summation order is fixed, so results are
-// deterministic.
+// The inner loops of the matrix-vector products and of the sparse x dense
+// sandwich, written once against `pulp` so that they run with the vector
+// width and FMA of the instruction set detected at run time. The `centered`
+// variants subtract a per-column center from `x` as they read it, which is
+// how the kernels compute with `X - center` without copying `X` (expanding
+// into `X @ v - center @ v` would cancel for a large center). Within a
+// variant the summation order is fixed, so results are deterministic.
+
+/// `y += a * x` over the whole slices.
+#[inline(always)]
+pub fn axpy<S: Simd, F: SimdFloat>(simd: S, a: F, x: &[F], y: &mut [F]) {
+    let (xv, xt) = F::as_simd::<S>(x);
+    let (yv, yt) = F::as_mut_simd::<S>(y);
+    let av = F::splat(simd, a);
+    for (y, &x) in yv.iter_mut().zip(xv) {
+        *y = F::mul_add(simd, av, x, *y);
+    }
+    for (y, &x) in yt.iter_mut().zip(xt) {
+        *y += a * x;
+    }
+}
 
 /// `y[k] += (x[k] - c) * a` for a scalar center `c`.
 #[inline(always)]
@@ -486,6 +501,47 @@ impl<'a, F: Float> Centered<'a, F> {
         }
     }
 
+    /// Element `(row, col)` of `X` without a bounds check.
+    ///
+    /// # Safety
+    /// `row < nrows()` and `col < ncols()`. The kernels rely on having
+    /// validated their index arrays ([`check_indices`]) so that their inner
+    /// loops are plain loads.
+    #[inline(always)]
+    pub unsafe fn get(&self, row: usize, col: usize) -> F {
+        debug_assert!(row < self.nrows() && col < self.ncols());
+        unsafe { *self.x.uget((row, col)) }
+    }
+
+    /// Packs `d[rows[k]] * (X[rows[k], cols[j]] - mu[cols[j]])` into
+    /// `dst[k * stride + j]`, row-major, for `mu` the center as a vector
+    /// ([`Self::center_vec`]): the block packing of the sparse x dense
+    /// sandwich.
+    ///
+    /// # Safety
+    /// As for [`Self::gather_column`], for every row and column index, and
+    /// `mu` has one entry per column.
+    #[inline(always)]
+    pub unsafe fn pack_block<I: Index>(
+        &self,
+        rows: &[I],
+        cols: &[I],
+        d: &[F],
+        mu: &[F],
+        dst: &mut [F],
+        stride: usize,
+    ) {
+        for (drow, &k) in dst.chunks_mut(stride).zip(rows) {
+            let k = k.as_usize();
+            // SAFETY: the caller's contract.
+            let dk = unsafe { *d.get_unchecked(k) };
+            for (dst, &j) in drow.iter_mut().zip(cols) {
+                let j = j.as_usize();
+                *dst = dk * (unsafe { self.get(k, j) - *mu.get_unchecked(j) });
+            }
+        }
+    }
+
     /// Gathers `X[rows[k], col] - center[col]` into `dst[k]`, times
     /// `d[rows[k]]` when `SCALE`: the column packing of the sandwich panels.
     ///
@@ -578,14 +634,15 @@ pub fn mirror_lower_triangle<F: Float>(a: ArrayViewMut2<'_, F>) {
 // Block plans and panels
 // ---------------------------------------------------------------------------
 //
-// The blocked kernels (the dense sandwich and the dense matrix-vector
-// products) are written as separate stages: a walk over a plan of [`Blocks`],
-// which fixes the order of the blocks and which level of the walk the threads
-// split; a packing stage, which copies the dense operand of one block into a
-// contiguous panel ([`PanelSource`]); and the arithmetic kernel, which only
-// ever sees whole panels or slices. The order in which the blocks contribute
-// to an entry of the result is fixed by the plan and the split, so the results
-// are deterministic for a given thread count.
+// The blocked kernels (the dense sandwich, the sparse x dense sandwich and
+// the dense matrix-vector products) are written as separate stages: a walk
+// over a plan of [`Blocks`], which fixes the order of the blocks and which
+// level of the walk the threads split; a packing stage, which copies the
+// dense operand of one block into a contiguous panel ([`PanelSource`]); and
+// the arithmetic kernel, which only ever sees whole panels or slices. The
+// order in which the blocks contribute to an entry of the result is fixed
+// by the plan and the split, so the results are deterministic for a given
+// thread count.
 
 /// The block plan of one axis: the index range `start..end` cut into
 /// consecutive blocks of `step` indices, the last one possibly shorter.
@@ -685,6 +742,10 @@ enum PanelLayout<'a, F> {
     /// One run per column (k-contiguous), times `d` if given: the panels of
     /// the dense sandwich ([`Centered::gather_column`]).
     Columns { d: Option<&'a [F]> },
+    /// One run per row, times `d` and centered with the center vector `mu`:
+    /// the dense block of the sparse x dense sandwich
+    /// ([`Centered::pack_block`]).
+    Rows { d: &'a [F], mu: &'a [F] },
 }
 
 impl<'x, 'a, I: Index, F: Float> PanelSource<'x, 'a, I, F> {
@@ -716,10 +777,39 @@ impl<'x, 'a, I: Index, F: Float> PanelSource<'x, 'a, I, F> {
         }
     }
 
+    /// A source of row panels: [`Self::fill`] writes
+    /// `d[rows[k]] * (X[rows[k], cols[j]] - mu[cols[j]])` to
+    /// `panel[(k - rk.start) * stride + (j - cb.start)]` for the blocks `rk`
+    /// of at most `max_rows` rows and `cb` of at most `stride` columns. `mu`
+    /// is the center as a vector ([`Centered::center_vec`]), computed once
+    /// by the caller rather than per source.
+    ///
+    /// # Safety
+    /// As for [`Self::columns`], and `mu` has an entry per column of `X`.
+    pub unsafe fn rows(
+        x: Centered<'x, F>,
+        rows: &'a [I],
+        cols: &'a [I],
+        d: &'a [F],
+        mu: &'a [F],
+        stride: usize,
+        max_rows: usize,
+    ) -> Self {
+        Self {
+            x,
+            rows,
+            cols,
+            layout: PanelLayout::Rows { d, mu },
+            stride,
+            buf: vec![F::default(); max_rows * stride],
+        }
+    }
+
     /// The number of runs of the block `rk x cb` and their length in use.
     fn runs(&self, rk: &Range<usize>, cb: &Range<usize>) -> (usize, usize) {
         match self.layout {
             PanelLayout::Columns { .. } => (cb.len(), rk.len()),
+            PanelLayout::Rows { .. } => (rk.len(), cb.len()),
         }
     }
 
@@ -730,8 +820,8 @@ impl<'x, 'a, I: Index, F: Float> PanelSource<'x, 'a, I, F> {
         let (n_runs, run_len) = self.runs(&rk, &cb);
         debug_assert!(n_runs * self.stride <= self.buf.len() && run_len <= self.stride);
         let (x, rows, cols) = (self.x, &self.rows[rk], &self.cols[cb]);
-        // SAFETY (both arms): the indices and `d` satisfy the contract of the
-        // constructor.
+        // SAFETY (all three arms): the indices and `d` (and `mu`) satisfy the
+        // contract of the constructor.
         match self.layout {
             PanelLayout::Columns { d: Some(d) } => {
                 for (run, &j) in self.buf.chunks_mut(self.stride).zip(cols) {
@@ -743,6 +833,9 @@ impl<'x, 'a, I: Index, F: Float> PanelSource<'x, 'a, I, F> {
                     unsafe { x.gather_column::<I, false>(j.as_usize(), rows, &[], run) };
                 }
             }
+            PanelLayout::Rows { d, mu } => unsafe {
+                x.pack_block(rows, cols, d, mu, &mut self.buf, self.stride)
+            },
         }
         &self.buf
     }
@@ -755,7 +848,7 @@ impl<'x, 'a, I: Index, F: Float> PanelSource<'x, 'a, I, F> {
         let (x, rows, cols) = (self.x, &self.rows[rk], &self.cols[cb]);
         let stride = self.stride;
         let runs = self.buf.par_chunks_mut(stride);
-        // SAFETY (both arms): as in `fill`.
+        // SAFETY (all three arms): as in `fill`.
         match self.layout {
             PanelLayout::Columns { d: Some(d) } => {
                 runs.zip(cols.par_iter()).for_each(|(run, &j)| unsafe {
@@ -765,6 +858,11 @@ impl<'x, 'a, I: Index, F: Float> PanelSource<'x, 'a, I, F> {
             PanelLayout::Columns { d: None } => {
                 runs.zip(cols.par_iter()).for_each(|(run, &j)| unsafe {
                     x.gather_column::<I, false>(j.as_usize(), rows, &[], run)
+                });
+            }
+            PanelLayout::Rows { d, mu } => {
+                runs.zip(rows.par_iter()).for_each(|(run, k)| unsafe {
+                    x.pack_block(std::slice::from_ref(k), cols, d, mu, run, stride)
                 });
             }
         }
@@ -1046,6 +1144,9 @@ mod tests {
                 let dot_vc_ref: f64 = (0..n).map(|k| (x[k] - c[k]) * y[k]).sum();
                 assert!((centered_dot_vc(simd, &x, &c, &y) - dot_vc_ref).abs() < 1e-9);
                 let mut out = y.clone();
+                axpy(simd, 1.5, &x, &mut out);
+                assert!((0..n).all(|k| (out[k] - (y[k] + 1.5 * x[k])).abs() < 1e-12));
+                let mut out = y.clone();
                 centered_axpy(simd, &x, 2.0, 1.5, &mut out);
                 assert!((0..n).all(|k| (out[k] - (y[k] + (x[k] - 2.0) * 1.5)).abs() < 1e-12));
                 let mut out = y.clone();
@@ -1093,7 +1194,7 @@ mod tests {
     }
 
     #[test]
-    fn panel_sources_pack_column_panels() {
+    fn panel_sources_pack_both_layouts() {
         let data: Vec<f64> = (0..30).map(|v| v as f64).collect();
         let x = ArrayView2::from_shape((6, 5), &data).unwrap();
         let center = [1.0, 2.0, 3.0, 4.0, 5.0];
@@ -1117,10 +1218,16 @@ mod tests {
             }
             assert_eq!(src.fill_par(rk.clone(), cb.clone()), &panel[..]);
         }
+        let mut src = unsafe { PanelSource::rows(op, &rows, &cols, &d, &center, 3, 3) };
+        let panel = src.fill(rk.clone(), cb.clone()).to_vec();
+        for (k, j) in rk.clone().flat_map(|k| cb.clone().map(move |j| (k, j))) {
+            assert_eq!(panel[(k - 1) * 3 + j], want(k, j, true));
+        }
+        assert_eq!(src.fill_par(rk, cb), &panel[..]);
     }
 
     #[test]
-    fn centered_gather() {
+    fn centered_gather_and_pack() {
         let data: Vec<f64> = (0..12).map(|v| v as f64).collect();
         let x = ArrayView2::from_shape((4, 3), &data).unwrap();
         let center = [1.0, 2.0, 3.0];
@@ -1132,6 +1239,9 @@ mod tests {
         let mut dst = [0.0; 2];
         unsafe { op.gather_column::<i32, true>(1, &[3, 0], &d, &mut dst) };
         assert_eq!(dst, [1000.0 * (10.0 - 2.0), 1.0 * (1.0 - 2.0)]);
+        let mut block = [0.0; 4];
+        unsafe { op.pack_block(&[1i64, 2], &[0i64, 2], &d, &center, &mut block, 2) };
+        assert_eq!(block, [10.0 * 2.0, 10.0 * 2.0, 100.0 * 5.0, 100.0 * 5.0]);
         let plain = Centered { x, center: None };
         assert_eq!(plain.center_of(2), 0.0);
         assert_eq!(&*plain.center_vec(), &[0.0; 3]);
