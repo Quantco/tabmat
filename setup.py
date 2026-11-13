@@ -87,12 +87,6 @@ ext_modules = [
         **extension_args,
     ),
     Extension(
-        name="tabmat.ext.dense",
-        sources=["src/tabmat/ext/dense.pyx"],
-        libraries=allocator_libs,
-        **extension_args,
-    ),
-    Extension(
         name="tabmat.ext.split",
         sources=["src/tabmat/ext/split.pyx"],
         **extension_args,

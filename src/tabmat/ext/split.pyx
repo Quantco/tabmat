@@ -6,7 +6,17 @@ from libc.stdlib cimport free, malloc
 from libcpp cimport bool
 from libcpp.vector cimport vector
 
-from .dense import _check_center
+def _check_center(center, Py_ssize_t m, dtype, name="center", bint zeros=False):
+    """Return ``center`` as a contiguous array of length ``m``.
+
+    ``None`` stays ``None``, or becomes zeros if ``zeros``.
+    """
+    if center is None:
+        return np.zeros(m, dtype=dtype) if zeros else None
+    center = np.ascontiguousarray(center, dtype=dtype)
+    if center.shape[0] != m:
+        raise ValueError(f"{name} must have length {m}, got {center.shape[0]}.")
+    return center
 
 
 # This is necessary because it's quite difficult to have a dynamic array of

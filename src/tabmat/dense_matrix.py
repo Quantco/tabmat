@@ -3,10 +3,10 @@ import warnings
 
 import numpy as np
 
-from .crabmat.dense import dense_sandwich
-from .ext.dense import (
+from .crabmat.dense import (
     dense_matvec,
     dense_rmatvec,
+    dense_sandwich,
     transpose_square_dot_weights,
 )
 from .matrix_base import MatrixBase
@@ -44,7 +44,7 @@ class DenseMatrix(MatrixBase):
         elif input_array.ndim > 2:
             raise ValueError("Input array must be 1- or 2-dimensional")
 
-        # Ensure array is contiguous (C or F order) for Cython operations
+        # Ensure array is contiguous (C or F order) for the compiled kernels
         # Only copy if necessary
         if (
             not input_array.flags["C_CONTIGUOUS"]

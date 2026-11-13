@@ -1,12 +1,14 @@
-//! Kernels for `tabmat.DenseMatrix`: so far the sandwich product
-//! `X.T @ diag(d) @ X`.
+//! Kernels for `tabmat.DenseMatrix`: the sandwich product
+//! `X.T @ diag(d) @ X`, the matrix-vector products `X[rows, cols] @ v` and
+//! `X[rows, cols].T @ v`, and the weighted column sums of squares used for
+//! standardisation.
 //!
 //! `X` is read in place whatever its layout: the kernels index it through
 //! an `ndarray` view with runtime strides, so C order, Fortran order and
 //! non-contiguous arrays are all accepted without a copy. It may be
 //! `float32` or `float64`, with `rows` and `cols` index arrays selecting a
-//! row and column subset. The product takes an optional per-column
-//! `center` and computes with `X - center` ([`Centered`]), subtracting it
+//! row and column subset. All three products take an optional per-column
+//! `center` and compute with `X - center` ([`Centered`]), subtracting it
 //! as the data is read: `StandardizedMatrix` relies on this to stay accurate
 //! for columns whose mean is large relative to their spread. A zero center
 //! gives the uncentered product exactly.
@@ -53,6 +55,18 @@
 //! like the xsimd tile did. Scratch panels are plain `Vec`s: the vector
 //! loads need no alignment, and a paired measurement showed 64-byte aligned
 //! buffers to make no difference.
+//!
+//! # The matrix-vector products
+//!
+//! `dense_matvec` and `dense_rmatvec` take `rows` and `cols` as `None` for
+//! "all of them". The inner loops run along the contiguous direction of `X`
+//! (down a column for Fortran order, along a row for C order) and are
+//! vectorised with the shared centered dot and axpy kernels when that
+//! direction is not restricted; otherwise they fall back to indexed loads.
+//! Row blocks are split between the threads (with partial results summed in
+//! worker order for `rmatvec`, whose output is shared); small products run
+//! on one thread, since starting the threads would cost more than the
+//! product.
 
 use std::ops::Range;
 use std::sync::Mutex;
@@ -61,7 +75,10 @@ use ndarray::ArrayViewMut2;
 use pulp::{Arch, Simd, WithSimd};
 use rayon::prelude::*;
 
-use super::{mirror_lower_triangle, partial_sums, Blocks, Centered, Float, PanelSource, SimdFloat};
+use super::{
+    centered_axpy, centered_axpy4, centered_axpy_vc, centered_dot, centered_dot_vc,
+    mirror_lower_triangle, partial_sums, Blocks, Centered, Float, PanelSource, SimdFloat,
+};
 
 // ---------------------------------------------------------------------------
 // Sandwich: the register tile
@@ -480,9 +497,331 @@ pub fn sandwich<F: SimdFloat>(
     mirror_lower_triangle(ArrayViewMut2::from_shape((out_m, out_m), out).expect("square"));
 }
 
+// ---------------------------------------------------------------------------
+// Matrix-vector products
+// ---------------------------------------------------------------------------
+
+/// Products of more entries than this run in parallel; below, starting the
+/// threads costs more than the product.
+const PARALLEL_MIN_WORK: usize = 100_000;
+
+/// Rows per block of the matrix-vector kernels when the columns of `X` are
+/// contiguous: longer blocks mean fewer column switches per block.
+const ROW_BLOCK_F: usize = 4096;
+
+/// Rows per block when the rows of `X` are contiguous.
+const ROW_BLOCK_C: usize = 1024;
+
+/// The index of the `k`-th selected row or column: `k` itself without a
+/// selection.
+#[inline(always)]
+fn select(sel: Option<&[i32]>, k: usize) -> usize {
+    sel.map_or(k, |s| s[k] as usize)
+}
+
+/// The shape of a matrix-vector product: the selected rows and columns
+/// (`None` for all), and the row blocks that follow from the layout of `X`.
+#[derive(Clone, Copy)]
+struct MatvecShape<'a> {
+    rows: Option<&'a [i32]>,
+    cols: Option<&'a [i32]>,
+    n_rows: usize,
+    n_cols: usize,
+    /// Whether the columns of `X` are contiguous (Fortran order), so that
+    /// the kernels walk down the columns; otherwise they walk along the
+    /// rows.
+    col_contiguous: bool,
+    /// The blocks of the selected rows, split between the threads.
+    blocks: Blocks,
+}
+
+impl<'a> MatvecShape<'a> {
+    fn new<F: Float>(x: Centered<'_, F>, rows: Option<&'a [i32]>, cols: Option<&'a [i32]>) -> Self {
+        let col_contiguous = x.col_contiguous();
+        let n_rows = rows.map_or(x.nrows(), |r| r.len());
+        let row_block = if col_contiguous {
+            ROW_BLOCK_F
+        } else {
+            ROW_BLOCK_C
+        };
+        Self {
+            rows,
+            cols,
+            n_rows,
+            n_cols: cols.map_or(x.ncols(), |c| c.len()),
+            col_contiguous,
+            blocks: Blocks::new(0..n_rows, row_block),
+        }
+    }
+
+    /// Number of workers: one when the product is small.
+    fn n_workers(&self) -> usize {
+        if self.n_rows * self.n_cols > PARALLEL_MIN_WORK {
+            self.blocks.len().min(rayon::current_num_threads()).max(1)
+        } else {
+            1
+        }
+    }
+}
+
+/// One selected column of a column-contiguous `X` as the matrix-vector
+/// kernels read it: its data, its center and its entry of `v`.
+#[derive(Clone, Copy)]
+struct Column<'a, F> {
+    x: &'a [F],
+    mu: F,
+    vj: F,
+}
+
+impl<'x, F: Float> Centered<'x, F> {
+    /// The `cj`-th selected column of a column-contiguous `X`, with its
+    /// entry of `v`; `v` has an entry per column of `X`.
+    #[inline(always)]
+    fn selected_column(&self, cols: Option<&[i32]>, cj: usize, v: &[F]) -> Column<'x, F> {
+        let j = select(cols, cj);
+        Column {
+            x: self.column_slice(j),
+            mu: self.center_of(j),
+            vj: v[j],
+        }
+    }
+}
+
+/// `out[Cj] += sum_{Ci in block} (X - center)[rows[Ci], cols[Cj]] * v[rows[Ci]]`
+/// for one row block, as the operation `pulp` dispatches.
+struct RmatvecBlock<'x, 'v, 'o, F> {
+    x: Centered<'x, F>,
+    v: &'v [F],
+    shape: MatvecShape<'v>,
+    block: Range<usize>,
+    out: &'o mut [F],
+}
+
+impl<F: SimdFloat> WithSimd for RmatvecBlock<'_, '_, '_, F> {
+    type Output = ();
+
+    #[inline(always)]
+    fn with_simd<S: Simd>(self, simd: S) {
+        let RmatvecBlock {
+            x,
+            v,
+            shape,
+            block,
+            out,
+        } = self;
+        // SAFETY (all unchecked loads below): `rows`, `cols` and the lengths
+        // of `v` and `center` were checked at the Python boundary.
+        if shape.col_contiguous {
+            // One (centered) dot product per column; a column over all rows
+            // is vectorised.
+            for (cj, o) in out.iter_mut().enumerate() {
+                let j = select(shape.cols, cj);
+                let mu = x.center_of(j);
+                let column = x.column_slice(j);
+                *o += match shape.rows {
+                    None => centered_dot(simd, &column[block.clone()], mu, &v[block.clone()]),
+                    Some(rows) => {
+                        let mut sum = F::default();
+                        for &i in &rows[block.clone()] {
+                            let i = i as usize;
+                            sum += (unsafe { *column.get_unchecked(i) } - mu)
+                                * unsafe { *v.get_unchecked(i) };
+                        }
+                        sum
+                    }
+                };
+            }
+        } else {
+            // Scale each row by its v entry and add it to out; a contiguous
+            // row over all columns is vectorised.
+            let center = x.center_vec();
+            for ci in block {
+                let i = select(shape.rows, ci);
+                let vi = unsafe { *v.get_unchecked(i) };
+                let row = x.x.row(i);
+                match (shape.cols, row.as_slice()) {
+                    (None, Some(row)) => centered_axpy_vc(simd, row, &center, vi, out),
+                    _ => {
+                        for (cj, o) in out.iter_mut().enumerate() {
+                            let j = select(shape.cols, cj);
+                            *o += (unsafe { *row.uget(j) } - unsafe { *center.get_unchecked(j) })
+                                * vi;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// `out = (X - center)[rows, cols].T @ v[rows]`; `out` has `n_cols` zeroed
+/// entries. The row blocks are split statically between the workers, each
+/// accumulating its blocks' sums into its own copy of `out`.
+pub fn rmatvec<F: SimdFloat>(
+    x: Centered<'_, F>,
+    v: &[F],
+    rows: Option<&[i32]>,
+    cols: Option<&[i32]>,
+    out: &mut [F],
+) {
+    let shape = MatvecShape::new(x, rows, cols);
+    let arch = Arch::new();
+    let n_workers = shape.n_workers();
+    partial_sums(n_workers, out, |w, out| {
+        // Each row block is summed into its own buffer first, like the C++
+        // (which added it to the shared result atomically): the two-level
+        // sum keeps the rounding error of a long row range small.
+        let mut local = vec![F::default(); out.len()];
+        for block in shape.blocks.part(w, n_workers).iter() {
+            local.fill(F::default());
+            arch.dispatch(RmatvecBlock {
+                x,
+                v,
+                shape,
+                block,
+                out: &mut local,
+            });
+            for (o, &l) in out.iter_mut().zip(&local) {
+                *o += l;
+            }
+        }
+    });
+}
+
+/// `out[Ci] = sum_Cj (X - center)[rows[Ci], cols[Cj]] * v[cols[Cj]]` for
+/// one row block (`out` is that block's slice), as the operation `pulp`
+/// dispatches.
+struct MatvecBlock<'x, 'v, 'o, F> {
+    x: Centered<'x, F>,
+    v: &'v [F],
+    shape: MatvecShape<'v>,
+    block: Range<usize>,
+    out: &'o mut [F],
+}
+
+impl<F: SimdFloat> WithSimd for MatvecBlock<'_, '_, '_, F> {
+    type Output = ();
+
+    #[inline(always)]
+    fn with_simd<S: Simd>(self, simd: S) {
+        let MatvecBlock {
+            x,
+            v,
+            shape,
+            block,
+            out,
+        } = self;
+        // SAFETY (all unchecked loads below): as in `RmatvecBlock`.
+        if shape.col_contiguous {
+            let column = |cj: usize| x.selected_column(shape.cols, cj, v);
+            match shape.rows {
+                // Add the columns to out, four at a time where possible.
+                None => {
+                    let mut cj = 0;
+                    while cj + 4 <= shape.n_cols {
+                        let cols: [Column<F>; 4] = std::array::from_fn(|t| column(cj + t));
+                        let xs = cols.map(|c| &c.x[block.clone()]);
+                        centered_axpy4(simd, xs, cols.map(|c| c.mu), cols.map(|c| c.vj), out);
+                        cj += 4;
+                    }
+                    for cj in cj..shape.n_cols {
+                        let c = column(cj);
+                        centered_axpy(simd, &c.x[block.clone()], c.mu, c.vj, out);
+                    }
+                }
+                Some(rows) => {
+                    for cj in 0..shape.n_cols {
+                        let c = column(cj);
+                        for (&i, o) in rows[block.clone()].iter().zip(out.iter_mut()) {
+                            let i = i as usize;
+                            *o += (unsafe { *c.x.get_unchecked(i) } - c.mu) * c.vj;
+                        }
+                    }
+                }
+            }
+        } else {
+            // One (centered) dot product per row; a contiguous row over all
+            // columns is vectorised.
+            let center = x.center_vec();
+            for (ci, o) in block.zip(out.iter_mut()) {
+                let i = select(shape.rows, ci);
+                let row = x.x.row(i);
+                *o = match (shape.cols, row.as_slice()) {
+                    // `v` may be longer than a row; the dot product needs
+                    // all three slices of the same length
+                    (None, Some(row)) => centered_dot_vc(simd, row, &center, &v[..row.len()]),
+                    _ => {
+                        let mut sum = F::default();
+                        for cj in 0..shape.n_cols {
+                            let j = select(shape.cols, cj);
+                            sum += (unsafe { *row.uget(j) } - unsafe { *center.get_unchecked(j) })
+                                * unsafe { *v.get_unchecked(j) };
+                        }
+                        sum
+                    }
+                };
+            }
+        }
+    }
+}
+
+/// `out = (X - center)[rows, cols] @ v[cols]`; `out` has `n_rows` zeroed
+/// entries. Every row block owns its slice of `out`, so the blocks are
+/// simply split between the threads.
+pub fn matvec<F: SimdFloat>(
+    x: Centered<'_, F>,
+    v: &[F],
+    rows: Option<&[i32]>,
+    cols: Option<&[i32]>,
+    out: &mut [F],
+) {
+    let shape = MatvecShape::new(x, rows, cols);
+    let arch = Arch::new();
+    let run = |(block, out): (Range<usize>, &mut [F])| {
+        arch.dispatch(MatvecBlock {
+            x,
+            v,
+            shape,
+            block,
+            out,
+        })
+    };
+    let out_blocks = shape.blocks.step();
+    if shape.n_workers() > 1 {
+        shape
+            .blocks
+            .par_iter()
+            .zip(out.par_chunks_mut(out_blocks))
+            .for_each(run);
+    } else {
+        shape
+            .blocks
+            .iter()
+            .zip(out.chunks_mut(out_blocks))
+            .for_each(run);
+    }
+}
+
+/// `out[j] = sum_i weights[i] * (X[i, j] - shift[j])**2` over the first
+/// `weights.len()` rows of `X`; `out` and `shift` have one entry per
+/// column of `X`, `weights` at most one per row.
+pub fn transpose_square_dot_weights<F: Float>(x: Centered<'_, F>, weights: &[F], out: &mut [F]) {
+    out.par_iter_mut().enumerate().for_each(|(j, out)| {
+        let shift = x.center_of(j);
+        let column = x.x.column(j);
+        let mut sum = F::default();
+        for (i, &w) in weights.iter().enumerate() {
+            // SAFETY: `i < weights.len() <= x.nrows()` and `j < out.len() == x.ncols()`.
+            let centred = unsafe { *column.uget(i) } - shift;
+            sum += w * centred * centred;
+        }
+        *out = sum;
+    });
+}
+
 #[cfg(test)]
 mod tests {
-    //! The kernel against a plain reference loop, over random shapes, both
+    //! The kernels against plain reference loops, over random shapes, both
     //! layouts and a non-contiguous view, row and column subsets, with and
     //! without a center, and several thread counts.
 
@@ -514,6 +853,48 @@ mod tests {
             }
         }
         out
+    }
+
+    fn reference_matvec(
+        x: ArrayView2<'_, f64>,
+        v: &[f64],
+        rows: Option<&[i32]>,
+        cols: Option<&[i32]>,
+        center: Option<&[f64]>,
+    ) -> Vec<f64> {
+        let all_rows: Vec<i32> = (0..x.nrows() as i32).collect();
+        let all_cols: Vec<i32> = (0..x.ncols() as i32).collect();
+        let mu = |j: usize| center.map_or(0.0, |c| c[j]);
+        rows.unwrap_or(&all_rows)
+            .iter()
+            .map(|&i| {
+                cols.unwrap_or(&all_cols)
+                    .iter()
+                    .map(|&j| (x[[i as usize, j as usize]] - mu(j as usize)) * v[j as usize])
+                    .sum()
+            })
+            .collect()
+    }
+
+    fn reference_rmatvec(
+        x: ArrayView2<'_, f64>,
+        v: &[f64],
+        rows: Option<&[i32]>,
+        cols: Option<&[i32]>,
+        center: Option<&[f64]>,
+    ) -> Vec<f64> {
+        let all_rows: Vec<i32> = (0..x.nrows() as i32).collect();
+        let all_cols: Vec<i32> = (0..x.ncols() as i32).collect();
+        let mu = |j: usize| center.map_or(0.0, |c| c[j]);
+        cols.unwrap_or(&all_cols)
+            .iter()
+            .map(|&j| {
+                rows.unwrap_or(&all_rows)
+                    .iter()
+                    .map(|&i| (x[[i as usize, j as usize]] - mu(j as usize)) * v[i as usize])
+                    .sum()
+            })
+            .collect()
     }
 
     /// The layouts a kernel is tested in: C order, Fortran order, and a
@@ -577,6 +958,87 @@ mod tests {
                     }
                 }
             }
+        }
+    }
+
+    #[test]
+    fn matvec_kernels_match_reference() {
+        let mut rng = Rng::new(12);
+        for &(n, m) in &[(5000usize, 30usize), (300, 9), (2500, 257)] {
+            let data = Array2::from_shape_vec((n, m), rng.values(n * m, 5.0)).unwrap();
+            // `v` may be longer than the axis it is multiplied with (the
+            // bindings only require "at least"): the extra entries are unused.
+            let v_rows = rng.values(n + 3, 0.0);
+            let v_cols = rng.values(m + 3, 0.0);
+            let center: Vec<f64> = (0..m).map(|j| data.column(j).mean().unwrap()).collect();
+            let sub_rows = rng.subset(n);
+            let sub_cols = rng.subset(m);
+            for (name, arr) in layouts(&data) {
+                let x = view(name, &arr);
+                for rows in [None, Some(&sub_rows[..])] {
+                    for cols in [None, Some(&sub_cols[..])] {
+                        for center in [None, Some(&center[..])] {
+                            let op = Centered { x, center };
+                            let what = format!(
+                                "{name} {n}x{m} rows={} cols={}",
+                                rows.is_some(),
+                                cols.is_some()
+                            );
+                            let exp_m = reference_matvec(x, &v_cols, rows, cols, center);
+                            let exp_r = reference_rmatvec(x, &v_rows, rows, cols, center);
+                            for threads in THREADS {
+                                let mut first = None;
+                                for _ in 0..2 {
+                                    let mut out_m = vec![0.0; exp_m.len()];
+                                    let mut out_r = vec![0.0; exp_r.len()];
+                                    with_threads(threads, || {
+                                        matvec(op, &v_cols, rows, cols, &mut out_m);
+                                        rmatvec(op, &v_rows, rows, cols, &mut out_r);
+                                    });
+                                    assert_close(&out_m, &exp_m, 1e-12, &format!("matvec {what}"));
+                                    assert_close(&out_r, &exp_r, 1e-12, &format!("rmatvec {what}"));
+                                    match &first {
+                                        None => first = Some((out_m, out_r)),
+                                        Some(f) => assert!(
+                                            *f == (out_m, out_r),
+                                            "run-to-run difference at {threads} threads"
+                                        ),
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn transpose_square_dot_weights_matches_reference() {
+        let mut rng = Rng::new(13);
+        let (n, m) = (700, 11);
+        let data = Array2::from_shape_vec((n, m), rng.values(n * m, 2.0)).unwrap();
+        let w = rng.values(n, 1.0);
+        let shift = rng.values(m, 2.0);
+        let expected: Vec<f64> = (0..m)
+            .map(|j| {
+                (0..n)
+                    .map(|i| w[i] * (data[[i, j]] - shift[j]).powi(2))
+                    .sum()
+            })
+            .collect();
+        for (name, arr) in layouts(&data) {
+            let x = view(name, &arr);
+            let mut out = vec![0.0; m];
+            transpose_square_dot_weights(
+                Centered {
+                    x,
+                    center: Some(&shift),
+                },
+                &w,
+                &mut out,
+            );
+            assert_close(&out, &expected, 1e-12, &format!("tsdw {name}"));
         }
     }
 }

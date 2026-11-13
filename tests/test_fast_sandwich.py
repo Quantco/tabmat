@@ -5,8 +5,7 @@ import scipy.sparse
 from scipy.sparse import csc_matrix
 
 from tabmat import CategoricalMatrix, DenseMatrix, SparseMatrix, SplitMatrix
-from tabmat.crabmat.dense import dense_sandwich
-from tabmat.ext.dense import dense_matvec, dense_rmatvec
+from tabmat.crabmat.dense import dense_matvec, dense_rmatvec, dense_sandwich
 from tabmat.ext.sparse import sparse_sandwich
 
 

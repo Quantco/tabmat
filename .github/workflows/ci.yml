@@ -78,7 +78,6 @@ jobs:
           import tabmat
           import tabmat.crabmat.categorical
           import tabmat.crabmat.dense
-          import tabmat.ext.dense
           import tabmat.ext.sparse
           import tabmat.ext.split
 
