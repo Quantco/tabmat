@@ -25,6 +25,7 @@ requirements:
     - ${{ compiler("c") }}
     - ${{ stdlib("c") }}
     - ${{ compiler("cxx") }}
+    - ${{ compiler("rust") }}
     - if: osx
       then:
         - llvm-openmp
@@ -42,6 +43,7 @@ requirements:
         - llvm-openmp
     - numpy
     - pip
+    - setuptools-rust
     - setuptools-scm
     - xsimd <11|>12.1
   run:

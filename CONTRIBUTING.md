@@ -34,7 +34,7 @@ We use [pixi](https://prefix.dev/) for setting up the project dependencies. [Ins
 git clone git@github.com:Quantco/tabmat.git
 cd tabmat
 
-# Set up our pre-commit hooks for ruff, mypy, and cython-lint.
+# Set up our pre-commit hooks for ruff, mypy, cython-lint and rustfmt.
 pixi run pre-commit-install
 
 # Set up a pixi environment with the dependencies and install the package in editable mode.
@@ -57,6 +57,15 @@ pixi shell
 # To get a list of available tasks, run:
 pixi task list
 ```
+
+Compiled extensions
+-------------------
+
+The compiled kernels are being moved from Cython and C++ to Rust. The Rust kernels are built with [PyO3](https://pyo3.rs) and [setuptools-rust](https://setuptools-rust.readthedocs.io). All Rust code is one crate (the `Cargo.toml` at the repository root, sources in `src/tabmat/crabmat/`) that builds a single extension module, `tabmat.crabmat`, so that every kernel shares one rayon thread pool; the kernels are plain Rust functions over slices in `src/tabmat/crabmat/kernels/` (`kernels/mod.rs` holds what they share: element type traits, index validation, the thread pool setup and the deterministic parallel reductions; each kernel file carries a reference implementation that `cargo test` checks it against), and the binding modules next to that directory (`categorical.rs`, with the shared dtype dispatch and argument coercion in `boundary.rs`) only translate between numpy arrays and the kernels. Each binding module is a submodule of the extension (`tabmat.crabmat.categorical`), and the rest of tabmat imports the kernels from there. The kernels of dense, sparse and split matrices are still Cython modules in `tabmat.ext`. Building from source needs a Rust toolchain (and a C compiler as its linker) in addition to the C++ toolchain of the Cython modules; the pixi environments provide all of it, and `pixi run postinstall` builds everything. If you build outside pixi, install Rust with [rustup](https://rustup.rs) and make sure `cargo` is on your `PATH`.
+
+The kernels are parallelised with rayon. The number of threads follows `RAYON_NUM_THREADS`, then `OMP_NUM_THREADS`, then the number of cores.
+
+`pixi run cargo fmt` and `pixi run cargo clippy --all-targets -- -D warnings` format and lint the Rust code, and `pixi run cargo test` runs the kernels' reference tests; CI runs all three.
 
 Testing and continuous integration
 --------------------------------------------------
