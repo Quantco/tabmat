@@ -1,10 +1,53 @@
 [build-system]
 requires = [
-  'setuptools',
-  'setuptools-scm',
-  'wheel',
-  'setuptools-rust>=1.9',
+  "setuptools>=64",
+  "setuptools-scm>=8",
+  "setuptools-rust>=1.9",
 ]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tabmat"
+dynamic = ["version"]
+description = "Efficient matrix representations for working with tabular data."
+readme = "README.md"
+authors = [{ name = "QuantCo, Inc.", email = "noreply@quantco.com" }]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
+]
+requires-python = ">=3.11"
+dependencies = ["formulaic>=1.2", "narwhals", "numpy", "scipy"]
+
+[project.urls]
+Homepage = "https://github.com/Quantco/tabmat"
+
+[tool.setuptools]
+# The wheel holds the Python modules and the compiled extension only, not the
+# other files git tracks under src/ (the Rust sources in src/tabmat/crabmat).
+include-package-data = false
+
+[tool.setuptools.packages.find]
+where = ["src"]
+# Only directories with an __init__.py are packages: src/tabmat/crabmat holds
+# the Rust sources of the extension module tabmat.crabmat, not Python code.
+namespaces = false
+
+[tool.setuptools_scm]
+version_scheme = "post-release"
+
+# All kernels are one extension module (see Cargo.toml) so that they share one
+# rayon thread pool. `debug = false` because setuptools-rust would otherwise
+# make in-place (editable) builds debug builds; for a debug build, set
+# SETUPTOOLS_RUST_CARGO_PROFILE=dev.
+[[tool.setuptools-rust.ext-modules]]
+target = "tabmat.crabmat"
+path = "Cargo.toml"
+debug = false
 
 [tool.ruff]
 line-length = 88
