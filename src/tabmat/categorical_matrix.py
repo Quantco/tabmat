@@ -178,8 +178,8 @@ from .crabmat.categorical import (
     subset_categorical,
     transpose_matvec,
 )
+from .crabmat.split import sandwich_cat_cat, sandwich_cat_dense
 from .dense_matrix import DenseMatrix
-from .ext.split import sandwich_cat_cat, sandwich_cat_dense
 from .matrix_base import MatrixBase
 from .sparse_matrix import SparseMatrix
 from .util import (
@@ -761,15 +761,6 @@ class CategoricalMatrix(MatrixBase):
         dense_center: np.ndarray | None = None,
     ) -> np.ndarray:
         # dense_center (one value per column of other) centers other in the kernel.
-        if other.flags["C_CONTIGUOUS"]:
-            is_c_contiguous = True
-        elif other.flags["F_CONTIGUOUS"]:
-            is_c_contiguous = False
-        else:
-            raise ValueError(
-                "Input array needs to be either C-contiguous or F-contiguous."
-            )
-
         rows, R_cols = setup_restrictions((self.shape[0], other.shape[1]), rows, R_cols)
 
         res = sandwich_cat_dense(
@@ -779,9 +770,8 @@ class CategoricalMatrix(MatrixBase):
             other,
             rows,
             R_cols,
-            is_c_contiguous,
-            has_missings=self._has_missings,
             drop_first=self.drop_first,
+            has_missings=self._has_missings,
             dense_center=dense_center,
         )
 
@@ -810,11 +800,10 @@ class CategoricalMatrix(MatrixBase):
             other.shape[1],
             d,
             rows,
-            d.dtype,
-            self.drop_first,
-            other.drop_first,
-            self._has_missings,
-            other._has_missings,
+            i_drop_first=self.drop_first,
+            j_drop_first=other.drop_first,
+            i_has_missings=self._has_missings,
+            j_has_missings=other._has_missings,
         )
 
         res = _row_col_indexing(res, L_cols, R_cols)

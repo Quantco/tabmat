@@ -5,10 +5,9 @@
 //! of PyO3. The kernels themselves are plain Rust in the `kernels` directory,
 //! with no PyO3 types; `boundary.rs` holds what the bindings share (dtype
 //! dispatch, argument coercion, error conversion), and each kernel family has
-//! a binding module of its own (so far `categorical`, `dense` and
-//! `sparse`) that is a submodule of
-//! this one, `tabmat.crabmat.categorical` and so on, which the Python layer
-//! imports the kernels from.
+//! a binding module of its own (`categorical`, `dense`, `sparse`, `split`)
+//! that is a submodule of this one, `tabmat.crabmat.categorical` and so on,
+//! which the Python layer imports the kernels from.
 
 use pyo3::prelude::*;
 
@@ -17,6 +16,7 @@ mod categorical;
 mod dense;
 mod kernels;
 mod sparse;
+mod split;
 
 /// Creates the submodule `name` with the docstring `doc`, lets `register`
 /// fill it, and makes it importable as `tabmat.crabmat.<name>` (a submodule
@@ -40,8 +40,8 @@ fn add_submodule(
     Ok(())
 }
 
-/// The compiled kernels of tabmat that are written in Rust: one submodule
-/// per matrix type. These functions are not part of the public API.
+/// The compiled kernels of tabmat, written in Rust: one submodule per
+/// matrix type. These functions are not part of the public API.
 #[pymodule(gil_used = false)]
 fn crabmat(m: &Bound<'_, PyModule>) -> PyResult<()> {
     kernels::init_thread_pool();
@@ -62,6 +62,13 @@ fn crabmat(m: &Bound<'_, PyModule>) -> PyResult<()> {
         "sparse",
         "Kernels for :class:`tabmat.SparseMatrix` (src/tabmat/crabmat/sparse.rs).",
         sparse::register,
+    )?;
+    add_submodule(
+        m,
+        "split",
+        "Kernels for :class:`tabmat.SplitMatrix` and the cross products of \
+         :class:`tabmat.CategoricalMatrix` (src/tabmat/crabmat/split.rs).",
+        split::register,
     )?;
     Ok(())
 }

@@ -79,7 +79,7 @@ jobs:
           import tabmat.crabmat.categorical
           import tabmat.crabmat.dense
           import tabmat.crabmat.sparse
-          import tabmat.ext.split
+          import tabmat.crabmat.split
 
           assert not sys._is_gil_enabled(), "Importing tabmat enabled the GIL"
           PY
