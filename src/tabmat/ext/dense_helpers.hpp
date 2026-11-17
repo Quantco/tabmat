@@ -270,10 +270,10 @@ void dense_column_block(const Int* rows, const Int* cols, const F* X, const F* d
                         const F* mu, F* out, F* Rglobal, F* Lglobal,
                         Py_ssize_t Cj, Py_ssize_t Cjmax2,
                         Int in_n, Int out_m, Int m, Int n,
-                        Int thresh1d, Int innerblock, Int kstep)
+                        Int thresh1d, Int innerblock, Int kstep, bool parallel)
 {
     if constexpr (kparallel) {
-        #pragma omp parallel for
+        #pragma omp parallel for if(parallel)
         for (Py_ssize_t Rk = 0; Rk < in_n; Rk += kstep) {
             Py_ssize_t Rkmax2 = std::min<Py_ssize_t>(Rk + kstep, in_n);
             F* R = &Rglobal[(Py_ssize_t) omp_get_thread_num() * kstep * kstep];
@@ -291,11 +291,11 @@ void dense_column_block(const Int* rows, const Int* cols, const F* X, const F* d
         for (Py_ssize_t Rk = 0; Rk < in_n; Rk += kstep) {
             Py_ssize_t Rkmax2 = std::min<Py_ssize_t>(Rk + kstep, in_n);
             F* R = Rglobal;
-            #pragma omp parallel for
+            #pragma omp parallel for if(parallel)
             for (Py_ssize_t Cjj = Cj; Cjj < Cjmax2; Cjj++) {
                 pack_R_column<order>(rows, cols, X, d, mu, R, Cj, Cjj, Rk, Rkmax2, m, n, kstep);
             }
-            #pragma omp parallel for
+            #pragma omp parallel for if(parallel)
             for (Py_ssize_t Ci = Cj; Ci < out_m; Ci += thresh1d) {
                 dense_row_block<kparallel, order>(
                     rows, cols, X, mu, out, R, Lglobal, Ci, Cj, Cjmax2, Rk, Rkmax2,
@@ -305,6 +305,10 @@ void dense_column_block(const Int* rows, const Int* cols, const F* X, const F* d
         }
     }
 }
+
+// Below this many multiply-adds (rows x out columns^2), dense_sandwich runs on
+// one thread.
+constexpr Py_ssize_t SANDWICH_PARALLEL_MIN_WORK = 1 << 20;
 
 // out[cols, cols] = (X - mu)[rows, cols].T @ diag(d[rows]) @ (X - mu)[rows, cols]
 // X is n x m in the given order, mu is a per-column center of length m; out is
@@ -318,14 +322,19 @@ void dense_sandwich(const Int* rows, const Int* cols, const F* X, const F* d,
     const Int kstep = kratio * thresh1d;
 
     bool kparallel = (in_n / kstep) > (out_m / thresh1d);
+    // Starting threads costs more than it saves on small products (e.g. the
+    // Hessian of a few columns of a few rows), so those run on one thread,
+    // which also only needs one thread's buffers.
+    bool parallel = (Py_ssize_t) in_n * out_m * out_m > SANDWICH_PARALLEL_MIN_WORK;
+    Py_ssize_t n_threads = parallel ? omp_get_max_threads() : 1;
     Py_ssize_t Rsize = (Py_ssize_t) kstep * kstep;
     if (kparallel) {
-        Rsize *= omp_get_max_threads();
+        Rsize *= n_threads;
     }
 
     auto Rglobal = make_aligned_unique<F>(Rsize, alignment);
     auto Lglobal = make_aligned_unique<F>(
-        (Py_ssize_t) omp_get_max_threads() * thresh1d * kstep,
+        n_threads * thresh1d * kstep,
         alignment
     );
     for (Py_ssize_t Cj = 0; Cj < out_m; Cj += kstep) {
@@ -333,18 +342,18 @@ void dense_sandwich(const Int* rows, const Int* cols, const F* X, const F* d,
         if (kparallel) {
             dense_column_block<true, order>(
                 rows, cols, X, d, mu, out, Rglobal.get(), Lglobal.get(), Cj, Cjmax2,
-                in_n, out_m, m, n, thresh1d, innerblock, kstep
+                in_n, out_m, m, n, thresh1d, innerblock, kstep, parallel
             );
         } else {
             dense_column_block<false, order>(
                 rows, cols, X, d, mu, out, Rglobal.get(), Lglobal.get(), Cj, Cjmax2,
-                in_n, out_m, m, n, thresh1d, innerblock, kstep
+                in_n, out_m, m, n, thresh1d, innerblock, kstep, parallel
             );
         }
     }
 
     // mirror the lower triangle into the upper one
-    #pragma omp parallel for if(out_m > 100)
+    #pragma omp parallel for if(parallel && out_m > 100)
     for (Py_ssize_t Ci = 0; Ci < out_m; Ci++) {
         for (Py_ssize_t Cj = 0; Cj <= Ci; Cj++) {
             out[Cj * out_m + Ci] = out[Ci * out_m + Cj];
