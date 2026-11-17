@@ -65,6 +65,16 @@ def check_sandwich_compatible(mat, d: np.ndarray):
         )
 
 
+def _select_names(names: list, col) -> list:
+    """``names[col]`` for a list of names and any column indexer, as a list.
+
+    Converting the whole list to a numpy object array to index it costs far more
+    than the selection on wide matrices (~0.1 s per call for 1.4M columns).
+    """
+    idx = np.arange(len(names))[col]
+    return [names[i] for i in np.ravel(idx)]
+
+
 def _check_indexer(indexer):
     """Check that the indexer is valid, and transform it to a canonical format."""
     if not isinstance(indexer, tuple):

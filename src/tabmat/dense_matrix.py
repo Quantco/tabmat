@@ -11,6 +11,7 @@ from .ext.dense import (
 )
 from .matrix_base import MatrixBase
 from .util import (
+    _select_names,
     _check_indexer,
     check_matvec_dimensions,
     check_matvec_out_shape,
@@ -78,8 +79,8 @@ class DenseMatrix(MatrixBase):
 
     def __getitem__(self, key):
         row, col = _check_indexer(key)
-        colnames = np.array(self.column_names)[col].ravel().tolist()
-        terms = np.array(self.term_names)[col].ravel().tolist()
+        colnames = _select_names(self._colnames, col)
+        terms = _select_names(self._terms, col)
 
         sliced = self._array.__getitem__((row, col))
         # Slicing may yield a non-contiguous view; make it contiguous here so that
