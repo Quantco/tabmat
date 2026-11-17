@@ -304,3 +304,28 @@ def test_cross_sandwich_sparse(
     assert res.dtype == dtype
     np.testing.assert_allclose(res, expected, rtol=tol, atol=tol)
     np.testing.assert_allclose(res_t, expected.T, rtol=tol, atol=tol)
+
+
+@pytest.mark.parametrize("drop_first", [True, False], ids=["drop_first", "no_drop"])
+@pytest.mark.parametrize(
+    "L_cols",
+    [[0], [5, 1, 3], [6, 0, 6, 2], [-1, 0], []],
+    ids=["single", "unsorted", "duplicates", "negative", "empty"],
+)
+@pytest.mark.parametrize("restrict", [False, True], ids=["all", "restricted"])
+def test_cross_sandwich_sparse_L_cols(drop_first, L_cols, restrict):
+    rng = np.random.default_rng(0)
+    n = 500
+    cat = CategoricalMatrix(rng.integers(0, 8, n), drop_first=drop_first)
+    sparse = SparseMatrix(sps.random(n, 9, density=0.3, format="csc", random_state=0))
+    d = rng.uniform(size=n)
+    L_cols = np.array(L_cols, dtype=np.int32)
+    if restrict:
+        rows = np.sort(rng.choice(n, n // 2, replace=False)).astype(np.int32)
+        R_cols = np.array([1, 4, 5, 8], dtype=np.int32)
+    else:
+        rows = R_cols = None
+
+    res = cat._cross_sandwich(sparse, d, rows, L_cols, R_cols)
+    full = cat._cross_sandwich(sparse, d, rows, None, R_cols)
+    np.testing.assert_allclose(res, full[L_cols], rtol=1e-12, atol=1e-12)

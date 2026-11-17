@@ -841,7 +841,22 @@ class CategoricalMatrix(MatrixBase):
         L_cols: np.ndarray | None,
         R_cols: np.ndarray | None,
     ) -> np.ndarray:
-        if d.dtype != other.dtype or d.dtype not in (np.float32, np.float64):
+        # The kernel writes column i of self into column out_pos[i] of the
+        # output and skips columns with out_pos[i] == -1, so it only allocates
+        # the len(L_cols) columns it returns.
+        out_pos = None
+        if d.dtype == other.dtype and d.dtype in (np.float32, np.float64):
+            if L_cols is None:
+                out_pos = np.arange(self.shape[1], dtype=np.int32)
+            else:
+                out_pos = np.full(self.shape[1], -1, dtype=np.int32)
+                out_pos[L_cols] = np.arange(len(L_cols), dtype=np.int32)
+                # A column that appears twice in L_cols would only be filled in
+                # once, so fall back to scipy, which handles duplicates.
+                if np.count_nonzero(out_pos >= 0) < len(L_cols):
+                    out_pos = None
+
+        if out_pos is None:
             term_1 = self.multiply(d)  # multiply will deal with drop_first
             term_1 = _row_col_indexing(term_1, rows, L_cols)
             return term_1.T.dot(_row_col_indexing(other, rows, R_cols)).toarray()
@@ -850,9 +865,10 @@ class CategoricalMatrix(MatrixBase):
         # subtracting drop_first, the dropped category.
         idx_dtype = np.result_type(other.indices.dtype, other.indptr.dtype)
         R_cols = set_up_rows_or_cols(R_cols, other.shape[1], dtype=idx_dtype)
-        res = sandwich_cat_sparse(
+        return sandwich_cat_sparse(
             self.indices,
-            self.shape[1],
+            out_pos,
+            self.shape[1] if L_cols is None else len(L_cols),
             d,
             other.data,
             other.indices.astype(idx_dtype, copy=False),
@@ -861,7 +877,6 @@ class CategoricalMatrix(MatrixBase):
             R_cols,
             self.drop_first,
         )
-        return _row_col_indexing(res, L_cols, None)
 
     def multiply(self, other) -> SparseMatrix:
         """Element-wise multiplication.
