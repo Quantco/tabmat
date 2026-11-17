@@ -11,8 +11,8 @@ from .ext.dense import (
 )
 from .matrix_base import MatrixBase
 from .util import (
-    _select_names,
     _check_indexer,
+    _select_names,
     check_matvec_dimensions,
     check_matvec_out_shape,
     check_sandwich_compatible,
@@ -245,7 +245,15 @@ class DenseMatrix(MatrixBase):
         col_means, col_stds = self._get_col_means_and_stds(weights)
         if self._array.size == 0 or self._array.min() >= 0:
             return col_means, col_stds, col_means
-        return col_means, col_stds, np.abs(self._array).T @ weights
+        # Blocks of columns, so that the absolute values never take more memory
+        # than about 8 MB.
+        n_rows, n_cols = self._array.shape
+        step = max(1, (1 << 20) // max(n_rows, 1))
+        abs_means = np.empty(n_cols, dtype=self.dtype)
+        for start in range(0, n_cols, step):
+            block = self._array[:, start : start + step]
+            abs_means[start : start + step] = np.abs(block).T @ weights
+        return col_means, col_stds, abs_means
 
     def _matvec_helper(
         self,

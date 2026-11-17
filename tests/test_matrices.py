@@ -511,6 +511,45 @@ def test_get_col_stds(mat: tm.MatrixBase):
     np.testing.assert_allclose(stds, expected)
 
 
+@pytest.mark.parametrize(
+    "mat",
+    [dense_matrix_F(), dense_matrix_C(), sparse_matrix(), sparse_matrix_64()],
+)
+@pytest.mark.parametrize("signed", [False, True])
+def test_get_col_stats(mat: tm.MatrixBase, signed: bool):
+    if signed:
+        mat = mat.multiply(np.where(np.arange(mat.shape[0]) % 2 == 0, -1.0, 1.0))
+    weights = np.random.random(mat.shape[0])
+    weights /= weights.sum()
+    means, stds, abs_means = mat._get_col_stats(weights)
+    # Identical to the separate passes that standardize used to make.
+    expected_means = mat._get_col_means(weights)
+    np.testing.assert_array_equal(means, expected_means)
+    np.testing.assert_array_equal(stds, mat._get_col_stds(weights, expected_means))
+    np.testing.assert_allclose(abs_means, np.abs(mat.toarray()).T @ weights)
+
+
+def test_dense_get_col_stats_in_blocks():
+    # Absolute values of dense data are taken in blocks of columns.
+    rng = np.random.default_rng(0)
+    arr = rng.standard_normal((1 << 13, 300))
+    weights = np.full(arr.shape[0], 1 / arr.shape[0])
+    _, _, abs_means = tm.DenseMatrix(arr)._get_col_stats(weights)
+    np.testing.assert_allclose(abs_means, np.abs(arr).T @ weights)
+
+
+def test_sparse_matrix_keeps_sorted_flag():
+    X = sps.random(50, 40, density=0.2, format="csc", random_state=0)
+    assert X.has_sorted_indices
+    assert tm.SparseMatrix(X)._array.has_sorted_indices
+    unsorted = X.copy()
+    unsorted.indices[:2] = unsorted.indices[:2][::-1].copy()
+    unsorted.has_sorted_indices = False
+    mat = tm.SparseMatrix(unsorted)
+    assert mat._array.has_sorted_indices
+    np.testing.assert_array_equal(mat.toarray(), unsorted.toarray())
+
+
 @pytest.mark.parametrize("mat", get_unscaled_matrices())
 def test_get_col_stds_unweighted(mat: tm.MatrixBase):
     weights = np.ones(mat.shape[0])

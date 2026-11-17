@@ -13,8 +13,8 @@ from .ext.sparse import (
 )
 from .matrix_base import MatrixBase
 from .util import (
-    _select_names,
     _check_indexer,
+    _select_names,
     check_matvec_dimensions,
     check_matvec_out_shape,
     check_sandwich_compatible,
@@ -55,8 +55,9 @@ class SparseMatrix(MatrixBase):
         # takes a pass over the matrix to recompute. Reading it on the input caches
         # it there, so wrapping the same matrix again is free.
         sorted_indices = None
-        if sps.issparse(input_array) and input_array.format == "csc" and shape is None:
-            sorted_indices = input_array.has_sorted_indices
+        if sps.issparse(input_array) and shape is None:
+            if getattr(input_array, "format", None) == "csc":
+                sorted_indices = getattr(input_array, "has_sorted_indices")
 
         self._array = sps.csc_matrix(input_array, shape, dtype, copy)
         if sorted_indices is not None:
@@ -294,6 +295,7 @@ class SparseMatrix(MatrixBase):
             not transpose
             and unrestricted_rows
             and vec.ndim == 1
+            and cols is not None
             and len(cols) * _FEW_COLS_RATIO < self.shape[1]
         ):
             # X[:, cols] @ vec[cols] over a few columns: the CSC columns give
