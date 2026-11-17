@@ -22,6 +22,7 @@ https://semver.org/spec/v2.0.0.html. The most important bits are:
 - The C++ kernels are now plain C++17 templates: template parameters and `if constexpr` replace the variants that used to be generated with Mako, so `mako` is no longer a build dependency and no source files are generated at build time. The generated code is unchanged in structure and the test suite is untouched.
 - [`tabmat.StandardizedMatrix.sandwich`][tabmat.StandardizedMatrix.sandwich] forms one outer product for the terms from the shift, added in place, instead of four `n_cols x n_cols` temporaries, which makes it faster for wide matrices.
 - [`tabmat.StandardizedMatrix.transpose_matvec`][tabmat.StandardizedMatrix.transpose_matvec] no longer copies the vector and the shift and scaling factors with fancy indexing when `rows` or `cols` is `None`, which makes it about 1.25x faster for a [`tabmat.SplitMatrix`][tabmat.SplitMatrix].
+- The sandwich product of the categorical and the sparse parts of a [`tabmat.SplitMatrix`][tabmat.SplitMatrix] uses a dedicated parallel kernel instead of scipy sparse matrix products, which makes it about 3-30x faster, depending on the shapes.
 - The documentation is now built with Zensical and mkdocstrings instead of Sphinx. The changelog and the docstrings are now written in Markdown. The documentation build treats warnings as errors and runs in CI.
 
 ## 4.3.1 - 2026-11-05
