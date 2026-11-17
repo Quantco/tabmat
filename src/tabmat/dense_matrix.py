@@ -236,6 +236,17 @@ class DenseMatrix(MatrixBase):
         sqrt_arg[sqrt_arg < 0] = 0
         return np.sqrt(sqrt_arg)
 
+    def _get_col_stats(
+        self, weights: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Get the means, standard deviations and means of absolute values of the
+        columns.
+        """
+        col_means, col_stds = self._get_col_means_and_stds(weights)
+        if self._array.size == 0 or self._array.min() >= 0:
+            return col_means, col_stds, col_means
+        return col_means, col_stds, np.abs(self._array).T @ weights
+
     def _matvec_helper(
         self,
         vec: list | np.ndarray,

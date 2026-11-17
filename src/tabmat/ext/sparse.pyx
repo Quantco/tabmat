@@ -290,3 +290,61 @@ def transpose_square_dot_weights(
             v = data[k]
             outp[j] = outp[j] + weights[i] * (v ** 2)
     return out
+
+
+
+cdef inline void _col_moments(
+    floating* data,
+    win_integral* indices,
+    win_integral start,
+    win_integral end,
+    floating* weights,
+    floating* sums,
+    floating* abs_sums,
+    floating* sq_sums,
+) noexcept nogil:
+    cdef floating s = 0, a = 0, q = 0, v, w
+    cdef win_integral k
+    for k in range(start, end):
+        v = data[k]
+        w = weights[indices[k]]
+        s = s + v * w
+        a = a + (v if v >= 0 else -v) * w
+        q = q + w * (v ** 2)
+    sums[0] = s
+    abs_sums[0] = a
+    sq_sums[0] = q
+
+
+def csc_col_moments(
+        floating[:] data,
+        win_integral[:] indices,
+        win_integral[:] indptr,
+        floating[:] weights,
+        dtype):
+    """Weighted sums, absolute sums and sums of squares of the columns of a CSC.
+
+    One pass over the matrix. Each sum runs over the column in the same order and
+    with the same arithmetic as ``csc_rmatvec_unrestricted`` and
+    ``transpose_square_dot_weights``, so the results are identical to theirs.
+    """
+    cdef Py_ssize_t ncols = indptr.shape[0] - 1
+    cdef Py_ssize_t j
+    cdef np.ndarray sums = np.zeros(ncols, dtype=dtype)
+    cdef np.ndarray abs_sums = np.zeros(ncols, dtype=dtype)
+    cdef np.ndarray sq_sums = np.zeros(ncols, dtype=dtype)
+    cdef floating* sp = <floating*>sums.data
+    cdef floating* ap = <floating*>abs_sums.data
+    cdef floating* qp = <floating*>sq_sums.data
+    if ncols == 0 or data.shape[0] == 0:
+        return sums, abs_sums, sq_sums
+    cdef floating* datap = &data[0]
+    cdef win_integral* indicesp = &indices[0]
+    cdef floating* weightsp = &weights[0]
+
+    for j in prange(ncols, nogil=True):
+        _col_moments(
+            datap, indicesp, indptr[j], indptr[j + 1], weightsp,
+            sp + j, ap + j, qp + j,
+        )
+    return sums, abs_sums, sq_sums

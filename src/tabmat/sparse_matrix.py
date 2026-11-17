@@ -2,6 +2,7 @@ import numpy as np
 from scipy import sparse as sps
 
 from .ext.sparse import (
+    csc_col_moments,
     csc_rmatvec,
     csc_rmatvec_unrestricted,
     csr_dense_sandwich,
@@ -356,6 +357,37 @@ class SparseMatrix(MatrixBase):
         # zero.
         sqrt_arg[sqrt_arg < 0] = 0
         return np.sqrt(sqrt_arg)
+
+    def _get_col_moments(self, weights: np.ndarray):
+        """Weighted column sums, absolute sums and sums of squares, in one pass."""
+        return csc_col_moments(
+            self._array.data,
+            self._array.indices,
+            self._array.indptr,
+            weights,
+            weights.dtype,
+        )
+
+    def _get_col_stats(
+        self, weights: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Get the means, standard deviations and means of absolute values of the
+        columns, in one pass.
+
+        The means and standard deviations are identical to those of
+        ``_get_col_means`` and ``_get_col_stds``.
+        """
+        col_means, abs_means, sq_sums = self._get_col_moments(weights)
+        sqrt_arg = sq_sums - col_means**2
+        sqrt_arg[sqrt_arg < 0] = 0
+        return col_means, np.sqrt(sqrt_arg), abs_means
+
+    def _get_col_means_and_stds(
+        self, weights: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Get the means and standard deviations of the columns, in one pass."""
+        col_means, col_stds, _ = self._get_col_stats(weights)
+        return col_means, col_stds
 
     def astype(self, dtype, order="K", casting="unsafe", copy=True):
         """Return SparseMatrix cast to new type."""

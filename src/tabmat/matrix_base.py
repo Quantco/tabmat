@@ -140,6 +140,21 @@ class MatrixBase(ABC):
     ) -> np.ndarray:
         pass
 
+    def _get_col_means_and_stds(
+        self, weights: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Get the means and standard deviations of the columns."""
+        col_means = self._get_col_means(weights)
+        return col_means, self._get_col_stds(weights, col_means)
+
+    def _get_col_stats(
+        self, weights: np.ndarray
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Get the means, standard deviations and means of absolute values of the
+        columns.
+        """
+        raise NotImplementedError
+
     def standardize(
         self, weights: np.ndarray, center_predictors: bool, scale_predictors: bool
     ) -> tuple[Any, np.ndarray, np.ndarray | None]:
@@ -159,9 +174,8 @@ class MatrixBase(ABC):
         """
         from .standardized_mat import StandardizedMatrix
 
-        col_means = self._get_col_means(weights)
         if scale_predictors:
-            col_stds = self._get_col_stds(weights, col_means)
+            col_means, col_stds = self._get_col_means_and_stds(weights)
             mult = _one_over_var_inf_to_val(col_stds, 1.0)
             if center_predictors:
                 shifter = -col_means * mult
@@ -170,6 +184,7 @@ class MatrixBase(ABC):
                 shifter = np.zeros_like(col_means)
                 out_means = shifter
         else:
+            col_means = self._get_col_means(weights)
             col_stds = None
             if center_predictors:
                 shifter = -col_means
