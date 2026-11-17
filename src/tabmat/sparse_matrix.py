@@ -51,7 +51,16 @@ class SparseMatrix(MatrixBase):
             elif input_array.ndim > 2:
                 raise ValueError("Input array must be 1- or 2-dimensional")
 
+        # Wrapping a CSC matrix loses scipy's cached flag for sorted indices, which
+        # takes a pass over the matrix to recompute. Reading it on the input caches
+        # it there, so wrapping the same matrix again is free.
+        sorted_indices = None
+        if sps.issparse(input_array) and input_array.format == "csc" and shape is None:
+            sorted_indices = input_array.has_sorted_indices
+
         self._array = sps.csc_matrix(input_array, shape, dtype, copy)
+        if sorted_indices is not None:
+            self._array.has_sorted_indices = sorted_indices
 
         self.idx_dtype = max(self._array.indices.dtype, self._array.indptr.dtype)
         if self._array.indices.dtype != self.idx_dtype:

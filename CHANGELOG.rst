@@ -27,6 +27,7 @@ Changelog
 - :meth:`tabmat.SparseMatrix.matvec` and :meth:`tabmat.SparseMatrix.sandwich` restricted to a small subset of the columns work on the CSC slice of those columns. They no longer build the CSR copy of the whole matrix, and the sandwich no longer scans the full rows of the matrix. For the Hessian of 22 frequent columns of news20 (1.36M columns), this takes 1.8 ms instead of 6.6 ms, plus 40 ms for the CSR copy on the first call.
 - Selecting columns of a :class:`tabmat.DenseMatrix` or :class:`tabmat.SparseMatrix` (``X[:, cols]``) no longer converts all column and term names to numpy arrays to select a few of them. For 8000 of the 1.36M columns of news20, this takes 5 ms instead of 0.3 s.
 - :meth:`tabmat.SparseMatrix.standardize` computes the column means and standard deviations in one pass over the matrix instead of two, with identical results. For news20 (1.36M columns, 9.1M nonzeros), this takes 21 ms instead of 35 ms on one thread. The new private method ``_get_col_stats`` also returns the weighted means of the absolute values of the columns from the same pass.
+- Wrapping a sorted CSC matrix in a :class:`tabmat.SparseMatrix` no longer checks again that its indices are sorted. The check takes a pass over the matrix, 10 ms for news20, and scipy caches its result on the input, but the wrapper used to discard it.
 
 4.3.1 - 2026-11-05
 ------------------
