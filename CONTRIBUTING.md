@@ -19,7 +19,7 @@ Pull request process
 - Please make sure that all functions come with proper docstrings. If you do extensive work on docstrings, please check if the documentation renders them correctly. You can build and serve the documentation locally with `pixi run -e docs docs`. ReadTheDocs builds on every commit to an open pull request. You can see whether the documentation has successfully built in the "checks" section of the PR. Once the build finishes, your documentation should be accessible by clicking the "details" link next to the check in the GitHub interface and will appear at a URL like: `https://tabmat--###.org.readthedocs.build/en/###/` where `###` is the number of your PR.
 - Please make sure you have our pre-commit hooks installed.
 - If you fix a bug, please consider first contributing a test that _fails_ because of the bug and then adding the fix as a separate commit, so that the CI system picks it up.
-- Please add an entry to the change log and increment the version number according to the type of change. We use semantic versioning. Update the major if you break the public API. Update the minor if you add new functionality. Update the patch if you fixed a bug. All changes that have not been released are collected under the date ``UNRELEASED``.
+- Please add an entry to the change log and increment the version number according to the type of change. We use semantic versioning. Update the major if you break the public API. Update the minor if you add new functionality. Update the patch if you fixed a bug. All changes that have not been released are collected under the date `unreleased`.
 
 Releases
 --------------------------------------------------
@@ -60,19 +60,12 @@ pixi task list
 
 Testing and continuous integration
 --------------------------------------------------
-The test suite is in ``tests/`` and can be run using ``pixi run test``.
+The test suite is in `tests/` and can be run using `pixi run test`.
 
 Developing the documentation
 ----------------------------------------
 
-The documentation is built with Sphinx. To develop the documentation: ``pixi run serve-docs``. Then, navigate to `<http://localhost:8000>`_ to view the documentation.
-
-Alternatively, if you install `entr <http://eradman.com/entrproject/>`_, then you can auto-rebuild the documentation any time a file changes with:
-
-```bash
-   cd docs
-   ./dev
-```
+The documentation is built with [Zensical](https://zensical.org/) and [mkdocstrings](https://mkdocstrings.github.io/). To develop the documentation, run `pixi run -e docs docs`. This serves the documentation at <http://localhost:8000> and rebuilds it whenever a file changes. To build it the way CI does, with warnings treated as errors, run `pixi run -e docs docs-build`.
 
 Conda-forge packaging
 ---------------------
