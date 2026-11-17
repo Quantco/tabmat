@@ -36,7 +36,7 @@ Data used in economics, actuarial science, and many other fields is often tabula
 - It often contains **categorical data**, processed into many columns of indicator values created by "one-hot encoding."
 
 High-performance statistical applications often require fast computation of certain operations, such as
-- Computing **sandwich products** of the data, ``transpose(X) @ diag(d) @ X``. A sandwich product shows up in the solution to weighted least squares, as well as in the Hessian of the likelihood in generalized linear models such as Poisson regression.
+- Computing **sandwich products** of the data, `transpose(X) @ diag(d) @ X`. A sandwich product shows up in the solution to weighted least squares, as well as in the Hessian of the likelihood in generalized linear models such as Poisson regression.
 - **Matrix-vector products**, possibly on only a subset of the rows or columns. For example, when limiting computation to an "active set" in a L1-penalized coordinate descent implementation, we may only need to compute a matrix-vector product on a small subset of the columns.
 - Computing all operations on **standardized predictors** which have mean zero and standard deviation one. This helps with numerical stability and optimizer efficiency in a wide range of machine learning algorithms.
 
@@ -47,7 +47,7 @@ We designed this library with the above use cases in mind. We built this library
 Design principles:
 - Speed and memory efficiency are paramount.
 - You don't need to sacrifice functionality by using this library: `DenseMatrix` and `SparseMatrix` subclass `np.ndarray` and `scipy.sparse.csc_matrix` respectively, and inherit behavior from those classes wherever it is not improved on.
-- As much as possible, syntax follows NumPy syntax, and dimension-reducing operations (like `sum`) return NumPy arrays, following NumPy dimensions about the dimensions of results. The aim is to make these classes as close as possible to being drop-in replacements for ``numpy.ndarray``.  This is not always possible, however, due to the differing APIs of ``numpy.ndarray`` and ``scipy.sparse``.
+- As much as possible, syntax follows NumPy syntax, and dimension-reducing operations (like `sum`) return NumPy arrays, following NumPy dimensions about the dimensions of results. The aim is to make these classes as close as possible to being drop-in replacements for `numpy.ndarray`. This is not always possible, however, due to the differing APIs of `numpy.ndarray` and `scipy.sparse`.
 - Other operations, such as `toarray`, mimic Scipy sparse syntax.
 - All matrix classes support matrix-vector products, sandwich products, and `getcol`.
 
