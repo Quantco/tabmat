@@ -20,6 +20,8 @@ Changelog
 
 - The dense matrix-vector kernels used for row or column restrictions are vectorized along the direction that is not restricted, which makes most restricted products on dense data faster, by up to 2x.
 - The C++ kernels are now plain C++17 templates: template parameters and ``if constexpr`` replace the variants that used to be generated with Mako, so ``mako`` is no longer a build dependency and no source files are generated at build time. The generated code is unchanged in structure and the test suite is untouched.
+- :meth:`tabmat.StandardizedMatrix.sandwich` forms one outer product for the terms from the shift, added in place, instead of four ``n_cols x n_cols`` temporaries, which makes it faster for wide matrices.
+- :meth:`tabmat.StandardizedMatrix.transpose_matvec` no longer copies the vector and the shift and scaling factors with fancy indexing when ``rows`` or ``cols`` is ``None``, which makes it about 1.25x faster for a :class:`tabmat.SplitMatrix`.
 - The sandwich product of the categorical and the sparse parts of a :class:`tabmat.SplitMatrix` uses a dedicated parallel kernel instead of scipy sparse matrix products, which makes it about 3-30x faster, depending on the shapes.
 
 4.3.1 - 2026-11-05
@@ -54,6 +56,7 @@ Changelog
 
 - Clarified that ``sparse_threshold`` is used to sparsify numerical columns and is not used to densify columns that are already sparse.
 - Fixed the benchmark harness silently recording zero timings and memory under pandas 3, where the chained assignment it used is rejected by copy-on-write.
+- :func:`from_df` now builds its sparse block directly from pandas sparse columns instead of densifying them first, which makes construction much faster and uses memory proportional to the number of stored values rather than to the full block. Sparse columns whose fill value is not 0 are now stored as dense with a warning, since :class:`SparseMatrix` only represents a fill value of 0.
 - We disabled fast math to avoid invalid results (e.g., when dividing by zero).
 
 
