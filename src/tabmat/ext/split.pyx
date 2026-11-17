@@ -2,6 +2,7 @@ import numpy as np
 
 cimport numpy as np
 from cython cimport floating, integral
+from cython.parallel import prange
 from libc.stdlib cimport free, malloc
 from libcpp cimport bool
 from libcpp.vector cimport vector
@@ -124,6 +125,63 @@ def sandwich_cat_cat(
                                n_rows, &res[0, 0], j_ncol, res_size)
 
     return np.asarray(res)
+
+
+def sandwich_cat_sparse(
+    const int[:] i_indices,
+    const int[::1] out_pos,
+    int n_out,
+    floating[:] d,
+    const floating[:] A_data,
+    const win_integral[:] A_indices,
+    const win_integral[:] A_indptr,
+    rows,
+    const win_integral[:] A_cols,
+    bint drop_first,
+):
+    """X1[:, L_cols].T @ diag(d) @ A[:, A_cols] for a categorical X1 and a CSC A.
+
+    ``out_pos`` maps each column of X1 (after dropping the first category) to
+    its column in the ``n_out``-wide output, or to -1 if it is not in ``L_cols``.
+    Rows outside ``rows`` (``None`` means all rows) are skipped. Missing values
+    (negative codes) and the dropped first category are skipped as well. Each
+    thread owns whole columns of A, so that no reduction is needed.
+    """
+    cdef Py_ssize_t n_A_cols = A_cols.shape[0]
+    cdef Py_ssize_t n_rows = d.shape[0]
+    # Transposed, so that each column of A owns a contiguous row of the output.
+    out_T = np.zeros((n_A_cols, n_out), dtype=np.asarray(d).dtype)
+    if n_A_cols == 0 or n_out == 0:
+        return out_T.T
+    cdef floating[:, ::1] out_T_view = out_T
+
+    # The mask counts a repeated row only once, as in the sparse sandwich
+    # kernel, so ``rows`` must not contain duplicates.
+    cdef uint8[::1] row_included
+    cdef bint restrict_rows = rows is not None and len(rows) < n_rows
+    mask = np.ones(1, dtype=np.uint8)
+    if restrict_rows:
+        mask = np.zeros(n_rows, dtype=np.uint8)
+        mask[np.asarray(rows, dtype=np.intp)] = 1
+    row_included = mask
+
+    cdef Py_ssize_t Cj, idx
+    cdef win_integral j, k
+    cdef int i
+    for Cj in prange(n_A_cols, nogil=True, schedule="dynamic"):
+        j = A_cols[Cj]
+        for idx in range(A_indptr[j], A_indptr[j + 1]):
+            k = A_indices[idx]
+            if restrict_rows and not row_included[k]:
+                continue
+            i = i_indices[k] - drop_first
+            if i < 0:
+                continue
+            i = out_pos[i]
+            if i < 0:
+                continue
+            out_T_view[Cj, i] += d[k] * A_data[idx]
+    return out_T.T
 
 
 # This seems slower, so not using it for now
