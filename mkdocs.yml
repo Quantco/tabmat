@@ -76,8 +76,8 @@ plugins:
 nav:
   - Welcome: index.md
   - Benchmarks: benchmarks.md
-  - API Reference: api.md
   - Contributing/Development: contributing.md
+  - API Reference: api.md
   - Changelog: changelog.md
 
 markdown_extensions:

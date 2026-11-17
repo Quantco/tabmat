@@ -5,6 +5,6 @@ Please see the [project README](https://github.com/Quantco/tabmat) for a broad o
 ![Headline benchmark](_static/headline.png){ width="600" }
 
 - [Benchmarks](benchmarks.md)
-- [API Reference](api.md)
 - [Contributing/Development](contributing.md)
+- [API Reference](api.md)
 - [Changelog](changelog.md)
