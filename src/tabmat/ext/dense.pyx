@@ -19,10 +19,10 @@ cdef extern from "dense_helpers.hpp":
     void _denseF_matvec[Int, F](Int*, Int*, F*, F*, F*, F*, Int, Int, Int, Int) nogil
 
 def _check_center(center, Py_ssize_t m, dtype, name="center", bint zeros=False):
-    """Return ``center`` as a contiguous array of length ``m``.
+    """Return `center` as a contiguous array of length `m`.
 
-    ``None`` stays ``None``, or becomes zeros if ``zeros``. The dense kernels
-    always subtract a center, which costs nothing there, and ``x - 0 == x``
+    `None` stays `None`, or becomes zeros if `zeros`. The dense kernels
+    always subtract a center, which costs nothing there, and `x - 0 == x`
     exactly. The cross kernels skip the subtraction for a null center, because
     it would slow down their uncentered packing.
     """
@@ -37,8 +37,8 @@ def _check_center(center, Py_ssize_t m, dtype, name="center", bint zeros=False):
 def dense_sandwich(np.ndarray X, floating[:] d, int[:] rows, int[:] cols, int thresh1d = 32, int kratio = 16, int innerblock = 128, center=None):
     """(X[rows, cols] - center[cols]).T @ diag(d[rows]) @ (X[rows, cols] - center[cols]).
 
-    ``center`` is an optional length-``X.shape[1]`` vector (indexed by the
-    original column index, like ``X``); ``None`` means no centering.
+    `center` is an optional length-`X.shape[1]` vector (indexed by the
+    original column index, like `X`); `None` means no centering.
     """
     cdef int n = X.shape[0]
     cdef int m = X.shape[1]
@@ -77,8 +77,8 @@ def dense_rmatvec(
 ):
     """(X[rows, cols] - center[cols]).T @ v[rows].
 
-    ``rows=None`` and ``cols=None`` select all rows and columns, which lets the
-    kernel vectorize along them; ``center=None`` means no centering.
+    `rows=None` and `cols=None` select all rows and columns, which lets the
+    kernel vectorize along them; `center=None` means no centering.
     """
     return _dense_matvec_impl(X, v, rows, cols, center, True)
 
@@ -87,7 +87,7 @@ def dense_matvec(
     np.ndarray X, const floating[::1] v, int[:] rows=None, int[:] cols=None, center=None
 ):
     """(X[rows, cols] - center[cols]) @ v[cols], with the same conventions as
-    :func:`dense_rmatvec`.
+    `dense_rmatvec`.
     """
     return _dense_matvec_impl(X, v, rows, cols, center, False)
 

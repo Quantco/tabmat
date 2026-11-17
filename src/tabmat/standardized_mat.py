@@ -26,7 +26,7 @@ class StandardizedMatrix:
         self[i, j] = (self.mult[j] * self.mat[i, j]) + self.shift[j]
 
     This class is returned from
-    :meth:`MatrixBase.standardize <tabmat.MatrixBase.standardize>`.
+    [`MatrixBase.standardize`][tabmat.MatrixBase.standardize].
     """
 
     __array_priority__ = 11
@@ -123,7 +123,7 @@ class StandardizedMatrix:
         return self._with_cols(col, i)
 
     def _with_cols(self, mat: MatrixBase, col) -> "StandardizedMatrix":
-        """Wrap ``mat`` with the shift, mult and center of the columns ``col``."""
+        """Wrap `mat` with the shift, mult and center of the columns `col`."""
         mult = None if self.mult is None else np.atleast_1d(self.mult[col])
         out = StandardizedMatrix(mat, np.atleast_1d(self.shift[col]), mult)
         if self._center is not None:
@@ -133,17 +133,18 @@ class StandardizedMatrix:
         return out
 
     def _dense_centering(self) -> tuple[np.ndarray | None, np.ndarray]:
-        """Return ``(center, shift)`` for centering the dense columns in the kernels.
+        """Return `(center, shift)` for centering the dense columns in the kernels.
 
-        ``center`` holds the unscaled means of the columns stored in a dense
+        `center` holds the unscaled means of the columns stored in a dense
         matrix and zero for the others, so that
-        ``self.toarray() == (self.mat.toarray() - center) * mult + shift``.
-        Centering a column absorbs its shift, so ``shift`` is zero for the
-        centered columns. The exact means from :meth:`MatrixBase.standardize` are
-        used while they still match ``self.shift``; otherwise they are recovered
-        from ``self.shift`` and ``self.mult``. Columns whose mean cannot be
-        recovered (a zero multiplier) or is zero keep their shift. ``center`` is
-        ``None`` if no column is centered.
+        `self.toarray() == (self.mat.toarray() - center) * mult + shift`.
+        Centering a column absorbs its shift, so `shift` is zero for the
+        centered columns. The exact means from
+        [`MatrixBase.standardize`][tabmat.MatrixBase.standardize] are used while
+        they still match `self.shift`; otherwise they are recovered from
+        `self.shift` and `self.mult`. Columns whose mean cannot be recovered (a
+        zero multiplier) or is zero keep their shift. `center` is `None` if no
+        column is centered.
         """
         from .split_matrix import SplitMatrix
 
@@ -336,8 +337,8 @@ class StandardizedMatrix:
         """Element-wise multiplication.
 
         Note that the output of this function is always a DenseMatrix and might
-        require a lot more memory. This assumes that ``other`` is a vector of
-        size ``self.shape[0]``.
+        require a lot more memory. This assumes that `other` is a vector of
+        size `self.shape[0]`.
         """
         return DenseMatrix(self.toarray()).multiply(other)
 
@@ -396,7 +397,7 @@ class StandardizedMatrix:
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
-        following pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
+        following pattern: `"{missing_prefix}{start_index + i}"` where `i` is
         the index of the column.
 
         Parameters
@@ -405,13 +406,13 @@ class StandardizedMatrix:
             Whether to get column names or term names. The main difference is
             that a categorical submatrix counts as one term, but can count as
             multiple columns. Furthermore, matrices created from formulas
-            distinguish between columns and terms (c.f. ``formulaic`` docs).
+            distinguish between columns and terms (c.f. `formulaic` docs).
         missing_prefix: Optional[str], default None
             Prefix to use for columns that do not have a name. If None, then no
             default name is created.
         indices
-            The indices used for columns that do not have a name. If ``None``,
-            then the indices are ``list(range(self.shape[1]))``.
+            The indices used for columns that do not have a name. If `None`,
+            then the indices are `list(range(self.shape[1]))`.
 
         Returns
         -------
@@ -431,7 +432,7 @@ class StandardizedMatrix:
             Whether to get column names or term names. The main difference is
             that a categorical submatrix counts as one term, but can count as
             multiple columns. Furthermore, matrices created from formulas
-            distinguish between columns and terms (c.f. ``formulaic`` docs).
+            distinguish between columns and terms (c.f. `formulaic` docs).
         """
         self.mat.set_names(names, type)
 
@@ -448,7 +449,7 @@ class StandardizedMatrix:
     def term_names(self):
         """Term names of the matrix.
 
-        For differences between column names and term names, see ``get_names``.
+        For differences between column names and term names, see `get_names`.
         """
         return self.get_names(type="term")
 

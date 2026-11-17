@@ -1,0 +1,27 @@
+# Benchmarks
+
+To generate the data to run all the benchmarks: `pixi run benchmark-generate-matrices`. Then, to run all the benchmarks with default settings: `pixi run benchmark-run`. To produce or update these figures, open `src/tabmat/benchmark/visualize_benchmarks.py` as a notebook via `jupytext`.
+
+For more info on the benchmark CLI: `pixi run python src/tabmat/benchmark/main.py --help`.
+
+## Performance
+
+Dense matrix, 4M x 10:
+
+![](_static/dense_bench.png){ width="700" }
+
+One-hot encoded categorical variable, 1M x 100k:
+
+![](_static/one_cat_bench.png){ width="700" }
+
+Sparse matrix, 1M x 1k:
+
+![](_static/sparse_bench.png){ width="700" }
+
+Two categorical matrices, 1M x 2k:
+
+![](_static/two_cat_bench.png){ width="700" }
+
+Dense matrix plus two categorical matrices, 3M x (dense=5, cat1=10, cat2=1000):
+
+![](_static/dense_cat_bench.png){ width="700" }

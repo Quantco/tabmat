@@ -329,8 +329,8 @@ class _InteractableVector(ABC):
             The name to set.
         name_format : str
             The format string to use to format the name. Only used for
-            categoricals. Has to include the placeholders ``{name}``
-            and ``{category}``
+            categoricals. Has to include the placeholders `{name}`
+            and `{category}`
 
         Returns
         -------
@@ -681,9 +681,9 @@ def _C(
     """
     Mark data as categorical.
 
-    A reduced-functionality version of the ``formulaic`` ``C()`` function. It does not
+    A reduced-functionality version of the `formulaic` `C()` function. It does not
     support custom contrasts or the level argument, but it allows setting
-    ``spans_intercept=False`` to avoid dropping categories.
+    `spans_intercept=False` to avoid dropping categories.
     """
 
     def encoder(

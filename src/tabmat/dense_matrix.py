@@ -23,16 +23,16 @@ from .util import (
 
 class DenseMatrix(MatrixBase):
     """
-    A ``numpy.ndarray`` subclass with several additional functions that allow
+    A `numpy.ndarray` subclass with several additional functions that allow
     it to share the MatrixBase API with SparseMatrix and CategoricalMatrix.
 
     In particular, we have added:
 
-    - The ``sandwich`` product
-    - ``getcol`` to support the same interface as SparseMatrix for retrieving a
+    - The `sandwich` product
+    - `getcol` to support the same interface as SparseMatrix for retrieving a
       single column
-    - ``toarray``
-    - ``matvec``
+    - `toarray`
+    - `matvec`
 
     """
 
@@ -170,9 +170,9 @@ class DenseMatrix(MatrixBase):
         rows: np.ndarray | None = None,
         cols: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Compute ``(X - center).T @ diag(d) @ (X - center)`` without copying X.
+        """Compute `(X - center).T @ diag(d) @ (X - center)` without copying X.
 
-        ``center`` has length ``self.shape[1]``; ``None`` means no centering. The
+        `center` has length `self.shape[1]`; `None` means no centering. The
         subtraction is fused into the panel packing of the sandwich kernel.
         """
         d = np.asarray(d)
@@ -188,11 +188,11 @@ class DenseMatrix(MatrixBase):
         cols: np.ndarray | None = None,
         out: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Compute ``(X - center)[rows, cols].T @ vec[rows]``.
+        """Compute `(X - center)[rows, cols].T @ vec[rows]`.
 
-        ``center`` has length ``self.shape[1]``; ``None`` means no centering. The
+        `center` has length `self.shape[1]`; `None` means no centering. The
         subtraction happens inside the kernel, so that a large center does not
-        cancel against ``X.T @ vec``.
+        cancel against `X.T @ vec`.
         """
         check_transpose_matvec_out_shape(self, out)
         return self._matvec_helper(vec, rows, cols, out, True, center)
@@ -204,9 +204,9 @@ class DenseMatrix(MatrixBase):
         cols: np.ndarray | None = None,
         out: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Compute ``(X - center)[:, cols] @ vec[cols]``.
+        """Compute `(X - center)[:, cols] @ vec[cols]`.
 
-        See :meth:`_centered_transpose_matvec`.
+        See `_centered_transpose_matvec`.
         """
         check_matvec_out_shape(self, out)
         return self._matvec_helper(vec, None, cols, out, False, center)
@@ -338,7 +338,7 @@ class DenseMatrix(MatrixBase):
     def multiply(self, other):
         """Element-wise multiplication.
 
-        This assumes that ``other`` is a vector of size ``self.shape[0]``.
+        This assumes that `other` is a vector of size `self.shape[0]`.
         """
         if np.asanyarray(other).ndim == 1:
             return type(self)(
@@ -361,7 +361,7 @@ class DenseMatrix(MatrixBase):
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
-        following pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
+        following pattern: `"{missing_prefix}{start_index + i}"` where `i` is
         the index of the column.
 
         Parameters
@@ -370,13 +370,13 @@ class DenseMatrix(MatrixBase):
             Whether to get column names or term names. The main difference is
             that a categorical submatrix counts as one term, but can count as
             multiple columns. Furthermore, matrices created from formulas
-            distinguish between columns and terms (c.f. ``formulaic`` docs).
+            distinguish between columns and terms (c.f. `formulaic` docs).
         missing_prefix: Optional[str], default None
             Prefix to use for columns that do not have a name. If None, then no
             default name is created.
         indices
-            The indices used for columns that do not have a name. If ``None``,
-            then the indices are ``list(range(self.shape[1]))``.
+            The indices used for columns that do not have a name. If `None`,
+            then the indices are `list(range(self.shape[1]))`.
 
         Returns
         -------
@@ -410,7 +410,7 @@ class DenseMatrix(MatrixBase):
             Whether to get column names or term names. The main difference is
             that a categorical submatrix counts as one term, but can count as
             multiple columns. Furthermore, matrices created from formulas
-            distinguish between columns and terms (c.f. ``formulaic`` docs).
+            distinguish between columns and terms (c.f. `formulaic` docs).
         """
         if isinstance(names, str):
             names = [names]

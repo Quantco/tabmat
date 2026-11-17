@@ -5,7 +5,7 @@ import numpy as np
 
 
 class MatrixBase(ABC):
-    """Base class for all matrix classes. ``MatrixBase`` cannot be instantiated."""
+    """Base class for all matrix classes. `MatrixBase` cannot be instantiated."""
 
     ndim = 2
     shape: tuple[int, int]
@@ -52,7 +52,7 @@ class MatrixBase(ABC):
 
         Note that the length of the output is len(cols).
 
-        If ``out`` is provided:
+        If `out` is provided:
 
         ::
 
@@ -76,8 +76,8 @@ class MatrixBase(ABC):
         """
         pass
 
-    # Products with the dense columns centered by ``center`` (one value per column)
-    # inside the kernels, for StandardizedMatrix. ``center=None`` means no
+    # Products with the dense columns centered by `center` (one value per column)
+    # inside the kernels, for StandardizedMatrix. `center=None` means no
     # centering, which is all that matrices without dense columns support.
     def _centered_sandwich(self, d, center, rows=None, cols=None):
         assert center is None
@@ -101,7 +101,7 @@ class MatrixBase(ABC):
 
     @property
     def A(self) -> np.ndarray:
-        """Convert self into an np.ndarray. Synonym for ``toarray()``."""
+        """Convert self into an np.ndarray. Synonym for `toarray()`."""
         return self.toarray()
 
     @abstractmethod
@@ -199,7 +199,7 @@ class MatrixBase(ABC):
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
-        following pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
+        following pattern: `"{missing_prefix}{start_index + i}"` where `i` is
         the index of the column.
 
         Parameters
@@ -208,13 +208,13 @@ class MatrixBase(ABC):
             Whether to get column names or term names. The main difference is
             that a categorical submatrix counts as one term, but can count as
             multiple columns. Furthermore, matrices created from formulas
-            distinguish between columns and terms (c.f. ``formulaic`` docs).
+            distinguish between columns and terms (c.f. `formulaic` docs).
         missing_prefix: Optional[str], default None
             Prefix to use for columns that do not have a name. If None, then no
             default name is created.
         indices
-            The indices used for columns that do not have a name. If ``None``,
-            then the indices are ``list(range(self.shape[1]))``.
+            The indices used for columns that do not have a name. If `None`,
+            then the indices are `list(range(self.shape[1]))`.
 
         Returns
         -------
@@ -234,7 +234,7 @@ class MatrixBase(ABC):
             Whether to get column names or term names. The main difference is
             that a categorical submatrix counts as one term, but can count as
             multiple columns. Furthermore, matrices created from formulas
-            distinguish between columns and terms (c.f. ``formulaic`` docs).
+            distinguish between columns and terms (c.f. `formulaic` docs).
         """
         pass
 
@@ -251,7 +251,7 @@ class MatrixBase(ABC):
     def term_names(self):
         """Term names of the matrix.
 
-        For differences between column names and term names, see ``get_names``.
+        For differences between column names and term names, see `get_names`.
         """
         return self.get_names(type="term")
 

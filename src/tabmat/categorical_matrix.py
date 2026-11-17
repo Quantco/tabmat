@@ -3,7 +3,7 @@ Categorical data.
 
 One-hot encoding a feature creates a sparse matrix that has some special properties:
 All of its nonzero elements are ones, and since each element starts a new row, it's
-``indptr``, which indicates where rows start and end, will increment by 1 every time.
+`indptr`, which indicates where rows start and end, will increment by 1 every time.
 
 Storage
 ^^^^^^^
@@ -28,10 +28,10 @@ csr storage
     array([0, 1, 2, 3], dtype=int32)
 
 
-The size of this matrix, if the original array is of length ``n``, is ``n`` bytes for
-the data (stored as quarter-precision integers), ``4n`` for ``indices``, and ``4(n+1)``
-for ``indptr``. However, if we know the matrix results from one-hot encoding, we only
-need to store the ``indices``, so we can reduce memory usage to slightly less than 4/9
+The size of this matrix, if the original array is of length `n`, is `n` bytes for
+the data (stored as quarter-precision integers), `4n` for `indices`, and `4(n+1)`
+for `indptr`. However, if we know the matrix results from one-hot encoding, we only
+need to store the `indices`, so we can reduce memory usage to slightly less than 4/9
 of the  original.
 
 csc storage
@@ -75,7 +75,7 @@ modeled on [scipy sparse](https://github.com/scipy/scipy/blob/1dc960a33b000b95b\
                 res[i] += mat.data[j] * vec[mat.indices[j]]
         return res
 
-With a CSR categorical matrix, ``data`` is all 1 and ``j`` always equals ``i``, so we
+With a CSR categorical matrix, `data` is all 1 and `j` always equals `i`, so we
 can simplify this function to be
 
 ::
@@ -87,8 +87,8 @@ can simplify this function to be
             res[i] = vec[mat.indices[j]]
         return res
 
-The original function involved ``6N`` lookups, ``N`` multiplications, and ``N``
-additions, while the new function involves only ``3N`` lookups. It thus has the
+The original function involved `6N` lookups, `N` multiplications, and `N`
+additions, while the new function involves only `3N` lookups. It thus has the
 potential to be significantly faster.
 
 sandwich: X.T @ diag(d) @ X
@@ -106,10 +106,10 @@ Sandwich products can be computed very efficiently.
 
     sandwich(X, d)[i, j] = sum_k X[k, i] d[k] X[k, j]
 
-If ``i != j``, ``sum_k X[k, i] d[k] X[k, j]`` = 0. In other words, since
+If `i != j`, `sum_k X[k, i] d[k] X[k, j]` = 0. In other words, since
  categorical matrices have only one nonzero per row, the sandwich product is diagonal.
 
- If ``i = j``,
+ If `i = j`,
 
 ::
 
@@ -118,7 +118,7 @@ If ``i != j``, ``sum_k X[k, i] d[k] X[k, j]`` = 0. In other words, since
     = d[X[:, i]].sum()
     = (X.T @ d)[i]
 
-So ``sandwich(X, d) = diag(X.T @ d)``. This will be especially efficient if ``X`` is
+So `sandwich(X, d) = diag(X.T @ d)`. This will be especially efficient if `X` is
 available in CSC format. Pseudocode for this sandwich product is
 
 ::
@@ -130,7 +130,7 @@ available in CSC format. Pseudocode for this sandwich product is
     return np.diag(res)
 
 
-This function is in ``ext/categorical/sandwich_categorical``
+This function is in `ext/categorical/sandwich_categorical`
 
 Cross-sandwich: X.T @ diag(d) @ Y where Y is categorical
 --------------------------------------------------------
@@ -146,7 +146,7 @@ X.T @ diag(d) @ Y is given by
 
 
 So the result will be sparse with at most N elements.
-This function is given by ``ext/split/_sandwich_cat_cat``.
+This function is given by `ext/split/_sandwich_cat_cat`.
 
 Cross-sandwich: X.T @ diag(d) @ Y where Y is dense
 --------------------------------------------------
@@ -335,12 +335,12 @@ class CategoricalMatrix(MatrixBase):
     cat_missing_method: str {'fail'|'zero'|'convert'}, default 'fail'
         - if 'fail', raise an error if there are missing values.
         - if 'zero', missing values will represent all-zero indicator columns.
-        - if 'convert', missing values will be converted to the ``cat_missing_name``
+        - if 'convert', missing values will be converted to the `cat_missing_name`
           category.
 
     cat_missing_name: str, default '(MISSING)'
         Name of the category to which missing values will be converted if
-        ``cat_missing_method='convert'``. If this category already exists, an error
+        `cat_missing_method='convert'`. If this category already exists, an error
         will be raised.
 
     dtype:
@@ -665,7 +665,7 @@ class CategoricalMatrix(MatrixBase):
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ Y.
 
-        If ``other`` is dense, ``dense_center`` centers it, see :meth:`_cross_dense`.
+        If `other` is dense, `dense_center` centers it, see `_cross_dense`.
         """
         if isinstance(other, DenseMatrix):
             return self._cross_dense(
@@ -851,7 +851,7 @@ class CategoricalMatrix(MatrixBase):
     def multiply(self, other) -> SparseMatrix:
         """Element-wise multiplication.
 
-        This assumes that ``other`` is a vector of size ``self.shape[0]``.
+        This assumes that `other` is a vector of size `self.shape[0]`.
         """
         if self.shape[0] != other.shape[0]:
             raise ValueError(
@@ -898,7 +898,7 @@ class CategoricalMatrix(MatrixBase):
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
-        following pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
+        following pattern: `"{missing_prefix}{start_index + i}"` where `i` is
         the index of the column.
 
         Parameters
@@ -907,13 +907,13 @@ class CategoricalMatrix(MatrixBase):
             Whether to get column names or term names. The main difference is
             that a categorical submatrix counts as one term, but can count as
             multiple columns. Furthermore, matrices created from formulas
-            distinguish between columns and terms (c.f. ``formulaic`` docs).
+            distinguish between columns and terms (c.f. `formulaic` docs).
         missing_prefix: Optional[str], default None
             Prefix to use for columns that do not have a name. If None, then no
             default name is created.
         indices
-            The indices used for columns that do not have a name. If ``None``,
-            then the indices are ``list(range(self.shape[1]))``.
+            The indices used for columns that do not have a name. If `None`,
+            then the indices are `list(range(self.shape[1]))`.
 
         Returns
         -------
@@ -953,7 +953,7 @@ class CategoricalMatrix(MatrixBase):
             Whether to get column names or term names. The main difference is
             that a categorical submatrix counts as one term, but can count as
             multiple columns. Furthermore, matrices created from formulas
-            distinguish between columns and terms (c.f. ``formulaic`` docs).
+            distinguish between columns and terms (c.f. `formulaic` docs).
         """
         if isinstance(names, str):
             names = [names]
