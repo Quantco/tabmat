@@ -24,6 +24,7 @@ Changelog
 - :meth:`tabmat.StandardizedMatrix.transpose_matvec` no longer copies the vector and the shift and scaling factors with fancy indexing when ``rows`` or ``cols`` is ``None``, which makes it about 1.25x faster for a :class:`tabmat.SplitMatrix`.
 - The sandwich product of the categorical and the sparse parts of a :class:`tabmat.SplitMatrix` uses a dedicated parallel kernel instead of scipy sparse matrix products, which makes it about 3-30x faster, depending on the shapes.
 - The dense sandwich product runs on one thread when it has fewer than about a million multiply-adds (rows times output columns squared). Starting threads cost about 0.1 ms per call, which made small products, such as the Hessian of a few columns, up to 20x slower than necessary. Larger products are unchanged.
+- :meth:`tabmat.SparseMatrix.matvec` and :meth:`tabmat.SparseMatrix.sandwich` restricted to a small subset of the columns work on the CSC slice of those columns. They no longer build the CSR copy of the whole matrix, and the sandwich no longer scans the full rows of the matrix. For the Hessian of 22 frequent columns of news20 (1.36M columns), this takes 1.8 ms instead of 6.6 ms, plus 40 ms for the CSR copy on the first call.
 
 4.3.1 - 2026-11-05
 ------------------

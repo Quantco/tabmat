@@ -21,6 +21,10 @@ from .util import (
     setup_restrictions,
 )
 
+# matvec restricted to fewer than 1 / _FEW_COLS_RATIO of the columns works on
+# the CSC columns directly.
+_FEW_COLS_RATIO = 8
+
 
 class SparseMatrix(MatrixBase):
     """
@@ -179,6 +183,21 @@ class SparseMatrix(MatrixBase):
         """Perform a sandwich product: X.T @ diag(d) @ X."""
         d = np.asarray(d)
         check_sandwich_compatible(self, d)
+        if cols is not None and len(cols) * _FEW_COLS_RATIO < self.shape[1]:
+            # For a few columns, run the kernel on their CSC slice and its CSR
+            # copy. On the full matrix, the kernel scans the whole CSR row of
+            # every nonzero it visits, and it needs the CSR copy of the full
+            # matrix and an array the size of its columns.
+            sub = self._array[:, np.asarray(cols, dtype=self.idx_dtype)]
+            sub_csr = sub.tocsr()
+            sub_csr.sort_indices()  # the kernel relies on sorted rows
+            idx_dtype = np.result_type(sub.indices.dtype, sub_csr.indices.dtype)
+            sub.indices = sub.indices.astype(idx_dtype, copy=False)
+            sub.indptr = sub.indptr.astype(idx_dtype, copy=False)
+            sub_csr.indices = sub_csr.indices.astype(idx_dtype, copy=False)
+            sub_csr.indptr = sub_csr.indptr.astype(idx_dtype, copy=False)
+            rows, sub_cols = setup_restrictions(sub.shape, rows, None, dtype=idx_dtype)
+            return sparse_sandwich(sub, sub_csr, d, rows, sub_cols)
         rows, cols = setup_restrictions(self.shape, rows, cols, dtype=self.idx_dtype)
         return sparse_sandwich(self, self.array_csr, d, rows, cols)
 
@@ -259,6 +278,22 @@ class SparseMatrix(MatrixBase):
                 return csr_matvec_unrestricted(
                     self.array_csr, vec, out, self.array_csr.indices
                 )
+
+        if (
+            not transpose
+            and unrestricted_rows
+            and vec.ndim == 1
+            and len(cols) * _FEW_COLS_RATIO < self.shape[1]
+        ):
+            # X[:, cols] @ vec[cols] over a few columns: the CSC columns give
+            # this in O(nnz of those columns). The CSR kernel would scan every
+            # nonzero of the matrix, and first build the CSR copy.
+            cols = np.asarray(cols, dtype=self.idx_dtype)
+            res = np.asarray(self._array[:, cols] @ vec[cols]).ravel()
+            if out is None:
+                return res
+            out += res
+            return out
 
         matrix_matvec = lambda x, v: sps.csc_matrix.dot(x, v)
         if transpose:
