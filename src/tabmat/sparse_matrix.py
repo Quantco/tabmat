@@ -25,7 +25,7 @@ from .util import (
 class SparseMatrix(MatrixBase):
     """
     A scipy.sparse csc matrix subclass that allows such objects to conform
-    to the ``MatrixBase`` interface.
+    to the `MatrixBase` interface.
 
     SparseMatrix is instantiated in the same way as scipy.sparse.csc_matrix.
     """
@@ -193,7 +193,8 @@ class SparseMatrix(MatrixBase):
     ):
         """Perform a sandwich product: X.T @ diag(d) @ Y.
 
-        If ``other`` is dense, ``dense_center`` centers it, see :meth:`sandwich_dense`.
+        If `other` is dense, `dense_center` centers it, see
+        [`sandwich_dense`][tabmat.SparseMatrix.sandwich_dense].
         """
         from .categorical_matrix import CategoricalMatrix
         from .dense_matrix import DenseMatrix
@@ -218,8 +219,8 @@ class SparseMatrix(MatrixBase):
     ) -> np.ndarray:
         """Perform a sandwich product: self.T @ diag(d) @ B.
 
-        If ``B_center`` (one value per column of ``B``) is given, compute
-        ``self.T @ diag(d) @ (B - B_center)`` instead, centering ``B`` in the kernel.
+        If `B_center` (one value per column of `B`) is given, compute
+        `self.T @ diag(d) @ (B - B_center)` instead, centering `B` in the kernel.
         """
         if not hasattr(d, "dtype"):
             d = np.asarray(d)
@@ -328,9 +329,9 @@ class SparseMatrix(MatrixBase):
     def multiply(self, other):
         """Element-wise multiplication.
 
-        See ``scipy.sparse.csc_matrix.multiply``. The method is taken almost directly
-        from the parent class except that ``other`` is assumed to be a vector of size
-        ``self.shape[0]``.
+        See `scipy.sparse.csc_matrix.multiply`. The method is taken almost directly
+        from the parent class except that `other` is assumed to be a vector of size
+        `self.shape[0]`.
         """
         if np.asanyarray(other).ndim == 1:
             return type(self)(
@@ -353,7 +354,7 @@ class SparseMatrix(MatrixBase):
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
-        following pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
+        following pattern: `"{missing_prefix}{start_index + i}"` where `i` is
         the index of the column.
 
         Parameters
@@ -362,13 +363,13 @@ class SparseMatrix(MatrixBase):
             Whether to get column names or term names. The main difference is
             that a categorical submatrix counts as one term, but can count as
             multiple columns. Furthermore, matrices created from formulas
-            distinguish between columns and terms (c.f. ``formulaic`` docs).
+            distinguish between columns and terms (c.f. `formulaic` docs).
         missing_prefix: Optional[str], default None
             Prefix to use for columns that do not have a name. If None, then no
             default name is created.
         indices
-            The indices used for columns that do not have a name. If ``None``,
-            then the indices are ``list(range(self.shape[1]))``.
+            The indices used for columns that do not have a name. If `None`,
+            then the indices are `list(range(self.shape[1]))`.
 
         Returns
         -------
@@ -402,7 +403,7 @@ class SparseMatrix(MatrixBase):
             Whether to get column names or term names. The main difference is
             that a categorical submatrix counts as one term, but can count as
             multiple columns. Furthermore, matrices created from formulas
-            distinguish between columns and terms (c.f. ``formulaic`` docs).
+            distinguish between columns and terms (c.f. `formulaic` docs).
         """
         if isinstance(names, str):
             names = [names]

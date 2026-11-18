@@ -69,12 +69,13 @@ def from_df(
         unregularized model. If False, all categories are included.
     cat_missing_method: str {'fail'|'zero'|'convert'}, default 'fail'
         How to handle missing values in categorical columns:
+
         - if 'fail', raise an error if there are missing values.
         - if 'zero', missing values will represent all-zero indicator columns.
         - if 'convert', missing values will be converted to the '(MISSING)' category.
     cat_missing_name: str, default '(MISSING)'
         Name of the category to which missing values will be converted if
-        ``cat_missing_method='convert'``.
+        `cat_missing_method='convert'`.
 
     Returns
     -------
@@ -213,7 +214,7 @@ def from_df(
         is_cat.append(False)
     if sparse_dfidx:
         # Assemble the CSC column by column. Going through
-        # ``sps.coo_matrix(df[:, sparse_dfidx])`` would materialize the whole block
+        # `sps.coo_matrix(df[:, sparse_dfidx])` would materialize the whole block
         # densely first, which for pandas sparse columns is O(n * k) work and memory
         # on data that is O(nnz).
         data_parts: list[np.ndarray] = []
@@ -307,12 +308,13 @@ def from_pandas(
         unregularized model. If False, all categories are included.
     cat_missing_method: str {'fail'|'zero'|'convert'}, default 'fail'
         How to handle missing values in categorical columns:
+
         - if 'fail', raise an error if there are missing values.
         - if 'zero', missing values will represent all-zero indicator columns.
         - if 'convert', missing values will be converted to the '(MISSING)' category.
     cat_missing_name: str, default '(MISSING)'
         Name of the category to which missing values will be converted if
-        ``cat_missing_method='convert'``.
+        `cat_missing_method='convert'`.
 
     Returns
     -------
@@ -345,9 +347,9 @@ def _reindex_cat(indices: list[np.ndarray], is_cat: list[bool], mxcolidx: int):
 
 def from_csc(mat: sps.csc_matrix, threshold=0.1, column_names=None, term_names=None):
     """
-    Convert a CSC-format sparse matrix into a ``SplitMatrix``.
+    Convert a CSC-format sparse matrix into a `SplitMatrix`.
 
-    The ``threshold`` parameter specifies the density below which a column is
+    The `threshold` parameter specifies the density below which a column is
     treated as sparse.
     """
     dense, sparse, dense_idx, sparse_idx = _split_sparse_and_dense_parts(mat, threshold)
@@ -395,20 +397,21 @@ def from_formula(
         The separator between the names of interacted variables.
     categorical_format: str, default "{name}[T.{category}]"
         The format string used to generate the names of categorical variables.
-        Has to include the placeholders ``{name}`` and ``{category}``.
+        Has to include the placeholders `{name}` and `{category}`.
     cat_missing_method: str {'fail'|'zero'|'convert'}, default 'fail'
         How to handle missing values in categorical columns:
+
         - if 'fail', raise an error if there are missing values.
         - if 'zero', missing values will represent all-zero indicator columns.
         - if 'convert', missing values will be converted to the '(MISSING)' category.
     cat_missing_name: str, default '(MISSING)'
         Name of the category to which missing values will be converted if
-        ``cat_missing_method='convert'``.
+        `cat_missing_method='convert'`.
     intercept_name: str, default "Intercept"
         The name of the intercept column.
     include_intercept: bool, default False
         Whether to include an intercept term if the formula does not
-        include (``+ 1``) or exclude (``+ 0`` or ``- 1``) it explicitly.
+        include (`+ 1`) or exclude (`+ 0` or `- 1`) it explicitly.
     add_column_for_intercept: bool, default = True
         Whether to add a column of ones for the intercept, or just
         have a term without a corresponding column. For advanced use only.
@@ -417,7 +420,7 @@ def from_formula(
         e.g., custom transforms. If an integer, the context is taken from
         the stack frame of the caller at the given depth. Otherwise, a
         mapping from variable names to values is expected. By default,
-        no context is added. Set ``context=0`` to make the calling scope
+        no context is added. Set `context=0` to make the calling scope
         available.
     """
     if isinstance(context, int):

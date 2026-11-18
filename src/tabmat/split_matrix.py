@@ -86,7 +86,7 @@ def _combine_matrices(matrices, indices):
     Combine multiple SparseMatrix and DenseMatrix objects into a single object of each
     type.
 
-    ``matrices`` is  and ``indices`` marks which columns they correspond to.
+    `matrices` is  and `indices` marks which columns they correspond to.
     Categorical matrices remain unmodified by this function since categorical
     matrices cannot be combined (each categorical matrix represents a single category).
 
@@ -150,11 +150,10 @@ class SplitMatrix(MatrixBase):
     allows for a significant speedup in matrix multiplications compared to
     representations that are entirely dense or entirely sparse.
 
-    Initialize a SplitMatrix directly with a list of ``matrices`` and a
-    list of column ``indices`` for each matrix.
-    Most of the time, it will
-    be best to use :func:`tabmat.from_pandas` or :func:`tabmat.from_csc`
-    to initialize a ``SplitMatrix``.
+    Initialize a SplitMatrix directly with a list of `matrices` and a
+    list of column `indices` for each matrix. Most of the time, it will be best
+    to use [`tabmat.from_pandas`][tabmat.from_pandas] or
+    [`tabmat.from_csc`][tabmat.from_csc] to initialize a `SplitMatrix`.
 
     Parameters
     ----------
@@ -162,8 +161,8 @@ class SplitMatrix(MatrixBase):
         The sub-matrices composing the columns of this SplitMatrix.
 
     indices:
-        If ``indices`` is not None, then for each matrix passed in
-        ``matrices``, ``indices`` must contain the set of columns which that matrix
+        If `indices` is not None, then for each matrix passed in
+        `matrices`, `indices` must contain the set of columns which that matrix
         covers.
     """
 
@@ -330,9 +329,9 @@ class SplitMatrix(MatrixBase):
         return self._centered_sandwich(d, None, rows, cols)
 
     def _part_centers(self, center: np.ndarray | None) -> list[np.ndarray | None]:
-        """Split ``center`` (one value per column) into one center per part.
+        """Split `center` (one value per column) into one center per part.
 
-        Only the dense part is centered; the other parts get ``None``.
+        Only the dense part is centered; the other parts get `None`.
         """
         return [
             center[idx] if center is not None and isinstance(mat, DenseMatrix) else None
@@ -346,11 +345,11 @@ class SplitMatrix(MatrixBase):
         rows: np.ndarray | None = None,
         cols: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Like :meth:`sandwich`, with the dense part centered by ``center``.
+        """Like `sandwich`, with the dense part centered by `center`.
 
         The dense columns are centered inside the kernels, both for their own
         block and for their cross blocks with the other parts, so that a large
-        center does not cancel. ``center=None`` means no centering.
+        center does not cancel. `center=None` means no centering.
         """
         d = np.asarray(d)
         check_sandwich_compatible(self, d)
@@ -431,8 +430,8 @@ class SplitMatrix(MatrixBase):
         cols: np.ndarray | None = None,
         out: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Like :meth:`matvec`, with the dense part centered by ``center`` (one
-        value per column) inside the kernels. ``center=None`` means no centering.
+        """Like `matvec`, with the dense part centered by `center` (one
+        value per column) inside the kernels. `center=None` means no centering.
         """
         assert not isinstance(v, sps.spmatrix)
         v = np.asarray(v)
@@ -506,8 +505,8 @@ class SplitMatrix(MatrixBase):
         cols: np.ndarray | None = None,
         out: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Like :meth:`transpose_matvec`, with the dense part centered by
-        ``center`` (one value per column) inside the kernels. ``center=None``
+        """Like `transpose_matvec`, with the dense part centered by
+        `center` (one value per column) inside the kernels. `center=None`
         means no centering.
         """
         v = np.asarray(v)
@@ -553,7 +552,7 @@ class SplitMatrix(MatrixBase):
     def multiply(self, other):
         """Element-wise multiplication.
 
-        This assumes that ``other`` is a vector of size ``self.shape[0]``.
+        This assumes that `other` is a vector of size `self.shape[0]`.
         """
         return SplitMatrix(
             [mat.multiply(other) for mat in self.matrices], indices=self.indices
@@ -579,7 +578,7 @@ class SplitMatrix(MatrixBase):
         """Get column names.
 
         For columns that do not have a name, a default name is created using the
-        following pattern: ``"{missing_prefix}{start_index + i}"`` where ``i`` is
+        following pattern: `"{missing_prefix}{start_index + i}"` where `i` is
         the index of the column.
 
         Parameters
@@ -588,13 +587,13 @@ class SplitMatrix(MatrixBase):
             Whether to get column names or term names. The main difference is
             that a categorical submatrix counts as one term, but can count as
             multiple columns. Furthermore, matrices created from formulas
-            distinguish between columns and terms (c.f. ``formulaic`` docs).
+            distinguish between columns and terms (c.f. `formulaic` docs).
         missing_prefix: Optional[str], default None
             Prefix to use for columns that do not have a name. If None, then no
             default name is created.
         indices
-            The indices used for columns that do not have a name. If ``None``,
-            then the indices are ``list(range(self.shape[1]))``.
+            The indices used for columns that do not have a name. If `None`,
+            then the indices are `list(range(self.shape[1]))`.
 
         Returns
         -------
@@ -617,7 +616,7 @@ class SplitMatrix(MatrixBase):
             Whether to get column names or term names. The main difference is
             that a categorical submatrix counts as one term, but can count as
             multiple columns. Furthermore, matrices created from formulas
-            distinguish between columns and terms (c.f. ``formulaic`` docs).
+            distinguish between columns and terms (c.f. `formulaic` docs).
         """
         names_array = np.array(names)
 

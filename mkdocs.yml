@@ -1,0 +1,92 @@
+site_name: tabmat
+site_description: "Efficient matrix representations for working with tabular data"
+site_url: https://tabmat.readthedocs.io/en/latest/
+hooks:
+  - docs/hooks/copyright.py
+use_directory_urls: false
+theme:
+  name: material
+  palette:
+    # Palette toggle for automatic mode
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    # Palette toggle for light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Palette toggle for dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Switch to system preference
+  features:
+    - content.action.edit
+    - search.suggest
+    - search.highlight
+    - content.code.annotate
+    - content.code.copy
+    - navigation.tabs
+  icon:
+    repo: fontawesome/brands/github-alt
+    edit: material/pencil
+repo_name: quantco/tabmat
+repo_url: https://github.com/quantco/tabmat
+edit_uri: edit/main/docs/
+exclude_docs: |
+  *.py
+plugins:
+  - search
+  - autorefs
+  - mkdocstrings:
+      handlers:
+        python:
+          inventories:
+            - https://docs.python.org/3/objects.inv
+            - https://numpy.org/doc/stable/objects.inv
+            - https://pandas.pydata.org/docs/objects.inv
+            - https://docs.scipy.org/doc/scipy/objects.inv
+          # https://mkdocstrings.github.io/python
+          paths: [src]
+          options:
+            filters:
+              - "!^_" # Disable all single underscore methods ("protected")
+              - "^__init__$"
+            extensions:
+              - griffe_inherited_docstrings:
+                  merge: false
+            allow_inspection: true
+            show_if_no_docstring: false
+            show_signature_annotations: true
+            show_signature: true
+            show_symbol_type_heading: true
+            show_root_heading: true
+            show_root_full_path: false
+            docstring_style: numpy
+            docstring_section_style: table
+            separate_signature: true
+            merge_init_into_class: true
+            inherited_members: true
+            members_order: source
+
+nav:
+  - Welcome: index.md
+  - Benchmarks: benchmarks.md
+  - Contributing/Development: contributing.md
+  - API Reference: api.md
+  - Changelog: changelog.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - footnotes
+  - md_in_html
+  - tables
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.inlinehilite

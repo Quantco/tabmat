@@ -20,9 +20,9 @@ cmd = """
 test = "pytest tests --doctest-modules src"
 
 [feature.docs.tasks]
-make-docs = "cd docs && make html"
-serve-docs = { cmd = "python -m http.server --directory docs/_build/html", depends-on = ["make-docs"] }
-readthedocs = { cmd = "rm -rf $READTHEDOCS_OUTPUT/html && cp -r docs/_build/html $READTHEDOCS_OUTPUT/html", depends-on = ["make-docs"] }
+docs = "zensical serve"
+docs-build = "zensical build --strict"
+readthedocs = { cmd = "rm -rf $READTHEDOCS_OUTPUT/html && cp -r site $READTHEDOCS_OUTPUT/html", depends-on = ["docs-build"] }
 
 [feature.benchmark.tasks.benchmark-generate-matrices]
 cmd = "python src/tabmat/benchmark/generate_matrices.py"
@@ -122,15 +122,10 @@ ruff = "*"
 cython-lint = "*"
 
 [feature.docs.dependencies]
-jupyterlab = "*"
-jupytext = "*"
-make = "*"
-matplotlib-base = "*"
-numpydoc = "*"
-seaborn-base = "*"
-sphinx = "*"
-sphinx-rtd-theme = "*"
-sphinxcontrib-apidoc = "*"
+griffe-inherited-docstrings = "*"
+mkdocstrings = "*"
+mkdocstrings-python = "*"
+zensical = "*"
 
 [feature.benchmark.dependencies]
 click = "*"

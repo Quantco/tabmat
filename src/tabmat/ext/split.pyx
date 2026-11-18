@@ -141,9 +141,9 @@ def sandwich_cat_sparse(
 ):
     """X1[:, L_cols].T @ diag(d) @ A[:, A_cols] for a categorical X1 and a CSC A.
 
-    ``out_pos`` maps each column of X1 (after dropping the first category) to
-    its column in the ``n_out``-wide output, or to -1 if it is not in ``L_cols``.
-    Rows outside ``rows`` (``None`` means all rows) are skipped. Missing values
+    `out_pos` maps each column of X1 (after dropping the first category) to
+    its column in the `n_out`-wide output, or to -1 if it is not in `L_cols`.
+    Rows outside `rows` (`None` means all rows) are skipped. Missing values
     (negative codes) and the dropped first category are skipped as well. Each
     thread owns whole columns of A, so that no reduction is needed.
     """
@@ -156,7 +156,7 @@ def sandwich_cat_sparse(
     cdef floating[:, ::1] out_T_view = out_T
 
     # The mask counts a repeated row only once, as in the sparse sandwich
-    # kernel, so ``rows`` must not contain duplicates.
+    # kernel, so `rows` must not contain duplicates.
     cdef uint8[::1] row_included
     cdef bint restrict_rows = rows is not None and len(rows) < n_rows
     mask = np.ones(1, dtype=np.uint8)
