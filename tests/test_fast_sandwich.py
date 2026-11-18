@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import scipy as sp
 import scipy.sparse
-from scipy.sparse import csc_matrix
+from scipy.sparse import csc_array
 
 from tabmat import CategoricalMatrix, DenseMatrix, SparseMatrix, SplitMatrix
 from tabmat.ext.dense import dense_matvec, dense_rmatvec, dense_sandwich
@@ -126,8 +126,8 @@ def _centered_kernel_data(order, dtype, n=1200, m=9):
 def test_sparse_dense_sandwich_center(order, dtype):
     rng, B, d, center, rows = _centered_kernel_data(order, dtype)
     A = SparseMatrix(
-        sp.sparse.random(
-            B.shape[0], 7, density=0.3, format="csc", random_state=2
+        sp.sparse.random_array(
+            (B.shape[0], 7), density=0.3, format="csc", rng=2
         ).astype(dtype)
     )
     A_cols = np.array([0, 2, 3, 6], dtype=np.int32)
@@ -200,7 +200,7 @@ def test_centered_kernels_zero_center_match_uncentered():
     rng, B, d, _, rows = _centered_kernel_data("F", np.float64)
     zeros = np.zeros(B.shape[1])
     all_cols = np.arange(B.shape[1], dtype=np.int32)
-    A = SparseMatrix(sp.sparse.random(B.shape[0], 4, density=0.3, format="csc"))
+    A = SparseMatrix(sp.sparse.random_array((B.shape[0], 4), density=0.3, format="csc"))
     cat = CategoricalMatrix(rng.choice(list("abc"), B.shape[0]))
     # These kernels add up per-thread results atomically, in varying order, so
     # even two identical calls can differ in the last bit.
@@ -257,7 +257,7 @@ def test_dense_sandwich_on_non_contiguous():
     # The internal array should now be contiguous
     assert Xd.A.flags["C_CONTIGUOUS"] or Xd.A.flags["F_CONTIGUOUS"]
 
-    Xs = SparseMatrix(csc_matrix(X[:, 10:]))
+    Xs = SparseMatrix(csc_array(X[:, 10:]))
     Xm = SplitMatrix([Xd, Xs])
 
     # The sandwich product should work without problem
@@ -277,9 +277,11 @@ def simulate_matrix(nonzero_frac=0.05, shape=(100, 50), seed=0, dtype=np.float64
     if seed is not None:
         np.random.seed(seed)
     nnz = int(np.prod(shape) * nonzero_frac)
-    row_index = np.random.randint(shape[0], size=nnz)
-    col_index = np.random.randint(shape[1], size=nnz)
-    A = sp.sparse.csr_matrix(
+    # sparse arrays keep the index dtype of the coordinates, while the kernels
+    # are called with int32 indices below
+    row_index = np.random.randint(shape[0], size=nnz, dtype=np.int32)
+    col_index = np.random.randint(shape[1], size=nnz, dtype=np.int32)
+    A = sp.sparse.csr_array(
         (np.random.randn(nnz).astype(dtype), (row_index, col_index)), shape
     )
     return A

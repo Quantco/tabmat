@@ -30,7 +30,7 @@ def X() -> np.ndarray:
 def test_csc_to_split(X: np.ndarray):
     for T, D, S in [(0.05, 4, 0), (0.1, 3, 1), (0.2, 2, 2), (0.3, 2, 2), (1.0, 0, 4)]:
         dense, sparse, dense_ix, sparse_ix = _split_sparse_and_dense_parts(
-            sps.csc_matrix(X), T
+            sps.csc_array(X), T
         )
         fully_dense = SplitMatrix([dense, sparse], [dense_ix, sparse_ix])
         if S == 0:
@@ -49,7 +49,7 @@ def split_mat() -> SplitMatrix:
     threshold = 0.1
     cat_mat = tm.CategoricalMatrix(np.random.choice(range(4), X.shape[0]))
     dense, sparse, dense_ix, sparse_ix = _split_sparse_and_dense_parts(
-        sps.csc_matrix(X), threshold
+        sps.csc_array(X), threshold
     )
     cat_start = 1 + max(dense_ix.max(), sparse_ix.max())
     mat = SplitMatrix(
@@ -65,7 +65,7 @@ def get_split_with_cat_components(
     n_rows = 10
     np.random.seed(0)
     dense_1 = tm.DenseMatrix(np.random.random((n_rows, 3)))
-    sparse_1 = tm.SparseMatrix(sps.random(n_rows, 3).tocsc())
+    sparse_1 = tm.SparseMatrix(sps.random_array((n_rows, 3)).tocsc())
     if missing:
         cat = tm.CategoricalMatrix(
             np.random.choice([0, 1, 2, None], n_rows), cat_missing_method="zero"
@@ -73,7 +73,7 @@ def get_split_with_cat_components(
     else:
         cat = tm.CategoricalMatrix(np.random.choice(range(3), n_rows))
     dense_2 = tm.DenseMatrix(np.random.random((n_rows, 3)))
-    sparse_2 = tm.SparseMatrix(sps.random(n_rows, 3, density=0.5).tocsc())
+    sparse_2 = tm.SparseMatrix(sps.random_array((n_rows, 3), density=0.5).tocsc())
     cat_2 = tm.CategoricalMatrix(np.random.choice(range(3), n_rows), drop_first=True)
     return [dense_1, sparse_1, cat, dense_2, sparse_2, cat_2]
 
@@ -157,7 +157,7 @@ def test_sandwich_sparse_dense(X: np.ndarray, Acols, Bcols):
     np.random.seed(0)
     n, k = X.shape
     d = np.random.random((n,))
-    A = sps.random(n, 2).tocsr()
+    A = sps.random_array((n, 2)).tocsr()
     rows = np.arange(d.shape[0], dtype=np.int32)
     result = csr_dense_sandwich(A, X, d, rows, Acols, Bcols)
     expected = A.T.toarray()[Acols, :] @ np.diag(d) @ X[:, Bcols]
@@ -228,7 +228,7 @@ def random_split_matrix(seed=0, n_rows=10, n_cols_per=3, missing=False):
     if seed is not None:
         np.random.seed(seed)
     dense_1 = tm.DenseMatrix(np.random.random((n_rows, n_cols_per)))
-    sparse = tm.SparseMatrix(sps.random(n_rows, n_cols_per).tocsc())
+    sparse = tm.SparseMatrix(sps.random_array((n_rows, n_cols_per)).tocsc())
     if missing:
         cat = tm.CategoricalMatrix(
             np.random.choice(list(range(n_cols_per)) + [None], n_rows),

@@ -101,7 +101,7 @@ def test_retrieval():
                 [
                     tm.DenseMatrix(np.array([[0.0, 2.0, 3.0, 4.0, 5.0]]).T),
                     tm.SparseMatrix(
-                        sps.csc_matrix(
+                        sps.csc_array(
                             np.array(
                                 [
                                     [1.0, 2.0, 0.0, 0.0, 0.0],
@@ -120,7 +120,7 @@ def test_retrieval():
                 [
                     tm.DenseMatrix(np.array([[1.0, 1.0, 1.0, 1.0, 1.0]]).T),
                     tm.SparseMatrix(
-                        sps.csc_matrix(
+                        sps.csc_array(
                             np.array(
                                 [
                                     [1.0, 0.0, 0.0, 0.0, 5.0],
@@ -224,7 +224,7 @@ def test_matrix_against_expectation(df, formula, expected):
                 [
                     tm.DenseMatrix(np.array([[1.0, 1.0, 1.0, 1.0, 1.0]]).T),
                     tm.SparseMatrix(
-                        sps.csc_matrix(
+                        sps.csc_array(
                             np.array(
                                 [
                                     [1.0, 0.0, 0.0, 0.0, 5.0],
@@ -646,7 +646,7 @@ VECTORS = [
         "dense"
     ),
     _InteractableSparseVector(
-        sps.csc_matrix(np.array([[1, 0, 0, 0, 2]], dtype=np.float64).T)
+        sps.csc_array(np.array([[1, 0, 0, 0, 2]], dtype=np.float64).T)
     ).set_name("sparse"),
     _InteractableCategoricalVector.from_codes(
         np.array([0, 1, 2, 1, 0], dtype=np.int64),

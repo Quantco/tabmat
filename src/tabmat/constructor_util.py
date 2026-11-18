@@ -8,7 +8,7 @@ from .sparse_matrix import SparseMatrix
 
 
 def _split_sparse_and_dense_parts(
-    arg1: sps.csc_matrix,
+    arg1: sps.csc_array | sps.csc_matrix,
     threshold: float = 0.1,
     column_names: Sequence[str | None] | None = None,
     term_names: Sequence[str | None] | None = None,
@@ -19,11 +19,14 @@ def _split_sparse_and_dense_parts(
     Return the dense and sparse parts of a matrix and the corresponding indices
     for each at the provided threshold.
     """
-    if not isinstance(arg1, sps.csc_matrix):
+    if not (sps.issparse(arg1) and arg1.format == "csc"):
         raise TypeError(
-            f"X must be of type scipy.sparse.csc_matrix or matrix.SparseMatrix,"
+            "X must be of type scipy.sparse.csc_array or scipy.sparse.csc_matrix, "
             f"not {type(arg1)}"
         )
+    # Sparse matrices are deprecated in favor of sparse arrays. Convert, so that
+    # indexing below does not create new sparse matrices. This does not copy.
+    arg1 = sps.csc_array(arg1)
     if not 0 <= threshold <= 1:
         raise ValueError("Threshold must be between 0 and 1.")
     densities = np.diff(arg1.indptr) / arg1.shape[0]

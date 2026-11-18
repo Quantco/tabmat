@@ -234,7 +234,7 @@ def test_from_pandas_sparse_explicit_zeros_are_dropped():
     # it is built from a scipy matrix that was never pruned. Those must not end up
     # as stored entries, while the genuine non-zeros must survive.
     column = pd.arrays.SparseArray.from_spmatrix(
-        sps.csc_matrix(
+        sps.csc_array(
             (np.array([3.0, 0.0, 7.0]), np.array([1, 4, 9]), np.array([0, 3])),
             shape=(20, 1),
         )
@@ -323,3 +323,21 @@ def test_from_pandas_sparse_block_mixes_sources():
     sparse_members = [m for m in _members(mat) if isinstance(m, tm.SparseMatrix)]
     assert len(sparse_members) == 1
     assert sparse_members[0].shape[1] == 3
+
+
+@pytest.mark.filterwarnings("ignore::DeprecationWarning")
+def test_legacy_sparse_matrix_input():
+    # scipy deprecates the sparse matrix classes in favor of sparse arrays, but
+    # we keep accepting them as input
+    X = np.array([[1.0, 0.0, 0.0], [0.0, 2.0, 3.0], [0.0, 0.0, 4.0], [5.0, 0.0, 6.0]])
+    legacy = sps.csc_matrix(X)
+
+    sparse = tm.SparseMatrix(legacy)
+    assert isinstance(sparse.array_csc, sps.csc_array)
+    np.testing.assert_array_equal(sparse.toarray(), X)
+
+    split = tm.from_csc(legacy, threshold=0.4)
+    np.testing.assert_array_equal(split.toarray(), X)
+
+    hstacked = tm.hstack([legacy, sps.csc_array(X)])
+    np.testing.assert_array_equal(hstacked.toarray(), np.hstack([X, X]))

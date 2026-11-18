@@ -28,11 +28,11 @@ def dense_matrix_not_writeable() -> tm.DenseMatrix:
 
 
 def sparse_matrix() -> tm.SparseMatrix:
-    return tm.SparseMatrix(sps.csc_matrix(base_array()))
+    return tm.SparseMatrix(sps.csc_array(base_array()))
 
 
 def sparse_matrix_64() -> tm.SparseMatrix:
-    csc = sps.csc_matrix(base_array())
+    csc = sps.csc_array(base_array())
     mat = tm.SparseMatrix(
         (csc.data, csc.indices.astype(np.int64), csc.indptr.astype(np.int64))
     )
@@ -664,13 +664,13 @@ def test_multiply(mat):
     "mat_1",
     get_all_matrix_base_subclass_mats()
     + [base_array()]
-    + [sps.csc_matrix(base_array())],
+    + [sps.csc_array(base_array())],
 )
 @pytest.mark.parametrize(
     "mat_2",
     get_all_matrix_base_subclass_mats()
     + [base_array()]
-    + [sps.csc_matrix(base_array())],
+    + [sps.csc_array(base_array())],
 )
 def test_hstack(mat_1, mat_2):
     mats = [mat_1, mat_2]
@@ -678,7 +678,7 @@ def test_hstack(mat_1, mat_2):
 
     if all(isinstance(mat, (np.ndarray, tm.DenseMatrix)) for mat in mats):
         assert isinstance(stacked, tm.DenseMatrix)
-    elif all(isinstance(mat, (sps.csc_matrix, tm.SparseMatrix)) for mat in mats):
+    elif all(isinstance(mat, (sps.csc_array, tm.SparseMatrix)) for mat in mats):
         assert isinstance(stacked, tm.SparseMatrix)
     else:
         assert isinstance(stacked, tm.SplitMatrix)
@@ -700,7 +700,7 @@ def test_names_against_expectation():
     )
     Xc2 = tm.CategoricalMatrix(pd.Categorical(["a", "b", "c", "b", "a"]))
     Xs = tm.SparseMatrix(
-        sps.csc_matrix(np.ones((5, 2))),
+        sps.csc_array(np.ones((5, 2))),
         column_names=["s1", "s2"],
         term_names=["s", "s"],
     )
@@ -789,7 +789,7 @@ def test_names_indexing(indexer_1, indexer_2, sparse):
 
     if sparse:
         X = tm.SparseMatrix(
-            sps.csc_matrix(X), column_names=colnames, term_names=termnames
+            sps.csc_array(X), column_names=colnames, term_names=termnames
         )
     else:
         X = tm.DenseMatrix(X, column_names=colnames, term_names=termnames)

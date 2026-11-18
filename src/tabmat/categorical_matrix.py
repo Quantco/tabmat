@@ -19,7 +19,7 @@ csr storage
 
     >>> arr = [1, 0, 1]
     >>> dummies = pd.get_dummies(arr, dtype="uint8")
-    >>> csr = sparse.csr_matrix(dummies.values)
+    >>> csr = sparse.csr_array(dummies.values)
     >>> csr.data
     array([1, 1, 1], dtype=uint8)
     >>> csr.indices
@@ -47,7 +47,7 @@ However, we still do not need to store the data.
 
     >>> arr = [1, 0, 1]
     >>> dummies = pd.get_dummies(arr, dtype="uint8")
-    >>> csc = sparse.csc_matrix(dummies.values)
+    >>> csc = sparse.csc_array(dummies.values)
     >>> csc.data
     array([1, 1, 1], dtype=uint8)
     >>> csc.indices
@@ -293,7 +293,7 @@ def _extract_codes_and_categories(cat_vec) -> tuple[np.ndarray, np.ndarray]:
 
 
 def _row_col_indexing(
-    arr: np.ndarray | sps.spmatrix,
+    arr: np.ndarray | sps.sparray | sps.spmatrix,
     rows: np.ndarray | None,
     cols: np.ndarray | None,
 ) -> np.ndarray:
@@ -622,7 +622,7 @@ class CategoricalMatrix(MatrixBase):
         d: np.ndarray | list,
         rows: np.ndarray | None = None,
         cols: np.ndarray | None = None,
-    ) -> sps.dia_matrix:
+    ) -> sps.dia_array:
         """
         Perform a sandwich product: X.T @ diag(d) @ X.
 
@@ -652,7 +652,7 @@ class CategoricalMatrix(MatrixBase):
 
         if cols is not None and len(cols) < self.shape[1]:
             res_diag = res_diag[cols]
-        return sps.diags(res_diag)
+        return sps.diags_array(res_diag)
 
     def _cross_sandwich(
         self,
@@ -688,26 +688,26 @@ class CategoricalMatrix(MatrixBase):
         else:
             i_corr = i
 
-        col_i = sps.csc_matrix((self.indices == i_corr).astype(int)[:, None])
+        col_i = sps.csc_array((self.indices == i_corr).astype(int)[:, None])
         return SparseMatrix(
             col_i,
             column_names=[self.column_names[i]],
             term_names=[self.term_names[i]],
         )
 
-    def tocsr(self) -> sps.csr_matrix:
+    def tocsr(self) -> sps.csr_array:
         """Return scipy csr representation of matrix."""
         if self.drop_first or self._has_missings:
             nnz, indices, indptr = subset_categorical_complex(
                 self.indices, self.shape[1], self.drop_first
             )
-            return sps.csr_matrix(
+            return sps.csr_array(
                 (np.ones(nnz, dtype=int), indices, indptr), shape=self.shape
             )
 
         # TODO: data should be uint8
         data: np.ndarray = np.ones(self.shape[0], dtype=int)
-        return sps.csr_matrix(
+        return sps.csr_array(
             (data, self.indices, np.arange(self.shape[0] + 1, dtype=int)),
             shape=self.shape,
         )
@@ -835,7 +835,7 @@ class CategoricalMatrix(MatrixBase):
 
     def _cross_sparse(
         self,
-        other: sps.csc_matrix,
+        other: sps.csc_array,
         d: np.ndarray,
         rows: np.ndarray | None,
         L_cols: np.ndarray | None,
@@ -891,7 +891,7 @@ class CategoricalMatrix(MatrixBase):
 
         if self.drop_first or self._has_missings:
             return SparseMatrix(
-                sps.csr_matrix(
+                sps.csr_array(
                     multiply_complex(
                         indices=self.indices,
                         d=np.atleast_1d(np.squeeze(other)),
@@ -904,7 +904,7 @@ class CategoricalMatrix(MatrixBase):
             )
 
         return SparseMatrix(
-            sps.csr_matrix(
+            sps.csr_array(
                 (
                     np.atleast_1d(np.squeeze(other)),
                     self.indices,

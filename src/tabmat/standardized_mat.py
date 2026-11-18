@@ -108,7 +108,8 @@ class StandardizedMatrix:
         Returns a StandardizedMatrix.
 
         >>> from scipy import sparse as sps
-        >>> x = StandardizedMatrix(SparseMatrix(sps.eye(3).tocsc()), shift=[0, 1, -2])
+        >>> sparse = SparseMatrix(sps.eye_array(3, format="csc"))
+        >>> x = StandardizedMatrix(sparse, shift=[0, 1, -2])
         >>> col_1 = x.getcol(1)
         >>> isinstance(col_1, StandardizedMatrix)
         True
@@ -118,7 +119,7 @@ class StandardizedMatrix:
                [1.]])
         """
         col = self.mat.getcol(i)
-        if isinstance(col, sps.csc_matrix) and not isinstance(col, MatrixBase):
+        if sps.issparse(col):
             col = SparseMatrix(col)
         return self._with_cols(col, i)
 
@@ -214,7 +215,7 @@ class StandardizedMatrix:
         # losing most significant digits.
         center, shift = self._dense_centering()
         term1 = self.mat._centered_sandwich(d, center, rows, cols)
-        if isinstance(term1, sps.dia_matrix):
+        if sps.issparse(term1) and term1.format == "dia":
             term1 = np.diag(term1.data[0, :])
 
         limited_mult = None

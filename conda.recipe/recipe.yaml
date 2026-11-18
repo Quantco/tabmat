@@ -48,7 +48,7 @@ requirements:
     - python
     - ${{ pin_compatible('numpy') }}
     - formulaic >=1.2
-    - scipy
+    - scipy >=1.15
     - narwhals >=2
 
 tests:

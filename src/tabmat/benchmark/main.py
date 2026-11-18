@@ -20,19 +20,17 @@ from tabmat.benchmark.generate_matrices import (
 from tabmat.benchmark.memory_tools import track_peak_mem
 
 
-def _sandwich(mat: tm.MatrixBase | np.ndarray | sps.csc_matrix, vec: np.ndarray):
+def _sandwich(mat: tm.MatrixBase | np.ndarray | sps.csc_array, vec: np.ndarray):
     if isinstance(mat, (tm.MatrixBase, tm.StandardizedMatrix)):
         mat.sandwich(vec)
     elif isinstance(mat, np.ndarray):
         (mat * vec[:, None]).T @ mat
     else:
-        mat.T @ sps.diags(vec) @ mat
+        mat.T @ sps.diags_array(vec) @ mat
     return
 
 
-def _transpose_matvec(
-    mat: tm.MatrixBase | np.ndarray | sps.csc_matrix, vec: np.ndarray
-):
+def _transpose_matvec(mat: tm.MatrixBase | np.ndarray | sps.csc_array, vec: np.ndarray):
     if isinstance(mat, (tm.MatrixBase, tm.StandardizedMatrix)):
         return mat.transpose_matvec(vec)
     else:
@@ -68,7 +66,7 @@ def get_op_names():
 
 def run_one_benchmark_set(
     matrices: dict[
-        str, tm.MatrixBase | tm.StandardizedMatrix | np.ndarray | sps.spmatrix
+        str, tm.MatrixBase | tm.StandardizedMatrix | np.ndarray | sps.sparray
     ],
     include_baseline: bool,
     name: str,
@@ -104,9 +102,11 @@ def run_one_benchmark_set(
         columns=["memory", "time"],
     ).reset_index()
 
-    for i, row in times.iterrows():
-        mat_ = matrices[row["storage"]]
-        setup_fnc, op_fnc = ops[row["operation"]]
+    for i, operation, storage in zip(
+        times.index, times["operation"], times["storage"], strict=True
+    ):
+        mat_ = matrices[storage]
+        setup_fnc, op_fnc = ops[operation]
         setup_data = setup_fnc(matrices)
         runtimes = []
         peak_mems = []

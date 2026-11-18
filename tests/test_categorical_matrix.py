@@ -281,7 +281,7 @@ def test_cross_sandwich_sparse(
         cat_missing_method=cat_missing_method or "fail",
     )
     values = rng.uniform(size=(n, 9)) * (rng.uniform(size=(n, 9)) < 0.3)
-    sparse = sps.csc_matrix(values.astype(dtype))
+    sparse = sps.csc_array(values.astype(dtype))
     sparse.indices = sparse.indices.astype(index_dtype)
     sparse.indptr = sparse.indptr.astype(index_dtype)
     d = rng.uniform(size=n).astype(dtype)
@@ -317,7 +317,7 @@ def test_cross_sandwich_sparse_L_cols(drop_first, L_cols, restrict):
     rng = np.random.default_rng(0)
     n = 500
     cat = CategoricalMatrix(rng.integers(0, 8, n), drop_first=drop_first)
-    sparse = SparseMatrix(sps.random(n, 9, density=0.3, format="csc", random_state=0))
+    sparse = SparseMatrix(sps.random_array((n, 9), density=0.3, format="csc", rng=0))
     d = rng.uniform(size=n)
     L_cols = np.array(L_cols, dtype=np.int32)
     if restrict:

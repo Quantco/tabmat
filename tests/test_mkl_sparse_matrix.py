@@ -6,12 +6,12 @@ from tabmat import SparseMatrix
 
 
 @pytest.fixture
-def x() -> sps.csc_matrix:
+def x() -> sps.csc_array:
     np.random.seed(0)
-    return sps.random(10, 3, density=0.1).tocsc()
+    return sps.random_array((10, 3), density=0.1).tocsc()
 
 
-def test_mkl_sparse_init(x: sps.csc_matrix):
+def test_mkl_sparse_init(x: sps.csc_array):
     one = SparseMatrix(x)
     two = SparseMatrix((x.data, x.indices, x.indptr), shape=x.shape)
     three = SparseMatrix(x.toarray())
@@ -19,14 +19,14 @@ def test_mkl_sparse_init(x: sps.csc_matrix):
     np.testing.assert_allclose(one.toarray(), three.toarray())
 
 
-def test_to_csc(x: sps.csc_matrix):
+def test_to_csc(x: sps.csc_array):
     one = SparseMatrix(x).tocsc()
     two = SparseMatrix((x.data, x.indices, x.indptr), shape=x.shape).tocsc()
     three = SparseMatrix(x.toarray()).tocsc()
 
-    assert isinstance(one, sps.csc_matrix)
-    assert isinstance(two, sps.csc_matrix)
-    assert isinstance(three, sps.csc_matrix)
+    assert isinstance(one, sps.csc_array)
+    assert isinstance(two, sps.csc_array)
+    assert isinstance(three, sps.csc_array)
 
     def _test_same(mat1, mat2):
         assert mat1.nnz == mat2.nnz

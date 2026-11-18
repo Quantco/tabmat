@@ -1936,7 +1936,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/linux-64/re2-2025.11.05-hbf548d4_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/readline-8.3-hd6e31c0_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/s2n-1.7.5-h7e3ee7f_1.conda
-      - conda: https://conda.anaconda.org/conda-forge/linux-64/scipy-1.9.3-py311h69910c8_2.tar.bz2
+      - conda: https://conda.anaconda.org/conda-forge/linux-64/scipy-1.15.0-py311hc1ac118_1.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/snappy-1.2.2-h34e00bb_2.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/tk-8.6.13-noxft_h1df4ec4_4.conda
       - conda: https://conda.anaconda.org/conda-forge/linux-64/wrapt-2.5.2-py311h194be0f_0.conda
@@ -2132,7 +2132,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/re2-2025.11.05-hb8e9f31_2.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/readline-8.3-h8b90a29_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/s2n-1.7.5-h1b28cb6_1.conda
-      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/scipy-1.9.3-py311h0bcca16_2.tar.bz2
+      - conda: https://conda.anaconda.org/conda-forge/osx-arm64/scipy-1.15.0-py311h809cfb5_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/sigtool-codesign-0.1.3-h98dc951_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/snappy-1.2.2-h3951085_2.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/tapi-1600.0.11.8-hb561403_4.conda
@@ -2263,7 +2263,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/win-64/python-3.11.18-hb12b558_0_cpython.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/python-librt-0.16.0-py311hf893f09_0.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/re2-2025.11.05-haef9524_2.conda
-      - conda: https://conda.anaconda.org/conda-forge/win-64/scipy-1.9.3-py311h37ff6ca_2.tar.bz2
+      - conda: https://conda.anaconda.org/conda-forge/win-64/scipy-1.15.0-py311h6274721_1.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/snappy-1.2.2-h7fa0ca8_2.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/tbb-2021.13.0-h62715c5_1.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/tk-8.6.13-h967ab96_4.conda
@@ -9876,6 +9876,28 @@ packages:
     - s2n >=1.7.7,<1.7.8.0a0
   size: 394123
   timestamp: 1785889776393
+- conda: https://conda.anaconda.org/conda-forge/linux-64/scipy-1.15.0-py311hc1ac118_1.conda
+  sha256: 5fcb47293737c8239c09edf2c38789011a6b26286585f5e3b4b562a4b89f553d
+  md5: a5eaf17ff42cbaad9107388402c9542a
+  depends:
+  - __glibc >=2.17,<3.0.a0
+  - libblas >=3.9.0,<4.0a0
+  - libcblas >=3.9.0,<4.0a0
+  - libgcc >=13
+  - libgfortran
+  - libgfortran5 >=13.3.0
+  - liblapack >=3.9.0,<4.0a0
+  - libstdcxx >=13
+  - numpy <2.5
+  - numpy >=1.19,<3
+  - numpy >=1.23.5
+  - python >=3.11,<3.12.0a0
+  - python_abi 3.11.* *_cp311
+  license: BSD-3-Clause
+  license_family: BSD
+  run_exports: {}
+  size: 19437033
+  timestamp: 1736353230792
 - conda: https://conda.anaconda.org/conda-forge/linux-64/scipy-1.17.1-py311hbe70eeb_1.conda
   sha256: 3ae2ff1d1cc5930de2ca6ac03216118bdf13b2af6098e28e827f1ba25bfcbc4e
   md5: 089de2ee37e4e19885c985a4fe4aaf14
@@ -10008,28 +10030,6 @@ packages:
   run_exports: {}
   size: 17464097
   timestamp: 1792930475373
-- conda: https://conda.anaconda.org/conda-forge/linux-64/scipy-1.9.3-py311h69910c8_2.tar.bz2
-  sha256: 568bdbbcf87ab4cd2e309df58923d707388f15d48d1bc0eb3fbbc4f1a6be964d
-  md5: bb44baf80c9e22d4581dea2c030adb1c
-  depends:
-  - libblas >=3.9.0,<4.0a0
-  - libcblas >=3.9.0,<4.0a0
-  - libgcc-ng >=12
-  - libgfortran-ng
-  - libgfortran5 >=10.4.0
-  - liblapack >=3.9.0,<4.0a0
-  - libstdcxx-ng >=12
-  - numpy >=1.23.4,<1.26
-  - numpy >=1.23.4,<2.0a0
-  - python >=3.11,<3.12.0a0
-  - python_abi 3.11.* *_cp311
-  constrains:
-  - libopenblas <0.3.26
-  license: BSD-3-Clause
-  license_family: BSD
-  run_exports: {}
-  size: 29244643
-  timestamp: 1667964926979
 - conda: https://conda.anaconda.org/conda-forge/linux-64/simdjson-5.1.1-h4dbf13b_0.conda
   sha256: 3d6c44e9dbdf5d56033fde09f61f0dccba28bb7fb03f14baf9b040ecdb164536
   md5: a02e3bff4d232eddc997f79ffac04aa1
@@ -16701,6 +16701,28 @@ packages:
     - s2n >=1.7.7,<1.7.8.0a0
   size: 278434
   timestamp: 1785890070065
+- conda: https://conda.anaconda.org/conda-forge/osx-arm64/scipy-1.15.0-py311h809cfb5_1.conda
+  sha256: 628a6cfddfcb6347d65edff4b6b3997065ea5d926bb26661f947065f94e1c899
+  md5: d342439097100c754a350e25216e0e8b
+  depends:
+  - __osx >=11.0
+  - libblas >=3.9.0,<4.0a0
+  - libcblas >=3.9.0,<4.0a0
+  - libcxx >=18
+  - libgfortran >=5
+  - libgfortran5 >=13.2.0
+  - liblapack >=3.9.0,<4.0a0
+  - numpy <2.5
+  - numpy >=1.19,<3
+  - numpy >=1.23.5
+  - python >=3.11,<3.12.0a0
+  - python >=3.11,<3.12.0a0 *_cpython
+  - python_abi 3.11.* *_cp311
+  license: BSD-3-Clause
+  license_family: BSD
+  run_exports: {}
+  size: 16041496
+  timestamp: 1736352903731
 - conda: https://conda.anaconda.org/conda-forge/osx-arm64/scipy-1.17.1-py311h9a58382_1.conda
   sha256: b45f87414da242a9e40eb934e89513a856e6236d681611c2c9a21d074b03ef5a
   md5: 15f96f91b13cbefddbf998368d06adef
@@ -16832,28 +16854,6 @@ packages:
   run_exports: {}
   size: 14057188
   timestamp: 1792930170658
-- conda: https://conda.anaconda.org/conda-forge/osx-arm64/scipy-1.9.3-py311h0bcca16_2.tar.bz2
-  sha256: a416fe17a93ee69b5e5a4102ff1b0c9c1e9a07c460ab7db172c03940da389ea9
-  md5: bb7abf946534cefcd863747684597eb7
-  depends:
-  - libblas >=3.9.0,<4.0a0
-  - libcblas >=3.9.0,<4.0a0
-  - libcxx >=14.0.4
-  - libgfortran >=5
-  - libgfortran5 >=11.3.0
-  - liblapack >=3.9.0,<4.0a0
-  - numpy >=1.23.4,<1.26
-  - numpy >=1.23.4,<2.0a0
-  - python >=3.11,<3.12.0a0
-  - python >=3.11,<3.12.0a0 *_cpython
-  - python_abi 3.11.* *_cp311
-  constrains:
-  - libopenblas <0.3.26
-  license: BSD-3-Clause
-  license_family: BSD
-  run_exports: {}
-  size: 24478971
-  timestamp: 1667965938115
 - conda: https://conda.anaconda.org/conda-forge/osx-arm64/sigtool-codesign-0.1.3-h98dc951_1.conda
   sha256: 7efd6d7d18bf9cc5788bfe1c1e1620d9dbbe00a81c646814929a82ff31944cf3
   md5: a322c0a0d3b5be99ee11f9ccec99b60e
@@ -21228,6 +21228,26 @@ packages:
   run_exports: {}
   size: 9309252
   timestamp: 1793090827794
+- conda: https://conda.anaconda.org/conda-forge/win-64/scipy-1.15.0-py311h6274721_1.conda
+  sha256: 08a1235e8bbb657ac2b5182c1085acea24aedd9b1966325252feb8b2ffd61164
+  md5: a13115597886e6e2763fd569d121b88b
+  depends:
+  - libblas >=3.9.0,<4.0a0
+  - libcblas >=3.9.0,<4.0a0
+  - liblapack >=3.9.0,<4.0a0
+  - numpy <2.5
+  - numpy >=1.19,<3
+  - numpy >=1.23.5
+  - python >=3.11,<3.12.0a0
+  - python_abi 3.11.* *_cp311
+  - ucrt >=10.0.20348.0
+  - vc >=14.2,<15
+  - vc14_runtime >=14.29.30139
+  license: BSD-3-Clause
+  license_family: BSD
+  run_exports: {}
+  size: 18152460
+  timestamp: 1736354609757
 - conda: https://conda.anaconda.org/conda-forge/win-64/scipy-1.17.1-py311h9c22a71_1.conda
   sha256: 668cfbfb7960df5fff0e2db2677eb00d9e02ee1ce63cc9b1c985d782dacab2fe
   md5: 0635502eadb751abecd2c68af249f50f
@@ -21348,28 +21368,6 @@ packages:
   run_exports: {}
   size: 15343990
   timestamp: 1792930519863
-- conda: https://conda.anaconda.org/conda-forge/win-64/scipy-1.9.3-py311h37ff6ca_2.tar.bz2
-  sha256: 6cec5d3fc535c7148015ccce7e9a63bc835648651da02e11bce74cad896dac41
-  md5: 38e002f660c1b21a2806f862e6793217
-  depends:
-  - libblas >=3.9.0,<4.0a0
-  - libcblas >=3.9.0,<4.0a0
-  - liblapack >=3.9.0,<4.0a0
-  - m2w64-gcc-libs
-  - numpy >=1.23.4,<1.26
-  - numpy >=1.23.4,<2.0a0
-  - python >=3.11,<3.12.0a0
-  - python_abi 3.11.* *_cp311
-  - ucrt >=10.0.20348.0
-  - vc >=14.2,<15
-  - vs2015_runtime >=14.29.30139
-  constrains:
-  - libopenblas <0.3.26
-  license: BSD-3-Clause
-  license_family: BSD
-  run_exports: {}
-  size: 31347286
-  timestamp: 1667965831964
 - conda: https://conda.anaconda.org/conda-forge/win-64/simdjson-5.1.1-h477610d_0.conda
   sha256: 498a466927061abc17df189b6c62ceef3950d25bca61d3d82c9329614f6b8d1a
   md5: 82156239bc4c272a260a1da57ebe01a7

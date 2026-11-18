@@ -143,7 +143,7 @@ def from_df(
                     dense_idx,
                     sparse_idx,
                 ) = _split_sparse_and_dense_parts(
-                    sps.csc_matrix(cat.tocsr(), dtype=dtype),
+                    sps.csc_array(cat.tocsr(), dtype=dtype),
                     threshold=sparse_threshold,
                     column_names=cat.get_names("column"),
                     term_names=cat.get_names("term"),
@@ -232,7 +232,7 @@ def from_df(
             index_parts.append(np.asarray(col_indices))
             data_parts.append(np.asarray(col_values))
             indptr.append(indptr[-1] + len(col_indices))
-        sparse_block = sps.csc_matrix(
+        sparse_block = sps.csc_array(
             (
                 np.concatenate(data_parts).astype(dtype, copy=False),
                 np.concatenate(index_parts),
@@ -345,7 +345,12 @@ def _reindex_cat(indices: list[np.ndarray], is_cat: list[bool], mxcolidx: int):
     return new_indices
 
 
-def from_csc(mat: sps.csc_matrix, threshold=0.1, column_names=None, term_names=None):
+def from_csc(
+    mat: sps.csc_array | sps.csc_matrix,
+    threshold=0.1,
+    column_names=None,
+    term_names=None,
+):
     """
     Convert a CSC-format sparse matrix into a `SplitMatrix`.
 

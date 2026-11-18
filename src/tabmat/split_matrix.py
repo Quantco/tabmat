@@ -18,7 +18,9 @@ from .util import (
 )
 
 
-def as_tabmat(a: MatrixBase | StandardizedMatrix | np.ndarray | sps.spmatrix):
+def as_tabmat(
+    a: MatrixBase | StandardizedMatrix | np.ndarray | sps.sparray | sps.spmatrix,
+):
     """Convert an array to a corresponding MatrixBase type.
 
     If the input is already a MatrixBase, return untouched.
@@ -36,7 +38,9 @@ def as_tabmat(a: MatrixBase | StandardizedMatrix | np.ndarray | sps.spmatrix):
         raise ValueError(f"Cannot convert type {type(a)} to Matrix.")
 
 
-def hstack(tup: Sequence[MatrixBase | np.ndarray | sps.spmatrix]) -> MatrixBase:
+def hstack(
+    tup: Sequence[MatrixBase | np.ndarray | sps.sparray | sps.spmatrix],
+) -> MatrixBase:
     """Stack arrays in sequence horizontally (column wise).
 
     This is equivalent to concatenation along the second axis,
@@ -309,7 +313,7 @@ class SplitMatrix(MatrixBase):
             out[:, idx] = mat.toarray()
         return out
 
-    def getcol(self, i: int) -> np.ndarray | sps.csr_matrix:
+    def getcol(self, i: int) -> np.ndarray | sps.csr_array:
         """Return matrix column at specified index."""
         # wrap-around indexing
         i %= self.shape[1]
@@ -362,7 +366,7 @@ class SplitMatrix(MatrixBase):
             idx_i = subset_cols_indices[i]
             mat_i = self.matrices[i]
             res = mat_i._centered_sandwich(d, centers[i], rows, subset_cols[i])
-            if isinstance(res, sps.dia_matrix):
+            if sps.issparse(res) and res.format == "dia":
                 out[(idx_i, idx_i)] += np.squeeze(res.data)
             else:
                 out[np.ix_(idx_i, idx_i)] = res
@@ -433,7 +437,7 @@ class SplitMatrix(MatrixBase):
         """Like `matvec`, with the dense part centered by `center` (one
         value per column) inside the kernels. `center=None` means no centering.
         """
-        assert not isinstance(v, sps.spmatrix)
+        assert not sps.issparse(v)
         v = np.asarray(v)
         check_matvec_dimensions(self, v, transpose=False)
         check_matvec_out_shape(self, out)

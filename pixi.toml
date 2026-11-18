@@ -85,7 +85,7 @@ python = ">=3.11"
 formulaic = ">=1.2.0"
 numpy = ">=1.24.0"
 pandas = ">=1.4.4"
-scipy = ">=1.7.3"
+scipy = ">=1.15"
 narwhals = ">=2.0.0"
 
 # build dependencies
@@ -164,7 +164,7 @@ setuptools = "65.*"
 python = "=3.11"
 numpy = "=1.24.0"
 pandas = "=1.5.3"
-scipy = "=1.9.3"
+scipy = "=1.15.0"
 formulaic = "1.2.*"
 narwhals = "2.0.*"
 

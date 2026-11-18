@@ -63,7 +63,7 @@ def make_dense_cat_matrices(
     dense_cat_matrices = {
         "tabmat": tm.SplitMatrix(two_cat_matrices + [tm.DenseMatrix(dense_block)]),
         "scipy.sparse csr": sps.hstack(
-            [elt.tocsr() for elt in two_cat_matrices] + [sps.csr_matrix(dense_block)]
+            [elt.tocsr() for elt in two_cat_matrices] + [sps.csr_array(dense_block)]
         ),
     }
     dense_cat_matrices["scipy.sparse csc"] = dense_cat_matrices[
@@ -74,7 +74,7 @@ def make_dense_cat_matrices(
 
 def make_sparse_matrices(n_rows: int, n_cols: int) -> dict:
     """Make sparse matrices for benchmarks."""
-    mat = sps.random(n_rows, n_cols).tocsc()
+    mat = sps.random_array((n_rows, n_cols)).tocsc()
     matrices = {
         "scipy.sparse csc": mat,
         "scipy.sparse csr": mat.tocsr(),

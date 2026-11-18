@@ -122,7 +122,7 @@ setup(
     ],
     package_dir={"": "src"},
     packages=find_packages(where="src"),
-    install_requires=["formulaic>=1.2", "narwhals", "numpy", "scipy"],
+    install_requires=["formulaic>=1.2", "narwhals", "numpy", "scipy>=1.15"],
     python_requires=">=3.11",
     ext_modules=cythonize(
         ext_modules,

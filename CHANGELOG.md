@@ -8,7 +8,12 @@ https://semver.org/spec/v2.0.0.html. The most important bits are:
 
 # Changelog
 
-## 4.3.2 - unreleased
+## 5.0.0 - unreleased
+
+**Breaking changes:**
+
+- tabmat now uses scipy's sparse arrays (`csc_array`, `csr_array`, `dia_array`) instead of the sparse matrices (`csc_matrix`, `csr_matrix`, `dia_matrix`), which scipy deprecates and which emit a `DeprecationWarning` with scipy>=1.18. Methods that return scipy objects now return sparse arrays: [`tabmat.SparseMatrix.unpack`][tabmat.SparseMatrix.unpack], [`array_csc`][tabmat.SparseMatrix.array_csc], [`array_csr`][tabmat.SparseMatrix.array_csr], [`tocsc`][tabmat.SparseMatrix.tocsc] and [`dot`][tabmat.SparseMatrix.dot], as well as [`tabmat.CategoricalMatrix.tocsr`][tabmat.CategoricalMatrix.tocsr] and [`tabmat.CategoricalMatrix.sandwich`][tabmat.CategoricalMatrix.sandwich]. Sparse arrays follow NumPy semantics: `*` is elementwise multiplication (use `@` for matrix products), reductions such as `sum(axis=0)` return 1-d arrays instead of `np.matrix`, and the `.A`, `.H` and `getcol` shortcuts do not exist. See scipy's [migration guide](https://docs.scipy.org/doc/scipy/reference/sparse.migration_to_sparray.html). Sparse matrices are still accepted as input.
+- Require scipy>=1.15.
 
 **Bug fix:**
 

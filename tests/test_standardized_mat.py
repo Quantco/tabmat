@@ -10,7 +10,7 @@ import tabmat as tm
 np.random.seed(0)
 n_rows = 8
 n_cols = 5
-sp_mat = tm.SparseMatrix(sps.random(n_rows, n_cols, density=0.8))
+sp_mat = tm.SparseMatrix(sps.random_array((n_rows, n_cols), density=0.8))
 col_shift = np.random.uniform(0, 1, n_cols)
 col_mult = np.random.uniform(0.5, 1.5, n_cols)
 expected_mat = col_mult[None, :] * sp_mat.toarray() + col_shift[None, :]
@@ -155,7 +155,7 @@ def _large_mean_split(dtype, offset, kind="plain", n=20_000, seed=0):
     """A SplitMatrix whose dense columns have means much larger than their std."""
     rng = np.random.default_rng(seed)
     dense = rng.standard_normal((n, 3)) * rng.uniform(0.5, 2.0, 3) + offset
-    sparse = sps.random(n, 3, density=0.2, format="csc", random_state=seed)
+    sparse = sps.random_array((n, 3), density=0.2, format="csc", rng=seed)
     # A dominant level, so that the categorical columns have a sizable shift too.
     levels = rng.choice(list("abcd"), n, p=[0.85, 0.05, 0.05, 0.05]).astype(object)
     if kind == "missing":
@@ -255,7 +255,7 @@ def test_split_sandwich_without_dense_part():
     n = 500
     X = tm.SplitMatrix(
         [
-            tm.SparseMatrix(sps.random(n, 3, density=0.3, format="csc")),
+            tm.SparseMatrix(sps.random_array((n, 3), density=0.3, format="csc")),
             tm.CategoricalMatrix(rng.choice(list("abc"), n)),
         ]
     )

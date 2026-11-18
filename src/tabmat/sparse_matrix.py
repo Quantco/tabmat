@@ -27,7 +27,7 @@ class SparseMatrix(MatrixBase):
     A scipy.sparse csc matrix subclass that allows such objects to conform
     to the `MatrixBase` interface.
 
-    SparseMatrix is instantiated in the same way as scipy.sparse.csc_matrix.
+    SparseMatrix is instantiated in the same way as scipy.sparse.csc_array.
     """
 
     def __init__(
@@ -45,7 +45,14 @@ class SparseMatrix(MatrixBase):
             elif input_array.ndim > 2:
                 raise ValueError("Input array must be 1- or 2-dimensional")
 
-        self._array = sps.csc_matrix(input_array, shape, dtype, copy)
+        self._array = sps.csc_array(input_array, shape, dtype, copy)
+
+        # Unlike sparse matrices, sparse arrays keep 64-bit indices of their input
+        # (e.g. COO coordinates) even when 32-bit indices suffice. Downcast them,
+        # as sparse matrices did, to save memory and to match the kernels' types.
+        if max(self._array.nnz, *self._array.shape) <= np.iinfo(np.int32).max:
+            self._array.indices = self._array.indices.astype(np.int32, copy=False)
+            self._array.indptr = self._array.indptr.astype(np.int32, copy=False)
 
         self.idx_dtype = max(self._array.indices.dtype, self._array.indptr.dtype)
         if self._array.indices.dtype != self.idx_dtype:
@@ -153,13 +160,13 @@ class SparseMatrix(MatrixBase):
     def getcol(self, i):
         """Return matrix column at specified index."""
         return type(self)(
-            self._array.getcol(i),
+            self._array[:, [i]],
             column_names=[self.column_names[i]],
             term_names=[self.term_names[i]],
         )
 
     def unpack(self):
-        """Return the underlying scipy.sparse.csc_matrix."""
+        """Return the underlying scipy.sparse.csc_array."""
         return self._array
 
     def toarray(self):
@@ -234,8 +241,10 @@ class SparseMatrix(MatrixBase):
         if np.issubdtype(d.dtype, np.signedinteger):
             d = d.astype(float)
 
-        rows, L_cols = setup_restrictions(self.shape, rows, L_cols)
-        R_cols = set_up_rows_or_cols(R_cols, B.shape[1])
+        rows, L_cols = setup_restrictions(
+            self.shape, rows, L_cols, dtype=self.idx_dtype
+        )
+        R_cols = set_up_rows_or_cols(R_cols, B.shape[1], dtype=self.idx_dtype)
         return csr_dense_sandwich(
             self.array_csr, B, d, rows, L_cols, R_cols, B_center=B_center
         )
@@ -261,9 +270,9 @@ class SparseMatrix(MatrixBase):
                     self.array_csr, vec, out, self.array_csr.indices
                 )
 
-        matrix_matvec = lambda x, v: sps.csc_matrix.dot(x, v)
+        matrix_matvec = lambda x, v: sps.csc_array.dot(x, v)
         if transpose:
-            matrix_matvec = lambda x, v: sps.csr_matrix.dot(x.T, v)
+            matrix_matvec = lambda x, v: sps.csr_array.dot(x.T, v)
 
         rows, cols = setup_restrictions(self.shape, rows, cols, dtype=self.idx_dtype)
         if transpose:
@@ -329,7 +338,7 @@ class SparseMatrix(MatrixBase):
     def multiply(self, other):
         """Element-wise multiplication.
 
-        See `scipy.sparse.csc_matrix.multiply`. The method is taken almost directly
+        See `scipy.sparse.csc_array.multiply`. The method is taken almost directly
         from the parent class except that `other` is assumed to be a vector of size
         `self.shape[0]`.
         """

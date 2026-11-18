@@ -89,7 +89,7 @@ class TabmatMaterializer(FormulaMaterializer):
         if isinstance(values, nw.Series):
             values = values.to_numpy().astype(self.dtype)
         if (values != 0).mean() <= self.sparse_threshold:
-            return _InteractableSparseVector(sps.csc_matrix(values[:, np.newaxis]))
+            return _InteractableSparseVector(sps.csc_array(values[:, np.newaxis]))
         else:
             return _InteractableDenseVector(values)
 
@@ -363,7 +363,7 @@ class _InteractableDenseVector(_InteractableVector):
         else:
             # Columns can become sparser, but not denser through interactions
             return SparseMatrix(
-                sps.csc_matrix(self.values[:, np.newaxis]), column_names=[self.name]
+                sps.csc_array(self.values[:, np.newaxis]), column_names=[self.name]
             )
 
     def get_names(self) -> list[str]:
@@ -377,7 +377,7 @@ class _InteractableDenseVector(_InteractableVector):
 
 
 class _InteractableSparseVector(_InteractableVector):
-    def __init__(self, values: sps.csc_matrix, name: str | None = None):
+    def __init__(self, values: sps.csc_array, name: str | None = None):
         self.values = values
         self.name = name
 
@@ -482,7 +482,7 @@ class _InteractableCategoricalVector(_InteractableVector):
             if (self.codes == -2).all():
                 # All values are dropped
                 return SparseMatrix(
-                    sps.csc_matrix(
+                    sps.csc_array(
                         ([], ([], [])),
                         shape=(len(codes), len(categories)),
                         dtype=dtype,
@@ -515,7 +515,7 @@ class _InteractableCategoricalVector(_InteractableVector):
         if (self.multipliers == 1).all() and len(categories) >= cat_threshold:
             return categorical_part
         else:
-            sparse_matrix = sps.csc_matrix(
+            sparse_matrix = sps.csc_array(
                 categorical_part.tocsr().multiply(self.multipliers[:, np.newaxis])
             )
             (
@@ -586,7 +586,7 @@ def _interact(
             else:
                 new_name = f"{right.name}{separator}{left.name}"
             return _InteractableSparseVector(
-                left.values.multiply(right.values.reshape((-1, 1))),
+                sps.csc_array(left.values.multiply(right.values.reshape((-1, 1)))),
                 name=new_name,
             )
 
