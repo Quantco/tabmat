@@ -137,5 +137,75 @@ def test_strided_out_is_never_silently_wrong(kind, op):
     try:
         call(mat, vec, out=out)
     except (ValueError, TypeError):
+        # No part may have written to `out` before the error.
+        assert not out.any()
         return
     np.testing.assert_allclose(out, expected, rtol=1e-10)
+
+
+@pytest.mark.parametrize("kind", ["dense_c", "sparse", "categorical", "split"])
+def test_standardize_big_endian_weights(kind):
+    mat = _build(kind, np.float64)
+    weights = np.random.default_rng(2).uniform(size=N)
+    weights /= weights.sum()
+    expected = mat.standardize(weights, True, True)
+    result = mat.standardize(weights.astype(">f8"), True, True)
+    np.testing.assert_allclose(result[1], expected[1])
+    np.testing.assert_allclose(result[2], expected[2])
+    np.testing.assert_allclose(result[0].toarray(), expected[0].toarray())
+
+
+def _sparse_variants():
+    sp = sps.random(N, 4, density=0.3, random_state=1, format="csc")
+
+    def with_int64_indices():
+        sp64 = sp.copy()
+        sp64.indices = sp64.indices.astype(np.int64)
+        sp64.indptr = sp64.indptr.astype(np.int64)
+        return sp64
+
+    def with_strided_components():
+        # The same matrix, with `data` and `indices` as views with stride 2.
+        data = np.zeros(2 * sp.nnz)
+        data[::2] = sp.data
+        indices = np.zeros(2 * sp.nnz, dtype=np.int32)
+        indices[::2] = sp.indices
+        return sps.csc_matrix(
+            (data[::2], indices[::2], sp.indptr), shape=sp.shape, copy=False
+        )
+
+    return sp, {
+        "int64_indices": with_int64_indices,
+        "strided_components": with_strided_components,
+    }
+
+
+@pytest.mark.parametrize("variant", ["int64_indices", "strided_components"])
+@pytest.mark.parametrize("split", [False, True], ids=["sparse", "split"])
+@pytest.mark.parametrize("op", OPERATIONS)
+def test_unusual_sparse_components(variant, split, op):
+    sp, variants = _sparse_variants()
+    dense = tm.DenseMatrix(np.random.default_rng(0).uniform(size=(N, 3)))
+
+    def wrap(csc):
+        sparse = tm.SparseMatrix(csc)
+        return tm.SplitMatrix([dense, sparse]) if split else sparse
+
+    mat, expected_mat = wrap(variants[variant]()), wrap(sp)
+    axis, call = OPERATIONS[op]
+    vec = np.random.default_rng(1).uniform(size=mat.shape[axis])
+    np.testing.assert_allclose(
+        _dense(call(mat, vec)), _dense(call(expected_mat, vec)), rtol=1e-10
+    )
+
+
+def test_read_only_unsorted_sparse_indices():
+    data = np.array([1.0, 2.0, 3.0])
+    indices = np.array([2, 0, 1], dtype=np.int32)
+    indptr = np.array([0, 2, 3], dtype=np.int32)
+    for a in (data, indices, indptr):
+        a.flags.writeable = False
+    mat = tm.SparseMatrix(sps.csc_matrix((data, indices, indptr), shape=(3, 2)))
+    np.testing.assert_allclose(mat.toarray(), [[2.0, 0.0], [0.0, 3.0], [1.0, 0.0]])
+    np.testing.assert_allclose(mat.matvec(np.array([1.0, 10.0])), [2.0, 30.0, 1.0])
+    np.testing.assert_allclose(mat.transpose_matvec(np.ones(3)), [3.0, 3.0])

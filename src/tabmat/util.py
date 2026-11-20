@@ -59,6 +59,15 @@ def check_matvec_out_shape(mat, out: np.ndarray | None) -> None:
     _check_out_shape(out, mat.shape[0])
 
 
+def check_out_kernel_compatible(out: np.ndarray | None) -> None:
+    """Assert that the kernels can accumulate into `out`.
+
+    `out` is written in place, so unlike a vector it cannot be copied.
+    """
+    if out is not None and not (out.flags.c_contiguous and out.flags.writeable):
+        raise ValueError("`out` must be a writeable, C-contiguous array.")
+
+
 def check_matvec_dimensions(mat, vec: np.ndarray, transpose: bool) -> None:
     """Assert that the dimensions for the matvec operation are compatible."""
     match_dim = 0 if transpose else 1

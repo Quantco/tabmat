@@ -12,6 +12,7 @@ from .standardized_mat import StandardizedMatrix
 from .util import (
     check_matvec_dimensions,
     check_matvec_out_shape,
+    check_out_kernel_compatible,
     check_sandwich_compatible,
     check_transpose_matvec_out_shape,
     prepare_vector,
@@ -435,9 +436,11 @@ class SplitMatrix(MatrixBase):
         value per column) inside the kernels. `center=None` means no centering.
         """
         assert not isinstance(v, sps.spmatrix)
-        v = prepare_vector(v)
+        v = np.asarray(v)
         check_matvec_dimensions(self, v, transpose=False)
         check_matvec_out_shape(self, out)
+        # The parts write into `out` one after the other, so check it up front.
+        check_out_kernel_compatible(out)
 
         if v.shape[0] != self.shape[1]:
             raise ValueError(f"shapes {self.shape} and {v.shape} not aligned")
@@ -510,7 +513,7 @@ class SplitMatrix(MatrixBase):
         `center` (one value per column) inside the kernels. `center=None`
         means no centering.
         """
-        v = prepare_vector(v)
+        v = np.asarray(v)
         check_matvec_dimensions(self, v, transpose=True)
         check_transpose_matvec_out_shape(self, out)
 

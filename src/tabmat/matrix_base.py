@@ -3,6 +3,8 @@ from typing import Any
 
 import numpy as np
 
+from .util import prepare_vector
+
 
 class MatrixBase(ABC):
     """Base class for all matrix classes. `MatrixBase` cannot be instantiated."""
@@ -159,6 +161,7 @@ class MatrixBase(ABC):
         """
         from .standardized_mat import StandardizedMatrix
 
+        weights = prepare_vector(weights)
         col_means = self._get_col_means(weights)
         if scale_predictors:
             col_stds = self._get_col_stds(weights, col_means)

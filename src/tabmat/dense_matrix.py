@@ -249,7 +249,7 @@ class DenseMatrix(MatrixBase):
         # added overhead compared to a raw matrix vector product. So, when
         # we're not filtering or centering at all, let's just use default numpy
         # dot product.
-        vec = prepare_vector(vec)
+        vec = np.asarray(vec)
         check_matvec_dimensions(self, vec, transpose=transpose)
         X = self._array.T if transpose else self._array
 
@@ -288,7 +288,7 @@ class DenseMatrix(MatrixBase):
             fast_fnc = dense_rmatvec if transpose else dense_matvec
 
             def kernel(v):
-                v = np.ascontiguousarray(v)
+                v = prepare_vector(v)
                 return fast_fnc(self._array, v, kernel_rows, kernel_cols, center=center)
 
             # TODO: should take 'out' parameter

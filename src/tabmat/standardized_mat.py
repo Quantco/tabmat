@@ -84,7 +84,7 @@ class StandardizedMatrix:
         """
         cols = set_up_rows_or_cols(cols, self.shape[1])
 
-        other_mat = prepare_vector(other_mat)
+        other_mat = np.asarray(other_mat)
         check_matvec_dimensions(self, other_mat, transpose=False)
         mult_other = other_mat
         if self.mult is not None:
@@ -276,7 +276,7 @@ class StandardizedMatrix:
               + shift[cols[i]] other.sum(0)[rows[j]
         """
         check_transpose_matvec_out_shape(self, out)
-        other = prepare_vector(other)
+        other = np.asarray(other)
         check_matvec_dimensions(self, other, transpose=True)
         # Center the dense columns inside the kernels, see sandwich.
         center, shift = self._dense_centering()

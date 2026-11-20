@@ -47,6 +47,16 @@ class SparseMatrix(MatrixBase):
                 raise ValueError("Input array must be 1- or 2-dimensional")
 
         self._array = sps.csc_matrix(input_array, shape, dtype, copy)
+        # The kernels read these arrays through pointers, so they must be contiguous
+        # and in native byte order. scipy keeps strided or byte-swapped arrays.
+        for name in ("data", "indices", "indptr"):
+            arr = getattr(self._array, name)
+            if not (arr.dtype.isnative and arr.flags.c_contiguous):
+                setattr(
+                    self._array,
+                    name,
+                    np.ascontiguousarray(arr, dtype=arr.dtype.newbyteorder("=")),
+                )
 
         self.idx_dtype = max(self._array.indices.dtype, self._array.indptr.dtype)
         if self._array.indices.dtype != self.idx_dtype:
@@ -56,6 +66,11 @@ class SparseMatrix(MatrixBase):
         assert self.indices.dtype == self.idx_dtype
 
         if not self._array.has_sorted_indices:
+            if not (
+                self._array.data.flags.writeable and self._array.indices.flags.writeable
+            ):
+                # Read-only input, e.g. from a pandas DataFrame with copy-on-write.
+                self._array = self._array.copy()
             self._array.sort_indices()
         self._array_csr = None
 
@@ -231,11 +246,10 @@ class SparseMatrix(MatrixBase):
                 np.float64 or np.float32. This matrix is of type {self.dtype},
                 B is of type {B.dtype}, while d is of type {d.dtype}."""
             )
-        if np.issubdtype(d.dtype, np.signedinteger):
-            d = d.astype(float)
-
-        rows, L_cols = setup_restrictions(self.shape, rows, L_cols)
-        R_cols = set_up_rows_or_cols(R_cols, B.shape[1])
+        rows, L_cols = setup_restrictions(
+            self.shape, rows, L_cols, dtype=self.idx_dtype
+        )
+        R_cols = set_up_rows_or_cols(R_cols, B.shape[1], dtype=self.idx_dtype)
         return csr_dense_sandwich(
             self.array_csr, B, d, rows, L_cols, R_cols, B_center=B_center
         )
