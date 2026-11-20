@@ -329,3 +329,45 @@ def test_cross_sandwich_sparse_L_cols(drop_first, L_cols, restrict):
     res = cat._cross_sandwich(sparse, d, rows, L_cols, R_cols)
     full = cat._cross_sandwich(sparse, d, rows, None, R_cols)
     np.testing.assert_allclose(res, full[L_cols], rtol=1e-12, atol=1e-12)
+
+
+def _read_only(vec):
+    vec = vec.copy()
+    vec.setflags(write=False)
+    return vec
+
+
+@pytest.mark.parametrize("drop_first", [True, False], ids=["drop_first", "no_drop"])
+@pytest.mark.parametrize("dtype", [np.float64, np.float32])
+@pytest.mark.parametrize(
+    "transform",
+    [
+        _read_only,
+        lambda v: v.astype(v.dtype.newbyteorder(">")),
+        lambda v: np.repeat(v, 2)[::2],
+    ],
+    ids=["read_only", "big_endian", "strided"],
+)
+@pytest.mark.parametrize("restrict", [False, True], ids=["all", "restricted"])
+def test_vector_buffer_properties(drop_first, dtype, transform, restrict):
+    # Regression test for GH-565: vectors that are read-only, non-native byte
+    # order or non-contiguous must give the same result as a plain array.
+    rng = np.random.default_rng(0)
+    n = 60
+    cat = CategoricalMatrix(rng.integers(0, 5, n), drop_first=drop_first, dtype=dtype)
+    rows = np.arange(0, n, 3, dtype=np.int32) if restrict else None
+    cols = np.array([0, 2], dtype=np.int32) if restrict else None
+    vec_k = rng.uniform(size=cat.shape[1]).astype(dtype)
+    vec_n = rng.uniform(size=n).astype(dtype)
+
+    np.testing.assert_allclose(
+        cat.matvec(transform(vec_k), cols=cols), cat.matvec(vec_k, cols=cols)
+    )
+    np.testing.assert_allclose(
+        cat.transpose_matvec(transform(vec_n), rows=rows, cols=cols),
+        cat.transpose_matvec(vec_n, rows=rows, cols=cols),
+    )
+    np.testing.assert_allclose(
+        cat.sandwich(transform(vec_n), rows=rows, cols=cols).toarray(),
+        cat.sandwich(vec_n, rows=rows, cols=cols).toarray(),
+    )
