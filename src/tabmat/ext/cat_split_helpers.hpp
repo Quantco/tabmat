@@ -50,14 +50,14 @@ void transpose_matvec_all_rows(
 
 template <typename Int, typename F>
 void _transpose_matvec_all_rows_fast(
-    Int n_rows, const Int* indices, F* other, F* res, Int res_size
+    Int n_rows, const Int* indices, const F* other, F* res, Int res_size
 ) {
     transpose_matvec_all_rows<false>(n_rows, indices, other, res, res_size, false);
 }
 
 template <typename Int, typename F>
 void _transpose_matvec_all_rows_complex(
-    Int n_rows, const Int* indices, F* other, F* res, Int res_size, bool drop_first
+    Int n_rows, const Int* indices, const F* other, F* res, Int res_size, bool drop_first
 ) {
     transpose_matvec_all_rows<true>(n_rows, indices, other, res, res_size, drop_first);
 }
