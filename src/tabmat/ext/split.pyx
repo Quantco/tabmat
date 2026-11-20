@@ -38,7 +38,7 @@ cdef extern from "cat_split_helpers.hpp":
 def sandwich_cat_dense(
     const int[:] i_indices,
     int i_ncol,
-    floating[:] d,
+    const floating[::1] d,
     np.ndarray mat_j,
     int[:] rows,
     int[:] j_cols,
@@ -64,7 +64,7 @@ def sandwich_cat_dense(
     if d.shape[0] == 0 or n_active_rows == 0 or nj_active_cols == 0 or i_ncol == 0:
         return np.asarray(res)
 
-    cdef floating* d_p = &d[0]
+    cdef floating* d_p = <floating*>&d[0]
     cdef const int* i_indices_p = &i_indices[0]
     cdef int* rows_p = &rows[0]
     cdef int* j_cols_p = &j_cols[0]
@@ -101,7 +101,7 @@ def sandwich_cat_cat(
     const int[:] j_indices,
     int i_ncol,
     int j_ncol,
-    floating[:] d,
+    const floating[::1] d,
     int[:] rows,
     dtype,
     bint i_drop_first,
@@ -117,11 +117,11 @@ def sandwich_cat_cat(
     cdef int res_size = res.size
 
     if i_drop_first or j_drop_first or i_has_missings or j_has_missings:
-        _sandwich_cat_cat_complex(&d[0], &i_indices[0], &j_indices[0], &rows[0],
+        _sandwich_cat_cat_complex(<floating*>&d[0], &i_indices[0], &j_indices[0], &rows[0],
                                   n_rows, &res[0, 0], j_ncol, res_size,
                                   i_drop_first, j_drop_first)
     else:
-        _sandwich_cat_cat_fast(&d[0], &i_indices[0], &j_indices[0], &rows[0],
+        _sandwich_cat_cat_fast(<floating*>&d[0], &i_indices[0], &j_indices[0], &rows[0],
                                n_rows, &res[0, 0], j_ncol, res_size)
 
     return np.asarray(res)
@@ -131,7 +131,7 @@ def sandwich_cat_sparse(
     const int[:] i_indices,
     const int[::1] out_pos,
     int n_out,
-    floating[:] d,
+    const floating[:] d,
     const floating[:] A_data,
     const win_integral[:] A_indices,
     const win_integral[:] A_indptr,

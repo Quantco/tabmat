@@ -10,6 +10,25 @@ def set_up_rows_or_cols(
     return np.asarray(arr).astype(dtype)
 
 
+def prepare_vector(vec) -> np.ndarray:
+    """Return `vec` as an array that the Cython kernels can read.
+
+    The kernels pass pointers to C++ loops, so a 1-d vector must be C-contiguous
+    and in native byte order. Other vectors are copied; aligned ones are returned
+    as they are. Read-only vectors are fine, because the kernels take `const`
+    memoryviews. Higher-dimensional arrays only get their byte order fixed, because
+    they are never handed to a kernel as a whole.
+    """
+    vec = np.asarray(vec)
+    native = vec.dtype.isnative
+    if vec.ndim == 1:
+        if not (native and vec.flags.c_contiguous):
+            vec = np.ascontiguousarray(vec, dtype=vec.dtype.newbyteorder("="))
+    elif not native:
+        vec = vec.astype(vec.dtype.newbyteorder("="))
+    return vec
+
+
 def setup_restrictions(
     shape: tuple[int, int],
     rows: np.ndarray | None,

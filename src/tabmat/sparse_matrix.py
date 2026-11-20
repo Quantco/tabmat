@@ -17,6 +17,7 @@ from .util import (
     check_matvec_out_shape,
     check_sandwich_compatible,
     check_transpose_matvec_out_shape,
+    prepare_vector,
     set_up_rows_or_cols,
     setup_restrictions,
 )
@@ -177,7 +178,7 @@ class SparseMatrix(MatrixBase):
         cols: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
-        d = np.asarray(d)
+        d = prepare_vector(d)
         check_sandwich_compatible(self, d)
         rows, cols = setup_restrictions(self.shape, rows, cols, dtype=self.idx_dtype)
         return sparse_sandwich(self, self.array_csr, d, rows, cols)
@@ -222,8 +223,7 @@ class SparseMatrix(MatrixBase):
         If `B_center` (one value per column of `B`) is given, compute
         `self.T @ diag(d) @ (B - B_center)` instead, centering `B` in the kernel.
         """
-        if not hasattr(d, "dtype"):
-            d = np.asarray(d)
+        d = prepare_vector(d)
 
         if self.dtype != d.dtype or B.dtype != d.dtype:
             raise TypeError(
@@ -248,7 +248,7 @@ class SparseMatrix(MatrixBase):
         out: np.ndarray | None,
         transpose: bool,
     ):
-        vec = np.asarray(vec)
+        vec = prepare_vector(vec)
         check_matvec_dimensions(self, vec, transpose)
 
         unrestricted_rows = rows is None or len(rows) == self.shape[0]
@@ -273,7 +273,7 @@ class SparseMatrix(MatrixBase):
         if vec.ndim == 1:
             res = fast_fnc(vec)
         elif vec.ndim == 2 and vec.shape[1] == 1:
-            res = fast_fnc(vec[:, 0])[:, None]
+            res = fast_fnc(np.ascontiguousarray(vec[:, 0]))[:, None]
         else:
             res = matrix_matvec(
                 self[np.ix_(rows, cols)]._array, vec[rows] if transpose else vec[cols]

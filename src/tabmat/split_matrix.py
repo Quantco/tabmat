@@ -14,6 +14,7 @@ from .util import (
     check_matvec_out_shape,
     check_sandwich_compatible,
     check_transpose_matvec_out_shape,
+    prepare_vector,
     set_up_rows_or_cols,
 )
 
@@ -351,7 +352,7 @@ class SplitMatrix(MatrixBase):
         block and for their cross blocks with the other parts, so that a large
         center does not cancel. `center=None` means no centering.
         """
-        d = np.asarray(d)
+        d = prepare_vector(d)
         check_sandwich_compatible(self, d)
 
         subset_cols_indices, subset_cols, n_cols = self._split_col_subsets(cols)
@@ -434,7 +435,7 @@ class SplitMatrix(MatrixBase):
         value per column) inside the kernels. `center=None` means no centering.
         """
         assert not isinstance(v, sps.spmatrix)
-        v = np.asarray(v)
+        v = prepare_vector(v)
         check_matvec_dimensions(self, v, transpose=False)
         check_matvec_out_shape(self, out)
 
@@ -509,7 +510,7 @@ class SplitMatrix(MatrixBase):
         `center` (one value per column) inside the kernels. `center=None`
         means no centering.
         """
-        v = np.asarray(v)
+        v = prepare_vector(v)
         check_matvec_dimensions(self, v, transpose=True)
         check_transpose_matvec_out_shape(self, out)
 

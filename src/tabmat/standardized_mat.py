@@ -8,6 +8,7 @@ from .util import (
     check_matvec_dimensions,
     check_sandwich_compatible,
     check_transpose_matvec_out_shape,
+    prepare_vector,
     set_up_rows_or_cols,
     setup_restrictions,
 )
@@ -83,7 +84,7 @@ class StandardizedMatrix:
         """
         cols = set_up_rows_or_cols(cols, self.shape[1])
 
-        other_mat = np.asarray(other_mat)
+        other_mat = prepare_vector(other_mat)
         check_matvec_dimensions(self, other_mat, transpose=False)
         mult_other = other_mat
         if self.mult is not None:
@@ -187,8 +188,7 @@ class StandardizedMatrix:
         cols: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
-        if not hasattr(d, "dtype"):
-            d = np.asarray(d)
+        d = prepare_vector(d)
         check_sandwich_compatible(self, d)
         # stat_mat = mat * mult[newaxis, :] + shift[newaxis, :]
         # stat_mat.T @ d[:, newaxis] * stat_mat
@@ -276,7 +276,7 @@ class StandardizedMatrix:
               + shift[cols[i]] other.sum(0)[rows[j]
         """
         check_transpose_matvec_out_shape(self, out)
-        other = np.asarray(other)
+        other = prepare_vector(other)
         check_matvec_dimensions(self, other, transpose=True)
         # Center the dense columns inside the kernels, see sandwich.
         center, shift = self._dense_centering()

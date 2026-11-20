@@ -16,6 +16,7 @@ from .util import (
     check_matvec_out_shape,
     check_sandwich_compatible,
     check_transpose_matvec_out_shape,
+    prepare_vector,
     set_up_rows_or_cols,
     setup_restrictions,
 )
@@ -175,7 +176,7 @@ class DenseMatrix(MatrixBase):
         `center` has length `self.shape[1]`; `None` means no centering. The
         subtraction is fused into the panel packing of the sandwich kernel.
         """
-        d = np.asarray(d)
+        d = prepare_vector(d)
         check_sandwich_compatible(self, d)
         rows, cols = setup_restrictions(self.shape, rows, cols)
         return dense_sandwich(self._array, d, rows, cols, center=center)
@@ -248,7 +249,7 @@ class DenseMatrix(MatrixBase):
         # added overhead compared to a raw matrix vector product. So, when
         # we're not filtering or centering at all, let's just use default numpy
         # dot product.
-        vec = np.asarray(vec)
+        vec = prepare_vector(vec)
         check_matvec_dimensions(self, vec, transpose=transpose)
         X = self._array.T if transpose else self._array
 

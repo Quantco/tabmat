@@ -191,19 +191,10 @@ from .util import (
     check_matvec_out_shape,
     check_sandwich_compatible,
     check_transpose_matvec_out_shape,
+    prepare_vector,
     set_up_rows_or_cols,
     setup_restrictions,
 )
-
-
-def _as_native_contiguous(vec) -> np.ndarray:
-    # The Cython kernels only accept contiguous arrays in native byte order.
-    # Read-only input is fine because the kernels take const memoryviews.
-    vec = np.asarray(vec)
-    if not vec.dtype.isnative:
-        vec = vec.astype(vec.dtype.newbyteorder("="))
-    return np.ascontiguousarray(vec)
-
 
 if importlib.util.find_spec("pandas"):
     import pandas as pd
@@ -486,7 +477,7 @@ class CategoricalMatrix(MatrixBase):
         other: list | np.ndarray,
         cols: np.ndarray | None = None,
     ) -> tuple[np.ndarray, np.ndarray | None]:
-        other = _as_native_contiguous(other)
+        other = prepare_vector(other)
         if other.ndim > 1:
             raise NotImplementedError(
                 """CategoricalMatrix.matvec is only implemented for 1d arrays."""
@@ -590,7 +581,7 @@ class CategoricalMatrix(MatrixBase):
         """
         # TODO: write a function that doesn't reference the data
         # TODO: this should look more like the cat_cat_sandwich
-        vec = _as_native_contiguous(vec)
+        vec = prepare_vector(vec)
         check_matvec_dimensions(self, vec, transpose=True)
         if vec.ndim > 1:
             raise NotImplementedError(
@@ -648,7 +639,7 @@ class CategoricalMatrix(MatrixBase):
         The rows and cols parameters allow restricting to a subset of the
         matrix without making a copy.
         """
-        d = _as_native_contiguous(d)
+        d = prepare_vector(d)
         check_sandwich_compatible(self, d)
         rows = set_up_rows_or_cols(rows, self.shape[0])
         if self.drop_first or self._has_missings:
