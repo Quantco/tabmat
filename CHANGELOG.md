@@ -8,7 +8,7 @@ https://semver.org/spec/v2.0.0.html. The most important bits are:
 
 # Changelog
 
-## 4.3.2 - unreleased
+## 4.3.2 - 2026-11-20
 
 **Bug fix:**
 
