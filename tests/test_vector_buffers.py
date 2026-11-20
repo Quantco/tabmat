@@ -27,18 +27,21 @@ N = 60
 
 
 def _read_only(a):
-    a = a.copy()
+    a = a.copy(order="K")  # keep the Fortran order of `dense_f`
     a.setflags(write=False)
     return a
+
+
+def _big_endian_strided(v):
+    # Change the byte order before slicing: `astype` of a strided array is contiguous.
+    return np.repeat(v, 2).astype(v.dtype.newbyteorder(">"))[::2]
 
 
 VECTOR_TRANSFORMS = {
     "read_only": _read_only,
     "big_endian": lambda v: v.astype(v.dtype.newbyteorder(">")),
     "strided": lambda v: np.repeat(v, 2)[::2],
-    "big_endian_strided": lambda v: np.repeat(v, 2)[::2].astype(
-        v.dtype.newbyteorder(">")
-    ),
+    "big_endian_strided": _big_endian_strided,
 }
 
 
