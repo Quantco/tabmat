@@ -10,6 +10,25 @@ def set_up_rows_or_cols(
     return np.asarray(arr).astype(dtype)
 
 
+def prepare_vector(vec) -> np.ndarray:
+    """Return `vec` as an array that the Cython kernels can read.
+
+    The kernels pass pointers to C++ loops, so a 1-d vector must be C-contiguous
+    and in native byte order. Other vectors are copied; aligned ones are returned
+    as they are. Read-only vectors are fine, because the kernels take `const`
+    memoryviews. Higher-dimensional arrays only get their byte order fixed, because
+    they are never handed to a kernel as a whole.
+    """
+    vec = np.asarray(vec)
+    native = vec.dtype.isnative
+    if vec.ndim == 1:
+        if not (native and vec.flags.c_contiguous):
+            vec = np.ascontiguousarray(vec, dtype=vec.dtype.newbyteorder("="))
+    elif not native:
+        vec = vec.astype(vec.dtype.newbyteorder("="))
+    return vec
+
+
 def setup_restrictions(
     shape: tuple[int, int],
     rows: np.ndarray | None,
@@ -38,6 +57,15 @@ def check_transpose_matvec_out_shape(mat, out: np.ndarray | None) -> None:
 def check_matvec_out_shape(mat, out: np.ndarray | None) -> None:
     """Assert that the first dimension of the matvec output is correct."""
     _check_out_shape(out, mat.shape[0])
+
+
+def check_out_kernel_compatible(out: np.ndarray | None) -> None:
+    """Assert that the kernels can accumulate into `out`.
+
+    `out` is written in place, so unlike a vector it cannot be copied.
+    """
+    if out is not None and not (out.flags.c_contiguous and out.flags.writeable):
+        raise ValueError("`out` must be a writeable, C-contiguous array.")
 
 
 def check_matvec_dimensions(mat, vec: np.ndarray, transpose: bool) -> None:

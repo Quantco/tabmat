@@ -8,6 +8,7 @@ from .util import (
     check_matvec_dimensions,
     check_sandwich_compatible,
     check_transpose_matvec_out_shape,
+    prepare_vector,
     set_up_rows_or_cols,
     setup_restrictions,
 )
@@ -187,8 +188,7 @@ class StandardizedMatrix:
         cols: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
-        if not hasattr(d, "dtype"):
-            d = np.asarray(d)
+        d = prepare_vector(d)
         check_sandwich_compatible(self, d)
         # stat_mat = mat * mult[newaxis, :] + shift[newaxis, :]
         # stat_mat.T @ d[:, newaxis] * stat_mat

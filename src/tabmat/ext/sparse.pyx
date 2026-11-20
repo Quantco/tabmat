@@ -16,26 +16,26 @@ ctypedef fused win_integral:
     integral
     long long
 
-def sparse_sandwich(A, AT, floating[:] d, win_integral[:] rows, win_integral[:] cols):
+def sparse_sandwich(A, AT, const floating[::1] d, const win_integral[::1] rows, const win_integral[::1] cols):
     # AT is CSC
     # A is CSC
     # Computes AT @ diag(d) @ A
 
-    cdef floating[:] Adata = A.data
-    cdef win_integral[:] Aindices = A.indices
-    cdef win_integral[:] Aindptr = A.indptr
+    cdef const floating[::1] Adata = A.data
+    cdef const win_integral[::1] Aindices = A.indices
+    cdef const win_integral[::1] Aindptr = A.indptr
 
-    cdef floating[:] ATdata = AT.data
-    cdef win_integral[:] ATindices = AT.indices
-    cdef win_integral[:] ATindptr = AT.indptr
+    cdef const floating[::1] ATdata = AT.data
+    cdef const win_integral[::1] ATindices = AT.indices
+    cdef const win_integral[::1] ATindptr = AT.indptr
 
-    cdef floating* Adatap = &Adata[0]
-    cdef win_integral* Aindicesp = &Aindices[0]
-    cdef floating* ATdatap = &ATdata[0]
-    cdef win_integral* ATindicesp = &ATindices[0]
-    cdef win_integral* ATindptrp = &ATindptr[0]
+    cdef floating* Adatap = <floating*>&Adata[0]
+    cdef win_integral* Aindicesp = <win_integral*>&Aindices[0]
+    cdef floating* ATdatap = <floating*>&ATdata[0]
+    cdef win_integral* ATindicesp = <win_integral*>&ATindices[0]
+    cdef win_integral* ATindptrp = <win_integral*>&ATindptr[0]
 
-    cdef floating* dp = &d[0]
+    cdef floating* dp = <floating*>&d[0]
 
     cdef int64_t m = cols.shape[0]
     out = np.zeros((m, m), dtype=A.dtype)
@@ -78,18 +78,18 @@ def sparse_sandwich(A, AT, floating[:] d, win_integral[:] rows, win_integral[:] 
     out += np.tril(out, -1).T
     return out
 
-def csr_matvec_unrestricted(X, floating[:] v, out, win_integral[:] X_indices):
-    cdef floating[:] Xdata = X.data
-    cdef win_integral[:] Xindices = X.indices
-    cdef win_integral[:] Xindptr = X.indptr
+def csr_matvec_unrestricted(X, const floating[::1] v, out, const win_integral[::1] X_indices):
+    cdef const floating[::1] Xdata = X.data
+    cdef const win_integral[::1] Xindices = X.indices
+    cdef const win_integral[::1] Xindptr = X.indptr
 
     if out is None:
         out = np.zeros(X.shape[0], dtype=X.dtype)
-    cdef floating[:] out_view = out;
+    cdef floating[::1] out_view = out;
 
-    cdef floating* Xdatap = &Xdata[0];
-    cdef win_integral* Xindicesp = &Xindices[0];
-    cdef win_integral* Xindptrp = &Xindptr[0];
+    cdef floating* Xdatap = <floating*>&Xdata[0];
+    cdef win_integral* Xindicesp = <win_integral*>&Xindices[0];
+    cdef win_integral* Xindptrp = <win_integral*>&Xindptr[0];
     cdef floating* outp = &out_view[0];
 
     cdef int64_t i, X_idx, j
@@ -106,21 +106,21 @@ def csr_matvec_unrestricted(X, floating[:] v, out, win_integral[:] X_indices):
 
 def csr_matvec(
         X,
-        floating[:] v,
-        win_integral[:] rows,
-        win_integral[:] cols
+        const floating[::1] v,
+        const win_integral[::1] rows,
+        const win_integral[::1] cols
     ):
-    cdef floating[:] Xdata = X.data
-    cdef win_integral[:] Xindices = X.indices
-    cdef win_integral[:] Xindptr = X.indptr
+    cdef const floating[::1] Xdata = X.data
+    cdef const win_integral[::1] Xindices = X.indices
+    cdef const win_integral[::1] Xindptr = X.indptr
 
     cdef int64_t n = rows.shape[0]
     out = np.zeros(n, dtype=X.dtype)
-    cdef floating[:] out_view = out;
+    cdef floating[::1] out_view = out;
 
-    cdef floating* Xdatap = &Xdata[0];
-    cdef win_integral* Xindicesp = &Xindices[0];
-    cdef win_integral* Xindptrp = &Xindptr[0];
+    cdef floating* Xdatap = <floating*>&Xdata[0];
+    cdef win_integral* Xindicesp = <win_integral*>&Xindices[0];
+    cdef win_integral* Xindptrp = <win_integral*>&Xindptr[0];
     cdef floating* outp = &out_view[0];
 
     cdef int64_t Ci, i, Cj, X_idx, j
@@ -141,19 +141,19 @@ def csr_matvec(
             outp[Ci] = outp[Ci] + Xval * vval;
     return out
 
-def csc_rmatvec_unrestricted(XT, floating[:] v, out, win_integral[:] XT_indices):
-    cdef floating[:] XTdata = XT.data
-    cdef win_integral[:] XTindices = XT.indices
-    cdef win_integral[:] XTindptr = XT.indptr
+def csc_rmatvec_unrestricted(XT, const floating[::1] v, out, const win_integral[::1] XT_indices):
+    cdef const floating[::1] XTdata = XT.data
+    cdef const win_integral[::1] XTindices = XT.indices
+    cdef const win_integral[::1] XTindptr = XT.indptr
 
     cdef int m = XT.shape[1]
     if out is None:
         out = np.zeros(m, dtype=XT.dtype)
-    cdef floating[:] out_view = out;
+    cdef floating[::1] out_view = out;
 
-    cdef floating* XTdatap = &XTdata[0];
-    cdef win_integral* XTindicesp = &XTindices[0];
-    cdef win_integral* XTindptrp = &XTindptr[0];
+    cdef floating* XTdatap = <floating*>&XTdata[0];
+    cdef win_integral* XTindicesp = <win_integral*>&XTindices[0];
+    cdef win_integral* XTindptrp = <win_integral*>&XTindptr[0];
     cdef floating* outp = &out_view[0];
 
     cdef int64_t i, XT_idx, j
@@ -167,19 +167,19 @@ def csc_rmatvec_unrestricted(XT, floating[:] v, out, win_integral[:] XT_indices)
             outp[j] = outp[j] + XTval * vval;
     return out
 
-def csc_rmatvec(XT, floating[:] v, win_integral[:] rows, win_integral[:] cols):
-    cdef floating[:] XTdata = XT.data
-    cdef win_integral[:] XTindices = XT.indices
-    cdef win_integral[:] XTindptr = XT.indptr
+def csc_rmatvec(XT, const floating[::1] v, const win_integral[::1] rows, const win_integral[::1] cols):
+    cdef const floating[::1] XTdata = XT.data
+    cdef const win_integral[::1] XTindices = XT.indices
+    cdef const win_integral[::1] XTindptr = XT.indptr
 
     cdef int64_t n = rows.shape[0]
     cdef int64_t m = cols.shape[0]
     out = np.zeros(m, dtype=XT.dtype)
-    cdef floating[:] out_view = out;
+    cdef floating[::1] out_view = out;
 
-    cdef floating* XTdatap = &XTdata[0];
-    cdef win_integral* XTindicesp = &XTindices[0];
-    cdef win_integral* XTindptrp = &XTindptr[0];
+    cdef floating* XTdatap = <floating*>&XTdata[0];
+    cdef win_integral* XTindicesp = <win_integral*>&XTindices[0];
+    cdef win_integral* XTindptrp = <win_integral*>&XTindptr[0];
     cdef floating* outp = &out_view[0];
 
     cdef int64_t Ci, i, Cj, XT_idx, j
@@ -215,19 +215,19 @@ cdef extern from "sparse_helpers.hpp":
 def csr_dense_sandwich(
         A,
         np.ndarray B,
-        floating[:] d,
-        win_integral[:] rows,
-        win_integral[:] A_cols,
-        win_integral[:] B_cols,
+        const floating[::1] d,
+        const win_integral[::1] rows,
+        const win_integral[::1] A_cols,
+        const win_integral[::1] B_cols,
         B_center=None
     ):
     # computes where (A.T * d) @ (B - B_center)
     # assumes that A is in csr form; B_center=None means no centering
     cdef const floating[::1] B_mu = _check_center(B_center, B.shape[1], B.dtype, "B_center")
 
-    cdef floating[:] Adata = A.data
-    cdef win_integral[:] Aindices = A.indices
-    cdef win_integral[:] Aindptr = A.indptr
+    cdef const floating[::1] Adata = A.data
+    cdef const win_integral[::1] Aindices = A.indices
+    cdef const win_integral[::1] Aindptr = A.indptr
 
     # A has shape (n, m)
     # B has shape (n, r)
@@ -248,21 +248,21 @@ def csr_dense_sandwich(
 
     cdef floating* Bp = <floating*>B.data
 
-    cdef win_integral* rowsp = &rows[0];
-    cdef win_integral* A_colsp = &A_cols[0];
-    cdef win_integral* B_colsp = &B_cols[0];
+    cdef win_integral* rowsp = <win_integral*>&rows[0];
+    cdef win_integral* A_colsp = <win_integral*>&A_cols[0];
+    cdef win_integral* B_colsp = <win_integral*>&B_cols[0];
     cdef floating* B_mup = NULL
     if B_mu is not None:
         B_mup = <floating*>&B_mu[0]
 
     if B.flags["C_CONTIGUOUS"]:
         _csr_denseC_sandwich(
-            &Adata[0], &Aindices[0], &Aindptr[0], Bp, B_mup, &d[0], outp, m, n, r,
+            <floating*>&Adata[0], <win_integral*>&Aindices[0], <win_integral*>&Aindptr[0], Bp, B_mup, <floating*>&d[0], outp, m, n, r,
             rowsp, A_colsp, B_colsp, nr, nAc, nBc
         )
     elif B.flags["F_CONTIGUOUS"]:
         _csr_denseF_sandwich(
-            &Adata[0], &Aindices[0], &Aindptr[0], Bp, B_mup, &d[0], outp, m, n, r,
+            <floating*>&Adata[0], <win_integral*>&Aindices[0], <win_integral*>&Aindptr[0], Bp, B_mup, <floating*>&d[0], outp, m, n, r,
             rowsp, A_colsp, B_colsp, nr, nAc, nBc
         )
     else:
@@ -270,10 +270,10 @@ def csr_dense_sandwich(
     return out
 
 def transpose_square_dot_weights(
-        floating[:] data,
-        win_integral[:] indices,
-        win_integral[:] indptr,
-        floating[:] weights,
+        const floating[:] data,
+        const win_integral[:] indices,
+        const win_integral[:] indptr,
+        const floating[:] weights,
         dtype):
 
     cdef int ncols = indptr.shape[0] - 1

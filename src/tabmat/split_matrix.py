@@ -12,8 +12,10 @@ from .standardized_mat import StandardizedMatrix
 from .util import (
     check_matvec_dimensions,
     check_matvec_out_shape,
+    check_out_kernel_compatible,
     check_sandwich_compatible,
     check_transpose_matvec_out_shape,
+    prepare_vector,
     set_up_rows_or_cols,
 )
 
@@ -351,7 +353,7 @@ class SplitMatrix(MatrixBase):
         block and for their cross blocks with the other parts, so that a large
         center does not cancel. `center=None` means no centering.
         """
-        d = np.asarray(d)
+        d = prepare_vector(d)
         check_sandwich_compatible(self, d)
 
         subset_cols_indices, subset_cols, n_cols = self._split_col_subsets(cols)
@@ -437,6 +439,8 @@ class SplitMatrix(MatrixBase):
         v = np.asarray(v)
         check_matvec_dimensions(self, v, transpose=False)
         check_matvec_out_shape(self, out)
+        # The parts write into `out` one after the other, so check it up front.
+        check_out_kernel_compatible(out)
 
         if v.shape[0] != self.shape[1]:
             raise ValueError(f"shapes {self.shape} and {v.shape} not aligned")

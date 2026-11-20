@@ -34,7 +34,7 @@ def _check_center(center, Py_ssize_t m, dtype, name="center", bint zeros=False):
     return center
 
 
-def dense_sandwich(np.ndarray X, floating[:] d, int[:] rows, int[:] cols, int thresh1d = 32, int kratio = 16, int innerblock = 128, center=None):
+def dense_sandwich(np.ndarray X, const floating[::1] d, int[:] rows, int[:] cols, int thresh1d = 32, int kratio = 16, int innerblock = 128, center=None):
     """(X[rows, cols] - center[cols]).T @ diag(d[rows]) @ (X[rows, cols] - center[cols]).
 
     `center` is an optional length-`X.shape[1]` vector (indexed by the
@@ -57,7 +57,7 @@ def dense_sandwich(np.ndarray X, floating[:] d, int[:] rows, int[:] cols, int th
     cdef floating* outp = &out_view[0,0]
 
     cdef floating* Xp = <floating*>X.data
-    cdef floating* dp = &d[0]
+    cdef floating* dp = <floating*>&d[0]
 
     cdef int* colsp = &cols[0]
     cdef int* rowsp = &rows[0]
@@ -133,7 +133,7 @@ cdef _dense_matvec_impl(
         raise Exception("The matrix X is not contiguous.")
     return out
 
-def transpose_square_dot_weights(np.ndarray X, floating[:] weights, floating[:] shift):
+def transpose_square_dot_weights(np.ndarray X, const floating[:] weights, const floating[:] shift):
     cdef floating* Xp = <floating*>X.data
     cdef int nrows = weights.shape[0]
     cdef int ncols = X.shape[1]

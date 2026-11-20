@@ -17,6 +17,7 @@ from .util import (
     check_matvec_out_shape,
     check_sandwich_compatible,
     check_transpose_matvec_out_shape,
+    prepare_vector,
     set_up_rows_or_cols,
     setup_restrictions,
 )
@@ -46,6 +47,16 @@ class SparseMatrix(MatrixBase):
                 raise ValueError("Input array must be 1- or 2-dimensional")
 
         self._array = sps.csc_matrix(input_array, shape, dtype, copy)
+        # The kernels read these arrays through pointers, so they must be contiguous
+        # and in native byte order. scipy keeps strided or byte-swapped arrays.
+        for name in ("data", "indices", "indptr"):
+            arr = getattr(self._array, name)
+            if not (arr.dtype.isnative and arr.flags.c_contiguous):
+                setattr(
+                    self._array,
+                    name,
+                    np.ascontiguousarray(arr, dtype=arr.dtype.newbyteorder("=")),
+                )
 
         self.idx_dtype = max(self._array.indices.dtype, self._array.indptr.dtype)
         if self._array.indices.dtype != self.idx_dtype:
@@ -55,6 +66,11 @@ class SparseMatrix(MatrixBase):
         assert self.indices.dtype == self.idx_dtype
 
         if not self._array.has_sorted_indices:
+            if not (
+                self._array.data.flags.writeable and self._array.indices.flags.writeable
+            ):
+                # Read-only input, e.g. from a pandas DataFrame with copy-on-write.
+                self._array = self._array.copy()
             self._array.sort_indices()
         self._array_csr = None
 
@@ -177,7 +193,7 @@ class SparseMatrix(MatrixBase):
         cols: np.ndarray | None = None,
     ) -> np.ndarray:
         """Perform a sandwich product: X.T @ diag(d) @ X."""
-        d = np.asarray(d)
+        d = prepare_vector(d)
         check_sandwich_compatible(self, d)
         rows, cols = setup_restrictions(self.shape, rows, cols, dtype=self.idx_dtype)
         return sparse_sandwich(self, self.array_csr, d, rows, cols)
@@ -222,8 +238,7 @@ class SparseMatrix(MatrixBase):
         If `B_center` (one value per column of `B`) is given, compute
         `self.T @ diag(d) @ (B - B_center)` instead, centering `B` in the kernel.
         """
-        if not hasattr(d, "dtype"):
-            d = np.asarray(d)
+        d = prepare_vector(d)
 
         if self.dtype != d.dtype or B.dtype != d.dtype:
             raise TypeError(
@@ -231,11 +246,10 @@ class SparseMatrix(MatrixBase):
                 np.float64 or np.float32. This matrix is of type {self.dtype},
                 B is of type {B.dtype}, while d is of type {d.dtype}."""
             )
-        if np.issubdtype(d.dtype, np.signedinteger):
-            d = d.astype(float)
-
-        rows, L_cols = setup_restrictions(self.shape, rows, L_cols)
-        R_cols = set_up_rows_or_cols(R_cols, B.shape[1])
+        rows, L_cols = setup_restrictions(
+            self.shape, rows, L_cols, dtype=self.idx_dtype
+        )
+        R_cols = set_up_rows_or_cols(R_cols, B.shape[1], dtype=self.idx_dtype)
         return csr_dense_sandwich(
             self.array_csr, B, d, rows, L_cols, R_cols, B_center=B_center
         )
@@ -248,7 +262,7 @@ class SparseMatrix(MatrixBase):
         out: np.ndarray | None,
         transpose: bool,
     ):
-        vec = np.asarray(vec)
+        vec = prepare_vector(vec)
         check_matvec_dimensions(self, vec, transpose)
 
         unrestricted_rows = rows is None or len(rows) == self.shape[0]
@@ -273,7 +287,7 @@ class SparseMatrix(MatrixBase):
         if vec.ndim == 1:
             res = fast_fnc(vec)
         elif vec.ndim == 2 and vec.shape[1] == 1:
-            res = fast_fnc(vec[:, 0])[:, None]
+            res = fast_fnc(np.ascontiguousarray(vec[:, 0]))[:, None]
         else:
             res = matrix_matvec(
                 self[np.ix_(rows, cols)]._array, vec[rows] if transpose else vec[cols]

@@ -27,7 +27,7 @@ def transpose_matvec_fast(
     dtype,
     rows,
     cols,
-    floating[:] out
+    floating[::1] out
 ):
     cdef int row, row_idx, n_keep_rows, col
     cdef int n_rows = len(indices)
@@ -74,7 +74,7 @@ def transpose_matvec_complex(
     dtype,
     rows,
     cols,
-    floating[:] out,
+    floating[::1] out,
     bint drop_first
 ):
     cdef int row, row_idx, n_keep_rows, col_idx

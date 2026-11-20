@@ -16,6 +16,7 @@ from .util import (
     check_matvec_out_shape,
     check_sandwich_compatible,
     check_transpose_matvec_out_shape,
+    prepare_vector,
     set_up_rows_or_cols,
     setup_restrictions,
 )
@@ -175,7 +176,7 @@ class DenseMatrix(MatrixBase):
         `center` has length `self.shape[1]`; `None` means no centering. The
         subtraction is fused into the panel packing of the sandwich kernel.
         """
-        d = np.asarray(d)
+        d = prepare_vector(d)
         check_sandwich_compatible(self, d)
         rows, cols = setup_restrictions(self.shape, rows, cols)
         return dense_sandwich(self._array, d, rows, cols, center=center)
@@ -287,7 +288,7 @@ class DenseMatrix(MatrixBase):
             fast_fnc = dense_rmatvec if transpose else dense_matvec
 
             def kernel(v):
-                v = np.ascontiguousarray(v)
+                v = prepare_vector(v)
                 return fast_fnc(self._array, v, kernel_rows, kernel_cols, center=center)
 
             # TODO: should take 'out' parameter
